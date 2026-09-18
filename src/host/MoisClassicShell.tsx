@@ -25,9 +25,10 @@ import { WaitingListView } from '../screens/WaitingListView'
 import { MarView } from '../screens/MarView'
 import { DeterminantsView } from '../screens/DeterminantsView'
 import { chartScreens, moduleScreens, schedulerScreens } from '../data/chartScreens'
-import { EncounterWindow } from '../screens/EncounterWindow'
+import { EncounterWindow, type EncounterRecord } from '../screens/EncounterWindow'
 import { ServiceEventDialog } from '../screens/ServiceEventDialog'
 import { GoalDialog } from '../screens/GoalDialog'
+import '../pb/kit.css'
 import { resolveMoisClassicFixture } from './manifest'
 import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './types'
 
@@ -54,7 +55,7 @@ type View =
 /* The MDI window classes this frame can instantiate. Each is opened by key,
    so the same record never opens twice. */
 const WINDOW_CLASSES: Record<string, PBWindowClass> = {
-  encounter: ({ encounter, onClose }: { encounter: Record<string, string>; onClose: () => void }) => (
+  encounter: ({ encounter, onClose }: { encounter: EncounterRecord; onClose: () => void }) => (
     <EncounterWindow encounter={encounter} onClose={onClose} onAttachment={() => {}} />
   ),
 }
@@ -178,7 +179,7 @@ export function MoisClassicShell(props: MoisClassicShellProps) {
 
 function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className, onOpenKit }: MoisClassicShellProps) {
   const start = useMemo(() => resolveMoisClassicFixture(fixture), [fixture])
-  const [module, setModule] = useState(start.module)
+  const [module, setModule] = useState<string>(start.module)
   const [view, setView] = useState<View>(start.view)
   const [selected, setSelected] = useState<string>(start.node)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(DEFAULT_EXPANDED))
@@ -274,7 +275,7 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
     report_('host.mois.selectNode', { node: id })
   }, [module, report_, routeNode])
 
-  const openEncounter = useCallback((row: Record<string, string>) => {
+  const openEncounter = useCallback((row: EncounterRecord) => {
     mdi.open({
       kind: 'encounter',
       key: `encounter:${row.id}`,

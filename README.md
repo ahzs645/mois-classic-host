@@ -5,18 +5,19 @@ Windows 10. This is a look-and-feel project, not an emulator: nothing parses
 `.pbl` files or executes PowerScript. It reproduces the chrome, the density,
 the alignment and the DataWindow so that a screen *reads* as PowerBuilder.
 
-Two things live here:
+Three things live here:
 
 | | |
 |---|---|
-| `src/pb/*.css` | the library — plain `.pb-*` classes, no JS dependency |
+| `src/pb/*.css` | the library — plain `.pb-*` classes, no JS dependency (`kit.css` is the embeddable subset) |
 | `src/pb/components/*` | thin React wrappers over those classes |
 | `src/screens/*` | MOIS screens rebuilt from the training-environment screenshots |
+| `src/host/*` | the MDI frame as an embeddable, instrumented host emulator (see *Embedding it*) |
 
 ## Running it
 
 ```bash
-npm install && npm run dev
+pnpm install && pnpm dev
 ```
 
 - `/` — the MOIS recreation. **All seven modules and all 86 tree nodes resolve
@@ -65,6 +66,44 @@ Be clear about which is which:
   The Encounter window's **Service(s) ▸ New…** and Order's **Attachment** both
   open the Patient Service Event child window.
 - `/#kit` — the component gallery, also reachable from **Help ▸ UI Kit gallery…**
+
+## Embedding it as a host emulator
+
+Webforms (`github.com/ahzs645/webforms`) checks this repo out under
+`hosts/mois-classic` and uses it as a **tutorial stage**: a lesson can show
+where a deployed form lives in MOIS with the same recorder, player and
+practice checks as its builder tutorials. The package exports what that
+takes; nothing here depends on Webforms.
+
+```ts
+import { MoisClassicShell } from '@webforms/mois-classic-host'          // screens + kit.css
+import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' // plain data
+```
+
+- **`moisClassicHostManifest`** — `id`, `label`, `fixtures` (starting points
+  and their initial `host.*` state), `snapshotPaths`, `actions` and `anchors`.
+  React-free, so a host can read it without bundling the screens.
+- **`<MoisClassicShell fixture onAction onStateChange onReady formSlot />`**
+  - `onAction(id, payload)` reports `host.mois.selectNode { node }`,
+    `host.mois.selectModule { module }`, `host.mois.command { command }`,
+    `host.mois.selectTab { tab }`, `host.mois.menu { menu, item }`,
+    `host.mois.toggleNode`, `host.mois.openWindow`, `host.mois.closeDialog` —
+    slugs only, never patient data.
+  - `onStateChange(state)` reports `{ module, node, view, tab, dialog, windows, theme }`.
+  - `onReady(api)` hands over `api.perform(actionId, args)`, which replays any
+    action natively (opening a nested tree node expands its branch first), and
+    `api.getState()`.
+  - `formSlot` renders inside the Dynamic Forms window in place of the sample grid.
+- **Anchors**: `data-tutorial-id` on the desktop (`host.mois.desktop`), the
+  navigator and work area, every tree node (`host.mois.tree.<id>`), module
+  button (`host.mois.module.<id>`), command button (`host.mois.command.<slug>`),
+  tab (`host.mois.tab.<slug>`) and menu item (`host.mois.menu.<menu>.<item>`).
+  Command rows, tabs and menus get theirs from `PBInstrumentationProvider`
+  (`src/pb/instrumentation.tsx`), so a screen added later is instrumented for
+  free; outside a provider the kit renders exactly as before.
+
+`src/host/types.ts` restates the contract the shell implements; the canonical
+copy lives in Webforms at `lib/host-emulators/contract.ts`.
 
 ## The era matters — and it is a hybrid
 
