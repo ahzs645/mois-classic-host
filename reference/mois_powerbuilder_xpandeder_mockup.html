@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MOIS Classic / PowerBuilder Visual Prototype</title>
+
+<!-- Uses the user's XPandeder.css fork. 98.css is a better fit for this MOIS/PowerBuilder era
+     than the Luna-blue XP theme. -->
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/ahzs645/XPandeder.css@main/dist/98.css">
+
+<style>
+:root{
+  --mois-blue:#164984;
+  --mois-blue-2:#205a98;
+  --mois-pale-blue:#c8daf4;
+  --mois-yellow:#fffec9;
+  --pb-face:#ece9d8;
+  --pb-work:#f4f4f4;
+  --pb-white:#fff;
+  --pb-border:#808080;
+  --pb-soft:#d4d0c8;
+  --pb-orange:#e5a084;
+  --pb-green:#d7f6cf;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  overflow:hidden;
+  background:#22466f;
+  color:#111;
+  font-family:"Pixelated MS Sans Serif",Tahoma,Arial,sans-serif;
+  font-size:11px;
+}
+button,input,select,textarea{font-size:11px}
+button{min-width:unset}
+input[type=text],select{height:20px}
+textarea{resize:none}
+
+/* ---- desktop/window frame ------------------------------------------------ */
+.pb-desktop{
+  height:100vh;
+  padding:14px;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+}
+.mois-window.window{
+  width:min(1220px,97vw);
+  height:min(850px,96vh);
+  padding:2px;
+  display:flex;
+  flex-direction:column;
+  background:var(--pb-face);
+}
+.mois-window > .title-bar{
+  min-height:24px;
+  padding:3px 4px;
+}
+.mois-window > .title-bar .title-bar-text{
+  display:flex;align-items:center;gap:5px;
+}
+.app-icon{
+  width:16px;height:16px;
+  display:inline-grid;place-items:center;
+  background:#e8f2f6;
+  border:1px solid #707070;
+  color:#267ea3;font:bold 8px Arial;
+}
+.menu-strip{
+  height:24px;
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding:0 6px;
+  background:#f6f6f6;
+  border-bottom:1px solid #9b9b9b;
+}
+.menu-strip span:first-letter{text-decoration:underline}
+
+/* ---- master layout ------------------------------------------------------ */
+.shell{
+  min-height:0;
+  flex:1;
+  display:grid;
+  grid-template-columns:204px 1fr;
+}
+.nav{
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  border-right:1px solid #666;
+  background:var(--pb-face);
+}
+.nav-heading,.section-heading{
+  background:var(--mois-blue);
+  color:#fff;
+  font-weight:bold;
+  font-family:Tahoma,Arial,sans-serif;
+}
+.nav-heading{font-size:14px;padding:3px 7px;height:25px}
+.tree-pane{
+  flex:1;min-height:0;overflow:auto;
+  background:white;
+  border:1px solid #777;
+  border-top:0;
+  padding:3px;
+}
+.tree-view.mois-tree{
+  box-shadow:none;
+  border:0;
+  padding:1px;
+  font-size:11px;
+}
+.mois-tree li{margin-top:1px!important;min-height:17px}
+.mois-tree ul{margin-top:1px!important}
+.node{
+  display:inline-flex;align-items:center;gap:3px;
+  height:16px;vertical-align:middle;
+}
+/* XPandeder.css currently has "Icons" in its TODO, so the shell/tree glyphs below are
+   deliberately tiny CSS-drawn Win32-style glyphs while all actual control chrome comes
+   from the repo. */
+.ico{
+  width:14px;height:12px;display:inline-block;position:relative;flex:none;
+}
+.ico.folder{
+  background:#f4cf4e;
+  border:1px solid #8c7426;
+  box-shadow:inset 1px 1px #fff0a2;
+}
+.ico.folder:before{
+  content:"";position:absolute;left:1px;top:-4px;width:7px;height:4px;
+  background:#e9c541;border:1px solid #8c7426;border-bottom:0;
+}
+.ico.grid{
+  border:1px solid #5f7080;
+  background:
+    linear-gradient(#94bde8 0 0) 0 0/100% 3px no-repeat,
+    repeating-linear-gradient(90deg,#fff 0 3px,#9db0c0 3px 4px),
+    repeating-linear-gradient(0deg,transparent 0 3px,#9db0c0 3px 4px);
+}
+.ico.calendar{
+  border:1px solid #555;background:#fff;
+}
+.ico.calendar:before{content:"";position:absolute;left:1px;right:1px;top:1px;height:3px;background:#488cc8}
+.ico.gear{border-radius:50%;background:#8a8a8a;border:2px dotted #444}
+
+.module-button{
+  height:31px;padding:7px 7px;
+  display:flex;align-items:center;gap:7px;
+  font-weight:bold;
+  background:linear-gradient(#f8f8f8,#d8d8d8);
+  border-top:1px solid #fff;
+  border-bottom:1px solid #999;
+}
+.module-button.active{background:linear-gradient(#e8f2fc,#c2d9ee)}
+
+/* ---- main chart --------------------------------------------------------- */
+.chart{
+  min-width:0;min-height:0;
+  display:flex;flex-direction:column;
+  background:var(--pb-face);
+}
+.section-heading{height:25px;padding:3px 7px;font-size:15px}
+.command-row{
+  height:25px;display:flex;align-items:stretch;
+  background:var(--pb-face);
+  border-bottom:1px solid #888;
+}
+.command-row button{
+  height:24px;min-height:24px;
+  padding:0 13px;
+  border-radius:0;
+}
+.identity{
+  height:30px;
+  display:grid;
+  grid-template-columns:1.25fr .9fr .9fr .9fr 1.3fr;
+  align-items:center;gap:10px;
+  padding:0 8px;
+  background:var(--mois-yellow);
+  border-bottom:1px solid #999;
+}
+.identity b{font-family:Tahoma,Arial,sans-serif;font-size:11px}
+
+.encounter-top{
+  display:grid;
+  grid-template-columns:1.3fr .72fr .75fr .75fr 1fr;
+  min-height:130px;
+  background:#efefef;
+  border-bottom:1px solid #777;
+}
+.form-block{
+  padding:8px 6px 5px;
+  border-right:1px solid #cacaca;
+}
+.block-caption{
+  color:#00085a;
+  font:bold 11px Tahoma,Arial,sans-serif;
+  text-align:center;
+  margin:-4px 0 4px;
+}
+.field{
+  display:grid;
+  grid-template-columns:70px 1fr 22px;
+  gap:3px;align-items:center;
+  height:23px;
+}
+.field.time{grid-template-columns:50px 1fr 22px}
+.field input{width:100%;min-width:0}
+.field button{
+  height:20px;min-height:20px;min-width:22px;width:22px;padding:0;
+}
+.general-note textarea{
+  height:78px;width:100%;
+  box-shadow:inset -1px -1px #fff,inset 1px 1px grey,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a;
+}
+
+/* ---- Win32 tab control using XPandeder common-control styling ----------- */
+.tab-wrap{
+  padding-top:2px;
+  background:#ededed;
+}
+menu[role=tablist].mois-tabs{
+  height:27px;margin-bottom:-2px;padding-left:2px;
+}
+.mois-tabs button{
+  min-width:125px;
+  padding:3px 9px;
+  white-space:nowrap;
+}
+.tab-panel{
+  flex:1;min-height:0;
+  margin:0!important;padding:0!important;
+  background:#fff!important;
+  display:flex;flex-direction:column;
+}
+.context-buttons{
+  height:27px;display:flex;background:#e9e7e3;
+  border-bottom:1px solid #8b8b8b;
+}
+.context-buttons button{
+  height:25px;min-height:25px;
+  padding:0 13px;
+}
+.content-area{
+  flex:1;min-height:0;overflow:auto;
+  background:#fff;padding:6px;
+}
+.note-meta{
+  display:grid;
+  grid-template-columns:48px 165px auto 72px 1fr 40px 100px;
+  align-items:center;gap:4px;
+  margin-bottom:6px;
+}
+.note-editor{
+  width:100%;height:330px;
+  background:#fff;
+  box-shadow:inset -1px -1px #fff,inset 1px 1px grey,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a;
+}
+
+/* DataWindow-esque table */
+.dw{
+  width:100%;
+  border-collapse:collapse;
+  font-family:Tahoma,Arial,sans-serif;
+  font-size:11px;
+}
+.dw th,.dw td{
+  height:20px;padding:2px 5px;
+  border-right:1px solid #fff;
+  border-bottom:1px solid #d5d5d5;
+}
+.dw th{
+  background:var(--mois-pale-blue);
+  font-weight:normal;
+  color:#111;
+  text-align:center;
+}
+.dw tbody tr:nth-child(even) td{background:#f0f0f2}
+.dw tr.selected td{background:var(--pb-orange)}
+.dw .rowhead{width:18px;text-align:center;padding:0}
+.dw a{color:#00e;text-decoration:underline}
+
+.group-title{
+  background:#d9d6d2;
+  border-top:1px solid #777;border-bottom:1px solid #999;
+  height:23px;padding:4px 8px;font-weight:bold;
+}
+
+/* ---- status ------------------------------------------------------------- */
+.status-bar{margin:0!important;height:27px}
+.status-bar-field{padding:4px 6px!important}
+.status-bar-field:nth-child(1){max-width:120px}
+.status-bar-field:nth-child(4){max-width:140px}
+.status-bar-field:nth-child(5){max-width:170px}
+
+/* ---- modal -------------------------------------------------------------- */
+.modal-shade{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.08);
+}
+.modal-shade.show{display:flex}
+.service.window{
+  width:min(920px,88vw);
+  padding:2px;
+  background:var(--pb-face);
+  box-shadow:4px 5px 12px rgba(0,0,0,.25);
+}
+.service .title-bar{min-height:24px}
+.patient-banner{
+  margin:4px 8px 0;
+  color:#fff;
+  background:linear-gradient(#245b8c 0 44%,#67b2de 44% 100%);
+  display:grid;
+  grid-template-columns:.45fr 1.2fr .85fr .5fr .9fr;
+  gap:8px;
+  padding:5px 6px 7px;
+  min-height:78px;
+}
+.patient-banner small{font:10px Tahoma,Arial,sans-serif}
+.patient-banner strong{font:11px Tahoma,Arial,sans-serif}
+.service-body{padding:0 8px 8px}
+.pb-group{
+  border:1px solid #777;
+  margin-top:4px;background:#fff;
+}
+.pb-group-title{
+  background:#d9d6d2;
+  height:22px;padding:4px 7px;
+  font-weight:bold;border-bottom:1px solid #888;
+}
+.gridform{
+  padding:9px;
+  display:grid;
+  grid-template-columns:90px 1fr 90px 1fr;
+  gap:5px 8px;
+  align-items:center;
+}
+.gridform textarea{height:55px}
+.service-tabs{
+  display:flex;
+  margin-top:7px;
+  height:25px;
+  align-items:flex-end;
+}
+.service-tab{
+  background:#e9e9e9;
+  border:1px solid #aaa;
+  border-bottom:0;
+  padding:5px 12px;height:24px;
+}
+.service-tab.active{font-weight:bold;background:#fff;border-color:#666}
+.service-section{
+  border:1px solid #777;background:#fff;
+  min-height:250px;
+}
+.service-footer{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:9px 8px 6px;
+}
+.service-footer .right{display:flex;gap:12px}
+.service-footer button{min-width:88px}
+
+/* make it intentionally dense at smaller widths rather than "modern responsive" */
+@media(max-width:900px){
+  .shell{grid-template-columns:180px 1fr}
+  .encounter-top{grid-template-columns:1.3fr .8fr .8fr 1fr}
+  .encounter-top .health{display:none}
+  .mois-tabs button{min-width:auto;padding-left:7px;padding-right:7px}
+}
+</style>
+</head>
+<body>
+<div class="pb-desktop">
+  <section class="window mois-window" aria-label="MOIS mock application">
+    <div class="title-bar">
+      <div class="title-bar-text"><span class="app-icon">M</span> MOIS: TRAINING</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
+    </div>
+
+    <nav class="menu-strip">
+      <span>Record</span><span>Modules</span><span>Views</span><span>Action</span>
+      <span>Utilities</span><span>Print</span><span>Maintenance</span><span>Help</span>
+    </nav>
+
+    <div class="shell">
+      <aside class="nav">
+        <div class="nav-heading">Patient Chart</div>
+        <div class="tree-pane">
+          <ul class="tree-view mois-tree">
+            <li>
+              <details open>
+                <summary><span class="node"><i class="ico folder"></i>Patient Summary</span></summary>
+                <ul>
+                  <li><span class="node"><i class="ico folder"></i>Demographic</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Determinants of Health</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Encounters</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Measures</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Imaging</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Consults</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Procedures</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Interventions</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Family History</span></li>
+                  <li>
+                    <details open>
+                      <summary><span class="node"><i class="ico folder"></i>Allergy / Intolerances</span></summary>
+                      <ul>
+                        <li><span class="node"><i class="ico folder"></i>Reaction Risks</span></li>
+                        <li><span class="node"><i class="ico folder"></i>Events</span></li>
+                      </ul>
+                    </details>
+                  </li>
+                  <li><span class="node"><i class="ico folder"></i>Long Term Meds</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Prescriptions</span></li>
+                  <li><span class="node"><i class="ico folder"></i>MAR</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Social History</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Documents</span></li>
+                  <li><span class="node"><i class="ico folder"></i>Health Issues</span></li>
+                </ul>
+              </details>
+            </li>
+          </ul>
+        </div>
+        <div class="module-button active"><i class="ico grid"></i>Patient Chart</div>
+        <div class="module-button"><i class="ico folder"></i>Workspace</div>
+        <div class="module-button"><i class="ico calendar"></i>Scheduler</div>
+        <div class="module-button"><i class="ico grid"></i>Billing</div>
+        <div class="module-button"><i class="ico folder"></i>Administration</div>
+        <div class="module-button"><i class="ico gear"></i>Data Exchange</div>
+        <div class="module-button"><i class="ico grid"></i>Reports</div>
+      </aside>
+
+      <main class="chart">
+        <div class="section-heading">Encounter</div>
+
+        <div class="command-row">
+          <button>New Record</button><button>Delete Record</button><button>Save</button>
+          <button>Undo</button><button>Refresh</button><button>Print</button>
+          <button id="openService">Attachment</button>
+        </div>
+
+        <div class="identity">
+          <span>FIRST: <b>PATCH</b></span>
+          <span>MIDDLE: <b>JULIAN</b></span>
+          <span>LAST: <b>AADAMS</b></span>
+          <span>DoB: <b>1986.12.19</b></span>
+          <span>Desktop For: <b>TECHNICAL SUPPORT</b></span>
+        </div>
+
+        <div class="encounter-top">
+          <div class="form-block">
+            <div class="field"><label>Date:</label><input type="text" value="2026.08.10"><button>...</button></div>
+            <div class="field"><label>Provider:</label><input type="text" value="FAKERBY, FAKER"><button>...</button></div>
+            <div class="field"><label>Ser. Loc.:</label><input type="text" value="ACROPOLIS MANOR"><button>...</button></div>
+            <div class="field"><label>Visit Code:</label><input type="text" value="R"><button>...</button></div>
+            <div class="field"><label>Visit Reason:</label><input type="text" value="TEST 3"><button>...</button></div>
+          </div>
+
+          <div class="form-block">
+            <div class="block-caption">Times</div>
+            <div class="field time"><label>Arrived:</label><input type="text"><button>:</button></div>
+            <div class="field time"><label>In-Room:</label><input type="text"><button>:</button></div>
+            <div class="field time"><label>Seen:</label><input type="text"><button>:</button></div>
+            <div class="field time"><label>Discharge:</label><input type="text"><button>:</button></div>
+          </div>
+
+          <div class="form-block health">
+            <div class="block-caption">Health Issues</div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+          </div>
+
+          <div class="form-block">
+            <div class="block-caption">Services</div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+            <div class="field time"><label></label><input type="text"><button>...</button></div>
+          </div>
+
+          <div class="form-block general-note">
+            <div class="block-caption">General Note</div>
+            <textarea></textarea>
+          </div>
+        </div>
+
+        <div class="tab-wrap">
+          <menu role="tablist" class="mois-tabs">
+            <button aria-selected="true" data-tab="progress">Progress Note(s)</button>
+            <button aria-selected="false" data-tab="measurements">Measurements</button>
+            <button aria-selected="false" data-tab="services">Service(s)</button>
+            <button aria-selected="false" data-tab="detail">Detail / Coding</button>
+            <button aria-selected="false" data-tab="summary">Encounter Summary</button>
+            <button aria-selected="false" data-tab="forms">Encounter Forms</button>
+          </menu>
+        </div>
+
+        <div role="tabpanel" class="tab-panel">
+          <div class="context-buttons" id="contextButtons">
+            <button>New Note</button><button>Print Note</button><button>Delete Note</button>
+          </div>
+          <div class="content-area" id="tabContent">
+            <div class="note-meta">
+              <span>Author</span><input type="text">
+              <span><input id="complete" type="checkbox"><label for="complete">Complete</label></span>
+              <span>Created By:</span><span></span><span></span><span>* of 0</span>
+            </div>
+            <textarea class="note-editor"></textarea>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div class="status-bar">
+      <p class="status-bar-field">Ready.</p>
+      <p class="status-bar-field"><a href="#">Go To Chart...</a></p>
+      <p class="status-bar-field"><a href="#">Create Appointment...</a></p>
+      <p class="status-bar-field">User: JALA2</p>
+      <p class="status-bar-field">v02.31.23 b250508</p>
+    </div>
+  </section>
+</div>
+
+<div class="modal-shade" id="serviceModal">
+  <section class="window service">
+    <div class="title-bar">
+      <div class="title-bar-text"><span class="app-icon">M</span> Patient Service Event</div>
+      <div class="title-bar-controls"><button aria-label="Close" id="closeService"></button></div>
+    </div>
+
+    <div class="patient-banner">
+      <div><small>CHART NO.</small><br><strong>3924</strong></div>
+      <div><small>PATIENT (F/M/L)</small><br><strong>PATCH JULIAN AADAMS</strong></div>
+      <div><small>DATE OF BIRTH</small><br><strong>1986.12.19&nbsp;&nbsp;39 YR OLD</strong></div>
+      <div><small>GENDER</small><br><strong>M</strong></div>
+      <div><small>PREFERRED PHONE NUMBER</small><br><strong>250-765-3212</strong></div>
+    </div>
+
+    <div class="service-body">
+      <div class="pb-group">
+        <div class="pb-group-title">Service Episode Detail</div>
+        <div class="gridform">
+          <label>Start Date:</label><input type="text" value="2026.08.10">
+          <label>Stop Date:</label><input type="text" value="2026.08.12">
+          <label>Service Episode:</label><input type="text" value="PRENATAL CARE">
+          <label>Stop Reason:</label><input type="text">
+          <label>Service MRP:</label><input type="text" value="TECHNICAL SUPPORT">
+          <label>Stop Note:</label><textarea></textarea>
+          <label>As a Member Of:</label><input type="text">
+          <label></label><span></span>
+          <label>General Note</label><textarea></textarea>
+        </div>
+      </div>
+
+      <div class="service-tabs">
+        <div class="service-tab active">Service Event</div>
+        <div class="service-tab">Linked Orders (0)</div>
+      </div>
+
+      <div class="service-section">
+        <div class="group-title">Current Service Event</div>
+        <div class="gridform" style="grid-template-columns:90px 180px 90px 1fr">
+          <label>Service Phase:</label>
+          <select><option>One Time</option><option>Recurring</option></select>
+          <span></span><span></span>
+          <label>Service Event:</label><input type="text" value="REMOVAL OF EAR CANAL OSTEOMA">
+          <span></span><span></span>
+        </div>
+
+        <div class="group-title">Health Issues for Service Event</div>
+        <div class="context-buttons"><button>New Health Issue</button><button>Delete Health Issue</button></div>
+        <table class="dw">
+          <thead><tr><th style="width:22px"></th><th>Health Issue</th><th style="width:130px">Certainty</th></tr></thead>
+          <tbody>
+            <tr class="selected"><td class="rowhead">›</td><td>ADJUSTMENT REACTION - OTHER</td><td>Confirmed</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="service-footer">
+      <button>Change Linked Service Episode...</button>
+      <div class="right"><button>Save</button><button id="cancelService">Cancel</button><button>View History...</button></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const tabs=[...document.querySelectorAll('.mois-tabs button')];
+const content=document.getElementById('tabContent');
+const buttons=document.getElementById('contextButtons');
+
+const views={
+ progress:{
+   buttons:['New Note','Print Note','Delete Note'],
+   html:`<div class="note-meta">
+     <span>Author</span><input type="text">
+     <span><input id="complete2" type="checkbox"><label for="complete2">Complete</label></span>
+     <span>Created By:</span><span></span><span></span><span>* of 0</span>
+   </div><textarea class="note-editor"></textarea>`
+ },
+ measurements:{
+   buttons:['New Record','Delete Record','Graph','Calculator','Template','Other Template'],
+   html:`<table class="dw"><thead><tr><th style="width:22px"></th><th>Code</th><th>Test Name</th><th>Value</th><th>Flag</th><th>Units</th></tr></thead>
+   <tbody><tr><td class="rowhead">›</td><td>90754</td><td>OXYTETRACYCLINE SPEC-MCNT</td><td></td><td>-</td><td>mg/kg; ppm</td></tr></tbody></table>`
+ },
+ services:{
+   buttons:['New...','Edit...','Delete'],
+   html:`<div style="height:430px;background:white;border:1px solid #aaa"></div>`
+ },
+ detail:{
+   buttons:[],
+   html:`<div class="gridform" style="grid-template-columns:92px 190px 110px 1fr">
+     <label>Resource:</label><input type="text" value="VC1NHA"><label>Appt Status:</label><select><option></option></select>
+     <label>Room:</label><input type="text"><label>Service Location:</label><select><option>ACROPOLIS MANOR</option></select>
+     <label>Docu. Status:</label><input type="text"><label>Visit Mode:</label><select><option>DIRECT ENCOUNTER WITH CLIENT ALONE</option></select>
+     <label>Billing Status:</label><input type="text"><label>Priority:</label><select><option></option></select>
+     <label>Payor:</label><select><option></option></select><label>Encounter Ref:</label><input type="text">
+   </div>
+   <div class="group-title" style="margin-top:10px;color:#00105b">Coding:</div>
+   <table class="dw"><thead><tr><th></th><th>Code 1</th><th>Code 2</th><th>Code 3</th><th>Code 4</th><th>Code 5</th></tr></thead>
+   <tbody><tr><td>Procedure:</td><td></td><td></td><td></td><td></td><td></td></tr>
+   <tr><td>Health Issue:</td><td></td><td></td><td></td><td></td><td></td></tr>
+   <tr><td>Service:</td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+   <div style="display:grid;grid-template-columns:90px 1fr;gap:6px;margin-top:8px"><label>General Note:</label><textarea style="height:110px"></textarea></div>`
+ },
+ summary:{buttons:[],html:`<div class="pb-group"><div class="pb-group-title">Encounter Summary</div><div style="height:330px"></div></div>`},
+ forms:{buttons:[],html:`<div class="pb-group"><div class="pb-group-title">Encounter Forms</div><div style="height:330px"></div></div>`}
+};
+
+function setTab(name){
+  tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.tab===name?'true':'false'));
+  const v=views[name];
+  buttons.innerHTML=v.buttons.map(x=>`<button>${x}</button>`).join('');
+  content.innerHTML=v.html;
+}
+tabs.forEach(t=>t.onclick=()=>setTab(t.dataset.tab));
+
+const modal=document.getElementById('serviceModal');
+document.getElementById('openService').onclick=()=>modal.classList.add('show');
+document.getElementById('closeService').onclick=()=>modal.classList.remove('show');
+document.getElementById('cancelService').onclick=()=>modal.classList.remove('show');
+modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('show')});
+</script>
+</body>
+</html>

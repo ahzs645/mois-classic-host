@@ -1,0 +1,183 @@
+/* ============================================================================
+   pb/datawindow — the grid.
+
+   This is the single most recognisable thing about a PowerBuilder app. The
+   details that matter: a pale blue header band, 1px hairlines in both axes,
+   an 18px detail band, a narrow left gutter carrying the current-row arrow,
+   and a salmon (not blue) highlight on the current row.
+   ========================================================================= */
+
+.pb-dw {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-dw-row);
+  overflow: hidden;
+}
+.pb-dw--flush { border: 0; }
+
+.pb-dw__scroll { overflow: auto; flex: 1 1 auto; min-height: 0; }
+
+.pb-dw__table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: var(--pb-fs);
+  table-layout: fixed;
+}
+
+/* --- header --------------------------------------------------------------*/
+.pb-dw__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* a table cell treats `height` as a minimum, so two-line captions still
+     expand the band while single-line ones stay exactly 18px */
+  height: var(--pb-dw-row-h);
+  padding: 0 4px;
+  background: var(--pb-dw-header);
+  border-right: 1px solid var(--pb-dw-header-line);
+  border-bottom: 1px solid #8f9db6;
+  font-weight: 400;
+  text-align: center;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  cursor: default;
+}
+.pb-dw__table thead th:last-child { border-right: 0; }
+.pb-dw__table thead th:hover { background: #bccdf0; }
+.pb-dw__table thead th.pb-dw__sorted::after { content: " \25B2"; font-size: 8px; }
+.pb-dw__table thead th.pb-dw__sorted--desc::after { content: " \25BC"; font-size: 8px; }
+
+/* --- detail band ---------------------------------------------------------*/
+.pb-dw__table tbody td {
+  height: var(--pb-dw-row-h);
+  padding: 0 4px;
+  border-right: 1px solid var(--pb-dw-line);
+  border-bottom: 1px solid var(--pb-dw-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.pb-dw__table tbody td:last-child { border-right: 0; }
+.pb-dw__table tbody tr { background: var(--pb-dw-row); }
+.pb-dw__table tbody tr:nth-child(odd) { background: var(--pb-dw-row-alt); }
+
+/* zebra off — some PB grids are plain white */
+.pb-dw--plain .pb-dw__table tbody tr:nth-child(odd) { background: var(--pb-dw-row); }
+
+/* --- current row ---------------------------------------------------------*/
+.pb-dw__table tbody tr.is-current,
+.pb-dw__table tbody tr.is-current:nth-child(odd) { background: var(--pb-dw-select); }
+
+/* --- group band ----------------------------------------------------------
+   A DataWindow with a group level draws a header row per group, with the
+   expand box in the gutter. Seen on the "Linked Goals - Read Only" tabs. */
+.pb-dw__table tbody tr.pb-dw__group,
+.pb-dw__table tbody tr.pb-dw__group:nth-child(odd) { background: var(--pb-dw-group); }
+.pb-dw__table tbody tr.pb-dw__group td {
+  font-weight: 700;
+  border-right: 0;
+  border-bottom: 1px solid var(--pb-dw-line);
+}
+.pb-dw__groupbox {
+  width: 9px;
+  height: 9px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #7e9db9;
+  background: var(--pb-window);
+  font-size: 9px;
+  line-height: 1;
+  color: #333;
+  padding: 0;
+  cursor: default;
+  vertical-align: middle;
+}
+
+/* an out-of-range result paints its row yellow */
+.pb-dw__table tbody tr.pb-dw--flag,
+.pb-dw__table tbody tr.pb-dw--flag:nth-child(odd) { background: var(--pb-dw-flag); }
+
+/* a linked/selected detail row inside a group is flagged yellow, not salmon */
+.pb-dw__table tbody tr.pb-dw--highlight,
+.pb-dw__table tbody tr.pb-dw--highlight:nth-child(odd) { background: var(--pb-dw-highlight); }
+
+/* --- status-coloured rows ------------------------------------------------*/
+.pb-dw__table tbody tr.pb-dw--alert,
+.pb-dw__table tbody tr.pb-dw--alert:nth-child(odd) { background: var(--pb-dw-alert); }
+.pb-dw__table tbody tr.pb-dw--alert.is-current,
+.pb-dw__table tbody tr.pb-dw--alert.is-current:nth-child(odd) { background: var(--pb-dw-alert-soft); }
+.pb-dw__table tbody tr.pb-dw--ok,
+.pb-dw__table tbody tr.pb-dw--ok:nth-child(odd) { background: var(--pb-dw-ok); }
+
+/* an icon parked in the gutter (recurrence, series, locked record) */
+.pb-dw__gutter svg { display: block; margin: 0 auto; }
+
+/* --- gutter with the current-row arrow -----------------------------------*/
+.pb-dw__gutter {
+  width: 13px;
+  padding: 0 !important;
+  text-align: center;
+  background: var(--pb-dw-gutter);
+  border-right: 1px solid var(--pb-dw-line);
+  font-weight: 700;
+  color: #333;
+}
+thead .pb-dw__gutter { background: var(--pb-dw-header); }
+
+/* --- cell modifiers ------------------------------------------------------*/
+.pb-dw__c--num    { text-align: right; }
+.pb-dw__c--center { text-align: center; }
+.pb-dw__c--italic { font-style: italic; }
+.pb-dw__c--dots   { width: 16px; text-align: center; color: #555; letter-spacing: -1px; }
+.pb-dw__c--narrow { width: 34px; text-align: center; }
+.pb-dw__c--link   { color: var(--pb-link); text-decoration: underline; }
+
+/* an inline "..." lookup affordance sitting inside a cell */
+.pb-dw__dots {
+  display: inline-grid;
+  place-items: center;
+  width: 14px; height: 14px;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-btn-face);
+  line-height: 1;
+  letter-spacing: -1px;
+  cursor: default;
+  vertical-align: middle;
+}
+
+/* editable cell inside the grid */
+.pb-dw__edit {
+  width: 100%;
+  height: 16px;
+  padding: 0 2px;
+  border: 1px solid var(--pb-border);
+  background: #fff;
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+}
+
+/* empty-state message a PB DataWindow shows in an unpopulated band */
+.pb-dw__empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--pb-text-dim);
+  font-style: italic;
+}
+
+/* --- PB scroll nubs ("< Scroll <" / "> Scroll >") ------------------------*/
+.pb-scrollrow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px;
+  background: var(--pb-face);
+  flex: none;
+}
+.pb-scrollrow__spacer { flex: 1 1 auto; }

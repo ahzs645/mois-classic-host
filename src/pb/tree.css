@@ -1,0 +1,164 @@
+/* ============================================================================
+   pb/tree — Win32 TreeView, and the Outlook-style module bar under it.
+
+   The branch-line technique is lifted from XP.css / 98.css (`ul.tree-view`):
+   a nested <ul> carries a dotted left border, each <li> draws a horizontal
+   stub with ::before, and the last child masks the tail of the line with
+   ::after. Semantic <details>/<summary> gives the disclosure behaviour for
+   free. The 98 theme's chiselled inset frame is dropped — MOIS on Windows 10
+   has a flat 1px border.
+   ========================================================================= */
+
+.pb-tree,
+.pb-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pb-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 3px 4px 3px 6px;
+  background: var(--pb-window);
+  border: 1px solid var(--pb-border);
+  font-size: var(--pb-fs);
+  user-select: none;
+}
+
+/* --- nested level: the dotted spine ------------------------------------- */
+.pb-tree ul {
+  margin-left: 8px;
+  padding-left: 16px;
+  border-left: 1px dotted #9a9a9a;
+}
+.pb-tree ul > li { position: relative; }
+
+/* horizontal stub from the spine into the node */
+.pb-tree ul > li::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 8px;
+  width: 12px;
+  border-bottom: 1px dotted #9a9a9a;
+}
+/* the last child masks the spine below its own stub */
+.pb-tree ul > li:last-child::after {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 9px;
+  bottom: 0;
+  width: 5px;
+  background: var(--pb-window);
+}
+
+/* --- the row ------------------------------------------------------------ */
+.pb-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 17px;
+  padding-right: 6px;
+  white-space: nowrap;
+  cursor: default;
+  /* summary carries the row, so kill the native disclosure triangle */
+  list-style: none;
+}
+.pb-tree__row::-webkit-details-marker { display: none; }
+.pb-tree__row::marker { content: ""; }
+
+.pb-tree__row:hover { background: #e5f3ff; }
+.pb-tree__row.is-selected {
+  background: var(--pb-select);
+  outline: 1px solid var(--pb-select-brd);
+  outline-offset: -1px;
+}
+
+/* --- the +/- box -------------------------------------------------------- */
+.pb-tree__toggle {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  margin-left: -21px;      /* sits on the spine, over the stub */
+  margin-right: 7px;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid #7e9db9;
+  background: var(--pb-window);
+  font-size: 9px;
+  line-height: 1;
+  color: #333;
+  padding: 0;
+  cursor: default;
+}
+/* a root node has no spine to sit on — note an expandable row is wrapped
+   in <details>, so both shapes need the reset */
+.pb-tree > li > .pb-tree__row > .pb-tree__toggle,
+.pb-tree > li > details > .pb-tree__row > .pb-tree__toggle {
+  margin-left: 0;
+  margin-right: 4px;
+}
+/* keep leaf rows aligned with their expandable siblings */
+.pb-tree__toggle--spacer { border: 0; background: none; }
+
+.pb-tree__icon { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
+.pb-tree__label { overflow: hidden; text-overflow: ellipsis; }
+
+/* --- module bar (Patient Chart / Workspace / Scheduler / ...) -------------
+   Measured off scheduler-provider-daybook-left.png at x=430:
+
+     inactive  vertical gradient #fffdfe -> #ebe7e4 -> #d4d3d1, 29px tall
+     active    FLAT #d4d3d8, i.e. pressed rather than lit
+     divider   a hard 1px black rule between every button
+
+   Not the cool 1px-bordered gradient used before — the real strip is warmer,
+   higher contrast, and its buttons butt directly against one another.     */
+.pb-modulebar {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid #000;
+  border-top: 0;
+  background: #d4d3d1;
+  flex: none;
+}
+.pb-modulebar__grip {
+  height: 7px;
+  flex: none;
+  border-bottom: 1px solid #000;
+  background:
+    repeating-linear-gradient(90deg, #6a6a6a 0 1px, transparent 1px 3px)
+    center / 64px 1px no-repeat,
+    linear-gradient(180deg, #fffdfe 0%, #e4e0dd 100%);
+}
+.pb-modulebar__btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 29px;
+  padding: 0 9px;
+  border: 0;
+  border-bottom: 1px solid #000;
+  background: linear-gradient(180deg, #fffdfe 0%, #ebe7e4 48%, #d4d3d1 100%);
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  font-weight: 700;
+  color: var(--pb-text);
+  cursor: default;
+  text-align: left;
+  white-space: nowrap;
+  flex: none;
+}
+.pb-modulebar__btn:last-child { border-bottom: 0; }
+.pb-modulebar__btn:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #f1eeeb 48%, #dedbd8 100%);
+}
+.pb-modulebar__btn.is-active,
+.pb-modulebar__btn.is-active:hover { background: #d4d3d8; }
+
+.pb-modulebar__icon { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }

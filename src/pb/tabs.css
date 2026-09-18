@@ -1,0 +1,76 @@
+/* ============================================================================
+   pb/tabs — the PowerBuilder tab control.
+
+   Flat strip, hairline separators, and the selected tab drawn as a white box
+   whose bottom edge is punched out so it merges into the page below it.
+   ========================================================================= */
+
+.pb-tabs { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+
+.pb-tabs__strip {
+  display: flex;
+  align-items: flex-end;          /* the selected tab stands proud */
+  height: var(--pb-tabstrip-h);
+  padding-left: 1px;
+  background: var(--pb-face);
+  border-bottom: 1px solid #9a9a9a;
+  flex: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* An unselected tab is not a box at all — it is a caption with a hairline
+   separator. Only the selected one is drawn, and it is drawn as a white
+   plate carrying the focus rectangle, nothing more. */
+.pb-tabs__tab {
+  position: relative;
+  height: 19px;
+  min-width: 96px;
+  padding: 0 12px;
+  border: 0;
+  border-right: 1px solid #c9c9c9;
+  background: transparent;
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  cursor: default;
+  white-space: nowrap;
+}
+.pb-tabs__tab:hover { background: #e3eefb; }
+
+.pb-tabs__tab.is-active {
+  height: var(--pb-tabstrip-h);
+  margin-bottom: -1px;            /* punch through the strip's bottom rule */
+  border-right: 0;
+  background: #fff;
+  font-weight: 700;
+  z-index: 1;
+}
+.pb-tabs__tab.is-active:hover { background: #fff; }
+/* the dotted focus rectangle IS the selected tab's outline in MOIS */
+.pb-tabs__tab.is-active::after {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 0;
+  border: 1px dotted #000;
+  border-bottom: 0;
+  pointer-events: none;
+}
+/* the tab immediately before the selected one keeps its separator hidden */
+.pb-tabs__tab.is-active + .pb-tabs__tab { border-left: 1px solid #c9c9c9; }
+
+.pb-tabs__strip--compact .pb-tabs__tab { min-width: 0; padding: 0 9px; }
+
+/* Some MOIS views (Notification, Group Visit List) stretch their tabs to fill
+   the strip instead of sizing them to the caption. */
+.pb-tabs__strip--justified .pb-tabs__tab { flex: 1 1 0; min-width: 0; }
+
+.pb-tabs__page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--pb-window);
+  overflow: auto;
+}
+.pb-tabs__page--face { background: var(--pb-face); }

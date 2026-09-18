@@ -1,0 +1,15 @@
+/* ============================================================================
+   pb — PowerBuilder Classic UI Kit (embeddable)
+   Everything here is scoped to `.pb-*` classes (tokens are `--pb-*` custom
+   properties on :root), so a host page can import this file without the kit
+   restyling the document. `index.css` adds the document-level rules the
+   standalone viewer app needs.
+   ========================================================================= */
+@import "./tokens.css";
+@import "./chrome.css";
+@import "./controls.css";
+@import "./layout.css";
+@import "./datawindow.css";
+@import "./tabs.css";
+@import "./tree.css";
+@import "./host.css";

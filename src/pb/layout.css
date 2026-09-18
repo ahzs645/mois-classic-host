@@ -1,0 +1,354 @@
+/* ============================================================================
+   pb/layout — panels, headers, banners, group boxes, form grids
+   ========================================================================= */
+
+/* --- navy view header ("Scheduler", "Encounter", "Order", "Goals") ------- */
+.pb-viewhead {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--pb-navy);
+  color: var(--pb-navy-text);
+  flex: none;
+}
+.pb-viewhead__title { font-size: 14px; font-weight: 400; letter-spacing: .2px; white-space: nowrap; }
+.pb-viewhead__meta  { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-viewhead__spacer { flex: 1 1 auto; }
+
+/* --- grey section band (group-box header) ------------------------------- */
+.pb-band {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--pb-band-h);
+  padding: 0 6px;
+  background: var(--pb-band);
+  font-weight: 700;
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  flex: none;
+}
+.pb-band__spacer { flex: 1 1 auto; }
+/* buttons parked at the right end of a band, as PB does it */
+.pb-band .pb-btn--sm { height: 15px; }
+
+/* group box = band + bordered body */
+.pb-groupbox { border: 1px solid #b6b6b6; background: var(--pb-window); }
+.pb-groupbox > .pb-band { border-bottom: 1px solid #b6b6b6; }
+.pb-groupbox__body { padding: 7px 9px; }
+
+/* --- panel / splitter --------------------------------------------------- */
+.pb-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--pb-face);
+}
+.pb-panel--white { background: var(--pb-window); }
+.pb-panel--bordered { border: 1px solid var(--pb-border); }
+.pb-split { display: flex; flex: 1 1 auto; min-height: 0; }
+.pb-split__gutter {
+  width: 4px;
+  flex: none;
+  background: var(--pb-face);
+  cursor: col-resize;
+  border-left: 1px solid #d7d7d7;
+  border-right: 1px solid #d7d7d7;
+}
+
+/* --- patient banner: yellow compact form ------------------------------- */
+.pb-banner-yellow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 0;
+  padding: 3px 8px;
+  background: var(--pb-yellow);
+  border: 1px solid var(--pb-yellow-border);
+  font-size: var(--pb-fs);
+  flex: none;
+}
+.pb-banner-yellow__row { display: flex; align-items: center; gap: 5px; }
+.pb-banner-yellow b { font-weight: 700; }
+
+/* --- patient banner: full blue two-band form ---------------------------- */
+.pb-banner-blue { flex: none; font-size: var(--pb-fs-sm); color: #fff; }
+.pb-banner-blue__top,
+.pb-banner-blue__bottom {
+  display: flex;
+  align-items: stretch;
+  padding: 3px 10px 4px;
+}
+.pb-banner-blue__top {
+  background: linear-gradient(180deg, var(--pb-banner-top-a) 0%, var(--pb-banner-top-b) 100%);
+}
+.pb-banner-blue__bottom { background: var(--pb-banner-bottom); }
+.pb-banner-blue__cell { display: flex; flex-direction: column; justify-content: flex-start; }
+.pb-banner-blue__label {
+  font-size: var(--pb-fs-sm);
+  font-weight: 400;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  opacity: .96;
+  white-space: nowrap;
+}
+.pb-banner-blue__value {
+  font-size: var(--pb-fs-banner);
+  font-weight: 700;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+.pb-banner-blue__value--plain { font-weight: 400; font-size: var(--pb-fs); align-self: flex-end; }
+
+/* --- identity strip ------------------------------------------------------
+   The FIRST / MIDDLE / LAST / DoB line under a command row. Fields are
+   spread across the full width, with the active-encounter block pinned
+   right when the screen has one.                                          */
+.pb-identity {
+  display: flex;
+  align-items: center;
+  height: var(--pb-ident-h);
+  padding: 0 8px;
+  border-bottom: 1px solid #d6d6d6;
+  white-space: nowrap;
+  flex: none;
+  overflow: hidden;
+}
+.pb-identity__field { display: flex; }
+.pb-identity__field + .pb-identity__field { margin-left: auto; }
+.pb-identity__enc { display: flex; margin-left: auto; padding-left: 18px; }
+.pb-identity__enc-value { color: var(--pb-text-dim); letter-spacing: .3px; }
+
+/* --- summary strip ------------------------------------------------------ */
+.pb-summaryband {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 18px;
+  padding: 0 8px;
+  background: var(--pb-summary-band);
+  font-weight: 700;
+  font-size: var(--pb-fs);
+  flex: none;
+}
+.pb-summaryband__spacer { flex: 1 1 auto; }
+.pb-summaryband .pb-link { font-weight: 400; }
+
+/* --- dense form grid -----------------------------------------------------
+   PB forms are absolutely positioned in the IDE. On the web an auto-flowing
+   two-column grid gets us the same visual result with none of the pain:
+   right-aligned label, control, repeat. Row height is locked so every field
+   in every column lines up on the same baseline.                           */
+.pb-form {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--pb-row-gap) 6px;
+  padding: 5px 8px;
+}
+.pb-form--cols4 { grid-template-columns: auto 1fr auto 1fr; }
+.pb-form__label {
+  justify-self: start;
+  white-space: nowrap;
+  padding-right: 2px;
+}
+.pb-form__label--right { justify-self: end; text-align: right; }
+.pb-form__label--dim { color: var(--pb-text-dim); }
+/* a cell that should span both remaining columns */
+.pb-form__wide { grid-column: 2 / -1; }
+.pb-form__full { grid-column: 1 / -1; }
+
+/* free-form row of controls sharing one grid cell */
+.pb-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.pb-row--gap-lg { gap: 14px; }
+.pb-row--wrap { flex-wrap: wrap; white-space: normal; }
+.pb-row__spacer { flex: 1 1 auto; }
+
+/* stacked block of rows */
+.pb-stack { display: flex; flex-direction: column; gap: var(--pb-row-gap); min-width: 0; }
+
+/* bold navy column caption above a stack of fields */
+.pb-caption {
+  font-weight: 700;
+  color: var(--pb-text-head);
+  white-space: nowrap;
+}
+.pb-caption--center { text-align: center; }
+
+/* vertical hairline separating form regions */
+.pb-vrule { width: 1px; align-self: stretch; background: #c9c9c9; margin: 0 8px; flex: none; }
+.pb-hrule { height: 1px; background: #c9c9c9; margin: 4px 0; flex: none; }
+
+/* dialog footer button row */
+.pb-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  background: var(--pb-face);
+  flex: none;
+}
+.pb-footer__spacer { flex: 1 1 auto; }
+
+/* --- form sections -------------------------------------------------------
+   PowerBuilder separates groups of fields inside one window with a plain
+   horizontal rule and a bold label in the left gutter, rather than nesting
+   group boxes. Seen on Goals > Quantitative Settings and the benefit editor. */
+.pb-section { border-bottom: 1px solid #c9c9c9; padding: 6px 10px; }
+.pb-section:last-child { border-bottom: 0; }
+.pb-section__title { font-weight: 700; margin-bottom: 3px; }
+
+/* --- message box ---------------------------------------------------------
+   The classic Win32 MessageBox: icon, text, a right-aligned button row on a
+   slightly darker footer, and a default button carrying the focus ring.    */
+.pb-msgbox { width: 400px; }
+.pb-msgbox__body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 16px 20px;
+  background: var(--pb-window);
+}
+.pb-msgbox__icon { flex: none; width: 32px; height: 32px; }
+.pb-msgbox__text { padding-top: 2px; line-height: 1.45; }
+.pb-msgbox__footer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: var(--pb-face);
+  border-top: 1px solid #dcdcdc;
+}
+.pb-msgbox__footer .pb-btn { min-width: 76px; }
+.pb-msgbox__footer .pb-btn--default {
+  border-color: var(--pb-accent);
+  box-shadow: inset 0 0 0 1px var(--pb-accent);
+}
+
+/* --- modal ---------------------------------------------------------------*/
+.pb-modal-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, .10);
+}
+
+/* --- day / week grid -----------------------------------------------------
+   A time axis beside N columns of 15-minute slots. Hour boundaries get a
+   darker rule; appointments are absolutely placed blocks inside a column. */
+.pb-daygrid {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--pb-window);
+  border-top: 1px solid var(--pb-border);
+}
+.pb-daygrid__head { display: flex; flex: none; background: var(--pb-dw-header); }
+.pb-daygrid__corner { width: 46px; flex: none; border-right: 1px solid var(--pb-dw-header-line); }
+.pb-daygrid__col-head {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--pb-dw-row-h);
+  padding: 0 4px;
+  border-right: 1px solid var(--pb-dw-header-line);
+  border-bottom: 1px solid #8f9db6;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-daygrid__body { display: flex; flex: 1 1 auto; min-height: 0; overflow: auto; }
+.pb-daygrid__axis { width: 46px; flex: none; border-right: 1px solid var(--pb-dw-line); }
+.pb-daygrid__hour {
+  display: block;
+  height: 52px;                    /* 4 slots x 13px */
+  padding: 1px 4px 0 0;
+  text-align: right;
+  font-size: var(--pb-fs-sm);
+  color: #444;
+  border-bottom: 1px solid var(--pb-dw-line);
+}
+.pb-daygrid__slots { display: grid; flex: 1 1 auto; min-width: 0; }
+.pb-daygrid__col { position: relative; border-right: 1px solid var(--pb-dw-line); min-width: 0; }
+.pb-daygrid__slot { display: block; height: 13px; border-bottom: 1px dotted #e2e2e2; }
+.pb-daygrid__slot.is-hour { border-bottom-color: #cfcfcf; border-top: 1px solid var(--pb-dw-line); }
+
+.pb-daygrid__appt {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  padding: 0 3px;
+  border: 1px solid #8a8a8a;
+  background: var(--pb-dw-select);
+  font-size: var(--pb-fs-sm);
+  line-height: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.pb-daygrid__appt--alert { background: var(--pb-dw-alert); color: #fff; border-color: #a51a0d; }
+.pb-daygrid__appt--ok    { background: var(--pb-dw-ok); }
+.pb-daygrid__appt:hover  { outline: 1px solid var(--pb-accent); }
+
+/* --- MOIS sign-in splash -------------------------------------------------
+   A branded panel above the credential fields: faint pictogram grid on the
+   left, wordmark centred, vendor and version block on the right.          */
+.pb-login__splash {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 268px;
+  padding: 0 24px 0 0;
+  background: linear-gradient(120deg, #f4fafd 0%, #ffffff 58%);
+  border-bottom: 1px solid #e3e3e3;
+  overflow: hidden;
+  flex: none;
+}
+.pb-login__art { position: absolute; left: 0; top: 0; height: 100%; width: 220px; opacity: .85; }
+.pb-login__brand { flex: 1 1 auto; display: grid; place-items: center; min-width: 0; }
+.pb-login__mark { width: 300px; height: 150px; }
+.pb-login__wordmark {
+  font-family: var(--pb-font-chrome);
+  font-size: 62px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  fill: #8a9196;
+}
+.pb-login__tm { font-size: 11px; fill: #9aa1a6; }
+
+.pb-login__meta { width: 268px; flex: none; }
+.pb-login__devby { font-size: 15px; color: #333; margin-bottom: 4px; }
+.pb-login__bright {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.04;
+  color: #2f3c46;
+  margin-bottom: 12px;
+}
+.pb-login__version { font-size: 15px; color: #222; margin-bottom: 4px; }
+.pb-login__build { font-size: var(--pb-fs); color: #555; }
+.pb-login__contact { font-size: 13px; color: #222; margin-top: 10px; }
+
+.pb-login__form { padding: 16px 0 6px; background: var(--pb-window); flex: none; }
+
+/* --- MDI sheets ----------------------------------------------------------
+   Each open window class instance is absolutely placed inside the frame and
+   raised on mouse-down. The title bar is the drag handle.                  */
+.pb-mdi__sheet { position: absolute; }
+.pb-mdi__sheet .pb-titlebar { cursor: default; user-select: none; }
+.pb-mdi__sheet .pb-window { box-shadow: 0 10px 30px rgba(0, 0, 0, .38); }

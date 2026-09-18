@@ -1,0 +1,265 @@
+/* ============================================================================
+   pb — PowerBuilder Classic UI Kit
+   Design tokens, sampled pixel-for-pixel from MOIS running on Windows 10.
+
+   The era is important: this is NOT Windows 95/98. There is no chiselled 3D
+   bevel anywhere. Win10 flattened the common controls, so what remains of the
+   PowerBuilder look is the *density*, the alignment, the navy section bands,
+   and above all the DataWindow. Get those right and it reads as PB instantly.
+   ========================================================================= */
+
+:root {
+  /* --- surfaces -------------------------------------------------------- */
+  --pb-face:            #efefef;  /* dialog + form background (Win10 3DFACE) */
+  --pb-window:          #ffffff;  /* client / content area                   */
+  --pb-band:            #dad5d1;  /* group-box + section header band         */
+  --pb-band-alt:        #e4e0dd;  /* nested / secondary band                 */
+
+  /* --- MOIS identity colours ------------------------------------------- */
+  --pb-navy:            #173d7b;  /* module + view header bars              */
+  --pb-navy-text:       #ffffff;
+  --pb-banner-top-a:    #235594;  /* patient banner, upper band gradient    */
+  --pb-banner-top-b:    #557eb2;
+  --pb-banner-bottom:   #6fb8e5;  /* patient banner, lower band (flat)      */
+  --pb-yellow:          #ffffcc;  /* compact patient banner                 */
+  --pb-yellow-border:   #7a7a54;
+  --pb-summary-band:    #8fadd0;  /* "Patient - DAYBOOK SUMMARY" strip      */
+
+  /* --- lines ----------------------------------------------------------- */
+  --pb-border:          #a0a0a0;  /* field + panel border                   */
+  --pb-border-strong:   #707070;  /* focused field, hard dividers           */
+  --pb-border-hard:     #000000;  /* PB toolbar buttons, DataWindow outline */
+  --pb-border-soft:     #d0d0d0;  /* light rules inside white areas         */
+
+  /* --- text ------------------------------------------------------------ */
+  --pb-text:            #000000;
+  --pb-text-dim:        #6d6d6d;  /* disabled label + disabled field text   */
+  --pb-text-head:       #000080;  /* bold navy column captions              */
+  --pb-link:            #0f3fd8;
+  --pb-link-visited:    #551a8b;
+
+  /* --- controls -------------------------------------------------------- */
+  --pb-btn-face:        #e1e1e1;
+  --pb-btn-border:      #adadad;
+  --pb-btn-hover:       #e5f1fb;
+  --pb-btn-hover-brd:   #0078d7;
+  --pb-btn-active:      #cce4f7;
+  --pb-btn-active-brd:  #005499;
+  --pb-btn-flat-face:   #ffffff;  /* PB command-row buttons are white       */
+  --pb-field-bg:        #ffffff;
+  --pb-check-border:    #2f2d2e;  /* classic Win32 checkbox hairline         */
+  --pb-check-tick:      #55534f;  /* measured: the tick is grey, not black   */
+  --pb-check-hover:     #0078d7;
+  --pb-field-ro:        #f0f0f0;  /* read-only / protected field            */
+  --pb-accent:          #0078d7;
+
+  /* --- DataWindow ------------------------------------------------------ */
+  --pb-dw-header:       #cbdaf7;  /* column header fill                     */
+  --pb-dw-header-line:  #9aa9c4;
+  --pb-dw-row:          #ffffff;
+  --pb-dw-row-alt:      #e8e8e8;
+  --pb-dw-line:         #cfcfcf;
+  --pb-dw-select:       #e39b83;  /* the famous salmon current-row          */
+  --pb-dw-select-soft:  #e8bfae;
+  --pb-dw-alert:        #ee2211;  /* status-coloured rows                   */
+  --pb-dw-alert-soft:   #dfa696;
+  --pb-dw-ok:           #cdf0c4;
+  --pb-dw-gutter:       #f0f0f0;
+  --pb-dw-group:        #dfe8f7;  /* group band inside a grid               */
+  --pb-dw-highlight:    #ffffcc;  /* linked row on a "Linked X" tab         */
+  --pb-dw-flag:         #ffff9e;  /* out-of-range result row                */
+
+  /* --- selection ------------------------------------------------------- */
+  --pb-select:          #cce8ff;
+  --pb-select-brd:      #99d1ff;
+
+  /* --- metrics ---------------------------------------------------------
+     Everything below is what actually produces the "dense enterprise form"
+     feeling. Rows are 19px. Gaps are 2-4px. Nothing breathes.            */
+  --pb-font:        Tahoma, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --pb-font-chrome: "Segoe UI", Tahoma, Arial, sans-serif;
+  --pb-font-mono:   "Consolas", "Lucida Console", monospace;
+  --pb-fs:          11px;   /* the one and only body size                  */
+  --pb-fs-sm:       10px;
+  --pb-fs-chrome:   12px;   /* titlebar + menubar are a notch larger       */
+  --pb-fs-banner:   13px;
+
+  --pb-row-h:       19px;   /* field height                               */
+  --pb-row-gap:     3px;    /* vertical gap between form rows             */
+  --pb-dw-row-h:    18px;   /* DataWindow detail band height              */
+  --pb-band-h:      17px;   /* group-box header band height               */
+  --pb-ident-h:     26px;   /* FIRST/MIDDLE/LAST identity strip           */
+  --pb-tabstrip-h:  23px;   /* tab strip, measured from order-office.png  */
+  --pb-titlebar-h:  30px;
+  --pb-menubar-h:   22px;
+  --pb-status-h:    24px;
+
+  /* The radio ring is a background image so themes can swap the whole
+     construction — flat hairline for MOIS, bevelled for --classic. */
+  --pb-radio-ring: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13'><circle cx='6.5' cy='6.5' r='5.6' fill='white' stroke='%232f2d2e' stroke-width='1.2'/></svg>");
+  --pb-radio-ring-disabled: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13'><circle cx='6.5' cy='6.5' r='5.6' fill='%23f0f0f0' stroke='%23b8b8b8' stroke-width='1.2'/></svg>");
+}
+
+/* ===========================================================================
+   Themes
+
+   The default above is the MOIS hybrid measured from the screenshots: a
+   Windows 10 window frame around classic unthemed Win32 controls. The two
+   overrides below let you dial that in either direction.
+   ======================================================================== */
+
+/* --- pb-theme--flat: pure Windows 10 ------------------------------------
+   Crisp modern glyphs throughout. Use when the app should look like it was
+   written this decade rather than recompiled into it.                     */
+.pb-theme--flat {
+  --pb-check-border: #333333;
+  --pb-check-tick: #3a3a3a;
+  --pb-radio-ring: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13'><circle cx='6.5' cy='6.5' r='5.9' fill='white' stroke='%23333' stroke-width='1'/></svg>");
+}
+.pb-theme--flat .pb-check input:checked + .pb-check__box::after {
+  width: 9px;
+  height: 9px;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='9'><path d='M1 4.6l2.4 2.6L8 1.4' fill='none' stroke='black' stroke-width='1.5'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='9'><path d='M1 4.6l2.4 2.6L8 1.4' fill='none' stroke='black' stroke-width='1.5'/></svg>");
+  -webkit-mask-size: 9px 9px;
+  mask-size: 9px 9px;
+}
+.pb-theme--flat .pb-check--radio .pb-check__dot {
+  background: #333;
+  border-radius: 50%;
+  width: 5px;
+  height: 5px;
+}
+
+/* --- pb-theme--classic: the full Windows 95/98 chisel --------------------
+   Every surface gets the raised/sunken bevel PowerBuilder was designed
+   against, and XP.css's bevelled 98 assets replace the flat ones. This is
+   what MOIS looked like before Windows flattened the frame around it.     */
+.pb-theme--classic {
+  --pb-face:         #d4d0c8;
+  --pb-band:         #d4d0c8;
+  --pb-band-alt:     #cdc9c2;
+  --pb-btn-face:     #d4d0c8;
+  --pb-btn-border:   #808080;
+  --pb-border:       #808080;
+  --pb-field-ro:     #d4d0c8;
+  --pb-dw-header:    #d4d0c8;
+  --pb-dw-line:      #808080;
+  --pb-check-tick:          #000000;
+  --pb-radio-ring:          url("./glyphs/radio-border-98.svg");
+  --pb-radio-ring-disabled: url("./glyphs/radio-border-98-disabled.svg");
+}
+/* raised bevel: light top-left, dark bottom-right, in two steps */
+.pb-theme--classic .pb-btn,
+.pb-theme--classic .pb-cmdrow__btn,
+.pb-theme--classic .pb-inputgroup__btn,
+.pb-theme--classic .pb-spin__btn,
+.pb-theme--classic .pb-modulebar__btn {
+  border: 0;
+  background: var(--pb-btn-face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #ffffff,
+    inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+}
+.pb-theme--classic .pb-btn:active:not(:disabled),
+.pb-theme--classic .pb-cmdrow__btn:active:not(:disabled),
+.pb-theme--classic .pb-inputgroup__btn:active:not(:disabled),
+.pb-theme--classic .pb-spin__btn:active:not(:disabled) {
+  background: var(--pb-btn-face);
+  box-shadow: inset 1px 1px #0a0a0a, inset 2px 2px #808080;
+}
+/* sunken bevel for anything that receives input */
+.pb-theme--classic .pb-field,
+.pb-theme--classic .pb-select,
+.pb-theme--classic .pb-tree,
+.pb-theme--classic .pb-dw,
+.pb-theme--classic .pb-groupbox {
+  border: 0;
+  box-shadow:
+    inset -1px -1px #ffffff, inset 1px 1px #808080,
+    inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
+.pb-theme--classic .pb-check__box {
+  border: 0;
+  box-shadow:
+    inset -1px -1px #ffffff, inset 1px 1px #808080,
+    inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
+.pb-theme--classic .pb-check--radio .pb-check__box { box-shadow: none; }
+.pb-theme--classic .pb-titlebar {
+  height: 20px;
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  color: #fff;
+  border-bottom: 0;
+}
+.pb-theme--classic .pb-titlebar__btn {
+  width: 18px;
+  height: 15px;
+  margin: 0 1px;
+  background: var(--pb-btn-face);
+  color: #000;
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #ffffff,
+    inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+}
+.pb-theme--classic .pb-titlebar__btn--close:hover { background: var(--pb-btn-face); color: #000; }
+.pb-theme--classic .pb-menubar,
+.pb-theme--classic .pb-statusbar { background: var(--pb-face); }
+.pb-theme--classic .pb-menubar__item:hover { background: #000080; color: #fff; }
+.pb-theme--classic .pb-viewhead { background: linear-gradient(90deg, #000080 0%, #1084d0 100%); }
+
+/* tabs: raised, with the selected one lifted and merged into the page */
+.pb-theme--classic .pb-tabs__strip { border-bottom: 0; background: var(--pb-face); }
+.pb-theme--classic .pb-tabs__tab {
+  border: 0;
+  margin-right: 1px;
+  background: var(--pb-btn-face);
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080;
+}
+.pb-theme--classic .pb-tabs__tab.is-active {
+  background: var(--pb-btn-face);
+  border: 0;
+  font-weight: 400;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080;
+}
+.pb-theme--classic .pb-tabs__tab.is-active::after { inset: 3px; }
+.pb-theme--classic .pb-tabs__page { background: var(--pb-face); }
+
+/* status bar: each cell is its own sunken panel */
+.pb-theme--classic .pb-statusbar { border-top: 0; padding: 2px; gap: 2px; }
+.pb-theme--classic .pb-statusbar__cell {
+  border-right: 0;
+  box-shadow: inset -1px -1px #ffffff, inset 1px 1px #808080;
+}
+
+/* bands revert to plain silver with a raised edge */
+.pb-theme--classic .pb-band { background: var(--pb-band); box-shadow: inset 0 1px #ffffff; }
+.pb-theme--classic .pb-summaryband { background: #808080; color: #fff; }
+
+/* XP.css's bevelled 98 scroll buttons, now that there is a theme for them */
+.pb-theme--classic ::-webkit-scrollbar { width: 17px; height: 17px; }
+.pb-theme--classic ::-webkit-scrollbar-track { background: #d4d0c8; }
+.pb-theme--classic ::-webkit-scrollbar-thumb {
+  background: #d4d0c8;
+  border: 0;
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #ffffff,
+    inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+}
+.pb-theme--classic ::-webkit-scrollbar-button:vertical:start {
+  background: url("./glyphs/scroll-up-98.svg") center / 16px 17px no-repeat;
+  display: block;
+  height: 17px;
+}
+.pb-theme--classic ::-webkit-scrollbar-button:vertical:end {
+  background: url("./glyphs/scroll-down-98.svg") center / 16px 17px no-repeat;
+  display: block;
+  height: 17px;
+}
+
+/* the module bar loses its gradient along with everything else */
+.pb-theme--classic .pb-modulebar__btn:hover,
+.pb-theme--classic .pb-modulebar__btn.is-active { background: var(--pb-btn-face); }
+.pb-theme--classic .pb-modulebar__btn.is-active {
+  box-shadow: inset 1px 1px #0a0a0a, inset 2px 2px #808080;
+}

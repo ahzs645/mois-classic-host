@@ -1,0 +1,177 @@
+/* ============================================================================
+   pb/chrome — desktop, window frame, title bar, menu bar, status bar
+   ========================================================================= */
+
+.pb-root,
+.pb-root * { box-sizing: border-box; }
+
+.pb-root {
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  line-height: 1.35;
+}
+
+/* --- desktop ------------------------------------------------------------ */
+.pb-desktop {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background:
+    radial-gradient(1200px 800px at 30% 25%, #2d5c8f 0%, #16365c 55%, #0d2239 100%);
+}
+
+/* --- window ------------------------------------------------------------- */
+.pb-window {
+  display: flex;
+  flex-direction: column;
+  background: var(--pb-face);
+  border: 1px solid #6f6f6f;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
+  overflow: hidden;
+}
+/* an MDI child sits inside another window: lighter shadow, no outer glow */
+.pb-window--child {
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .35);
+  border-color: #8a8a8a;
+}
+
+.pb-titlebar {
+  display: flex;
+  align-items: center;
+  height: var(--pb-titlebar-h);
+  padding-left: 9px;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e6e6;
+  font-family: var(--pb-font-chrome);
+  font-size: var(--pb-fs-chrome);
+  color: #1a1a1a;
+  user-select: none;
+  flex: none;
+}
+.pb-window--inactive > .pb-titlebar { color: #999; }
+
+.pb-titlebar__icon {
+  width: 16px; height: 16px;
+  margin-right: 8px;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.pb-titlebar__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the trailing " chart no.: 3924 - encounter no.: 10065087" part */
+.pb-titlebar__sub { padding-left: 14px; }
+
+.pb-titlebar__spacer { flex: 1 1 auto; min-width: 12px; }
+
+.pb-titlebar__buttons { display: flex; flex: none; align-self: stretch; }
+.pb-titlebar__btn {
+  width: 46px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #1a1a1a;
+  cursor: default;
+  padding: 0;
+}
+.pb-titlebar__btn:hover { background: #e5e5e5; }
+.pb-titlebar__btn--close:hover { background: #e81123; color: #fff; }
+.pb-titlebar__btn:disabled { color: #c4c4c4; }
+.pb-titlebar__btn:disabled:hover { background: transparent; }
+
+/* --- menu bar ----------------------------------------------------------- */
+.pb-menubar {
+  display: flex;
+  align-items: stretch;
+  height: var(--pb-menubar-h);
+  background: #ffffff;
+  font-family: var(--pb-font-chrome);
+  font-size: var(--pb-fs-chrome);
+  user-select: none;
+  flex: none;
+}
+.pb-menubar__item {
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+  white-space: nowrap;
+}
+.pb-menubar__item:hover,
+.pb-menubar__item[aria-expanded="true"] { background: #cce8ff; }
+
+.pb-menu {
+  position: absolute;
+  z-index: 60;
+  min-width: 168px;
+  padding: 2px;
+  background: #f2f2f2;
+  border: 1px solid #b5b5b5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+  font-family: var(--pb-font-chrome);
+  font-size: var(--pb-fs-chrome);
+}
+.pb-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 10px 4px 24px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: default;
+}
+.pb-menu__item:hover { background: #cce8ff; }
+.pb-menu__item:disabled { color: #a0a0a0; }
+.pb-menu__item:disabled:hover { background: transparent; }
+.pb-menu__key { margin-left: auto; color: #6d6d6d; }
+.pb-menu__sep { height: 1px; margin: 3px 6px; background: #d3d3d3; }
+
+/* --- status bar --------------------------------------------------------- */
+.pb-statusbar {
+  display: flex;
+  align-items: stretch;
+  height: var(--pb-status-h);
+  background: var(--pb-face);
+  border-top: 1px solid #d6d6d6;
+  font-size: var(--pb-fs);
+  flex: none;
+}
+.pb-statusbar__cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-right: 1px solid #c8c8c8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-statusbar__cell:last-child { border-right: 0; }
+.pb-statusbar__cell--grow { flex: 1 1 auto; min-width: 0; }
+.pb-statusbar__label { color: var(--pb-text); }
+.pb-statusbar__value { color: var(--pb-text); }
+
+/* --- generic hyperlink -------------------------------------------------- */
+.pb-link {
+  color: var(--pb-link);
+  text-decoration: underline;
+  cursor: default;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+}
+.pb-link:hover { color: #d00; }

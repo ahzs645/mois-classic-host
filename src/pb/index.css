@@ -1,0 +1,10 @@
+/* ============================================================================
+   pb — PowerBuilder Classic UI Kit
+   A pure-CSS recreation of the MOIS / PowerBuilder look on Windows 10.
+   The kit itself is `kit.css` (plain `.pb-*` classes, safe to embed in another
+   page); this file adds the document rules the standalone viewer app wants.
+   ========================================================================= */
+@import "./kit.css";
+
+html, body, #root { height: 100%; }
+body { margin: 0; background: #0d2239; }

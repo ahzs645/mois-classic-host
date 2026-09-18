@@ -1,0 +1,317 @@
+/* ============================================================================
+   pb/controls — buttons, fields, combos, checkboxes, radios, sliders
+   ========================================================================= */
+
+/* --- push button (Win10 common control) --------------------------------- */
+.pb-btn {
+  height: var(--pb-row-h);
+  min-width: 68px;
+  padding: 0 10px;
+  border: 1px solid var(--pb-btn-border);
+  background: var(--pb-btn-face);
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  cursor: default;
+  white-space: nowrap;
+  user-select: none;
+}
+.pb-btn:hover:not(:disabled) { background: var(--pb-btn-hover); border-color: var(--pb-btn-hover-brd); }
+.pb-btn:active:not(:disabled) { background: var(--pb-btn-active); border-color: var(--pb-btn-active-brd); }
+.pb-btn:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
+.pb-btn:disabled { color: #a0a0a0; background: #f0f0f0; border-color: #d4d4d4; }
+.pb-btn--default { border-color: var(--pb-accent); }
+.pb-btn--sm { min-width: 0; height: 17px; padding: 0 7px; }
+.pb-btn--wide { min-width: 96px; }
+
+/* --- PB command row -----------------------------------------------------
+   The button strip under a view header. PowerBuilder draws these as hard
+   1px black rectangles butted edge to edge — no gap, no rounding, shared
+   borders. This single detail does more for authenticity than anything else. */
+.pb-cmdrow {
+  display: flex;
+  align-items: stretch;
+  background: var(--pb-face);
+  flex: none;
+}
+.pb-cmdrow__btn {
+  height: 20px;
+  min-width: 62px;
+  flex: none;            /* clip at a button edge, never mid-caption */
+  padding: 0 11px;
+  border: 1px solid var(--pb-border-hard);
+  margin-right: -1px;                /* collapse to a shared 1px rule */
+  background: var(--pb-btn-flat-face);
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  cursor: default;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+.pb-cmdrow__btn:hover:not(:disabled) { background: #e5f1fb; z-index: 1; }
+.pb-cmdrow__btn:active:not(:disabled) { background: #cce4f7; z-index: 1; }
+.pb-cmdrow__btn[aria-pressed="true"] { background: #cce4f7; z-index: 1; }
+.pb-cmdrow__btn:disabled { color: #a3a3a3; background: #f4f4f4; }
+.pb-cmdrow__gap { width: 9px; flex: none; }
+.pb-cmdrow__spacer { flex: 1 1 auto; }
+
+/* --- field: the base 1px box -------------------------------------------- */
+.pb-field {
+  height: var(--pb-row-h);
+  padding: 0 3px;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-field-bg);
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  min-width: 0;
+}
+.pb-field:focus { outline: none; border-color: var(--pb-border-strong); }
+.pb-field::placeholder { color: #b0b0b0; }
+/* MOIS draws two distinct non-editable states and they do not look alike:
+   protected  = grey fill, black text  (e.g. "Visit Code: R")
+   disabled   = pale fill, grey text   (e.g. "Service Episode: PRENATAL CARE") */
+.pb-field[readonly] { background: var(--pb-field-ro); }
+.pb-field:disabled {
+  background: #fdfdfd;
+  color: var(--pb-text-dim);
+  border-color: #cfcfcf;
+}
+.pb-field--center { text-align: center; }
+.pb-field--right  { text-align: right; }
+
+/* multiline */
+textarea.pb-field {
+  height: auto;
+  padding: 2px 3px;
+  resize: none;
+  line-height: 1.3;
+}
+
+/* --- field + trailing button (combo, "..." lookup, spin) ---------------- */
+.pb-inputgroup { display: flex; align-items: stretch; min-width: 0; }
+.pb-inputgroup > .pb-field { flex: 1 1 auto; border-right: 0; }
+.pb-inputgroup__btn {
+  width: 17px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-btn-face);
+  color: #3c3c3c;
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  line-height: 1;
+  cursor: default;
+  padding: 0;
+}
+.pb-inputgroup__btn:hover:not(:disabled) { background: #d8d8d8; }
+.pb-inputgroup__btn:active:not(:disabled) { background: #c6c6c6; }
+.pb-inputgroup__btn:disabled { color: #b4b4b4; background: #f2f2f2; border-color: #d4d4d4; }
+/* the ellipsis lookup button is a touch wider and sits flush */
+.pb-inputgroup__btn--dots { width: 18px; font-size: var(--pb-fs); letter-spacing: -1px; }
+.pb-inputgroup__btn--drop { width: 18px; }
+
+/* --- select ------------------------------------------------------------- */
+.pb-select {
+  height: var(--pb-row-h);
+  padding: 0 18px 0 3px;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-field-bg);
+  /* first layer paints on top, so the arrow must lead and the button face
+     (plus its 1px separator rule) follow underneath it */
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='7' height='5'><path d='M0 0h7L3.5 5z' fill='%233c3c3c'/></svg>"),
+    linear-gradient(90deg, var(--pb-border) 0 1px, var(--pb-btn-face) 1px);
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 5px center, right 0 center;
+  background-size: 7px 5px, 18px 100%;
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: default;
+  min-width: 0;
+}
+.pb-select:disabled { background-color: var(--pb-field-ro); color: var(--pb-text-dim); border-color: #cfcfcf; }
+
+/* --- checkbox / radio ----------------------------------------------------
+   These are the clearest evidence that MOIS is NOT a Windows 10 application
+   wearing Win10 controls. A PowerBuilder app without a visual-styles manifest
+   still gets the Windows 95-era common controls, even on Win10 — so the frame
+   is modern and flat while the controls inside the client area are classic.
+
+   Measured from a checked checkbox in scheduler-provider-daybook-left.png:
+   13x13 box, 1px #2f2d2e border, white fill, chunky #4a4849..#706e6f tick.
+   That is the pixel shape of XP.css's `themes/98/icon/checkmark.svg`, which
+   is vendored in ./glyphs (see glyphs/ATTRIBUTION.md).                     */
+.pb-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  line-height: var(--pb-row-h);
+}
+.pb-check input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.pb-check__box {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border: 1px solid var(--pb-check-border);
+  background: var(--pb-field-bg);
+  background-repeat: no-repeat;
+  background-position: center;
+  display: grid;
+  place-items: center;
+}
+.pb-check:hover .pb-check__box { border-color: var(--pb-check-hover); }
+
+/* The tick is drawn as a mask rather than an image so the colour stays a
+   token: the screenshots put it at roughly #5a5a5a, not black. */
+.pb-check input:checked + .pb-check__box::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: var(--pb-check-tick);
+  -webkit-mask: url("./glyphs/checkmark-98.svg") center / 7px 7px no-repeat;
+  mask: url("./glyphs/checkmark-98.svg") center / 7px 7px no-repeat;
+}
+.pb-check input:disabled + .pb-check__box {
+  border-color: #b8b8b8;
+  background-color: var(--pb-face);
+}
+.pb-check input:disabled:checked + .pb-check__box::after { background: #9a9a9a; }
+.pb-check input:disabled ~ .pb-check__label { color: var(--pb-text-dim); }
+.pb-check input:focus-visible + .pb-check__box { outline: 1px dotted #000; outline-offset: 2px; }
+
+/* the classic radio is a hard ring with a large dot, not Win10's thin ring */
+.pb-check--radio .pb-check__box {
+  border: 0;
+  border-radius: 50%;
+  background-color: transparent;
+  background-image: var(--pb-radio-ring);
+  background-size: 13px 13px;
+}
+/* a checked radio keeps its ring — the tick belongs to checkboxes only */
+.pb-check--radio input:checked + .pb-check__box::after { content: none; }
+.pb-check--radio:hover .pb-check__box { filter: brightness(.92); }
+.pb-check--radio .pb-check__dot {
+  width: 5px;
+  height: 5px;
+  background: url("./glyphs/radio-dot-98.svg") center / 5px 5px no-repeat;
+  display: none;
+}
+.pb-check--radio input:checked + .pb-check__box .pb-check__dot { display: block; }
+.pb-check--radio input:disabled + .pb-check__box { background-image: var(--pb-radio-ring-disabled); }
+.pb-check--radio input:disabled:checked + .pb-check__box .pb-check__dot {
+  background-image: url("./glyphs/radio-dot-98-disabled.svg");
+}
+
+/* --- spinner (up/down edit) ---------------------------------------------
+   XP.css's spinbox chevrons are the one asset in that repo with no Luna
+   styling — plain #4D6185 — so they drop straight into a Win10-era frame. */
+.pb-spin { display: inline-flex; align-items: stretch; min-width: 0; }
+.pb-spin > .pb-field { flex: 1 1 auto; border-right: 0; }
+.pb-spin__buttons { display: flex; flex-direction: column; width: 17px; flex: none; }
+.pb-spin__btn {
+  flex: 1 1 0;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-btn-face) center / 9px 5px no-repeat;
+  padding: 0;
+  cursor: default;
+}
+.pb-spin__btn--up   { background-image: url("./glyphs/spinbox-up.svg"); border-bottom: 0; }
+.pb-spin__btn--down { background-image: url("./glyphs/spinbox-down.svg"); }
+.pb-spin__btn:hover:not(:disabled)  { background-color: #d8d8d8; }
+.pb-spin__btn:active:not(:disabled) { background-color: #c6c6c6; }
+.pb-spin__btn:disabled { opacity: .45; }
+
+/* --- trackbar / slider --------------------------------------------------- */
+.pb-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: default;
+}
+.pb-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #d6d6d6;
+  border: 1px solid #b0b0b0;
+}
+.pb-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px; height: 18px;
+  margin-top: -8px;
+  background: #007ad9;
+  border: 0;
+}
+.pb-slider::-moz-range-track { height: 4px; background: #d6d6d6; border: 1px solid #b0b0b0; }
+.pb-slider::-moz-range-thumb { width: 8px; height: 18px; border: 0; border-radius: 0; background: #007ad9; }
+
+/* --- scrollbars ---------------------------------------------------------- */
+.pb-root ::-webkit-scrollbar { width: 16px; height: 16px; }
+.pb-root ::-webkit-scrollbar-track { background: #f0f0f0; }
+.pb-root ::-webkit-scrollbar-thumb { background: #cdcdcd; border: 3px solid #f0f0f0; }
+.pb-root ::-webkit-scrollbar-thumb:hover { background: #a6a6a6; }
+.pb-root ::-webkit-scrollbar-corner { background: #f0f0f0; }
+
+/* --- DropDownDataWindow --------------------------------------------------
+   A PowerBuilder DDDW drops a *grid* rather than a plain list: a grey header
+   row, zebra-striped rows and no cell borders, inside a hard 1px black frame.
+   Measured off the Provider Waiting List capture.                          */
+.pb-dddw { position: relative; display: inline-flex; align-items: stretch; min-width: 0; }
+.pb-dddw > .pb-field { flex: 1 1 auto; border-right: 0; }
+
+.pb-dddw__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 90;
+  max-height: 232px;
+  overflow: auto;
+  border: 1px solid #000;
+  background: var(--pb-window);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+}
+.pb-dddw__table { border-collapse: collapse; width: 100%; font-size: var(--pb-fs); }
+.pb-dddw__table th {
+  position: sticky;
+  top: 0;
+  height: 18px;
+  padding: 0 5px;
+  background: #c7c7c7;
+  border-right: 1px solid #fff;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+.pb-dddw__table th:last-child { border-right: 0; }
+.pb-dddw__table td {
+  height: 18px;
+  padding: 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.pb-dddw__table tbody tr:nth-child(even) { background: #eeeee4; }
+.pb-dddw__table tbody tr:hover { background: var(--pb-select); }
+.pb-dddw__table tbody tr.is-current { background: #000080; color: #fff; }
+
+/* --- flagged field -------------------------------------------------------
+   MOIS marks a control the user has changed by painting its *label* yellow.
+   Seen on Preferred Gender in Demographics > Patient Detail.              */
+.pb-form__label--flagged,
+.pb-flag {
+  background: var(--pb-yellow);
+  padding: 0 3px;
+  font-weight: 700;
+}
