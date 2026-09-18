@@ -4,7 +4,7 @@ import {
   useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
 } from '../pb'
 import {
-  adminTree, billingTree, exchangeTree, makeMainMenu, modules, patientChartTree,
+  adminTree, billingTree, encounterRows, exchangeTree, makeMainMenu, modules, patientChartTree,
   reportsTree, schedulerTree, statusCells, workspaceTree,
   type CarePlanKey, type PBTheme,
 } from '../data/mois'
@@ -350,11 +350,23 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
           clickAnchor(`host.mois.menu.${menu}.${slug('item')}`)
           return undefined
         }
+        case 'host.mois.openWindow': {
+          /* replays a double-click on a grid row: the first encounter, or
+             the one at args.index, opens in its own MDI window */
+          if (args.kind !== undefined && args.kind !== 'encounter') throw new Error(`${actionId}: unknown window kind ${String(args.kind)}`)
+          const index = typeof args.index === 'number' ? args.index : 0
+          const row = encounterRows[index]
+          if (!row) throw new Error(`${actionId}: no encounter row ${index}`)
+          openNode('encounters')
+          await nextFrame()
+          openEncounter(row)
+          return undefined
+        }
         case 'host.mois.closeDialog': closeDialogs(); return undefined
         default: throw new Error(`This MOIS action is not available: ${actionId}`)
       }
     },
-  }), [clickAnchor, closeDialogs, openNode, pickModule, toggle])
+  }), [clickAnchor, closeDialogs, openEncounter, openNode, pickModule, toggle])
 
   useEffect(() => { onReady?.(api) }, [api, onReady])
 

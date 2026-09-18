@@ -93,7 +93,7 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     },
     'host.mois.openWindow': {
       label: 'Open a record in its own window',
-      description: 'Double-click a grid row that opens an MDI child window (an encounter).',
+      description: 'Double-click a grid row that opens an MDI child window (an encounter). Replay opens the first encounter, or args.index.',
     },
     'host.mois.closeDialog': {
       label: 'Close the open dialog',
