@@ -26,6 +26,7 @@ pnpm install && pnpm dev
 
   | Tree node | Screen |
   |---|---|
+  | Patient Chart ▸ Patient Summary | Patient Summary — chart block, day windows, coloured section bands |
   | Patient Chart ▸ Orders | Order — Report / Distribution / Links / Office Notes / History |
   | Patient Chart ▸ Demographic | Demographics — Demographics, Settings, Incentives, Benefits |
   | Patient Chart ▸ Imaging | Imaging Reports — report body + acknowledgement rail |
@@ -47,14 +48,75 @@ pnpm install && pnpm dev
   Child windows: **Order ▸ Attachment** and **Encounter ▸ Service(s) ▸ New…**
   open Patient Service Event; **Goals ▸ New Record** opens New Goal;
   **Demographics ▸ Benefits ▸ Edit** opens the benefit editor, whose **Save**
-  raises a classic `PBMessageBox`.
+  raises a classic `PBMessageBox`; the **"…"** beside Chart No. (and **Search**,
+  **Go To Chart…**, **Record ▸ Find**) opens the Advanced Lookup Service.
+
+### The window behaves like a window
+
+The frame is **maximised** by default, filling the desktop with the inset a
+Windows application keeps, and behaves like a window from there:
+
+- drag any of the **eight edges and corners** to resize. A maximised window
+  restores under the grip and keeps resizing in the same gesture, so there is
+  never a state where the edges look draggable and are not.
+- drag the **title bar** to move it. Maximised, that restores the window under
+  the pointer first, the way Windows does.
+- the title bar's **Restore Down / Maximize** button, or a double-click on the
+  bar, toggles the two.
+
+It stops shrinking at **1180px wide**, which is the point a real PowerBuilder
+window stops reflowing: below that the desktop scrolls underneath it instead.
+That is worth being able to see rather than design around.
+
+The **minimise** button is still decorative — a single-window desktop has no
+taskbar to minimise into, and pretending otherwise would be worse than leaving
+it inert.
+
+### One chart at a time
+
+MOIS is a chart-at-a-time application, and so is this. `src/data/patients.ts`
+holds the roster — 21 fictional charts transcribed from the training
+environment's Patient Chart List — and `src/data/patient-context.tsx` holds the
+open one. Every chart window reads it through `usePatient()`, so picking a row
+in the **Advanced Lookup Service** (or **Previous/Next Chart**, or typing a
+chart number into Chart No. and pressing Enter) changes the identity strips,
+the patient banners, Demographics and the summary together.
+
+That roster is the **fallback**, not a fixture. A host passes its own patients
+in through the `patients` prop and may own the open chart (`chart` +
+`onChartChange`), which is how Webforms points the emulator at whichever
+patient its Patients dialog is on — and how a chart opened in the lookup
+becomes that dialog's active patient. The transcribed 21 are what the
+standalone viewer shows when nobody supplies anything.
+
+What does *not* change with the chart is the clinical detail: orders,
+encounters, measures and the rest are one shared sample set, because the kit
+exists to show the screens rather than to be a database. The Patient Summary's
+DEMOGRAPHICS, ALIAS IDS and CONNECTIONS bands are the exception — they are
+built from the open chart's own record.
+
+### The menus
+
+All eight menus — Record, Modules, Views, Action, Utilities, Print,
+Maintenance, Help — are transcribed item for item, with their accelerators,
+from `reference/menus/`. Views, Health Issues, Care Plan, Allergy/Intolerances
+and Forms have real fly-out submenus, and the Views items select the tree node
+they name, so the menu bar navigates the same screens the tree does.
+
+Real MOIS has no Window menu, so neither does this. The two things the kit
+needs and MOIS has nowhere to put are parked where they read most naturally:
+the open MDI sheets at the foot of **Views**, and the three looks at the foot
+of **Maintenance** as *Appearance: …*.
 
 ### Transcribed vs extrapolated
 
 Be clear about which is which:
 
 - **Transcribed** — screens measured out of the 43 reference screenshots.
-  These match down to the geometry.
+  These match down to the geometry. Patient Summary, the Advanced Lookup
+  Service, the patient roster and every menu come from the later captures in
+  `reference/` and `reference/menus/`, including the five Patient Summary band
+  colours, which were sampled pixel by pixel.
 - **Audited** — screens whose columns come from the MOIS field audit
   (1,074 verified control→column mappings across 48 tables, extracted to
   [`reference/field-audit.md`](reference/field-audit.md)). Marked
@@ -83,13 +145,24 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
 - **`moisClassicHostManifest`** — `id`, `label`, `fixtures` (starting points
   and their initial `host.*` state), `snapshotPaths`, `actions` and `anchors`.
   React-free, so a host can read it without bundling the screens.
-- **`<MoisClassicShell fixture onAction onStateChange onReady formSlot />`**
+- **`<MoisClassicShell fixture patients chart onChartChange onAction onStateChange onReady formSlot />`**
+  - `patients` is the chart roster — `{ chart, first, last }` plus whatever of
+    `middle / alias / dob / gender / home / insurance / insuranceBy / dep /
+    bchn / note / location / registered / provider` the host has. Missing
+    fields render blank rather than borrowing another chart's. Omit the prop
+    and the emulator uses its own training roster.
+  - `chart` + `onChartChange` make the open chart controlled, so the host and
+    the emulator never disagree about who is on screen.
   - `onAction(id, payload)` reports `host.mois.selectNode { node }`,
     `host.mois.selectModule { module }`, `host.mois.command { command }`,
     `host.mois.selectTab { tab }`, `host.mois.menu { menu, item }`,
-    `host.mois.toggleNode`, `host.mois.openWindow`, `host.mois.closeDialog` —
-    slugs only, never patient data.
-  - `onStateChange(state)` reports `{ module, node, view, tab, dialog, windows, theme }`.
+    `host.mois.lookup { field, dialog }`, `host.mois.selectPatient { chart }`,
+    `host.mois.status { link }`, `host.mois.toggleNode`,
+    `host.mois.openWindow`, `host.mois.closeDialog` — slugs only. The one
+    patient-derived value is the chart number, which a lesson about finding a
+    chart has to be able to grade; the roster it names is fictional.
+  - `onStateChange(state)` reports `{ module, node, view, tab, dialog, patient, windows, theme }`,
+    where `patient` is the open chart's number.
   - `onReady(api)` hands over `api.perform(actionId, args)`, which replays any
     action natively (opening a nested tree node expands its branch first), and
     `api.getState()`.
@@ -97,7 +170,9 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
 - **Anchors**: `data-tutorial-id` on the desktop (`host.mois.desktop`), the
   navigator and work area, every tree node (`host.mois.tree.<id>`), module
   button (`host.mois.module.<id>`), command button (`host.mois.command.<slug>`),
-  tab (`host.mois.tab.<slug>`) and menu item (`host.mois.menu.<menu>.<item>`).
+  tab (`host.mois.tab.<slug>`), menu item (`host.mois.menu.<menu>.<item>`),
+  lookup button (`host.mois.lookup.<field>`) and status-bar link
+  (`host.mois.status.<link>`).
   Command rows, tabs and menus get theirs from `PBInstrumentationProvider`
   (`src/pb/instrumentation.tsx`), so a screen added later is instrumented for
   free; outside a provider the kit renders exactly as before.
@@ -236,7 +311,7 @@ The stylesheet stands alone:
 
 ## Components
 
-`PBWindow` · `PBMenuBar` · `PBStatusBar` · `PBViewHeader` · `PBBand` ·
+`PBWindow` · `PBMenuBar` (one level of fly-out submenus) · `PBStatusBar` · `PBViewHeader` · `PBBand` ·
 `PBGroupBox` · `PBCommandRow` · `PBButton` · `PBInput` · `PBTextArea` ·
 `PBSelect` · `PBLookup` · `PBDropField` · `PBCheckbox` · `PBRadio` ·
 `PBSlider` · `PBSpinner` · `PBDropDownDataWindow` · `PBTabs` · `PBTree` · `PBModuleBar` ·
@@ -250,6 +325,28 @@ frame's **Window** menu.
 
 `PBDataWindow` takes `groupBy` for collapsible group bands, `rowStatus` for
 `alert` / `ok` / `highlight` row colouring, and `rowIcon` for a gutter glyph.
+Bands can be captioned and coloured per group (`groupLabel`, `groupAccent`)
+and driven from outside (`collapsed` + `onCollapsedChange`, which is what
+Expand All / Collapse All use); `filters` puts a control per column above the
+headers, and `head="grey"` swaps the DataWindow blue for the window face.
+`anchored` is for the one grid a screen is built around: the control fills the
+frame while the columns keep their painted widths, so the white canvas and the
+scrollbar reach the right edge and the columns do not.
+
+## Windows are painted at a fixed size
+
+A PowerBuilder window has one design width; only right-anchored controls grow
+with the frame. On a wide monitor a MOIS screen is therefore content on the
+left and empty window face on the right — which is what every capture shows.
+
+Screens set `--pb-design-w` on their root and wrap the blocks that should not
+stretch in `PBFixed`. Demographics and Order are painted at 1056px. The
+identity strip is painted at fixed offsets too, so `PBIdentityStrip` fields
+take a `w`; screens that have not been measured fall back to a default gap.
+
+`PBGroup` is the classic Win32 GroupBox — a rectangle with a navy caption set
+into its top border, which is what Demographics and the Order report page are
+built from. `PBGroupBox` remains the banded variant.
 
 ## Reference
 

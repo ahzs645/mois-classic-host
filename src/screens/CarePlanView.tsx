@@ -3,7 +3,8 @@ import {
   PBIdentityStrip, PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSlider,
   PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { carePlanScreens, linkedGoalRows, patient, type CarePlanKey } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { carePlanScreens, linkedGoalRows, type CarePlanKey } from '../data/mois'
 
 /* Needs for Care, Goals, Planned Actions, Barriers to Care, Risks for
    Conditions and Conditions are all the same PowerBuilder window with a
@@ -13,6 +14,7 @@ import { carePlanScreens, linkedGoalRows, patient, type CarePlanKey } from '../d
 type Row = Record<string, any>
 
 export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: () => void }) {
+  const patient = usePatient()
   const cfg = carePlanScreens[screen]
   const [tab, setTab] = useState<string>(cfg.tabs[0])
   const [risk, setRisk] = useState(1)

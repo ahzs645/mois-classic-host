@@ -30,6 +30,22 @@
   box-shadow: 0 14px 44px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
   overflow: hidden;
 }
+/* --- resize grips --------------------------------------------------------
+   Drawn inside the frame so `overflow: hidden` cannot clip them. Invisible:
+   the cursor is the whole affordance, the way a Windows frame works.       */
+.pb-window__grip { position: absolute; z-index: 30; }
+.pb-window__grip--n { top: 0; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
+.pb-window__grip--s { bottom: 0; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
+.pb-window__grip--w { left: 0; top: 6px; bottom: 6px; width: 5px; cursor: ew-resize; }
+.pb-window__grip--e { right: 0; top: 6px; bottom: 6px; width: 5px; cursor: ew-resize; }
+.pb-window__grip--nw { top: 0; left: 0; width: 8px; height: 8px; cursor: nwse-resize; }
+.pb-window__grip--se { bottom: 0; right: 0; width: 8px; height: 8px; cursor: nwse-resize; }
+.pb-window__grip--ne { top: 0; right: 0; width: 8px; height: 8px; cursor: nesw-resize; }
+.pb-window__grip--sw { bottom: 0; left: 0; width: 8px; height: 8px; cursor: nesw-resize; }
+
+/* a movable title bar drags the window rather than selecting its caption */
+.pb-titlebar--movable { cursor: default; user-select: none; }
+
 /* an MDI child sits inside another window: lighter shadow, no outer glow */
 .pb-window--child {
   box-shadow: 0 8px 26px rgba(0, 0, 0, .35);
@@ -137,6 +153,9 @@
 .pb-menu__item:disabled { color: #a0a0a0; }
 .pb-menu__item:disabled:hover { background: transparent; }
 .pb-menu__key { margin-left: auto; color: #6d6d6d; }
+.pb-menu__item--parent { padding-right: 18px; }
+.pb-menu__arrow { margin-left: auto; color: #3c3c3c; font-size: 13px; line-height: 1; }
+.pb-menu__item--parent .pb-menu__key + .pb-menu__arrow { margin-left: 8px; }
 .pb-menu__sep { height: 1px; margin: 3px 6px; background: #d3d3d3; }
 
 /* --- status bar --------------------------------------------------------- */
@@ -175,3 +194,22 @@
   font: inherit;
 }
 .pb-link:hover { color: #d00; }
+
+/* A jump into a MOIS module: MOIS's own "go to record" glyph and nothing
+   else — the same asset `ActionGotoRecord` / `LinkToMois` render in a real
+   form (`public/img/GotoRecord.png`, vendored in glyphs/). The module name
+   stays as the accessible name and the tooltip, so the cell still says where
+   it goes without printing it. Background image rather than an <img> so the
+   one file works in both bundlers the kit is built by. */
+.pb-link--mois {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: url("./glyphs/goto-record.png") center / 14px 14px no-repeat;
+  /* the label is the accessible name only; nothing is painted */
+  font-size: 0;
+  color: transparent;
+  text-decoration: none;
+}
+.pb-link--mois:hover { background-color: var(--pb-btn-hover); }

@@ -72,7 +72,8 @@ export function PBSummaryBand({ title, links }: { title: ReactNode; links?: stri
 export function PBIdentityStrip({
   fields, encounter, onEncounterLookup,
 }: {
-  fields: { label: string; value?: ReactNode }[]
+  /** `w` is the painted column width; the last field does not need one */
+  fields: { label: string; value?: ReactNode; w?: number }[]
   /** omit for screens that have no active-encounter block */
   encounter?: ReactNode
   onEncounterLookup?: () => void
@@ -80,7 +81,7 @@ export function PBIdentityStrip({
   return (
     <div className="pb-identity">
       {fields.map((f, i) => (
-        <span className="pb-identity__field" key={i}>
+        <span className="pb-identity__field" key={i} style={{ width: f.w }}>
           <span>{f.label}&nbsp;</span>
           <b>{f.value}</b>
         </span>

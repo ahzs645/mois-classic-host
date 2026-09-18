@@ -28,3 +28,15 @@ stroke Windows 10 draws.
 The XP set was left out: its checkmark is Luna green (`#22a122`) and its radio
 dot green (`#4dbf4a`). The two spinbox chevrons are the exception — plain
 `#4D6185`, no Luna styling — so they are vendored for `PBSpinner`.
+
+## goto-record.png
+
+MOIS's own "go to record" glyph, copied from the Webforms repo at
+`public/img/GotoRecord.png`. It is the icon a real MOIS form shows for a link
+into a MOIS module — `ActionGotoRecord` / `LinkToMois` in
+`packages/form-components` render this same file — so the emulator uses it for
+the Patient Summary hyperlink column, which is the same thing: a jump from the
+summary into the module that owns the row.
+
+Vendored rather than referenced as `/img/GotoRecord.png` so the kit still
+renders in its own Vite viewer, where the Webforms `public/` tree is not there.

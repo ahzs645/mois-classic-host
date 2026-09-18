@@ -4,7 +4,8 @@ import {
   PBInput, PBLookup, PBPatientBannerBlue, PBSelect, PBTextArea, PBViewHeader,
   PBWindow, type PBColumn,
 } from '../pb'
-import { adminSites, marRows, patient } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { adminSites, marRows } from '../data/mois'
 
 /* MAR list, plus the Medication Administration Detail Record child window it
    opens. Transcribed from the tdt_mar evidence capture. */
@@ -20,6 +21,7 @@ const columns: PBColumn<Record<string, string>>[] = [
 ]
 
 export function MarView() {
+  const patient = usePatient()
   const [open, setOpen] = useState(false)
   const [cur, setCur] = useState(0)
 
@@ -63,6 +65,7 @@ export function MarView() {
 
 /* --- Medication Administration Detail Record ----------------------------- */
 export function MarDetailDialog({ onClose }: { onClose: () => void }) {
+  const patient = usePatient()
   return (
     <div className="pb-modal-layer">
       <PBWindow
@@ -75,7 +78,7 @@ export function MarDetailDialog({ onClose }: { onClose: () => void }) {
           top={[
             { label: 'CHART NO.', value: '87297', w: 92 },
             { label: 'PATIENT (F/M/L)', value: patient.full, w: 220 },
-            { label: 'DATE OF BIRTH', value: '1986.12.19', w: 150 },
+            { label: 'DATE OF BIRTH', value: patient.dob, w: 150 },
             { label: 'GENDER', value: patient.sex, w: 74 },
             { label: 'BC HEALTH NO.', value: '666666667' },
           ]}

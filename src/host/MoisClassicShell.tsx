@@ -4,10 +4,16 @@ import {
   useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
 } from '../pb'
 import {
-  adminTree, billingTree, encounterRows, exchangeTree, makeMainMenu, modules, patientChartTree,
-  reportsTree, schedulerTree, statusCells, workspaceTree,
+  adminTree, billingTree, encounterRows, exchangeTree, makeMainMenu, makeStatusCells, modules,
+  patientChartTree, reportsTree, schedulerTree, workspaceTree,
   type CarePlanKey, type PBTheme,
 } from '../data/mois'
+import {
+  DEFAULT_CHART, findPatient, normalizePatient, patients as trainingRoster, stepChart, type Patient,
+} from '../data/patients'
+import { PatientProvider } from '../data/patient-context'
+import { PatientSummaryView } from '../screens/PatientSummaryView'
+import { AdvancedLookupDialog } from '../screens/AdvancedLookupDialog'
 import { EncounterListView, OrderView } from '../screens/OrderView'
 import { SchedulerView } from '../screens/SchedulerView'
 import { DemographicsView } from '../screens/DemographicsView'
@@ -49,7 +55,7 @@ import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './type
    ========================================================================= */
 
 type View =
-  | 'order' | 'encounters' | 'scheduler' | 'demographics' | 'notifications'
+  | 'summary' | 'order' | 'encounters' | 'scheduler' | 'demographics' | 'notifications'
   | 'groupvisit' | 'careplan' | 'goals' | 'imaging' | 'resourcebook' | 'section' | 'daygrid' | 'rx' | 'ltm' | 'printhx' | 'waitprov' | 'waitres' | 'report' | 'mar' | 'determinants'
 
 /* The MDI window classes this frame can instantiate. Each is opened by key,
@@ -80,6 +86,7 @@ const MODULE_TREES: Record<string, { tree: PBTreeNode[]; label: string; first: s
    the shared chart-section window, the way an unimplemented MOIS node lands
    somewhere. */
 const ROUTES: Record<string, View> = {
+  summary: 'summary',
   orders: 'order',
   demographic: 'demographics',
   notifications: 'notifications',
@@ -164,6 +171,152 @@ function moduleOfNode(id: string): string | null {
 
 const cx = (...v: (string | false | undefined | null)[]) => v.filter(Boolean).join(' ')
 
+/* ---------------------------------------------------------------------------
+   The frame window's geometry.
+
+   Maximised it fills the desktop with the inset a Windows app keeps; restored
+   it is an ordinary movable, resizable window. `MIN_W` is the width below
+   which the PowerBuilder window stops shrinking and the desktop scrolls
+   instead — real MOIS behaves the same way, and it is worth being able to see.
+   ------------------------------------------------------------------------ */
+const FRAME_INSET = { left: 24, top: 18, bottom: 18 }
+const MIN_W = 1180
+const MIN_H = 420
+
+type Rect = { left: number; top: number; width: number; height: number }
+
+function useFrameGeometry(desktopRef: React.RefObject<HTMLDivElement | null>) {
+  const [maximized, setMaximized] = useState(true)
+  const [rect, setRect] = useState<Rect | null>(null)
+  /* the live drag: written by pointermove, read on every frame */
+  const drag = useRef<
+    | { kind: 'move'; dx: number; dy: number; start: Rect }
+    | { kind: 'resize'; edge: string; x: number; y: number; start: Rect }
+    | null
+  >(null)
+
+  /** The box the window occupies now, whether maximised or not. */
+  const current = useCallback((): Rect => {
+    const desktop = desktopRef.current
+    const width = desktop?.clientWidth ?? MIN_W + 48
+    const height = desktop?.clientHeight ?? MIN_H + 36
+    if (!maximized && rect) return rect
+    return {
+      left: FRAME_INSET.left,
+      top: FRAME_INSET.top,
+      width: Math.max(MIN_W, width - FRAME_INSET.left * 2),
+      height: Math.max(MIN_H, height - FRAME_INSET.top - FRAME_INSET.bottom),
+    }
+  }, [desktopRef, maximized, rect])
+
+  const toggleMaximized = useCallback(() => {
+    /* restoring down for the first time: come back a little smaller, the way
+       a window remembers a size it has never actually had yet. Computed out
+       here — a setState inside another one's updater does not run reliably. */
+    if (maximized && !rect) {
+      const box = current()
+      setRect({
+        left: box.left + 20,
+        top: box.top + 16,
+        width: Math.max(MIN_W, Math.round(box.width * 0.86)),
+        height: Math.max(MIN_H, Math.round(box.height * 0.88)),
+      })
+    }
+    setMaximized((was) => !was)
+  }, [current, maximized, rect])
+
+  const begin = useCallback((event: React.PointerEvent<HTMLElement>, start: () => typeof drag.current) => {
+    if (event.button !== 0) return
+    /* the title-bar buttons live inside the drag surface */
+    if ((event.target as HTMLElement).closest('.pb-titlebar__btn')) return
+    event.preventDefault()
+    /* capture keeps the drag alive past the window's edge; without it the
+       desktop's own move/up handlers still see the pointer */
+    try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* not capturable */ }
+    drag.current = start()
+  }, [])
+
+  /** The size a maximised window comes back to, so a drag has somewhere to go. */
+  const restoredBox = useCallback((box: Rect): Rect => (rect ?? {
+    left: box.left + 20,
+    top: box.top + 16,
+    width: Math.max(MIN_W, Math.round(box.width * 0.86)),
+    height: Math.max(MIN_H, Math.round(box.height * 0.88)),
+  }), [rect])
+
+  /**
+   * Dragging a maximised window's title bar restores it and keeps dragging,
+   * the way Windows does — the pointer stays at the same place along the bar
+   * so the window does not jump out from under it.
+   */
+  const onMovePointerDown = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const box = current()
+    if (!maximized) {
+      begin(event, () => ({ kind: 'move', dx: event.clientX - box.left, dy: event.clientY - box.top, start: box }))
+      return
+    }
+    const restored = restoredBox(box)
+    const grip = ((event.clientX - box.left) / box.width) * restored.width
+    const start = { ...restored, left: event.clientX - grip, top: Math.max(0, event.clientY - 12) }
+    setMaximized(false)
+    setRect(start)
+    begin(event, () => ({ kind: 'move', dx: grip, dy: event.clientY - start.top, start }))
+  }, [begin, current, maximized, restoredBox])
+
+  /** Dragging any edge does the same: a maximised window restores under the grip. */
+  const onResizePointerDown = useCallback((edge: string, event: React.PointerEvent<HTMLElement>) => {
+    const box = current()
+    if (maximized) {
+      setMaximized(false)
+      setRect(box)
+    }
+    begin(event, () => ({ kind: 'resize', edge, x: event.clientX, y: event.clientY, start: box }))
+  }, [begin, current, maximized])
+
+  const onPointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const move = drag.current
+    if (!move) return
+    if (move.kind === 'move') {
+      setRect({
+        ...move.start,
+        left: Math.max(0, event.clientX - move.dx),
+        top: Math.max(0, event.clientY - move.dy),
+      })
+      return
+    }
+    const dx = event.clientX - move.x
+    const dy = event.clientY - move.y
+    const { left, top, width, height } = move.start
+    const next = { left, top, width, height }
+    if (move.edge.includes('e')) next.width = Math.max(MIN_W, width + dx)
+    if (move.edge.includes('s')) next.height = Math.max(MIN_H, height + dy)
+    if (move.edge.includes('w')) {
+      next.width = Math.max(MIN_W, width - dx)
+      next.left = Math.max(0, left + (width - next.width))
+    }
+    if (move.edge.includes('n')) {
+      next.height = Math.max(MIN_H, height - dy)
+      next.top = Math.max(0, top + (height - next.height))
+    }
+    setRect(next)
+  }, [])
+
+  const endDrag = useCallback(() => { drag.current = null }, [])
+
+  const style: React.CSSProperties = maximized
+    ? {
+        position: 'absolute',
+        left: FRAME_INSET.left,
+        top: FRAME_INSET.top,
+        bottom: FRAME_INSET.bottom,
+        width: `calc(100% - ${FRAME_INSET.left * 2}px)`,
+        minWidth: MIN_W,
+      }
+    : { position: 'absolute', ...(rect ?? current()), minWidth: MIN_W }
+
+  return { maximized, style, toggleMaximized, onMovePointerDown, onResizePointerDown, onPointerMove, endDrag }
+}
+
 export interface MoisClassicShellProps extends HostShellProps {
   /** Standalone viewer only: adds Help ▸ UI Kit gallery. */
   onOpenKit?: () => void
@@ -177,8 +330,16 @@ export function MoisClassicShell(props: MoisClassicShellProps) {
   )
 }
 
-function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className, onOpenKit }: MoisClassicShellProps) {
+function Frame({
+  fixture, patients, chart: chartProp, onChartChange,
+  onAction, onStateChange, onReady, formSlot, className, onOpenKit,
+}: MoisClassicShellProps) {
   const start = useMemo(() => resolveMoisClassicFixture(fixture), [fixture])
+  /* the roster this frame can open: the host's charts, or the training set */
+  const roster: Patient[] = useMemo(
+    () => (patients?.length ? patients.map(normalizePatient) : trainingRoster),
+    [patients],
+  )
   const [module, setModule] = useState<string>(start.module)
   const [view, setView] = useState<View>(start.view)
   const [selected, setSelected] = useState<string>(start.node)
@@ -188,6 +349,12 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
   const [goalOpen, setGoalOpen] = useState(false)
   const [theme, setTheme] = useState<PBTheme>('')
   const [loginOpen, setLoginOpen] = useState(false)
+  /* the open chart: MOIS holds one at a time and every window reads it. The
+     host may own it (so its own patient picker and this frame agree), in which
+     case chartProp leads and onChartChange reports every change. */
+  const [ownChart, setOwnChart] = useState(DEFAULT_CHART)
+  const chart = chartProp ?? (findPatient(ownChart, roster) ? ownChart : roster[0]?.chart ?? ownChart)
+  const [lookupOpen, setLookupOpen] = useState(false)
   const [carePlan, setCarePlan] = useState<CarePlanKey>('needs')
   const [section, setSection] = useState(() => chartScreens[start.node] ?? moduleScreens[start.node] ?? chartScreens.summary)
   const [report, setReport] = useState(reportScreens.imaging)
@@ -196,6 +363,8 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
      cleared whenever the navigator moves on */
   const [tab, setTab] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const desktopRef = useRef<HTMLDivElement>(null)
+  const frame = useFrameGeometry(desktopRef)
 
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
@@ -289,25 +458,45 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
     setServiceEventOpen(false)
     setGoalOpen(false)
     setLoginOpen(false)
+    setLookupOpen(false)
     report_('host.mois.closeDialog')
   }, [report_])
+
+  /* picking a row in the Advanced Lookup Service is what changes the chart */
+  const selectPatient = useCallback((next: string) => {
+    if (!findPatient(next, roster)) throw new Error(`No MOIS chart ${next} is on file.`)
+    setOwnChart(next)
+    onChartChange?.(next)
+    setLookupOpen(false)
+    report_('host.mois.selectPatient', { chart: next })
+  }, [onChartChange, report_, roster])
+
+  const openLookup = useCallback(() => setLookupOpen(true), [])
 
   /* instrumented kit controls (command rows, tabs, menus) report through here */
   const onKitAction = useCallback((action: string, payload?: PBInstrumentationPayload) => {
     if (action === 'host.mois.selectTab' && typeof payload?.tab === 'string') setTab(payload.tab)
-    report_(action, payload as HostRecord | undefined)
+    /* the kit only knows a "…" was pressed; the frame knows it opens the
+       chart lookup, so it is the frame that reports the dialog that follows */
+    const opensLookup = action === 'host.mois.lookup'
+      || (action === 'host.mois.status' && payload?.link === 'go-to-chart')
+    report_(action, { ...(payload as HostRecord | undefined), ...(opensLookup ? { dialog: 'chart-lookup' } : {}) })
   }, [report_])
 
-  const dialog = serviceEventOpen ? 'service-event' : goalOpen ? 'new-goal' : loginOpen ? 'login' : null
+  const dialog = lookupOpen ? 'chart-lookup'
+    : serviceEventOpen ? 'service-event'
+      : goalOpen ? 'new-goal'
+        : loginOpen ? 'login' : null
   const state = useMemo<HostRecord>(() => ({
     module,
     node: selected,
     view,
     tab,
     dialog,
+    patient: chart,
     windows: mdi.instances.length,
     theme: theme === '' ? 'hybrid' : theme === 'pb-theme--flat' ? 'flat' : 'classic',
-  }), [dialog, mdi.instances.length, module, selected, tab, theme, view])
+  }), [chart, dialog, mdi.instances.length, module, selected, tab, theme, view])
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -362,35 +551,61 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
           openEncounter(row)
           return undefined
         }
+        case 'host.mois.lookup': {
+          /* the "…" lives on Patient Summary, so open that first */
+          openNode('summary')
+          await nextFrame()
+          clickAnchor(`host.mois.lookup.${typeof args.field === 'string' ? args.field : 'chart'}`)
+          return undefined
+        }
+        case 'host.mois.selectPatient': selectPatient(slug('chart')); return undefined
+        case 'host.mois.status': clickAnchor(`host.mois.status.${slug('link')}`); return undefined
         case 'host.mois.closeDialog': closeDialogs(); return undefined
         default: throw new Error(`This MOIS action is not available: ${actionId}`)
       }
     },
-  }), [clickAnchor, closeDialogs, openEncounter, openNode, pickModule, toggle])
+  }), [clickAnchor, closeDialogs, openEncounter, openNode, pickModule, selectPatient, toggle])
 
   useEffect(() => { onReady?.(api) }, [api, onReady])
 
-  const menu = makeMainMenu(setTheme, () => setLoginOpen(true), mdi, onOpenKit)
+  const menu = makeMainMenu(setTheme, () => setLoginOpen(true), mdi, onOpenKit, {
+    node: openNode,
+    module: pickModule,
+    lookup: openLookup,
+    stepChart: (delta) => selectPatient(stepChart(chart, delta, roster)),
+  })
+  const status = makeStatusCells(openLookup)
   const sectionContent: ReactNode = selected === 'dynamic' && formSlot ? formSlot : undefined
 
   return (
     <PBInstrumentationProvider namespace="host.mois" onAction={onKitAction}>
+    <PatientProvider chart={chart} roster={roster}>
     <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, className)}>
-      <div className="pb-desktop" data-tutorial-id="host.mois.desktop">
+      <div
+        className="pb-desktop"
+        data-tutorial-id="host.mois.desktop"
+        ref={desktopRef}
+        /* the move/resize drag is captured by the window, but the pointer
+           travels across the desktop while it runs */
+        onPointerMove={frame.onPointerMove}
+        onPointerUp={frame.endDrag}
+        onPointerCancel={frame.endDrag}
+      >
         <PBWindow
           title="MOIS: MOIS DEV"
           /* PB windows do not reflow — they have a minimum size and the
              desktop scrolls underneath them. */
-          style={{
-            position: 'absolute', left: 24, top: 18, bottom: 18,
-            width: 'calc(100% - 48px)', minWidth: 1180,
-          }}
+          style={frame.style}
+          maximized={frame.maximized}
+          onMaximize={frame.toggleMaximized}
+          onMovePointerDown={frame.onMovePointerDown}
+          onResizePointerDown={frame.onResizePointerDown}
         >
           <PBMenuBar items={menu} />
 
           {/* "Desktop For:" strip that floats at the top right of the MDI frame */}
           <div style={{ position: 'relative', height: 0 }}>
-            <div className="pb-row" style={{ position: 'absolute', right: 8, top: 2, zIndex: 5 }}>
+            <div className="pb-row" style={{ position: 'absolute', right: 8, top: -21, zIndex: 5 }}>
               <span>Desktop For:</span>
               <span style={{
                 width: 210, height: 17, padding: '0 4px',
@@ -427,6 +642,14 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
 
             {/* ---- right work area ---- */}
             <div className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea">
+              {view === 'summary' && (
+                <PatientSummaryView
+                  key={chart}
+                  onLookup={openLookup}
+                  onStepChart={(delta) => selectPatient(stepChart(chart, delta, roster))}
+                  onOpenChart={(next) => { if (findPatient(next, roster)) selectPatient(next) }}
+                />
+              )}
               {view === 'scheduler' && <SchedulerView />}
               {view === 'resourcebook' && <SchedulerView mode="resource" />}
               {view === 'order' && <OrderView onAttachment={() => setServiceEventOpen(true)} />}
@@ -454,7 +677,7 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
             </div>
           </div>
 
-          <PBStatusBar cells={statusCells} />
+          <PBStatusBar cells={status} />
         </PBWindow>
 
         {/* ---- MDI sheets: one per open record ---- */}
@@ -463,8 +686,17 @@ function Frame({ fixture, onAction, onStateChange, onReady, formSlot, className,
         {/* modal child window — layered above the MDI frame and any child */}
         {serviceEventOpen && <ServiceEventDialog onClose={closeDialogs} />}
         {loginOpen && <LoginDialog onClose={closeDialogs} />}
+        {lookupOpen && (
+          <AdvancedLookupDialog
+            chart={chart}
+            roster={roster}
+            onPick={selectPatient}
+            onClose={() => setLookupOpen(false)}
+          />
+        )}
       </div>
     </div>
+    </PatientProvider>
     </PBInstrumentationProvider>
   )
 }

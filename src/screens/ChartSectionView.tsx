@@ -3,8 +3,9 @@ import {
   PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
+import { usePatient } from '../data/patient-context'
 import type { ChartScreen } from '../data/chartScreens'
-import { patient } from '../data/mois'
+
 
 /* The window most Patient Chart and Scheduler nodes open into. Everything
    that varies between them lives in chartScreens / schedulerScreens. */
@@ -13,6 +14,7 @@ export function ChartSectionView({ screen, content }: {
   /** replaces the DataWindow with host content — a live form under Dynamic Forms */
   content?: ReactNode
 }) {
+  const patient = usePatient()
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
 
   const commands: PBCommand[] = screen.commands.map((c) =>

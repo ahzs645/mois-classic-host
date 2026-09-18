@@ -1,10 +1,13 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import {
-  PBIdentityStrip, PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput,
-  PBLookup, PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
+  PBIdentityStrip, PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup,
+  PBInput, PBLookup, PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import {
-  benefitRows, clinicContactRows, incentiveRows, mspClaimRows, patientContactRows, patient,
+  benefitRows, chartFacilities, chartLocations, chartServices, clinicContactRows, countries,
+  genders, incentiveRows, insuranceCarriers, mspClaimRows, patientContactRows, preferredPhones,
+  serviceProviders,
 } from '../data/mois'
 import { BenefitEditor } from './BenefitEditor'
 
@@ -25,13 +28,17 @@ const incentiveCols: PBColumn<Incentive>[] = [
   { key: 'freq', header: 'Freq. (mnth)', width: 82, align: 'center' },
 ]
 
+/** The width the Demographics window was painted at (two 5xx columns). */
+const DESIGN_W = 1060
+
 export function DemographicsView() {
-  const [tab, setTab] = useState('Incentives')
+  const patient = usePatient()
+  const [tab, setTab] = useState('Demographics')
   const [editBenefit, setEditBenefit] = useState(false)
 
   return (
-    <>
-      <PBViewHeader title="Demographics" />
+    <div className="pb-screen" style={{ ['--pb-design-w' as string]: `${DESIGN_W}px` }}>
+      <PBViewHeader title="Demographics" right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={[
           { label: 'New Record' }, { label: 'Delete Record' }, { label: 'Save', active: true },
@@ -40,18 +47,19 @@ export function DemographicsView() {
         ]}
       />
 
+      {/* the painter's tab stops, measured off reference/demographics-full.png */}
       <PBIdentityStrip
         fields={[
-          { label: 'CHART:', value: '87288' },
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '1986/12/19' },
+          { label: 'CHART:', value: patient.chart, w: 129 },
+          { label: 'FIRST:', value: patient.first, w: 145 },
+          { label: 'MIDDLE:', value: patient.middle, w: 163 },
+          { label: 'LAST:', value: patient.last, w: 173 },
+          { label: 'DoB:', value: patient.dob },
         ]}
       />
 
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '3px 3px 3px' }}>
-        <PBTabs tabs={TABS} active={tab} onChange={setTab} compact>
+      <PBFixed style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '3px 3px 3px' }}>
+        <PBTabs tabs={TABS} active={tab} onChange={setTab} compact face>
           {tab === 'Incentives' && <IncentivesPage />}
           {tab === 'Demographics' && <DemographicsPage />}
           {tab === 'Settings' && <SettingsPage />}
@@ -62,10 +70,10 @@ export function DemographicsView() {
             <div className="pb-dw__empty" style={{ padding: 24 }}>{tab} — no content retrieved.</div>
           )}
         </PBTabs>
-      </div>
+      </PBFixed>
 
       {editBenefit && <BenefitEditor onClose={() => setEditBenefit(false)} />}
-    </>
+    </div>
   )
 }
 
@@ -296,6 +304,7 @@ function SubTabPage({ cfg }: { cfg: SubTab }) {
 
 /* --- Settings: contact information and the two preference grids ---------- */
 function SettingsPage() {
+  const patient = usePatient()
   const prefCols: PBColumn<Record<string, string>>[] = [
     { key: 'reason', header: 'Reason', width: 150, align: 'center' },
     { key: 'order', header: 'Order', width: 60, align: 'center' },
@@ -424,34 +433,300 @@ function IncentivesPage() {
   )
 }
 
+/* --- Demographics --------------------------------------------------------
+   The chart's own window: identification, contact and notes down the left,
+   office / insurance / pharmacy and the coded Selected Items down the right,
+   over the create + last-modified audit line.
+
+   PROVENANCE: reference/demographics-full.png. The measurements below are
+   that capture divided by its 1.5x scale, so the two columns come to the
+   1052px the window was painted at rather than stretching with the frame.
+
+   Two details worth keeping: `Gender:` is painted yellow because MOIS
+   flags a label whose value has been changed, and the whole Pharmacy block
+   is disabled — it is maintained through the `Change...` link, not typed. */
+
+/** Left column, right column, and the gap the painter left between them. */
+const COL_L = 521
+const COL_R = 516
+
+/** Width of the value column inside a group: 117px of label, then 377. */
+const FIELD_COL = 377
+/** …and the same for the narrower right-hand column (114px of label). */
+const FIELD_COL_R = 378
+
 function DemographicsPage() {
+  const patient = usePatient()
+  /* The open chart is the only source for this window. A host hands its own
+     charts in — Webforms projects them out of the same `PatientScenario` a
+     form binds against — so what shows here is what a form bound to this chart
+     would read. Nothing stands in when a chart is missing a block: MOIS shows
+     empty fields there, and a fallback would print one patient's pharmacy or
+     audit line on another's record. */
+  const pharmacy = patient.pharmacy ?? {}
+  const items = patient.selectedItems ?? []
   return (
-    <div style={{ display: 'flex', gap: 0, padding: 6, alignItems: 'flex-start' }}>
-      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '92px 1fr', width: 376, flex: 'none' }}>
-        <span className="pb-form__label">Surname:</span><PBInput defaultValue={patient.last} />
-        <span className="pb-form__label">Given:</span><PBInput defaultValue={patient.first} />
-        <span className="pb-form__label">Middle:</span><PBInput defaultValue={patient.middle} />
-        <span className="pb-form__label">Preferred:</span><PBInput />
-        <span className="pb-form__label">Birth Date:</span>
-        <div className="pb-row"><PBInput w={92} align="center" defaultValue="1986/12/19" /><span>39 YR OLD</span></div>
-        <span className="pb-form__label">Sex:</span><PBSelect options={['M', 'F', 'X', 'U']} w={62} />
-        <span className="pb-form__label">BC Health No.:</span><PBInput defaultValue={patient.bchn} />
-        <span className="pb-form__label">Status:</span><PBSelect options={['ACTIVE', 'INACTIVE', 'DECEASED']} w={140} />
+    <div className="pb-demog">
+      <div className="pb-demog__cols">
+        <div className="pb-demog__col" style={{ width: COL_L }}>
+          <PBGroup title="Patient Identification">
+            <div className="pb-form pb-demog__form">
+              <span className="pb-form__label">Chart No.:</span>
+              <Row>
+                <PBLookup w={146} value={patient.chart} readOnly />
+                <span className="pb-row__spacer" />
+                <PBButton style={{ width: 122 }}>Patient Photo</PBButton>
+              </Row>
+
+              <span className="pb-form__label">Name (F/M/L):</span>
+              <Row>
+                <PBInput w={123} value={patient.first} readOnly />
+                <PBInput w={114} value={patient.middle} readOnly />
+                <PBInput w={127} value={patient.last} readOnly />
+              </Row>
+
+              <span className="pb-form__label">Alias (F/L):</span>
+              <Row>
+                <PBInput w={123} value={patient.alias ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <PBInput w={127} />
+              </Row>
+
+              <span className="pb-form__label">Birth Date:</span>
+              <Row>
+                <PBInput w={123} align="center" value={patient.dob} readOnly />
+                <span>(1)</span>
+                <span className="pb-row__spacer" />
+                {/* MOIS paints a label yellow once its value has been changed */}
+                <span className="pb-flag">Gender:</span>
+                <PBSelect options={genders} w={95} value={patient.gender} onChange={() => {}} />
+                <PBButton style={{ width: 25, padding: 0 }}>.*.</PBButton>
+              </Row>
+
+              <span className="pb-form__label">Current Status:</span>
+              <Row>
+                <PBInput w={75} align="center" value={patient.status} readOnly />
+                <span style={{ paddingLeft: 24 }}>Date:</span>
+                <PBInput w={113} align="center" value={patient.registered ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <PBButton style={{ width: 122 }}>Update Status</PBButton>
+              </Row>
+
+              <span className="pb-form__label">BC Health No.:</span>
+              <Row><PBInput w={123} value={patient.bchn ?? ''} readOnly /></Row>
+            </div>
+          </PBGroup>
+
+          <PBGroup title="Contact Information">
+            <div className="pb-form pb-demog__form">
+              <span className="pb-form__label">Address:</span>
+              <Row><PBInput w={375} value={patient.address ?? ''} readOnly /></Row>
+              <span className="pb-form__label">Address:</span>
+              <Row><PBInput w={375} value={patient.address2 ?? ''} readOnly /></Row>
+
+              <span className="pb-form__label">City:</span>
+              <Row>
+                <PBLookup w={164} value={patient.city ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <span>Province:</span>
+                <PBInput w={125} value={patient.province ?? ''} readOnly />
+              </Row>
+
+              <span className="pb-form__label">Postal Code:</span>
+              <Row>
+                <PBInput w={115} value={patient.postal ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <span>Country:</span>
+                <PBSelect options={countries} w={125} value={patient.country ?? ''} onChange={() => {}} />
+              </Row>
+
+              {/* the preferred phone is the one MOIS underlines */}
+              {/* MOIS underlines whichever contact method the chart prefers */}
+              <PhoneLabel label="Home:" preferred={patient.preferredPhone} />
+              <Row>
+                <PBInput w={115} align="center" value={patient.home ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <PBCheckbox label="Leave Message" checked={patient.homeMessage ?? false} />
+              </Row>
+
+              <PhoneLabel label="Work:" preferred={patient.preferredPhone} />
+              <Row>
+                <PBInput w={111} value={patient.work ?? ''} readOnly />
+                <span style={{ paddingLeft: 12 }}>Ext.:</span>
+                <PBInput w={80} value={patient.workExt ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <PBCheckbox label="Leave Message" checked={patient.workMessage ?? false} />
+              </Row>
+
+              <PhoneLabel label="Cell:" preferred={patient.preferredPhone} />
+              <Row>
+                <PBInput w={111} value={patient.cell ?? ''} readOnly />
+                <span className="pb-row__spacer" />
+                <span>Pager:</span>
+                <PBInput w={125} />
+              </Row>
+
+              <span className="pb-form__label">Preferred Phone:</span>
+              <Row>
+                <PBSelect
+                  options={preferredPhones}
+                  w={115}
+                  value={patient.preferredPhone ?? ''}
+                  onChange={() => {}}
+                />
+                <span className="pb-row__spacer" />
+                <span>Fax:</span>
+                <PBInput w={125} value={patient.fax ?? ''} readOnly />
+              </Row>
+
+              <span className="pb-form__label">eMail (Home):</span>
+              <Row><PBInput w={375} value={patient.emailHome ?? ''} readOnly /></Row>
+              <span className="pb-form__label">eMail (Work):</span>
+              <Row><PBInput w={375} value={patient.emailWork ?? ''} readOnly /></Row>
+            </div>
+
+            <div className="pb-row" style={{ gap: 6, padding: '4px 0 1px' }}>
+              <PBButton style={{ width: 108 }}>Copy Addr.</PBButton>
+              <PBButton style={{ width: 93 }}>Paste Addr.</PBButton>
+              <PBButton style={{ width: 153 }}>Change Addr. Wizard</PBButton>
+              <span className="pb-row__spacer" />
+              <PBButton style={{ width: 125 }}>Archive Addr.</PBButton>
+            </div>
+          </PBGroup>
+
+          <PBGroup title="General Information" fill>
+            <div className="pb-form pb-demog__form" style={{ paddingBottom: 3 }}>
+              <span className="pb-form__label">Short Note:</span>
+              <Row><PBInput w={375} value={patient.note ?? ''} readOnly /></Row>
+            </div>
+            <div className="pb-demog__notes">
+              <span className="pb-form__label">General Notes:</span>
+              <PBTextArea style={{ width: 375, height: '100%' }} />
+            </div>
+          </PBGroup>
+        </div>
+
+        <div className="pb-demog__col" style={{ width: COL_R }}>
+          <PBGroup title="Office Information">
+            {/* Last Contact and Invoice Balance are captioned above their
+                fields, so each takes two rows of the right-hand stack */}
+            <div className="pb-form pb-demog__form pb-demog__form--right">
+              <span className="pb-form__label">Facility:</span>
+              <RowR>
+                <PBSelect options={chartFacilities} w={250} />
+                <span className="pb-row__spacer" />
+                <span className="pb-demog__stacked">Last Contact</span>
+              </RowR>
+
+              <span className="pb-form__label">Location:</span>
+              <RowR>
+                <PBSelect options={chartLocations} w={250} />
+                <span className="pb-row__spacer" />
+                <PBInput w={113} align="center" value={patient.lastContact ?? ''} readOnly />
+              </RowR>
+
+              <span className="pb-form__label">Service:</span>
+              <RowR>
+                <PBSelect options={chartServices} w={250} />
+                <span className="pb-row__spacer" />
+                <span className="pb-demog__stacked">Invoice Balance</span>
+              </RowR>
+
+              <span className="pb-form__label">Service Provider:</span>
+              <RowR>
+                <PBSelect options={serviceProviders} w={250} value={patient.provider ?? ''} onChange={() => {}} />
+                <span className="pb-row__spacer" />
+                <PBInput w={113} align="right" value="-" readOnly />
+              </RowR>
+
+              <span className="pb-form__label">Chart Loc.:</span>
+              <RowR><PBInput w={251} value={patient.location ?? ''} readOnly /></RowR>
+            </div>
+          </PBGroup>
+
+          <PBGroup title="Insurance Information">
+            <div className="pb-form pb-demog__form pb-demog__form--right">
+              <span className="pb-form__label">Insurance by:</span>
+              <RowR>
+                <PBSelect options={insuranceCarriers} w={89} value={patient.insuranceBy ?? ''} onChange={() => {}} />
+              </RowR>
+
+              <span className="pb-form__label">Insurance No.:</span>
+              <RowR>
+                <PBInput w={147} value={patient.insurance ?? ''} readOnly />
+                <PBButton style={{ width: 57 }}>Check</PBButton>
+                <span style={{ paddingLeft: 10 }}>Dep. No.:</span>
+                <PBInput w={61} value={patient.dep ?? ''} readOnly />
+              </RowR>
+
+              <span className="pb-form__label">Benefit Source:</span>
+              <RowR><PBInput w={147} /></RowR>
+            </div>
+          </PBGroup>
+
+          {/* maintained through Change…, never typed — so the whole block is
+              disabled, which is why its labels read grey in the capture */}
+          <PBGroup title="Pharmacy Information">
+            <div className="pb-form pb-demog__form pb-demog__form--right">
+              <span className="pb-form__label pb-form__label--dim">Pharmacy:</span>
+              <RowR>
+                <PBInput w={303} value={pharmacy.name ?? ''} disabled readOnly />
+                <span className="pb-row__spacer" />
+                <button className="pb-link">Change...</button>
+              </RowR>
+
+              <span className="pb-form__label pb-form__label--dim">Address:</span>
+              <RowR><PBInput w={378} value={pharmacy.address ?? ''} disabled readOnly /></RowR>
+
+              <span className="pb-form__label pb-form__label--dim">Phone:</span>
+              <RowR>
+                <PBInput w={165} align="center" value={pharmacy.phone ?? ''} disabled readOnly />
+                <span style={{ paddingLeft: 10 }}>Fax:</span>
+                <PBInput w={173} align="center" value={pharmacy.fax ?? ''} disabled readOnly />
+              </RowR>
+            </div>
+          </PBGroup>
+
+          <PBGroup title="Selected Items" fill bodyStyle={{ display: 'flex', minHeight: 0 }}>
+            <PBDataWindow
+              flush
+              gutter={false}
+              zebra={false}
+              rules={false}
+              rows={items}
+              columns={[
+                { key: 'code', header: '', width: 212 },
+                { key: 'value', header: '', render: (r) => <PBInput w="100%" value={r.value} readOnly /> },
+              ]}
+              empty=" "
+            />
+          </PBGroup>
+        </div>
       </div>
 
-      <span className="pb-vrule" />
-
-      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '92px 1fr', flex: '1 1 auto', minWidth: 0 }}>
-        <span className="pb-form__label">Address:</span><PBInput />
-        <span className="pb-form__label">City:</span><PBInput w={190} />
-        <span className="pb-form__label">Province:</span>
-        <div className="pb-row"><PBSelect options={['BC', 'AB', 'SK', 'MB', 'ON']} w={62} /><span>Postal:</span><PBInput w={82} /></div>
-        <span className="pb-form__label">Home Phone:</span><PBInput w={140} defaultValue={patient.phone} />
-        <span className="pb-form__label">Work Phone:</span><PBInput w={140} />
-        <span className="pb-form__label">Cell:</span><PBInput w={140} />
-        <span className="pb-form__label">Email:</span><PBInput />
-        <span className="pb-form__label">Service MRP:</span><PBLookup defaultValue="TECHNICAL SUPPORT" />
+      <div className="pb-demog__audit">
+        <span className="pb-demog__auditcell" style={{ width: COL_L }}>
+          <span className="pb-demog__auditkey">Created:</span>{patient.created ?? ''}
+        </span>
+        <span className="pb-demog__auditcell">
+          <span className="pb-demog__auditkey">Last Modified:</span>{patient.modified ?? ''}
+        </span>
       </div>
     </div>
   )
+}
+
+/** A value cell in the left column: fixed width so the right-hand control in
+    the row lands on the tab stop the painter put it on. */
+const Row = ({ children }: { children: ReactNode }) => (
+  <div className="pb-row" style={{ width: FIELD_COL }}>{children}</div>
+)
+const RowR = ({ children }: { children: ReactNode }) => (
+  <div className="pb-row" style={{ width: FIELD_COL_R }}>{children}</div>
+)
+
+/** A phone label, underlined when the chart prefers that number. */
+function PhoneLabel({ label, preferred }: { label: string; preferred?: string }) {
+  const linked = !!preferred && label.toLowerCase().startsWith(preferred.trim().toLowerCase())
+  return <span className={linked ? 'pb-form__label pb-form__label--linked' : 'pb-form__label'}>{label}</span>
 }

@@ -3,9 +3,11 @@ import {
   PBBand, PBButton, PBDataWindow, PBGroupBox, PBInput, PBLookup, PBPatientBannerBlue,
   PBSelect, PBTabs, PBTextArea, PBWindow,
 } from '../pb'
-import { linkedOrderRows, patient, serviceHealthIssueRows } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { linkedOrderRows, serviceHealthIssueRows } from '../data/mois'
 
 export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
+  const patient = usePatient()
   const [tab, setTab] = useState('Service Event')
 
   return (

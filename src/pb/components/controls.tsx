@@ -87,7 +87,7 @@ export function PBSelect({
 
 /* --- PBLookup — field with the "..." button PowerBuilder uses everywhere -- */
 export function PBLookup({
-  value, defaultValue, placeholder, w, disabled, readOnly, onDots, onChange,
+  value, defaultValue, placeholder, w, disabled, readOnly, name, onDots, onChange, onEnter,
 }: {
   value?: string
   defaultValue?: string
@@ -95,9 +95,14 @@ export function PBLookup({
   w?: number | string
   disabled?: boolean
   readOnly?: boolean
+  /** names the field for tutorials: anchors the "…" and reports opening it */
+  name?: string
   onDots?: () => void
   onChange?: (v: string) => void
+  /** Enter in the field — PowerBuilder commits an edit field on Enter */
+  onEnter?: (v: string) => void
 }) {
+  const host = usePBInstrumentation()
   const bind = value !== undefined ? { value } : { defaultValue }
   return (
     <span className="pb-inputgroup" style={{ width: w }}>
@@ -109,12 +114,17 @@ export function PBLookup({
         disabled={disabled}
         readOnly={readOnly}
         onChange={(e) => onChange?.(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(e.currentTarget.value) }}
       />
       <button
         type="button"
         className="pb-inputgroup__btn pb-inputgroup__btn--dots"
         disabled={disabled}
-        onClick={onDots}
+        data-tutorial-id={name ? host?.anchor('lookup', pbSlug(name)) : undefined}
+        onClick={() => {
+          if (name) host?.report('lookup', { field: pbSlug(name) })
+          onDots?.()
+        }}
         title="Look up…"
       >
         …

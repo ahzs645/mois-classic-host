@@ -3,11 +3,13 @@ import {
   PBIdentityStrip, PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn,
 } from '../pb'
-import { messageRows, notificationTabs, patient } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { messageRows, notificationTabs } from '../data/mois'
 
 const TABS = ['Reminders', 'Recalls', 'Tasks', 'Messages', 'Responses - READ ONLY']
 
 export function NotificationView() {
+  const patient = usePatient()
   const [tab, setTab] = useState('Messages')
   const [lower, setLower] = useState('Detail')
   const [cur, setCur] = useState(0)

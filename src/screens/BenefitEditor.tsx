@@ -3,12 +3,14 @@ import {
   PBButton, PBCheckbox, PBInput, PBMessageBox, PBPatientBannerBlue, PBSection,
   PBTextArea, PBWindow,
 } from '../pb'
-import { patient } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+
 
 /* "Edit Benefit Source / Service" — a child window built from rule-separated
    sections rather than nested group boxes, with the audit stamps greyed at
    the foot. Saving raises the MOIS Data Audit message box. */
 export function BenefitEditor({ onClose }: { onClose: () => void }) {
+  const patient = usePatient()
   const [asking, setAsking] = useState(false)
 
   return (
@@ -22,7 +24,7 @@ export function BenefitEditor({ onClose }: { onClose: () => void }) {
       >
         <PBPatientBannerBlue
           top={[
-            { label: 'CHART NO.', value: '87288', w: 88 },
+            { label: 'CHART NO.', value: patient.chart, w: 88 },
             { label: 'PATIENT (F/M/L)', value: patient.full, w: 196 },
             { label: 'DATE OF BIRTH', value: <>{patient.dob}&nbsp;&nbsp;{patient.age}</>, w: 152 },
             { label: 'GENDER', value: patient.sex },
@@ -38,7 +40,7 @@ export function BenefitEditor({ onClose }: { onClose: () => void }) {
 
               <span className="pb-form__label" style={{ lineHeight: '19px' }}>Patient ID:</span>
               <div className="pb-row">
-                <PBInput w={190} defaultValue="DEV87288" />
+                <PBInput w={190} value={`DEV${patient.chart}`} readOnly />
                 <span style={{ marginLeft: 10 }}>ID Type:</span>
                 <PBInput w={124} defaultValue="DEV" />
               </div>

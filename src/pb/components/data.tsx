@@ -12,6 +12,8 @@ export type PBColumn<T> = {
   header: ReactNode
   width?: number | string
   align?: 'left' | 'center' | 'right'
+  /** caption alignment, when it differs from the cells' */
+  headAlign?: 'left' | 'center' | 'right'
   italic?: boolean
   /** narrow "…" lookup column */
   dots?: boolean
@@ -28,10 +30,17 @@ export function PBDataWindow<T extends Record<string, any>>({
   onActivate,
   gutter = true,
   zebra = true,
+  rules = true,
   flush,
   rowStatus,
   rowIcon,
   groupBy,
+  groupLabel,
+  groupAccent,
+  collapsed,
+  onCollapsedChange,
+  filters,
+  head = 'blue',
   empty,
   style,
 }: {
@@ -44,39 +53,84 @@ export function PBDataWindow<T extends Record<string, any>>({
   /** the narrow left column carrying the current-row arrow */
   gutter?: boolean
   zebra?: boolean
+  /**
+   * The hairlines between cells: grey in both axes (the default), `false` for
+   * none (Patient Summary), or `"white"` for the white vertical separators a
+   * lookup DataWindow draws — visible against the zebra, invisible on white.
+   */
+  rules?: boolean | 'white'
   flush?: boolean
   rowStatus?: (row: T, index: number) => PBRowStatus
   /** glyph shown in the gutter when the row is not the current one */
   rowIcon?: (row: T, index: number) => ReactNode
   /** band rows under collapsible group headers; rows must arrive sorted */
   groupBy?: (row: T) => string
+  /** what the band prints — MOIS captions its bands `SECTION  [n]` */
+  groupLabel?: (group: string, rows: T[]) => ReactNode
+  /** the colour a band's white-to-colour gradient ends on */
+  groupAccent?: (group: string) => string | undefined
+  /** collapsed group keys; pass with onCollapsedChange for Expand All / Collapse All */
+  collapsed?: Set<string>
+  onCollapsedChange?: (next: Set<string>) => void
+  /** a filter control per column, above the headers, the way a lookup DataWindow filters */
+  filters?: (ReactNode | null)[]
+  /** header band: the DataWindow blue, or the grey the Patient Summary uses */
+  head?: 'blue' | 'grey'
   empty?: ReactNode
   style?: CSSProperties
 }) {
   const [internal, setInternal] = useState(0)
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [ownCollapsed, setOwnCollapsed] = useState<Set<string>>(new Set())
   const cur = current ?? internal
   const setCur = (i: number) => { setInternal(i); onCurrentChange?.(i) }
+  const shut = collapsed ?? ownCollapsed
 
   const span = columns.length + (gutter ? 1 : 0)
   const toggleGroup = (g: string) => {
-    const next = new Set(collapsed)
+    const next = new Set(shut)
     next.has(g) ? next.delete(g) : next.add(g)
-    setCollapsed(next)
+    if (onCollapsedChange) onCollapsedChange(next)
+    else setOwnCollapsed(next)
   }
 
   return (
-    <div className={cx('pb-dw', flush && 'pb-dw--flush', !zebra && 'pb-dw--plain')} style={style}>
+    <div
+      className={cx(
+        'pb-dw',
+        flush && 'pb-dw--flush',
+        !zebra && 'pb-dw--plain',
+        rules === false && 'pb-dw--norules',
+        rules === 'white' && 'pb-dw--rules-white',
+        head === 'grey' && 'pb-dw--head-grey',
+      )}
+      style={style}
+    >
       <div className="pb-dw__scroll">
         <table className="pb-dw__table">
           <colgroup>
             {gutter && <col style={{ width: 13 }} />}
-            {columns.map((c) => <col key={c.key} style={{ width: c.dots ? 16 : c.width }} />)}
+            {columns.map((c) => <col key={c.key} style={{ width: c.width ?? (c.dots ? 16 : undefined) }} />)}
           </colgroup>
           <thead>
+            {filters && (
+              <tr className="pb-dw__filters">
+                {gutter && <th className="pb-dw__gutter" />}
+                {columns.map((c, i) => <th key={c.key}>{filters[i]}</th>)}
+              </tr>
+            )}
             <tr>
               {gutter && <th className="pb-dw__gutter" />}
-              {columns.map((c) => <th key={c.key}>{c.header}</th>)}
+              {columns.map((c) => (
+                <th
+                  key={c.key}
+                  className={cx(
+                    (c.headAlign ?? c.align) === 'center' && 'pb-dw__c--center',
+                    (c.headAlign ?? c.align) === 'right' && 'pb-dw__c--num',
+                  )}
+                >
+                  {c.header}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -91,19 +145,37 @@ export function PBDataWindow<T extends Record<string, any>>({
               const st = rowStatus?.(r, i) ?? 'normal'
               const g = groupBy?.(r)
               const opensGroup = g !== undefined && (i === 0 || groupBy!(rows[i - 1]) !== g)
-              const hidden = g !== undefined && collapsed.has(g)
+              const hidden = g !== undefined && shut.has(g)
               return (
                 <Fragment key={i}>
-                {opensGroup && (
-                  <tr className="pb-dw__group">
-                    <td className="pb-dw__gutter">
-                      <button className="pb-dw__groupbox" onClick={() => toggleGroup(g!)}>
-                        {collapsed.has(g!) ? '+' : '\u2212'}
-                      </button>
-                    </td>
-                    <td colSpan={span - 1}>{g}</td>
-                  </tr>
-                )}
+                {opensGroup && (() => {
+                  const accent = groupAccent?.(g!)
+                  const box = (
+                    <button className="pb-dw__groupbox" onClick={() => toggleGroup(g!)}>
+                      {shut.has(g!) ? '+' : '\u2212'}
+                    </button>
+                  )
+                  const label = groupLabel ? groupLabel(g!, rows.filter((row) => groupBy!(row) === g)) : g
+                  return (
+                    <tr
+                      className={cx('pb-dw__group', accent && 'pb-dw__group--accent')}
+                      style={accent ? { ['--pb-dw-group-accent' as string]: accent } : undefined}
+                    >
+                      {gutter ? (
+                        <>
+                          <td className="pb-dw__gutter">{box}</td>
+                          <td colSpan={span - 1}>{label}</td>
+                        </>
+                      ) : (
+                        /* no gutter: MOIS draws the box inside the coloured
+                           band, so the colour runs the full width */
+                        <td colSpan={span}>
+                          <span className="pb-dw__groupcell">{box}{label}</span>
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })()}
                 {!hidden && (
                 <tr
                   className={cx(

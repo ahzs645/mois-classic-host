@@ -3,7 +3,8 @@ import {
   PBBand, PBButton, PBCommandRow, PBDataWindow, PBGroupBox, PBIdentityStrip,
   PBInput, PBLookup, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { determinantTabs, patient } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { determinantTabs } from '../data/mois'
 
 /* Determinants of Health — four domain tabs, each a current-status grid over
    a history grid with a detail panel underneath. Transcribed from the
@@ -21,6 +22,7 @@ const statusColumns: PBColumn<Record<string, string>>[] = [
 ]
 
 export function DeterminantsView() {
+  const patient = usePatient()
   const [tab, setTab] = useState('Employment')
   const cfg = determinantTabs[tab]
 

@@ -18,6 +18,7 @@
 }
 .pb-dw--flush { border: 0; }
 
+
 .pb-dw__scroll { overflow: auto; flex: 1 1 auto; min-height: 0; }
 
 .pb-dw__table {
@@ -104,7 +105,10 @@
 .pb-dw__table tbody tr.pb-dw--flag,
 .pb-dw__table tbody tr.pb-dw--flag:nth-child(odd) { background: var(--pb-dw-flag); }
 
-/* a linked/selected detail row inside a group is flagged yellow, not salmon */
+/* a linked/selected detail row inside a group is flagged yellow, not salmon.
+   Measured from reference/order-links.png and order-distribution.png, where
+   the linked row and the distribution recipient are the same saturated
+   yellow rather than the paler tint used for an out-of-range result.     */
 .pb-dw__table tbody tr.pb-dw--highlight,
 .pb-dw__table tbody tr.pb-dw--highlight:nth-child(odd) { background: var(--pb-dw-highlight); }
 
@@ -181,3 +185,77 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
   flex: none;
 }
 .pb-scrollrow__spacer { flex: 1 1 auto; }
+
+/* --- no hairlines ---------------------------------------------------------
+   Patient Summary's grid is ruleless: rows are separated by their zebra
+   banding alone, with no cell borders in either axis. Only the group bands
+   keep their bottom edge.                                                   */
+.pb-dw--norules .pb-dw__table tbody td { border-right: 0; border-bottom: 0; }
+.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group td { border-bottom: 1px solid #8f9490; }
+
+/* The band's own cell when there is no gutter column beside it. The box sits
+   13px in and the caption 7px after it, measured off the capture. */
+.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group td { padding-left: 13px; }
+.pb-dw__groupcell { display: inline-flex; align-items: center; gap: 7px; }
+
+/* --- coloured group bands ------------------------------------------------
+   The Patient Summary bands each carry their own colour and are painted as a
+   gradient that starts white at the top and lands on that colour at the
+   bottom. Values sampled from the training capture: DEMOGRAPHICS #325a5a,
+   PREFERENCES #83238a, REACTION RISKS #da3c33, SERVICE EPISODES #ffff9f,
+   everything else the pale blue below.                                     */
+.pb-dw__table tbody tr.pb-dw__group--accent,
+.pb-dw__table tbody tr.pb-dw__group--accent:nth-child(odd) {
+  background: linear-gradient(180deg, #fff 0%, var(--pb-dw-group-accent, #d3e1fb) 100%);
+}
+.pb-dw__table tbody tr.pb-dw__group--accent td {
+  height: 19px;
+  border-bottom: 1px solid #8f9490;
+  color: #000;
+  letter-spacing: .1px;
+}
+
+/* Bands without their own colour are the same gradient in the pale blue the
+   summary defaults to, not a flat fill. */
+.pb-dw__table tbody tr.pb-dw__group,
+.pb-dw__table tbody tr.pb-dw__group:nth-child(odd) { background: var(--pb-dw-group); }
+.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group,
+.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group:nth-child(odd) {
+  background: linear-gradient(180deg, #fff 0%, var(--pb-dw-group-accent, #d3e1fb) 100%);
+}
+
+/* --- white column separators ---------------------------------------------
+   The Advanced Lookup Service's grid separates its columns with white 1px
+   lines rather than grey ones, and has no horizontal rules at all: against
+   the zebra they read as gaps, and on a white row they vanish.            */
+.pb-dw--rules-white .pb-dw__table tbody td { border-right-color: #fff; border-bottom: 0; }
+.pb-dw--rules-white .pb-dw__table thead th { border-right-color: #fff; }
+
+/* --- grey header band ----------------------------------------------------
+   Patient Summary draws its column captions as bold black on the window
+   face rather than on the DataWindow blue.                                 */
+.pb-dw--head-grey .pb-dw__table thead th {
+  text-align: left;
+  background: #f0f0f0;
+  border-right: 0;
+  border-bottom: 1px solid #a8a8a8;
+  font-weight: 700;
+  color: #000;
+}
+.pb-dw--head-grey .pb-dw__table thead th:hover { background: #f0f0f0; }
+
+/* --- filter row ----------------------------------------------------------
+   A lookup DataWindow puts a row of filter controls above its headers, on
+   the dialog face.                                                         */
+.pb-dw__table thead tr.pb-dw__filters th {
+  height: 22px;
+  padding: 2px 3px;
+  background: var(--pb-band);
+  border-right: 0;
+  border-bottom: 0;
+  text-align: left;
+  cursor: auto;
+}
+.pb-dw__table thead tr.pb-dw__filters th:hover { background: var(--pb-band); }
+.pb-dw__filters .pb-field,
+.pb-dw__filters .pb-select { width: 100%; height: 18px; }

@@ -3,7 +3,8 @@ import {
   PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBInput, PBLookup,
   PBMenuBar, PBPatientBannerYellow, PBSelect, PBTabs, PBTextArea, PBWindow, IconIdCard,
 } from '../pb'
-import { measurementRows, patient } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { measurementRows } from '../data/mois'
 
 const MENU = [
   { label: 'Save', menu: [{ label: 'Save Encounter', key: 'Ctrl+S' }, { label: 'Save and Close' }] },
@@ -34,15 +35,16 @@ export function EncounterWindow({
   onClose: () => void
   onAttachment: () => void
 }) {
+  const patient = usePatient()
   const [tab, setTab] = useState('Progress Note(s)')
-  const enc = encounter ?? { id: patient.encounter }
+  const enc: EncounterRecord = encounter ?? { id: patient.encounter ?? 'NO ENCOUNTER' }
   const time = enc.hr && enc.mn ? `${enc.hr} : ${enc.mn}` : '14 : 00'
 
   return (
     <PBWindow
       child
       icon={<IconIdCard />}
-      title={`${patient.short} 39 YEAR OLD ${patient.sex}`}
+      title={`${patient.short} ${patient.age} ${patient.sex}`}
       sub={<>chart no.: {patient.chart} -&nbsp;&nbsp;&nbsp;encounter no.: {enc.id}</>}
       onClose={onClose}
       style={{ width: 'min(822px, calc(100vw - 40px))', height: 'min(742px, calc(100vh - 90px))' }}
@@ -51,8 +53,8 @@ export function EncounterWindow({
 
       <PBPatientBannerYellow
         name={patient.short}
-        bchn={patient.bchn}
-        home="250.765.3212"
+        bchn={patient.bchn ?? ''}
+        home={patient.phone}
         dob={patient.dob}
         sex={patient.sex}
       />

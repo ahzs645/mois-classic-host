@@ -3,7 +3,8 @@ import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput,
   PBLookup, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { longTermMedRows, patient, prescriptionRows } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { longTermMedRows, prescriptionRows } from '../data/mois'
 
 /* ============================================================================
    Rx - Prescription and Long Term Medications are one window family: same
@@ -39,6 +40,7 @@ const LTM_COLUMNS: PBColumn<Med>[] = [
 ]
 
 export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
+  const patient = usePatient()
   const rx = mode === 'rx'
   const [tab, setTab] = useState('Detail')
   const [cur, setCur] = useState(0)
@@ -182,6 +184,7 @@ function CppPage() {
 }
 
 export function PrintHistoryView() {
+  const patient = usePatient()
   return (
     <>
       <PBViewHeader title="Prescription Print History" />

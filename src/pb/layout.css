@@ -16,6 +16,9 @@
 .pb-viewhead__title { font-size: 14px; font-weight: 400; letter-spacing: .2px; white-space: nowrap; }
 .pb-viewhead__meta  { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-viewhead__spacer { flex: 1 1 auto; }
+/* the chart identity every Patient Chart window prints at the right end */
+.pb-viewhead__chart { font-size: 13px; font-weight: 700; padding-right: 8px; white-space: nowrap; }
+.pb-viewhead__chartno { margin-left: 22px; }
 
 /* --- grey section band (group-box header) ------------------------------- */
 .pb-band {
@@ -38,6 +41,101 @@
 .pb-groupbox { border: 1px solid #b6b6b6; background: var(--pb-window); }
 .pb-groupbox > .pb-band { border-bottom: 1px solid #b6b6b6; }
 .pb-groupbox__body { padding: 7px 9px; }
+
+/* --- classic Win32 GroupBox ---------------------------------------------
+   Not the same control as .pb-groupbox above: this is the plain rectangle
+   with the caption sitting *in* its top border, which is what Demographics,
+   the Order report page and most PB detail forms are built from. The caption
+   is navy and bold; the body is the window face, not white. A real
+   <fieldset>/<legend> gives the border break around the caption for free. */
+.pb-fieldset {
+  border: 1px solid #adadad;
+  padding: 2px 10px 6px;
+  margin: 0;
+  min-width: 0;
+  background: transparent;
+}
+.pb-fieldset__legend {
+  padding: 0 5px;
+  margin-left: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pb-text-head);
+}
+/* a fieldset that has to stretch its body (a grid, a tall note field) */
+.pb-fieldset--fill { display: flex; flex-direction: column; min-height: 0; }
+.pb-fieldset--fill > .pb-fieldset__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* --- design width --------------------------------------------------------
+   A PB window is painted at one fixed size, so a MOIS screen on a wide
+   monitor is content on the left and empty window face on the right.
+   `--pb-design-w` is set per screen; `.pb-fixed` opts a block in.
+
+   A few controls in the captures really are anchored to the right edge — the
+   Order list's grid canvas is — but the kit keeps every window at its design
+   width, because one block running past all the others reads as a layout bug
+   rather than as MOIS. See reference/NOTES.md §4.                          */
+.pb-fixed { width: var(--pb-design-w, 100%); max-width: 100%; flex: none; }
+
+/* a screen root: fills the work area and carries that window's design width */
+.pb-screen { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; }
+
+/* --- Order ▸ Report ------------------------------------------------------
+   Two columns of group boxes over a two-line footer. The footer keys sit at
+   the tab stops PowerBuilder painted them at, with the signature state and
+   the encounter hyperlinked at the right end of their line.               */
+.pb-order-report { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; padding: 4px 6px 0; }
+.pb-order-report__grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto 1fr;
+  align-items: stretch;
+  gap: 6px 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.pb-order-report__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 2px 4px;
+  border-top: 1px solid #c9c9c9;
+  flex: none;
+}
+.pb-order-report__line { display: flex; align-items: center; white-space: nowrap; }
+/* the tab stops the footer keys were painted at */
+.pb-order-report__key { width: 110px; flex: none; }
+.pb-order-report__key--2 { width: 78px; flex: none; }
+.pb-order-report__val { width: 143px; flex: none; }
+
+/* the caption band of a distribution event inside the grid */
+.pb-dist-band { display: flex; align-items: center; gap: 10px; width: 100%; }
+.pb-link--strong { font-weight: 700; text-decoration: underline; }
+
+/* --- Demographics ▸ Demographics ----------------------------------------
+   Two painted columns of group boxes over the audit line. Rows are looser
+   here than the kit default: the capture measures ~25px pitch, not 22.   */
+.pb-demog { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; padding: 5px 6px 0; }
+.pb-demog__cols { display: flex; gap: 15px; flex: 1 1 auto; min-height: 0; align-items: stretch; }
+.pb-demog__col { display: flex; flex-direction: column; gap: 5px; flex: none; min-height: 0; }
+/* two classes: .pb-form's own padding/columns are declared further down */
+.pb-form.pb-demog__form { --pb-row-gap: 6px; grid-template-columns: 117px 1fr; padding: 2px 0 1px; }
+.pb-form.pb-demog__form--right { grid-template-columns: 114px 1fr; }
+/* a caption painted above its field rather than beside it */
+.pb-demog__stacked { width: 113px; text-align: center; }
+.pb-demog__notes { display: flex; gap: 6px; flex: 1 1 auto; min-height: 0; padding-bottom: 2px; }
+.pb-demog__notes .pb-form__label { width: 123px; flex: none; padding-top: 1px; }
+
+.pb-demog__audit {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px 4px;
+  border-top: 1px solid #c9c9c9;
+  white-space: nowrap;
+  flex: none;
+}
+.pb-demog__auditcell { display: flex; flex: none; }
+.pb-demog__auditkey { width: 108px; flex: none; }
 
 /* --- panel / splitter --------------------------------------------------- */
 .pb-panel {
@@ -103,9 +201,14 @@
 .pb-banner-blue__value--plain { font-weight: 400; font-size: var(--pb-fs); align-self: flex-end; }
 
 /* --- identity strip ------------------------------------------------------
-   The FIRST / MIDDLE / LAST / DoB line under a command row. Fields are
-   spread across the full width, with the active-encounter block pinned
-   right when the screen has one.                                          */
+   The FIRST / MIDDLE / LAST / DoB line under a command row.
+
+   PowerBuilder places these at fixed x offsets in the window painter, so the
+   line reads the same whatever the window is resized to: the fields stay
+   bunched at the left and the space past the last one is empty. Each field
+   therefore carries its own column width (`w`) rather than being spread by
+   the flexbox — see the captures, where `Active ENC#:` sits ~660px in on a
+   2000px-wide window rather than against the right edge.                   */
 .pb-identity {
   display: flex;
   align-items: center;
@@ -116,9 +219,11 @@
   flex: none;
   overflow: hidden;
 }
-.pb-identity__field { display: flex; }
-.pb-identity__field + .pb-identity__field { margin-left: auto; }
-.pb-identity__enc { display: flex; margin-left: auto; padding-left: 18px; }
+/* border-box is global in the kit, so `w` is the whole painted column and the
+   padding is the run of face before the next one. Screens that have not been
+   measured yet simply get the default spacing. */
+.pb-identity__field { display: flex; flex: none; padding-right: 30px; }
+.pb-identity__enc { display: flex; flex: none; }
 .pb-identity__enc-value { color: var(--pb-text-dim); letter-spacing: .3px; }
 
 /* --- summary strip ------------------------------------------------------ */
@@ -156,6 +261,8 @@
 }
 .pb-form__label--right { justify-self: end; text-align: right; }
 .pb-form__label--dim { color: var(--pb-text-dim); }
+/* MOIS underlines the contact method the chart is flagged to prefer */
+.pb-form__label--linked { text-decoration: underline; }
 /* a cell that should span both remaining columns */
 .pb-form__wide { grid-column: 2 / -1; }
 .pb-form__full { grid-column: 1 / -1; }
@@ -234,6 +341,11 @@
 }
 
 /* --- modal ---------------------------------------------------------------*/
+/* A Windows dialog does not dim what is behind it; `--plain` is the honest
+   one and the tint is kept only where a modal needs to read as blocking. */
+.pb-modal-layer--plain { background: transparent; }
+/* a group band ruled off from what follows it, as the lookup's list is */
+.pb-band--ruled { border-bottom: 1px solid #666; }
 .pb-modal-layer {
   position: absolute;
   inset: 0;
@@ -242,6 +354,9 @@
   place-items: center;
   background: rgba(0, 0, 0, .10);
 }
+/* A Windows dialog does not dim what is behind it; `--plain` is the honest
+   one, and the tint stays only where a modal needs to read as blocking. */
+.pb-modal-layer--plain { background: transparent; }
 
 /* --- day / week grid -----------------------------------------------------
    A time axis beside N columns of 15-minute slots. Hour boundaries get a
@@ -352,3 +467,61 @@
 .pb-mdi__sheet { position: absolute; }
 .pb-mdi__sheet .pb-titlebar { cursor: default; user-select: none; }
 .pb-mdi__sheet .pb-window { box-shadow: 0 10px 30px rgba(0, 0, 0, .38); }
+
+/* --- chart filter panel --------------------------------------------------
+   The block of chart-identification fields under Patient Summary's command
+   row sits on a blue-to-white vertical gradient, sampled from the training
+   capture (#b1cef3 at the top, white by the last row).                     */
+.pb-chartfilter {
+  flex: none;
+  padding: 3px 6px 5px;
+  background: linear-gradient(180deg, #b1cef3 0%, #ffffff 100%);
+  border-bottom: 1px solid #c8c8c8;
+}
+.pb-chartfilter__row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 20px;
+  white-space: nowrap;
+}
+/* Nothing in the block shrinks. Without this, a work area narrower than the
+   block compresses each field by a different amount — the rows keep their own
+   geometry but stop lining up with each other, which reads as a broken form
+   rather than as a window that is too small. */
+.pb-chartfilter__row > * { flex: none; }
+/* the left label column runs to x=79 in the capture */
+.pb-chartfilter__label { width: 79px; flex: none; text-align: left; }
+/* face between two controls, with the next control's label against its end */
+.pb-chartfilter__gap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 5px;
+  overflow: hidden;
+}
+/* the chart status letter: an outline on the gradient, not an edit field */
+.pb-chartfilter__status {
+  width: 32px;
+  height: var(--pb-row-h);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pb-border);
+  font-weight: 700;
+}
+.pb-chartfilter__right { display: flex; align-items: center; gap: 4px; margin-left: 26px; }
+
+/* the links + day boxes between the chart block and the summary grid */
+.pb-summarybar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 23px;
+  padding: 0 6px;
+  background: #f0f0f0;
+}
+.pb-summarybar__spacer { flex: 1 1 auto; }

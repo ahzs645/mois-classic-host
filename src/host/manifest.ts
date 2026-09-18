@@ -1,3 +1,4 @@
+import { DEFAULT_CHART } from '../data/patients'
 import type { HostEmulatorManifest, HostFixtureSpec } from './types'
 
 /* ============================================================================
@@ -12,6 +13,7 @@ export const MOIS_CLASSIC_HOST_ID = 'mois-classic'
 /** Where each fixture starts: module, selected tree node, and the view it opens. */
 export const MOIS_CLASSIC_FIXTURE_STARTS = {
   'patient-chart': { module: 'chart', node: 'orders', view: 'order' },
+  'patient-summary': { module: 'chart', node: 'summary', view: 'summary' },
   'patient-chart-forms': { module: 'chart', node: 'dynamic', view: 'section' },
   scheduler: { module: 'scheduler', node: 'p-daybook', view: 'scheduler' },
   workspace: { module: 'workspace', node: 'ws-inbox', view: 'section' },
@@ -19,14 +21,25 @@ export const MOIS_CLASSIC_FIXTURE_STARTS = {
 
 export type MoisClassicFixtureId = keyof typeof MOIS_CLASSIC_FIXTURE_STARTS
 
-export const MOIS_CLASSIC_DEFAULT_FIXTURE: MoisClassicFixtureId = 'patient-chart'
+/* Patient Summary is where MOIS lands with a chart open, so it is where the
+   stage opens too — a tutorial or `?fixture=` can still ask for another. */
+export const MOIS_CLASSIC_DEFAULT_FIXTURE: MoisClassicFixtureId = 'patient-summary'
 
 function initialState(id: MoisClassicFixtureId) {
   const start = MOIS_CLASSIC_FIXTURE_STARTS[id]
-  return { module: start.module, node: start.node, view: start.view, tab: null, dialog: null, windows: 0, theme: 'hybrid' }
+  return {
+    module: start.module, node: start.node, view: start.view,
+    tab: null, dialog: null, patient: DEFAULT_CHART, windows: 0, theme: 'hybrid',
+  }
 }
 
 const fixtures: HostFixtureSpec[] = [
+  {
+    id: 'patient-summary',
+    label: 'Patient Chart — Patient Summary',
+    description: 'The chart open on Patient Summary, where the chart is identified and another one is looked up.',
+    initialState: initialState('patient-summary'),
+  },
   {
     id: 'patient-chart',
     label: 'Patient Chart — Orders',
@@ -59,7 +72,10 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'A look-alike of the MOIS PowerBuilder client on Windows 10: the seven modules, the Patient Chart tree, DataWindows and MDI child windows, with synthetic training-environment data.',
   fixtures,
   defaultFixture: MOIS_CLASSIC_DEFAULT_FIXTURE,
-  snapshotPaths: ['host.module', 'host.node', 'host.view', 'host.tab', 'host.dialog', 'host.windows', 'host.theme'],
+  snapshotPaths: [
+    'host.module', 'host.node', 'host.view', 'host.tab', 'host.dialog',
+    'host.patient', 'host.windows', 'host.theme',
+  ],
   actions: {
     'host.mois.selectModule': {
       label: 'Switch module',
@@ -95,6 +111,22 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
       label: 'Open a record in its own window',
       description: 'Double-click a grid row that opens an MDI child window (an encounter). Replay opens the first encounter, or args.index.',
     },
+    'host.mois.lookup': {
+      label: 'Open a lookup',
+      description: 'Press the "…" beside a field. On Patient Summary the one beside Chart No. opens the Advanced Lookup Service.',
+      anchor: 'host.mois.lookup.{field}',
+      outcome: { path: 'host.dialog', arg: 'dialog' },
+    },
+    'host.mois.selectPatient': {
+      label: 'Open a chart',
+      description: 'Pick a row in the Advanced Lookup Service; every window in the module switches to that chart. The chart number is a synthetic training id, and is the only patient-derived value this emulator reports.',
+      outcome: { path: 'host.patient', arg: 'chart' },
+    },
+    'host.mois.status': {
+      label: 'Press a status-bar link',
+      description: 'Go To Chart… or Create Appointment… on the frame\'s status bar.',
+      anchor: 'host.mois.status.{link}',
+    },
     'host.mois.closeDialog': {
       label: 'Close the open dialog',
     },
@@ -107,6 +139,8 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.mois.tree.{node}',
     'host.mois.command.{command}',
     'host.mois.tab.{tab}',
+    'host.mois.lookup.{field}',
+    'host.mois.status.{link}',
     'host.mois.menu.{menu}',
     'host.mois.menu.{menu}.{item}',
   ],

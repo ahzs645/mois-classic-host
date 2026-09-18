@@ -3,8 +3,9 @@ import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBLookup,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
+import { usePatient } from '../data/patient-context'
 import type { ReportField, ReportScreen } from '../data/reportScreens'
-import { patient } from '../data/mois'
+
 
 /* One component for Imaging Reports, Consult Reports, Procedure and Paper
    Forms — they are the same PowerBuilder window with a different binding. */
@@ -50,6 +51,7 @@ function Field({ f }: { f: ReportField }) {
 }
 
 export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
+  const patient = usePatient()
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
   const [cur, setCur] = useState(0)
 

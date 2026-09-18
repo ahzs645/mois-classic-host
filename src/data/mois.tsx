@@ -127,59 +127,258 @@ type MdiLike = {
   closeAll: () => void
 }
 
+/* ---------------------------------------------------------------------------
+   The menu bar.
+
+   PROVENANCE: every item, accelerator and separator below is transcribed from
+   the eight menu captures in `reference/menus/`. Two things are the
+   emulator's rather than MOIS's, because the kit needs them and MOIS has no
+   equivalent: the open MDI sheets listed at the foot of Views, and the
+   Appearance switch at the foot of Maintenance.
+   ------------------------------------------------------------------------ */
 export const makeMainMenu = (
   setTheme: (t: PBTheme) => void,
   onLogin: () => void,
   mdi?: MdiLike,
   /** opens the component gallery; omitted when embedded, where the host owns the URL */
   onKit?: () => void,
-) => [
-  { label: 'Record', menu: [
-    { label: 'New Record', key: 'Ctrl+N' }, { label: 'Save', key: 'Ctrl+S' },
-    { label: 'Delete Record' }, { sep: true }, { label: 'Undo', key: 'Ctrl+Z' }, { label: 'Refresh', key: 'F5' },
-  ]},
-  { label: 'Modules', menu: [
-    { label: 'Patient Chart' }, { label: 'Workspace' }, { label: 'Scheduler' },
-    { label: 'Billing' }, { label: 'Administration' }, { label: 'Data Exchange' }, { label: 'Reports' },
-  ]},
-  { label: 'Views', menu: [
-    { label: 'Patient Summary' }, { label: 'Encounters' }, { label: 'Orders' },
-    { sep: true }, { label: 'Close All Views' },
-    { sep: true },
-    ...THEMES.map((t) => ({ label: `Appearance: ${t.label}`, onSelect: () => setTheme(t.id) })),
-  ]},
-  { label: 'Action', menu: [
-    { label: 'Create Appointment…' }, { label: 'Go To Chart…' }, { sep: true },
-    { label: 'Mark for Review' }, { label: 'Attachment…' },
-  ]},
-  { label: 'Utilities', menu: [
-    { label: 'Spell Check' }, { label: 'Preferences…' },
-    { label: 'Change Password…', onSelect: onLogin },
-    { sep: true }, { label: 'Sign In As…', onSelect: onLogin },
-  ]},
-  { label: 'Print', menu: [{ label: 'Print List' }, { label: 'Print Encounter' }, { label: 'Print Setup…' }] },
-  { label: 'Maintenance', menu: [{ label: 'Tables…' }, { label: 'Providers…' }, { label: 'Service Locations…' }] },
-  /* an MDI frame lists its open sheets under Window */
-  { label: 'Window', menu: [
-    ...(mdi?.instances.length
-      ? mdi.instances.map((i, n) => ({
-          label: `${n + 1}  ${i.title}`,
-          onSelect: () => mdi.focus(i.key),
-        }))
-      : [{ label: '(no windows open)', disabled: true }]),
-    { sep: true },
-    { label: 'Close All', disabled: !mdi?.instances.length, onSelect: () => mdi?.closeAll() },
-  ]},
-  { label: 'Help', menu: [
-    { label: 'Contents', key: 'F1' }, { sep: true },
-    ...(onKit ? [{ label: 'UI Kit gallery…', onSelect: onKit }] : []),
-    { label: 'About MOIS…' },
-  ]},
+  /** navigation the frame owns, so a menu item lands on the same screen a click would */
+  go?: {
+    node?: (id: string) => void
+    module?: (id: string) => void
+    lookup?: () => void
+    stepChart?: (delta: 1 | -1) => void
+  },
+) => {
+  const view = (label: string, node: string, key?: string) => ({ label, key, onSelect: () => go?.node?.(node) })
+  return [
+    { label: 'Record', menu: [
+      { label: 'New', key: 'Ctrl+N' },
+      { label: 'Delete' },
+      { label: 'Find', key: 'F9', onSelect: () => go?.lookup?.() },
+      { label: 'Next', key: 'F8', onSelect: () => go?.stepChart?.(1) },
+      { label: 'Previous', key: 'F7', onSelect: () => go?.stepChart?.(-1) },
+      { label: 'Find First' },
+      { label: 'Find Last' },
+      { label: 'Save', key: 'F2' },
+      { label: 'Prompt', key: 'F4' },
+    ]},
+    { label: 'Modules', menu: [
+      { label: 'Patient Chart', onSelect: () => go?.module?.('chart') },
+      { label: 'Workspace', onSelect: () => go?.module?.('workspace') },
+      { label: 'Schedule', onSelect: () => go?.module?.('scheduler') },
+      { label: 'Billing', onSelect: () => go?.module?.('billing') },
+      { label: 'Administration', onSelect: () => go?.module?.('admin') },
+      { label: 'Data Exchange', onSelect: () => go?.module?.('exchange') },
+      { label: 'Reports', onSelect: () => go?.module?.('reports') },
+    ]},
+    { label: 'Views', menu: [
+      view('Patient Summary', 'summary', 'Alt+H'),
+      view('Demographics', 'demographic', 'Alt+1'),
+      view('Determinants Of Health', 'determinants'),
+      view('Encounters', 'encounters', 'Alt+2'),
+      view('Measurements', 'measures', 'Alt+3'),
+      view('Imaging Reports', 'imaging', 'Alt+4'),
+      view('Consults', 'consults', 'Alt+5'),
+      view('Procedures', 'procedures', 'Alt+6'),
+      view('Interventions', 'interventions'),
+      view('Family History', 'famhx', 'Alt+7'),
+      { label: 'Allergy/Intolerances', menu: [
+        view('Reaction Risks', 'reaction'),
+        view('Events', 'events'),
+      ]},
+      view('Long Term Meds', 'ltm', 'Alt+C'),
+      view('Medication Administration', 'mar'),
+      view('Prescriptions', 'rx', 'Alt+S'),
+      view('Prescriptions Hx', 'printhx'),
+      view('Social History', 'socialhx', 'Alt+O'),
+      view('Documents', 'documents', 'Alt+K'),
+      { label: 'Health Issues', menu: [
+        view('Conditions', 'conditions'),
+        view('Risks for Conditions', 'risks'),
+        view('Needs for Care', 'needs'),
+      ]},
+      { label: 'Care Plan', menu: [
+        view('Preferences', 'prefs'),
+        view('Goals', 'goals'),
+        view('Planned Actions', 'actions'),
+        view('Barriers to Care', 'barriers'),
+        view('Patient Resources', 'resources'),
+        view('Summary Settings', 'summarysettings'),
+      ]},
+      { label: 'Forms', menu: [
+        view('Paper Forms', 'paper'),
+        view('Dynamic Forms', 'dynamic'),
+        view('Encounter Forms', 'encforms'),
+      ]},
+      view('Orders', 'orders', 'Alt+F'),
+      view('Facility Admissions', 'admissions'),
+      view('Notification', 'notifications'),
+      view('Alerts', 'alerts'),
+      view('myhealthkey', 'mhk'),
+      { sep: true },
+      { label: 'Daybook', key: 'Alt+8', onSelect: () => go?.node?.('p-daybook') },
+      { label: 'Unsent to MSP', key: 'Alt+9' },
+      { label: 'Sent to MSP', key: 'Alt+0' },
+      /* emulator extra: the MDI sheets this frame has open */
+      { sep: true },
+      ...(mdi?.instances.length
+        ? mdi.instances.map((i, n) => ({ label: `${n + 1}  ${i.title}`, onSelect: () => mdi.focus(i.key) }))
+        : [{ label: '(no windows open)', disabled: true }]),
+      { label: 'Close All Views', disabled: !mdi?.instances.length, onSelect: () => mdi?.closeAll() },
+    ]},
+    { label: 'Action', menu: [
+      { label: 'Account Summary', key: 'Alt+F1' },
+      { label: 'Invoice Window', key: 'Alt+I' },
+      { label: 'Create Referral Note', key: 'Ctrl+R' },
+      { label: 'Create Consult Note', key: 'Ctrl+Shift+R' },
+      { label: 'Create Information Request' },
+      { label: 'Distribute Encounter Summary', key: 'Ctrl+Shift+E' },
+      { label: 'Print Label', key: 'Ctrl+L' },
+      { sep: true },
+      { label: 'Change Desktop Provider', key: 'Alt+D' },
+      { label: 'Create an Appointment' },
+      { sep: true },
+      { label: 'Create Task', key: 'Ctrl+K' },
+      { label: 'Create Message', key: 'Ctrl+M' },
+      { sep: true },
+      { label: 'Workflow Summary' },
+    ]},
+    { label: 'Utilities', menu: [
+      { label: 'Lock MOIS / Switch User', key: 'Ctrl+Alt+L', onSelect: onLogin },
+      { label: 'Paste Patient Text' },
+      { sep: true },
+      { label: 'Health Maintenance Review', key: 'Ctrl+H' },
+      { label: 'Flow Sheet Review' },
+      { label: 'MSP Eligibility Check' },
+      { label: 'Provider Address to Clipboard' },
+      { label: 'Patient Address to Clipboard (lookup)', onSelect: () => go?.lookup?.() },
+      { sep: true },
+      { label: 'Change Teleplan Password' },
+      { label: 'Patient Address to Clipboard (current)' },
+      { label: 'Chart Navigator - Load from File' },
+    ]},
+    { label: 'Print', menu: [
+      { label: 'Day Sheet - Desktop Provider' },
+      { label: 'Day Sheet - All Providers' },
+      { label: 'Current Daybook as Slate' },
+      { sep: true },
+      { label: 'Form' },
+      { label: 'Problem List for Patient' },
+      { label: 'Cumulative Lab Data for Patient' },
+      { label: 'Lab Code for Patient' },
+      { label: 'Radiology Reports for Patient' },
+      { label: 'Consultations for Patient' },
+      { label: 'Facility Admission for Patient' },
+      { label: 'Procedure List for Patient' },
+      { label: 'Medications for Patient' },
+      { label: 'Prescriptions for Patient' },
+      { label: 'Interventions for Patient' },
+      { label: 'MAR History' },
+      { label: 'Family History (Hx) for Patient' },
+      { label: 'Social History for Patient' },
+      { label: 'Cumulative Progress Notes for Patient' },
+      { label: 'Reminder List for Patient' },
+      { label: 'Clinical History Segment' },
+      { label: 'Clinical History Tabular' },
+      { label: 'Clinical Summary' },
+      { label: 'Access List' },
+      { label: 'Print Select Text', key: 'Ctrl+Shift+N' },
+    ]},
+    { label: 'Maintenance', menu: [
+      { label: 'User Settings' },
+      { label: 'Computer Settings' },
+      { label: 'Default Value Setting' },
+      /* emulator extra: the three looks the kit can be dialled to */
+      { sep: true },
+      ...THEMES.map((t) => ({ label: `Appearance: ${t.label}`, onSelect: () => setTheme(t.id) })),
+    ]},
+    { label: 'Help', menu: [
+      { label: 'Contents', key: 'F1' },
+      { sep: true },
+      ...(onKit ? [{ label: 'UI Kit gallery…', onSelect: onKit }] : []),
+      { label: 'About MOIS…' },
+    ]},
+  ]
+}
+
+/* --- the lists behind the Patient Summary drop-downs ---------------------- */
+
+/** tdt_chart.insurance_by — who the patient is insured by. */
+export const insuranceCarriers = ['', 'BC', 'AB', 'SK', 'MB', 'ON', 'PP', 'WCB', 'ICBC', 'DVA', 'RCMP', 'IFH']
+
+/** tdt_chart.gender, with the codes MOIS keeps beside M/F. */
+export const genders = ['', 'M', 'F', 'X', 'U']
+
+/** Chart status: active, inactive, deceased, moved, look-up only, merged. */
+export const chartStatuses = ['', 'A', 'I', 'D', 'M', 'LU', 'MG']
+
+/* The same three lists as DataWindow rows: MOIS drops a *grid* with column
+   headers, not an OS menu, so the drop-downs on Patient Summary are DDDWs. */
+export const insuranceCarrierRows = [
+  { code: 'BC', insurer: 'British Columbia (MSP)' },
+  { code: 'AB', insurer: 'Alberta' },
+  { code: 'SK', insurer: 'Saskatchewan' },
+  { code: 'MB', insurer: 'Manitoba' },
+  { code: 'ON', insurer: 'Ontario' },
+  { code: 'PP', insurer: 'Private Pay' },
+  { code: 'WCB', insurer: 'WorkSafeBC' },
+  { code: 'ICBC', insurer: 'Insurance Corp. of BC' },
+  { code: 'DVA', insurer: 'Veterans Affairs' },
+  { code: 'RCMP', insurer: 'RCMP' },
+  { code: 'IFH', insurer: 'Interim Federal Health' },
 ]
 
-export const statusCells = [
+export const chartStatusRows = [
+  { code: 'A', status: 'Active' },
+  { code: 'I', status: 'Inactive' },
+  { code: 'D', status: 'Deceased' },
+  { code: 'M', status: 'Moved away' },
+  { code: 'LU', status: 'Look-up only' },
+  { code: 'MG', status: 'Merged' },
+]
+
+export const genderRows = [
+  { code: 'M', gender: 'Male' },
+  { code: 'F', gender: 'Female' },
+  { code: 'X', gender: 'Another gender' },
+  { code: 'U', gender: 'Unknown' },
+]
+
+export const serviceProviderRows = [
+  { provider: 'TECHNICAL SUPPORT', type: '' },
+  { provider: 'ESIEVOADJE, EVONEME', type: 'MD' },
+  { provider: 'GHATAVI, KAYHAN', type: 'MD' },
+  { provider: 'GRUBB, HELENA', type: 'LPN' },
+  { provider: 'DHALIWAL, RUPINDER', type: 'RN' },
+  { provider: 'SMITH, DALENE', type: 'MD' },
+  { provider: 'ROSS, ADRIENNE', type: 'NHVC' },
+  { provider: 'FAKERRY, FAKER', type: 'MD' },
+]
+
+/** Desktop providers, as the Service Provider drop-down lists them. */
+export const serviceProviders = [
+  '',
+  'TECHNICAL SUPPORT',
+  'ESIEVOADJE, EVONEME',
+  'GHATAVI, KAYHAN',
+  'GRUBB, HELENA (LPN)',
+  'DHALIWAL, RUPINDER (RN)',
+  'SMITH, DALENE',
+  'ROSS, ADRIENNE (NHVC)',
+  'FAKERRY, FAKER',
+]
+
+/** The status bar. `Go To Chart…` and `Create Appointment…` are live links. */
+export const makeStatusCells = (onGoToChart?: () => void, onCreateAppointment?: () => void) => [
   { text: 'Ready.', width: 122 },
-  { links: ['Go To Chart…', 'Create Appointment…'], grow: true },
+  {
+    links: [
+      { label: 'Go To Chart…', onSelect: onGoToChart },
+      { label: 'Create Appointment…', onSelect: onCreateAppointment },
+    ],
+    grow: true,
+  },
   { label: 'Task Item: ', value: '-', width: 148 },
   { label: 'Msg Item: ', value: '-', width: 148 },
   { label: 'User: ', value: 'JALA2', width: 150 },
@@ -187,25 +386,194 @@ export const statusCells = [
   { text: 'v02.31.23 b250508', width: 132 },
 ]
 
-export const patient = {
-  chart: '3924',
-  first: 'PATCH', middle: 'JULIAN', last: 'AADAMS',
-  full: 'PATCH JULIAN AADAMS',
-  short: 'PATCH AADAMS',
-  dob: '1986.12.19', age: '39 YR OLD', sex: 'M',
-  bchn: 'AB *7996654321 00',
-  phone: '250-765-3212',
-  encounter: '10065087',
+/* --- Order ----------------------------------------------------------------
+   PROVENANCE: transcribed from `reference/order-report.png`,
+   `order-distribution.png`, `order-links.png`, `order-office-notes.png` and
+   `order-history.png` — chart 3424's order list in the training environment.
+
+   Those five captures are the same window with a different row current, and
+   the tab captions count *that* row's children: MOIS re-retrieves
+   Distribution / Links / Office Notes / History whenever the current order
+   changes. The detail therefore hangs off the order, not off the window.  */
+
+export type OrderRecipient = {
+  method: string
+  type: string
+  name: string
+  location: string
+  status: string
 }
 
-export const orderRows = [
-  { date: '2026.07.10', type: '', by: 'GHATAVI, KAYHAN', to: '', for: '', st: 'IP', links: '1' },
-  { date: '2026.07.07', type: '', by: '(RN) DHALIWAL, RUPIN…', to: '', for: 'dot updated', st: 'IP', links: '1' },
-  { date: '2026.07.02', type: '', by: '(LPN) GRUBB, HELENA', to: '', for: '', st: 'IP', links: '1' },
-  { date: '2026.07.01', type: 'CONSULTATION', by: 'ESIEVOADJE, EVONEM…', to: '', for: '', st: 'IP', links: '-' },
-  { date: '2026.07.01', type: 'CONSULTATION', by: 'ESIEVOADJE, EVONEM…', to: 'SMITH, DALENE', for: 'HYPERTENSION - BENIGN', st: 'IP', links: '1' },
-  { date: '2026.07.01', type: 'IMAGE', by: 'ESIEVOADJE, EVONEM…', to: '', for: 'STANDARD OUT-PATIENT BREAST IM…', st: 'IP', links: '1' },
+/** One distribution event: the document that went out, and who received it. */
+export type OrderDistribution = {
+  sentAt: string
+  document: string
+  by: string
+  recipients: OrderRecipient[]
+}
+
+export type OrderLink = { section: string; date: string; desc: string }
+export type OrderNote = { date: string; author: string; note: string }
+export type OrderHistoryEntry = { when: string; by: string; field: string; to: string; reason: string }
+
+/** The Report tab — the order's own fields, plus the window's footer line. */
+export type OrderDetail = {
+  attending?: string
+  orderedBy?: string
+  responsibleOrg?: string
+  referredTo?: string
+  copiesTo?: string
+  transcribed?: [string, string, string]
+  facility?: string
+  facilityRef?: string
+  facilityLoc?: string
+  payor?: string
+  /** Appointment Booking */
+  responsibility?: 'Office' | 'Patient' | ''
+  bookedDate?: string
+  bookedTime?: string
+  notified?: boolean
+  referralNote?: string
+  /** Order Management */
+  assignedTo?: string
+  referralSource?: string
+  priority?: string
+  status?: string
+  finishedOn?: string
+  finishedBy?: string
+  /** the footer under the tab page */
+  source?: string
+  sentDate?: string
+  signature?: string
+  created?: string
+  encounter?: string
+}
+
+export type OrderRow = {
+  date: string
+  type: string
+  by: string
+  to: string
+  for: string
+  /** tdt_order status code: IP in process, CT complete, CM, RO, SP, WL */
+  st: string
+  links: string
+  /** the paper-clip column */
+  attach: string
+  detail?: OrderDetail
+  distribution?: OrderDistribution[]
+  linkRows?: OrderLink[]
+  notes?: OrderNote[]
+  history?: OrderHistoryEntry[]
+}
+
+export const orderRows: OrderRow[] = [
+  {
+    date: '2026.07.27', type: 'CONSULTATION', by: 'BEARDWOOD, WALTER', to: '', for: '',
+    st: 'IP', links: '-', attach: '-',
+    detail: {
+      orderedBy: 'BEARDWOOD, WALTER',
+      priority: 'ROUTINE',
+      status: 'IN PROCESS',
+      source: 'SYSTEM',
+      sentDate: '2026.07.27',
+      signature: 'UNSIGNED',
+      created: '2026.07.27  13:40  BEARDWOOD, WALTER',
+      encounter: '10064858',
+    },
+  },
+  { date: '2026.05.22', type: 'CONSULTATION', by: 'FAIRCHILD, NESRIN L', to: 'PCIPT 1 PRG', for: 'DIETARY REGIME ASSESSMENT', st: 'CT', links: '-', attach: '-' },
+  { date: '2026.04.16', type: 'CONSULTATION', by: 'WEBB, SHIRLEY', to: '', for: 'HOME SUPPORT LONG TERM', st: 'IP', links: '-', attach: '-' },
+  { date: '2026.04.16', type: 'CONSULTATION', by: 'WEBB, SHIRLEY', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2026.03.31', type: 'CONSULTATION', by: 'DUCHARME, AMARILYS', to: 'PRESTON, ANTHONY JO…', for: 'ACUTE ADMISSION FOR PSYCHIATRIC…', st: 'RO', links: '-', attach: '-' },
+  { date: '2026.03.31', type: 'CONSULTATION', by: 'DUCHARME, AMARILYS', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2025.08.26', type: 'CONSULTATION', by: 'GRAHAM, CHELSEA', to: 'HS 1 DGS', for: 'HOME SUPPORT SHORT TERM', st: 'CM', links: '-', attach: '2' },
+  { date: '2025.08.18', type: '', by: 'GRAHAM, CHELSEA', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2025.08.15', type: 'CONSULTATION', by: 'SHEWCHUK, LEAH', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2025.08.11', type: 'LAB', by: 'PATRICK, TAMMY', to: '', for: '', st: 'IP', links: '-', attach: '1' },
+  { date: '2025.07.31', type: 'CONSULTATION', by: 'PCIPT 1 NURSE 6 PRG', to: 'PCIPT 1 FSJ', for: 'ACTIVITIES OF DAILY LIVING ASSESS…', st: 'IP', links: '-', attach: '1' },
+  { date: '2025.07.11', type: 'CONSULTATION', by: 'BUFFAY, PHOEBE', to: 'PCIPT 1 LKD', for: 'HOME SUPPORT LONG TERM', st: 'SP', links: '1', attach: '-' },
+  {
+    date: '2025.07.09', type: 'CONSULTATION', by: 'HOWSER, DOOGIE (NH…', to: 'PCIPT 1 TER', for: 'ANXIETY',
+    st: 'IP', links: '1', attach: '-',
+    linkRows: [{ section: 'DOCUMENT', date: '2025.07.09', desc: 'ANXIETY' }],
+  },
+  { date: '2025.07.09', type: 'LAB', by: 'HOWSER, DOOGIE (NH…', to: '', for: 'PLMS STANDARD OUTPATIENT LAB R…', st: 'IP', links: '-', attach: '1' },
+  { date: '2025.06.19', type: 'CONSULTATION', by: 'BEARDWOOD, WALTER', to: 'TEST 4', for: 'ACTIVE OR PASSIVE IMMUNIZATION', st: 'IP', links: '1', attach: '1' },
+  {
+    date: '2025.05.12', type: 'CONSULTATION', by: 'HOWSER, DOOGIE (NH…', to: 'SUS NOW 1 TER',
+    for: 'INTAKE/SCREENING/WALK-IN AND/O…', st: 'IP', links: '-', attach: '1',
+    distribution: [
+      {
+        sentAt: '2025.05.27 11:38',
+        document: 'REFERRAL NOTE - INTAKE/SCREENING/WALK-IN AND/OR BRIEF IN',
+        by: 'DUCHARME, AMARILYS',
+        recipients: [
+          {
+            method: 'INTERNAL', type: 'PRIMARY RECIPIENT', name: 'SUS NOW 1 TER',
+            location: 'Distribution to another party inside of your clinic.', status: 'SUCCESS',
+          },
+        ],
+      },
+    ],
+  },
+  { date: '2025.05.08', type: 'CONSULTATION', by: 'RAJANNA, NANDA', to: 'NH_CDX2TESTCLINIC1', for: 'ADVANCE CARE PLANNING', st: 'IP', links: '1', attach: '1' },
+  { date: '2025.05.01', type: 'CONSULTATION', by: 'BUDAC, LEAH', to: 'FAIRCHILD, NESRIN L', for: 'ANEMIA - HEMOGLOBINURIA', st: 'IP', links: '1', attach: '1' },
+  { date: '2024.10.25', type: 'CONSULTATION', by: 'SINGH, SANDEEP', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2024.10.25', type: 'CONSULTATION', by: 'SINGH, SANDEEP', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2024.10.25', type: 'CONSULTATION', by: 'SINGH, SANDEEP', to: '', for: '', st: 'IP', links: '-', attach: '-' },
+  { date: '2024.10.23', type: 'CONSULTATION', by: 'SELF', to: 'PCIPT 1 PRG', for: 'INTAKE/SCREENING/WALK-IN AND/O…', st: 'WL', links: '-', attach: '-' },
+  { date: '2024.10.23', type: 'CONSULTATION', by: 'SINGH, SANDEEP', to: 'PCIPT 1 PRG', for: 'CLINICAL NUTRITION', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.10.22', type: 'CONSULTATION', by: 'SELF', to: 'PCIPT 1 PRG', for: 'INTAKE/SCREENING/WALK-IN AND/O…', st: 'IP', links: '-', attach: '-' },
+  { date: '2024.10.11', type: 'CONSULTATION', by: 'JEKYLL, HENRY', to: 'PCIPT 1 PRG', for: 'CLINICAL SOCIAL WORKER', st: 'WL', links: '-', attach: '1' },
+  { date: '2024.10.11', type: 'CONSULTATION', by: 'ANATOLE, RACHEL', to: 'DASKAREV, ALBENA MAR', for: 'ACUTE ADMISSION FOR PSYCHIATRIC…', st: 'CM', links: '-', attach: '1' },
+  { date: '2024.10.11', type: 'CONSULTATION', by: 'ANATOLE, RACHEL', to: 'DASKAREV, ALBENA MAR', for: 'ASSISTED LIVING', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.10.07', type: 'CONSULTATION', by: 'HOWSER, DOOGIE (NH…', to: 'OLMSTEAD, TIMOTHY GA', for: 'CLINICAL NUTRITION', st: 'IP', links: '-', attach: '-' },
+  { date: '2024.10.04', type: 'CONSULTATION', by: 'JEKYLL, HENRY', to: 'PCIPT 1 PRG', for: 'CLINICAL SOCIAL WORKER', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.10.03', type: 'CONSULTATION', by: '(MD) JEKYLL, HENRY', to: 'PCIPT 1 PRG', for: 'CLINICAL SOCIAL WORKER', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.10.03', type: 'CONSULTATION', by: '(MD) JEKYLL, HENRY', to: 'PCIPT 2 PRG', for: 'CLINICAL SOCIAL WORKER', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.10.03', type: 'CONSULTATION', by: 'SELF', to: 'PCIPT 1 PRG', for: 'INTAKE/SCREENING/WALK-IN AND/O…', st: 'IP', links: '-', attach: '-' },
+  {
+    date: '2024.10.03', type: 'CONSULTATION', by: 'JEKYLL, HENRY', to: 'PCIPT 1 PRG',
+    for: 'CLINICAL SOCIAL WORKER', st: 'CT', links: '-', attach: '1',
+    detail: {
+      orderedBy: 'JEKYLL, HENRY',
+      assignedTo: 'PCIPT 1 PRG',
+      priority: 'ROUTINE',
+      status: 'COMPLETE',
+      source: 'SYSTEM',
+      sentDate: '2024.10.03',
+      signature: 'UNSIGNED',
+      created: '2024.10.03  13:25  SINGH, SANDEEP',
+      encounter: '10064102',
+    },
+    distribution: [
+      {
+        sentAt: '2024.10.03 13:31',
+        document: 'REFERRAL NOTE - CLINICAL SOCIAL WORKER',
+        by: 'SINGH, SANDEEP',
+        recipients: [
+          { method: 'INTERNAL', type: 'PRIMARY RECIPIENT', name: 'PCIPT 1 PRG', location: 'Distribution to another party inside of your clinic.', status: 'SUCCESS' },
+          { method: 'INTERNAL', type: 'COPY RECIPIENT', name: 'PCIPT 2 PRG', location: 'Distribution to another party inside of your clinic.', status: 'SUCCESS' },
+        ],
+      },
+    ],
+    notes: [{ date: '2024.10.03', author: 'SINGH, SANDEEP', note: 'CONTACT THE CLIENT' }],
+    history: [
+      { when: '2024.10.03 13:30', by: 'SINGH, SANDEEP', field: 'Status', to: 'CT', reason: '' },
+      { when: '2024.10.03 13:25', by: 'SINGH, SANDEEP', field: 'Assigned To', to: 'PCIPT 1 PRG', reason: '' },
+    ],
+  },
+  { date: '2024.10.03', type: 'CONSULTATION', by: 'JEKYLL, HENRY', to: 'PCIPT 2 PRG', for: 'CLINICAL SOCIAL WORKER', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.10.01', type: 'LAB', by: 'HOWSER, DOOGIE (NH…', to: '', for: 'NH STANDARD OUT PATIENT LABOR…', st: 'IP', links: '-', attach: '1' },
+  { date: '2024.09.23', type: 'CONSULTATION', by: 'HOWSER, DOOGIE (NH…', to: 'PCIPT 1 LKD', for: 'HOME CARE NURSING', st: 'CM', links: '-', attach: '1' },
 ]
+
+/** The drop-downs on the Order report page. */
+export const orderPriorities = ['', 'ROUTINE', 'URGENT', 'EMERGENT']
+export const orderStatuses = ['', 'IN PROCESS', 'COMPLETE', 'CANCELLED', 'ON WAIT LIST', 'SUSPENDED']
+export const orderReferralSources = ['', 'SELF', 'PHYSICIAN', 'HOSPITAL', 'COMMUNITY AGENCY']
+export const orderPayors = ['', 'MSP', 'WCB', 'ICBC', 'PRIVATE PAY']
 
 export const encounterRows = [
   { id: '10065087', date: '2030.05.03', hr: '08', mn: '15', code: 'X', mode: 'DE', nbr: '30', provider: '<SEE NOTE>', reason: '', loc: '', alert: true },
@@ -218,6 +586,19 @@ export const encounterRows = [
   { id: '10065080', date: '2030.04.11', hr: '08', mn: '30', code: 'X', mode: 'DE', nbr: '12', provider: '<SEE NOTE>', reason: 'LTTCM MEETING', loc: 'DAW HEALTH UNIT', alert: true },
   { id: '10065079', date: '2030.04.05', hr: '08', mn: '15', code: 'X', mode: 'DE', nbr: '30', provider: '<SEE NOTE>', reason: '', loc: '', alert: true },
 ]
+
+/* --- Demographics ▸ Demographics ----------------------------------------
+   PROVENANCE: transcribed from `reference/demographics-full.png` (chart
+   3424). Only the drop-down contents live here: everything the window shows
+   about a patient — address, telecom, pharmacy, the coded Selected Items, the
+   audit line — belongs to the chart and is carried on the record in
+   `patients.ts`, so opening another chart cannot show this one's details. */
+
+export const preferredPhones = ['', 'Home', 'Work', 'Cell', 'Pager']
+export const chartFacilities = ['', 'UPCC 1 PRG', 'NHVC-AK', 'PCIPT 1 PRG', 'HS 1 DGS']
+export const chartLocations = ['', 'PRINCE GEORGE', 'FORT ST JOHN', 'TERRACE', 'DAWSON CREEK']
+export const chartServices = ['', 'PRIMARY CARE', 'HOME SUPPORT', 'MENTAL HEALTH', 'CLINICAL NUTRITION']
+export const countries = ['', 'Canada', 'United States']
 
 /* --- Demographics ▸ Incentives ------------------------------------------ */
 export const incentiveRows = [
@@ -269,8 +650,6 @@ export const measurementRows = [
   { code: '90754', name: 'OXYTETRACYCLINE SPEC-MCNT', value: '', flag: '-', units: 'mg/kg; ppm' },
 ]
 
-/* --- Order ▸ History ----------------------------------------------------- */
-export const orderHistoryRows: Record<string, string>[] = []
 
 /* --- Care Plan family ----------------------------------------------------
    One PowerBuilder window, six bindings. `descHeader`/`descLabel` and the
@@ -393,9 +772,6 @@ export const linkedGoalRows = [
   },
 ]
 
-/* --- Order ▸ Distribution / Links ---------------------------------------- */
-export const orderDistributionRows: Record<string, string>[] = []
-export const orderLinkRows: Record<string, string>[] = []
 
 /* --- Notification: each tab is its own DataWindow ------------------------ */
 export type NotificationTab = {

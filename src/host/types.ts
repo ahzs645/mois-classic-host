@@ -9,6 +9,65 @@ import type { ReactNode } from 'react'
    two against each other where Webforms registers the emulator.
    ========================================================================= */
 
+/**
+ * One chart in the frame's roster. Only `chart` and the name parts are needed;
+ * everything else fills a column in the Advanced Lookup Service or a field on
+ * Patient Summary or Demographics, and is blank when the host does not have
+ * it. Administrative only — nothing clinical crosses this boundary.
+ */
+export interface HostPatient {
+  chart: string
+  status?: string
+  first: string
+  middle?: string
+  last: string
+  alias?: string
+  /** YYYY.MM.DD */
+  dob?: string
+  gender?: string
+  home?: string
+  insurance?: string
+  insuranceBy?: string
+  dep?: string
+  bchn?: string
+  note?: string
+  location?: string
+  provider?: string
+  registered?: string
+  encounter?: string
+  /* --- Contact Information, as Demographics paints it ------------------
+     A host supplies these from the chart it already holds (Webforms projects
+     them out of the same PatientScenario a form binds against), so the
+     emulator's Demographics window and a form's patient fields never
+     disagree. The training roster fills them from the captures. */
+  address?: string
+  address2?: string
+  city?: string
+  province?: string
+  postal?: string
+  country?: string
+  work?: string
+  workExt?: string
+  cell?: string
+  fax?: string
+  emailHome?: string
+  emailWork?: string
+  /** the contact method the chart prefers — MOIS underlines that label */
+  preferredPhone?: string
+  /** the "Leave Message" flag beside each number */
+  homeMessage?: boolean
+  workMessage?: boolean
+
+  /* --- Office / Pharmacy / audit --------------------------------------- */
+  lastContact?: string
+  pharmacy?: { name?: string; address?: string; phone?: string; fax?: string }
+  /** `YYYY.MM.DD  HH:MM  USER` — the window's Created / Last Modified line */
+  created?: string
+  modified?: string
+  /** the chart's coded flags, as the Selected Items grid lists them */
+  selectedItems?: { code: string; value: string }[]
+}
+
 /** JSON-shaped values the tutorial layer accepts: slugs, booleans, numbers. */
 export type HostValue =
   | string
@@ -71,6 +130,16 @@ export interface HostShellApi {
 export interface HostShellProps {
   /** Fixture id from the manifest; unknown ids fall back to the default. */
   fixture?: string
+  /**
+   * The charts this frame can open. A host that has its own patients (the
+   * Webforms preview roster) passes them here; omitted, the emulator uses the
+   * training roster it ships with.
+   */
+  patients?: HostPatient[]
+  /** The open chart, by chart number. Pass with `onChartChange` to control it. */
+  chart?: string
+  /** The learner opened another chart — from the lookup, Next/Previous, or by typing one. */
+  onChartChange?: (chart: string) => void
   /** A semantic action the learner performed, or the shell replayed. Payloads carry slugs only. */
   onAction?: (actionId: string, payload?: HostRecord, result?: HostValue) => void
   /** The shell's structural state whenever it changes; the host merges it as `host.*`. */

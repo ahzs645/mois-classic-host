@@ -3,13 +3,15 @@ import {
   PBIdentityStrip, PBCheckbox, PBSlider, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBRadio,
   PBSection, PBSelect, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { goalLinkedTabs, goalRows, patient } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import { goalLinkedTabs, goalRows } from '../data/mois'
 
 type Goal = typeof goalRows[number]
 
 const TABS = ['Detail', 'Quantitative Settings', 'Evaluation', 'Linked Health Issue(s)', 'Linked Action(s)']
 
 export function GoalsView({ onNew }: { onNew?: () => void }) {
+  const patient = usePatient()
   const [tab, setTab] = useState('Quantitative Settings')
   const [cur, setCur] = useState(0)
   const quant = !!goalRows[cur]?.quant

@@ -543,3 +543,124 @@ the screenshot set.
   with `CHART:` rather than `FIRST:`.
 - **A focused command button** draws a blue Win10 focus rectangle — visible on
   `Save` in `incentive-claim-populated.png`.
+
+## 4. The design-width pass (Demographics, Order, Patient Summary)
+
+Seven new captures: `demographics-full.png`, the five Order tabs
+(`order-report`, `order-distribution`, `order-links`, `order-office-notes`,
+`order-history`) and `patient-summary-header.png`. All are 1.5x — the Windows
+VM renders at 1.5 device px per Windows px — so every measurement below is the
+capture divided by 1.5.
+
+### The windows do not stretch
+
+This is the thing the kit had most obviously wrong. A PowerBuilder window is
+painted at one size and only the controls anchored to the right edge grow with
+the frame. Every capture shows the same shape on a wide monitor: content on
+the left, empty window face on the right.
+
+- Demographics and Order are painted at **~1056px**; Patient Summary's chart
+  block runs to **1042** and its command row's buttons stop at **978**.
+- `--pb-design-w` + `.pb-fixed` (`PBFixed`) opt a block into that width.
+- Some controls in the captures really are anchored: the Order list's grid
+  canvas and scrollbar reach the frame while its columns stop where they were
+  painted (`reference/order-report.png` past x=1975 is white, not face). The
+  kit does **not** reproduce that. A single block running past every other one
+  reads as a layout bug on a 1900px stage, so every window stays at its design
+  width. If it is ever wanted back, it is a `width: auto` table inside a
+  full-width `.pb-dw`.
+- The identity strip was spreading its fields across the full width with
+  `margin-left: auto`. It is painted at fixed offsets: on Order, FIRST at 9,
+  MIDDLE 195, LAST 340, DoB 548, `Active ENC#` 661. Fields now carry a `w`.
+
+### The Win32 GroupBox was missing
+
+Demographics and the Order report page are built from the plain rectangle with
+a navy caption set into its top border — not the banded `.pb-groupbox` the kit
+had. Added as `PBGroup` / `.pb-fieldset`, a real `<fieldset>`/`<legend>` so the
+border breaks around the caption for free.
+
+### Order's tab pages belong to the order, not the window
+
+The five captures are one window with a different row current, and the tab
+captions count *that* row's children. `orderRows` therefore carries
+`detail` / `distribution` / `linkRows` / `notes` / `history`, and the window
+recomputes the captions from the current row. Chart 3424's 2024.10.03
+CONSULTATION reproduces the capture exactly: Distribution (2), Links (0),
+Office Notes (1), History (2).
+
+Distribution and Links use a **grey** header band, not the DataWindow blue;
+Office Notes and History keep the blue. A distribution event is a group band
+carrying the document as a bold hyperlink and `Distributed By:` at the right,
+with each recipient painted yellow underneath. `--pb-dw-highlight` was too pale
+(`#ffffcc`) against both captures and is now `#ffff99`.
+
+### Measured, not guessed
+
+| block | label col | field col | notes |
+|---|---|---|---|
+| Demographics left groups | 117 | 377 | group inner 500, padding 10 |
+| Demographics right groups | 114 | 378 | `Last Contact` / `Invoice Balance` are captioned *above* their fields |
+| Order ▸ Detail Information | 120 | 347 + `…` | right sub-column right-aligned, fields 152 |
+| Patient Summary header | 114 | fields at 114/243/363, insurance col at 618 | `Service Provider` ends at 1036 |
+
+The Patient Summary status letter is an outline on the window gradient, not a
+white edit field — sampling `patient-summary-header.png` at x=317 shows the
+gradient straight through the box, so it is no longer a `PBSelect`.
+
+### Still unbuilt
+
+The Demographics tabs behind `Patient Detail`, `ID Alias`, `Connections`,
+`Services`, `Associated Parties`, `WCB Claims` and `Other Claims` remain
+placeholder column sets — no capture of them exists. The Order list's detail
+band measures ~21px in the captures against the kit's 18px default; left alone
+rather than diverging one grid from the rest of the kit.
+
+### The chart is the window's only source
+
+Demographics used to be half transcription: the pharmacy block, the Selected
+Items grid and the Created / Last Modified line were window-level constants in
+`data/mois.tsx`. That is wrong twice over — it cannot show a host's chart, and
+on any chart but 3424 it printed somebody else's pharmacy.
+
+They are fields on the chart record now (`data/patients.ts`), and the window
+renders whatever the open chart carries, empty where it carries nothing. The
+training roster fills 3424 from `demographics-full.png`, so the standalone
+gallery still opens on the captured window. A host supplies its own: Webforms
+projects them out of the same `PatientScenario` a form binds against, so the
+emulator and a form bound to that chart cannot disagree.
+
+Only the drop-down contents — carriers, genders, statuses, service providers,
+facilities, countries, preferred-phone list — stay in `data/mois.tsx`, because
+those belong to the installation rather than to a patient.
+
+### Patient Summary's hyperlink column
+
+The summary grid's four columns are painted, not elastic. Leaving `detail`
+without a width made it swallow every spare pixel, which moves the other
+columns whenever the window resizes.
+
+The capture pins them. Its caption blocks sit at 9..54, 144..270, 846..909 and
+1332..1440 of the grid; Date and Description are left-aligned in their columns
+and Detail and Hyperlink centred, and one set of widths fits all four:
+
+    Date 0..140 | Description 140..614 | Detail 614..1140 | Hyperlink 1140..1632
+
+A trailing `_pad` column takes whatever the window has past 1632, so the
+columns hold those positions while the group bands still run the full width.
+
+Measuring this the first time by clustering ink columns gave 0 / 107 / 570 /
+955 and was wrong — the clusters merged the tree panel with the Date caption
+and split Description. Reading the header band as coarse ASCII (see the
+`ascii` probe idea in the design-width section) and checking all four captions
+against one candidate fit is the reliable way.
+
+The cell itself is **MOIS's own "go to record" glyph and nothing else** — no
+label. `public/img/GotoRecord.png` in the Webforms repo is the same asset
+`ActionGotoRecord` and `LinkToMois` render inside a real form, so a summary row
+jumping into Care Plan and a form's link-to-MOIS button show one icon. It is
+vendored as `src/pb/glyphs/goto-record.png` rather than referenced at
+`/img/…` so the standalone Vite viewer still renders it, and it is applied as
+a CSS background (`.pb-link--mois`) rather than an `<img>` because that path is
+already proven in both bundlers. The module name stays as the tooltip and the
+accessible name.
