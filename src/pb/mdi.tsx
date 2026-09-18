@@ -48,7 +48,9 @@ export function useMdi() {
 
 /* new sheets cascade down-right from the frame origin, as MDI children do */
 const CASCADE = 24
-const ORIGIN = { x: 140, y: 52 }
+/* below the frame's title bar (30px) and menu bar (22px) plus its 18px desktop
+   inset, so a child's title bar never covers the frame's menus */
+const ORIGIN = { x: 140, y: 84 }
 
 export function PBMdiProvider({ children }: { children: ReactNode }) {
   const [instances, setInstances] = useState<PBInstance[]>([])
