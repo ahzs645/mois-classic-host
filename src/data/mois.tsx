@@ -1,7 +1,8 @@
 /* Mock content transcribed from the MOIS training-environment screenshots. */
 import type { PBTreeNode } from '../pb'
 import {
-  IconBilling, IconBook, IconCalendarGrid, IconChart, IconClock, IconFolder,
+  IconBasket, IconBilling, IconBook, IconCalendarGrid, IconChart, IconClock, IconEnvelope,
+  IconFolder, IconTaskCheck,
   IconGear, IconIdCard, IconPeople, IconPlusDoc, IconReport,
 } from '../pb'
 
@@ -67,40 +68,176 @@ export const schedulerTree: PBTreeNode[] = [
 ]
 
 /* --- trees for the other five modules ------------------------------------ */
+/**
+ * Transcribed from `workspace_summary.PNG`: the Workspace opens on its
+ * Summary, and the rest of the tree is the three places work arrives —
+ * Basket, Task List, Message Board — plus My Settings. The eight basket
+ * folders are the ones the manual's "Workspace Summary" article lists.
+ */
 export const workspaceTree: PBTreeNode[] = [
-  { id: 'ws', label: 'My Workspace', icon: <IconPlusDoc />, children: [
-    f('ws-inbox', 'Inbox'), f('ws-tasks', 'Tasks'),
-    f('ws-review', 'Marked for Review'), f('ws-recent', 'Recent Charts'),
+  f('ws-summary', 'Workspace Summary'),
+  { id: 'ws-basket', label: 'Basket', icon: <IconBasket />, children: [
+    f('ws-measures', 'Measures'), f('ws-imaging', 'Imaging'), f('ws-consults', 'Consults'),
+    f('ws-procedures', 'Procedures'), f('ws-documents', 'Documents'),
+    f('ws-admissions', 'Facility Admissions'), f('ws-progress', 'Progress Note'),
+    f('ws-orders', 'Orders'),
+  ]},
+  { id: 'ws-tasklist', label: 'Task List', icon: <IconTaskCheck />, children: [
+    f('ws-task-inbox', 'Inbox'), f('ws-task-sent', 'Sent Tasks'),
+  ]},
+  { id: 'ws-board', label: 'Message Board', icon: <IconEnvelope />, children: [
+    f('ws-msg-inbox', 'Inbox'), f('ws-msg-sent', 'Sent Messages'),
+  ]},
+  { id: 'ws-settings', label: 'My Settings', icon: <IconFolder />, children: [
+    f('ws-set-workspace', 'Workspace'), f('ws-set-meds', 'Favourite Medications'),
   ]},
 ]
 
+/**
+ * Transcribed from `image(55).png` and `Screenshot_2026-03-16_142613.png` on
+ * the MOIS help site — the current cloud build (v02.31.23 / v02.31.41), which
+ * is the only one with all five folders. Older on-prem captures have just MSP
+ * Claims and Invoices; `image(455).png` (v02.24.34) calls PBF Management
+ * `PCPC Management`.
+ *
+ * `Unack` and `Enrollment CR` are the product's own abbreviations, kept.
+ * Invoices is a folder with no children, and MSP Claims is a folder no
+ * capture shows a view for.
+ */
 export const billingTree: PBTreeNode[] = [
-  { id: 'bl', label: 'Billing', icon: <IconBilling />, children: [
-    f('bl-claims', 'Claims'), f('bl-batches', 'Submission Batches'),
-    f('bl-remit', 'Remittances'), f('bl-rejects', 'Rejections'),
+  { id: 'bl-msp', label: 'MSP Claims', icon: <IconFolder />, children: [
+    f('bl-unsent', 'Unsent Claims'), f('bl-sent', 'Sent Claims'),
+  ]},
+  { id: 'bl-invoices', label: 'Invoices', icon: <IconFolder /> },
+  { id: 'bl-pbf', label: 'PBF Management', icon: <IconFolder />, children: [
+    f('bl-pbf-enrol', 'Patient Enrollment'), f('bl-pbf-elig', 'Eligibility Request'),
+    f('bl-pbf-cr', 'Enrollment CR'), f('bl-pbf-unsent', 'Unsent Enrollment Claims'),
+    f('bl-pbf-unack', 'Unack Enrollment Claims'), f('bl-pbf-failed', 'Failed Enrollment Claims'),
+    f('bl-pbf-review', 'MSP CR Review'), f('bl-pbf-audit', 'MSP Registry Audit'),
+    f('bl-pbf-history', 'Enrollment Claim History'), f('bl-pbf-pcpc', 'PCPC Complexity Index'),
+  ]},
+  { id: 'bl-lfp', label: 'LFP Management', icon: <IconFolder />, children: [
+    f('bl-lfp-setup', 'LFP Setup'), f('bl-lfp-reg', 'Provider Registration'),
+    f('bl-lfp-time', 'Provider Time Summary'),
+  ]},
+  { id: 'bl-pas', label: 'PAS Management', icon: <IconFolder />, children: [
+    f('bl-pas-changes', 'Patient Changes'), f('bl-pas-panel', 'Panel Review'),
   ]},
 ]
 
+/**
+ * The Administration tree, transcribed from the annotated master capture in
+ * article 303377 (the seven sections with the manual's own one-line
+ * descriptions) and brought forward to the current build — `v02.30.11
+ * b230504` — from 302650, 2069798, 2873865 and 303121.
+ *
+ * The earlier transcription here was taken from `encounter_limit.PNG` and
+ * `encounters.png`, two Configuration-focused crops that never showed the top
+ * of the tree. It was missing `User Management`, `Address Book` and
+ * `Codeset Management` entirely, and had hoisted four of Clinic Management's
+ * fourteen children to the top level as if they were sections.
+ *
+ * Ordering inside Clinic Management is neither alphabetical nor stable across
+ * builds: `Service Groups/Pathways` sits between `Resource List` and
+ * `Facility List`, and `Folder Registration` between `Facility List` and
+ * `Service Centers`. Both are as captured.
+ *
+ * Two nodes are deliberately absent. `Web Forms Admin` appears in Designer
+ * Section on b220906 but not on the strictly newer b230504, so it reads as
+ * licence-gated rather than removed. `myhealthkey (BETA)` survives only as a
+ * partially-scrolled fragment (`Settings`, `Provid…`) with no capture showing
+ * its full child list.
+ */
 export const adminTree: PBTreeNode[] = [
-  { id: 'ad', label: 'Administration', icon: <IconChart />, children: [
-    f('ad-users', 'Users'), f('ad-providers', 'Providers'),
-    f('ad-locations', 'Service Locations'), f('ad-tables', 'Maintenance Tables'),
-    f('ad-audit', 'Audit Log'),
+  { id: 'ad-user-mgt', label: 'User Management', icon: <IconFolder />, children: [
+    f('ad-security-profiles', 'Security Profiles'), f('ad-users', 'User Accounts'),
+    f('ad-user-groups', 'User Groups'),
+  ]},
+  { id: 'ad-clinic-mgt', label: 'Clinic Management', icon: <IconFolder />, children: [
+    f('ad-provider-list', 'Provider List'), f('ad-org-role-list', 'Org Role List'),
+    f('ad-org-list', 'Organization List'), f('ad-resource-list', 'Resource List'),
+    f('ad-service-groups', 'Service Groups/Pathways'), f('ad-facility-list', 'Facility List'),
+    f('ad-folder-registration', 'Folder Registration'), f('ad-service-centers', 'Service Centers'),
+    f('ad-locations', 'Service Location'), f('ad-computer', 'Computer Registration'),
+    f('ad-reminders', 'Global Reminders'), f('ad-meds', 'Clinic Favourite Meds'),
+    f('ad-immunization', 'Immunization Inventory'), f('ad-efax', 'eFax Accounts'),
+  ]},
+  { id: 'ad-address-book', label: 'Address Book', icon: <IconFolder />, children: [
+    f('ad-contact-list', 'Contact List'),
+  ]},
+  { id: 'ad-prompts', label: 'Prompt / Selection List Mgt', icon: <IconFolder />, children: [
+    f('ad-prompt-lists', 'Prompt Lists'), f('ad-selection-lists', 'Selection Lists'),
+    f('ad-auto-update', 'Auto-Update Utilities'), f('ad-text-labels', 'Text / Labels'),
+    f('ad-snippet', 'Snippet'),
+  ]},
+  { id: 'ad-designer', label: 'Designer Section', icon: <IconFolder />, children: [
+    f('ad-concept', 'Concept Mapping'), f('ad-encounter-form', 'Encounter Form'),
+    f('ad-flowsheet', 'Flowsheet'), f('ad-panel-setup', 'Panel Setup'),
+    f('ad-measure-inputs', 'Measurement Inputs'), f('ad-letters', 'Letter Templates'),
+    f('ad-paper-forms', 'Paper (PDF) Forms'), f('ad-careplan-templates', 'Care Plan Templates'),
+    f('ad-task-sets', 'Task Set Templates'), f('ad-quick-entry', 'Quick Entry'),
+  ]},
+  { id: 'ad-external', label: 'External Service Providers', icon: <IconFolder />, children: [
+    f('ad-clinics', 'Clinics'), f('ad-providers', 'Providers'),
+    f('ad-organizations', 'Organizations'), f('ad-static-recipients', 'Static Recipients'),
+  ]},
+  { id: 'ad-config', label: 'Configuration', icon: <IconFolder />, children: [
+    f('ad-settings', 'System Settings'), f('ad-chart-summaries', 'Chart Summaries'),
+    f('ad-field-audit', 'Field Audit Setup'), f('ad-password', 'Password Policy'),
+    f('ad-printer-configs', 'Printer Configurations'), f('ad-printer-profiles', 'Printer Profiles'),
+  ]},
+  { id: 'ad-codesets', label: 'Codeset Management', icon: <IconFolder />, children: [
+    f('ad-code-sources', 'Sources'), f('ad-code-systems', 'Systems'),
+    f('ad-codes', 'Codes'), f('ad-reference-sets', 'Reference Sets'),
+    f('ad-value-sets', 'Value Sets'), f('ad-code-mapping', 'Mapping'),
+    f('ad-lookup-settings', 'Lookup Settings'),
   ]},
 ]
 
+/**
+ * Transcribed from `data_exchange_contents1.png`, the annotated tree in the
+ * manual's "Data Exchange Contents" article, and corroborated by
+ * `data_infobar1.png`. The module is where results are entered or exchanged
+ * before they land in a chart and in the ordering physician's basket.
+ */
 export const exchangeTree: PBTreeNode[] = [
-  { id: 'dx', label: 'Data Exchange', icon: <IconGear />, children: [
-    f('dx-inbound', 'Inbound'), f('dx-outbound', 'Outbound'),
-    f('dx-errors', 'Errors'), f('dx-hl7', 'HL7 Interfaces'),
+  { id: 'dx-manual', label: 'Manual Entry', icon: <IconFolder />, children: [
+    f('dx-measures', 'Measures'), f('dx-imaging', 'Imaging'), f('dx-consults', 'Consults'),
+    f('dx-procedures', 'Procedures'), f('dx-documents', 'Documents'),
+    f('dx-admissions', 'Facility Admissions'), f('dx-orders', 'Orders'),
+  ]},
+  { id: 'dx-attach', label: 'Attachment Utilities', icon: <IconFolder />, children: [
+    f('dx-scan', 'Scan Files'), f('dx-attach-files', 'Attach Files'),
+  ]},
+  { id: 'dx-msp', label: 'MSP', icon: <IconFolder />, children: [
+    f('dx-prepare-bills', 'Prepare Bills'), f('dx-teleplan', 'Launch Teleplan'),
+    f('dx-remittance', 'Reconcile Remittance'),
+  ]},
+  { id: 'dx-interfaces', label: 'Electronic Interfaces', icon: <IconFolder />, children: [
+    f('dx-sendreceive', 'Send/Receive Data'), f('dx-lab-results', 'Lab Results'),
+    f('dx-inbound-msg', 'Inbound Messages'), f('dx-outbound-msg', 'Outbound Messages'),
+    f('dx-distribution', 'Inbox Distribution'), f('dx-setup', 'Setup / Registration'),
+    f('dx-matching', 'Matching History'), f('dx-audit', 'Interface Data Audit'),
+  ]},
+  { id: 'dx-notifications', label: 'Automated Notifications', icon: <IconFolder />, children: [
+    f('dx-call-lists', 'Call Lists'), f('dx-notif-setup', 'Setup / Registration'),
+  ]},
+  { id: 'dx-scorecard', label: 'Scorecard Export', icon: <IconFolder />, children: [
+    f('dx-amcare', 'AMCARE'),
+  ]},
+  { id: 'dx-chart-exchange', label: 'Chart Exchange', icon: <IconFolder />, children: [
+    f('dx-export-charts', 'Export Chart(s)'), f('dx-export-logs', 'Export Logs'),
+    f('dx-import-charts', 'Import Chart(s)'), f('dx-import-logs', 'Import Logs'),
   ]},
 ]
 
+/**
+ * Reports keeps nothing in the navigator but one node: the catalogue of
+ * sixteen report folders is the work area itself. Transcribed from
+ * `DynamicForms1.png` — see `data/reportCatalogue.ts`.
+ */
 export const reportsTree: PBTreeNode[] = [
-  { id: 'rp', label: 'Reports', icon: <IconReport />, children: [
-    f('rp-clinical', 'Clinical'), f('rp-financial', 'Financial'),
-    f('rp-admin', 'Administrative'), f('rp-scheduled', 'Scheduled'),
-  ]},
+  { id: 'rp-list', label: 'Report List', icon: <IconReport /> },
 ]
 
 export const modules = [
@@ -121,6 +258,17 @@ export const THEMES: { id: PBTheme; label: string }[] = [
   { id: 'pb-theme--classic', label: 'Classic 95 / 98' },
 ]
 
+/**
+ * How the client area's text is rasterised — an axis of its own, orthogonal to
+ * the three appearances. See `pb/text.css`.
+ */
+export type PBTextMode = '' | 'pb-text--pixel'
+
+export const TEXT_MODES: { id: PBTextMode; label: string }[] = [
+  { id: '', label: 'Tahoma 11 (smooth)' },
+  { id: 'pb-text--pixel', label: 'Bitmap MS Sans Serif (default)' },
+]
+
 type MdiLike = {
   instances: { key: string; title: string }[]
   focus: (key: string) => void
@@ -138,6 +286,7 @@ type MdiLike = {
    ------------------------------------------------------------------------ */
 export const makeMainMenu = (
   setTheme: (t: PBTheme) => void,
+  setTextMode: (t: PBTextMode) => void,
   onLogin: () => void,
   mdi?: MdiLike,
   /** opens the component gallery; omitted when embedded, where the host owns the URL */
@@ -148,6 +297,10 @@ export const makeMainMenu = (
     module?: (id: string) => void
     lookup?: () => void
     stepChart?: (delta: 1 | -1) => void
+    /** a Print-menu item that has a Selection Parameter window behind it */
+    print?: (menu: string) => void
+    /** Action ▸ Create Referral / Consult Note, which opens the letter run-up */
+    letter?: () => void
   },
 ) => {
   const view = (label: string, node: string, key?: string) => ({ label, key, onSelect: () => go?.node?.(node) })
@@ -230,9 +383,9 @@ export const makeMainMenu = (
     { label: 'Action', menu: [
       { label: 'Account Summary', key: 'Alt+F1' },
       { label: 'Invoice Window', key: 'Alt+I' },
-      { label: 'Create Referral Note', key: 'Ctrl+R' },
-      { label: 'Create Consult Note', key: 'Ctrl+Shift+R' },
-      { label: 'Create Information Request' },
+      { label: 'Create Referral Note', key: 'Ctrl+R', onSelect: () => go?.letter?.() },
+      { label: 'Create Consult Note', key: 'Ctrl+Shift+R', onSelect: () => go?.letter?.() },
+      { label: 'Create Information Request', onSelect: () => go?.letter?.() },
       { label: 'Distribute Encounter Summary', key: 'Ctrl+Shift+E' },
       { label: 'Print Label', key: 'Ctrl+L' },
       { sep: true },
@@ -271,9 +424,9 @@ export const makeMainMenu = (
       { label: 'Consultations for Patient' },
       { label: 'Facility Admission for Patient' },
       { label: 'Procedure List for Patient' },
-      { label: 'Medications for Patient' },
+      { label: 'Medications for Patient', onSelect: () => go?.print?.('Medications for Patient') },
       { label: 'Prescriptions for Patient' },
-      { label: 'Interventions for Patient' },
+      { label: 'Interventions for Patient', onSelect: () => go?.print?.('Interventions for Patient') },
       { label: 'MAR History' },
       { label: 'Family History (Hx) for Patient' },
       { label: 'Social History for Patient' },
@@ -289,9 +442,12 @@ export const makeMainMenu = (
       { label: 'User Settings' },
       { label: 'Computer Settings' },
       { label: 'Default Value Setting' },
-      /* emulator extra: the three looks the kit can be dialled to */
+      /* emulator extra: the three looks the kit can be dialled to, and the
+         two ways its text can be rasterised */
       { sep: true },
       ...THEMES.map((t) => ({ label: `Appearance: ${t.label}`, onSelect: () => setTheme(t.id) })),
+      { sep: true },
+      ...TEXT_MODES.map((t) => ({ label: `Text: ${t.label}`, onSelect: () => setTextMode(t.id) })),
     ]},
     { label: 'Help', menu: [
       { label: 'Contents', key: 'F1' },
@@ -305,7 +461,9 @@ export const makeMainMenu = (
 /* --- the lists behind the Patient Summary drop-downs ---------------------- */
 
 /** tdt_chart.insurance_by — who the patient is insured by. */
-export const insuranceCarriers = ['', 'BC', 'AB', 'SK', 'MB', 'ON', 'PP', 'WCB', 'ICBC', 'DVA', 'RCMP', 'IFH']
+export const insuranceCarriers = [
+  '', 'BC', 'IN', 'PP', 'WC', 'AB', 'MB', 'NB', 'NF', 'NS', 'NT', 'NU', 'ON', 'PE', 'SK', 'YT',
+]
 
 /** tdt_chart.gender, with the codes MOIS keeps beside M/F. */
 export const genders = ['', 'M', 'F', 'X', 'U']
@@ -315,18 +473,25 @@ export const chartStatuses = ['', 'A', 'I', 'D', 'M', 'LU', 'MG']
 
 /* The same three lists as DataWindow rows: MOIS drops a *grid* with column
    headers, not an OS menu, so the drop-downs on Patient Summary are DDDWs. */
+/* Transcribed from the dropped list in the training environment: the four
+   payers MOIS keeps at the top, then the other provinces alphabetically.
+   The captions are `Code` and `Description`, not the column names.       */
 export const insuranceCarrierRows = [
-  { code: 'BC', insurer: 'British Columbia (MSP)' },
+  { code: 'BC', insurer: 'British Columbia' },
+  { code: 'IN', insurer: 'Insurance' },
+  { code: 'PP', insurer: 'Patient Pay' },
+  { code: 'WC', insurer: 'Workers Compensation' },
   { code: 'AB', insurer: 'Alberta' },
-  { code: 'SK', insurer: 'Saskatchewan' },
   { code: 'MB', insurer: 'Manitoba' },
+  { code: 'NB', insurer: 'New Brunswick' },
+  { code: 'NF', insurer: 'Newfoundland / Labrador' },
+  { code: 'NS', insurer: 'Nova Scotia' },
+  { code: 'NT', insurer: 'Northwest Territories' },
+  { code: 'NU', insurer: 'Nunavut' },
   { code: 'ON', insurer: 'Ontario' },
-  { code: 'PP', insurer: 'Private Pay' },
-  { code: 'WCB', insurer: 'WorkSafeBC' },
-  { code: 'ICBC', insurer: 'Insurance Corp. of BC' },
-  { code: 'DVA', insurer: 'Veterans Affairs' },
-  { code: 'RCMP', insurer: 'RCMP' },
-  { code: 'IFH', insurer: 'Interim Federal Health' },
+  { code: 'PE', insurer: 'Prince Edward Island' },
+  { code: 'SK', insurer: 'Saskatchewan' },
+  { code: 'YT', insurer: 'Yukon' },
 ]
 
 export const chartStatusRows = [
@@ -344,6 +509,57 @@ export const genderRows = [
   { code: 'X', gender: 'Another gender' },
   { code: 'U', gender: 'Unknown' },
 ]
+
+/* --- Advanced Gender Designations ----------------------------------------
+   The three designations behind the `.*.` beside Gender. Each row of that
+   dialog drops its own list, and the three lists are *not* the same: only
+   Preferred carries NON-BINARY and only Genotypic carries the karyotypes.
+   The field shows the description; the code is what the chart stores.
+
+   PROVENANCE: `reference/advanced-gender-administrative-list.png`,
+   `…-preferred-list.png` and `…-genotypic-list.png`. The captions are
+   `Gender` and `Description`, and the descriptions are upper case the way
+   MOIS holds them.                                                        */
+export type GenderDesignationRow = { gender: string; description: string }
+
+export const administrativeGenderRows: GenderDesignationRow[] = [
+  { gender: 'F', description: 'FEMALE' },
+  { gender: 'M', description: 'MALE' },
+]
+
+export const preferredGenderRows: GenderDesignationRow[] = [
+  ...administrativeGenderRows,
+  { gender: 'N', description: 'NON-BINARY' },
+]
+
+export const genotypicGenderRows: GenderDesignationRow[] = [
+  ...administrativeGenderRows,
+  { gender: 'XO', description: 'TURNER SYNDROME' },
+  { gender: 'XXY', description: 'KLINEFELTER SYNDROME' },
+  { gender: 'XYY', description: 'XYY SYNDROME' },
+]
+
+/** 59px of code, then 112 of description — the dropped list halved. The two
+    columns do not fill the list; `_pad` carries the rest, the way the summary
+    grid does, so each caption stays centred over its own column. */
+export const genderDesignationColumns = [
+  { key: 'gender', header: 'Gender', width: 59 },
+  { key: 'description', header: 'Description', width: 112 },
+  { key: '_pad', header: '' },
+]
+
+/** Each list is its own DataWindow and sizes its own columns: the genotypic
+    one is painted 161 wide, which is what KLINEFELTER SYNDROME needs. */
+export const genotypicGenderColumns = [
+  { key: 'gender', header: 'Gender', width: 59 },
+  { key: 'description', header: 'Description', width: 161 },
+  { key: '_pad', header: '' },
+]
+
+/** The description a code shows in the field, blank when nothing is set. */
+export function genderDescription(rows: GenderDesignationRow[], code: string): string {
+  return rows.find((r) => r.gender === code)?.description ?? ''
+}
 
 export const serviceProviderRows = [
   { provider: 'TECHNICAL SUPPORT', type: '' },
@@ -369,9 +585,16 @@ export const serviceProviders = [
   'FAKERRY, FAKER',
 ]
 
-/** The status bar. `Go To Chart…` and `Create Appointment…` are live links. */
+/**
+ * The status bar. `Go To Chart…` and `Create Appointment…` are live links.
+ *
+ * Cell widths are the boundaries measured in `reference/patient-summary-3598.png`
+ * — 115.5, 415.5, 524, 632, 779, 877 from the window's left edge, halved from
+ * the 2x capture — so the links cell is the one that grows and everything
+ * after it lands where MOIS paints it.
+ */
 export const makeStatusCells = (onGoToChart?: () => void, onCreateAppointment?: () => void) => [
-  { text: 'Ready.', width: 122 },
+  { text: 'Ready.', width: 116 },
   {
     links: [
       { label: 'Go To Chart…', onSelect: onGoToChart },
@@ -379,11 +602,11 @@ export const makeStatusCells = (onGoToChart?: () => void, onCreateAppointment?: 
     ],
     grow: true,
   },
-  { label: 'Task Item: ', value: '-', width: 148 },
-  { label: 'Msg Item: ', value: '-', width: 148 },
-  { label: 'User: ', value: 'JALA2', width: 150 },
-  { label: 'Site ID: ', value: '_dev', width: 100 },
-  { text: 'v02.31.23 b250508', width: 132 },
+  { label: 'Task Item: ', value: '-', width: 108 },
+  { label: 'Msg Item: ', value: '-', width: 108 },
+  { label: 'User: ', value: 'JALA2', width: 147 },
+  { label: 'Site ID: ', value: '_dev', width: 98 },
+  { text: 'v02.31.23 b250508', width: 123 },
 ]
 
 /* --- Order ----------------------------------------------------------------
@@ -575,6 +798,20 @@ export const orderStatuses = ['', 'IN PROCESS', 'COMPLETE', 'CANCELLED', 'ON WAI
 export const orderReferralSources = ['', 'SELF', 'PHYSICIAN', 'HOSPITAL', 'COMMUNITY AGENCY']
 export const orderPayors = ['', 'MSP', 'WCB', 'ICBC', 'PRIVATE PAY']
 
+/**
+ * Whose day book you are looking at. The manual's "How to View a Different
+ * Provider's Day Book" says the field takes a typed name or a pick from the
+ * drop-down, and that the grid changes with every provider selected.
+ */
+export const daybookProviders = [
+  { provider: 'TECHNICAL SUPPORT', type: 'Desktop', loc: 'DAW HEALTH UNIT' },
+  { provider: 'BEARDWOOD, WALTER', type: 'Physician', loc: 'DAW HEALTH UNIT' },
+  { provider: 'DUCHARME, AMARILYS', type: 'Physician', loc: 'ACROPOLIS MANOR' },
+  { provider: 'FAIRCHILD, NESRIN L', type: 'Nurse Practitioner', loc: 'DAW HEALTH UNIT' },
+  { provider: 'HOWSER, DOOGIE', type: 'Physician', loc: 'PRINCE GEORGE' },
+  { provider: 'SHEWCHUK, LEAH', type: 'Nurse', loc: 'DAW HEALTH UNIT' },
+]
+
 export const encounterRows = [
   { id: '10065087', date: '2030.05.03', hr: '08', mn: '15', code: 'X', mode: 'DE', nbr: '30', provider: '<SEE NOTE>', reason: '', loc: '', alert: true },
   { id: '10065086', date: '2030.05.02', hr: '08', mn: '30', code: 'X', mode: 'DE', nbr: '12', provider: '<SEE NOTE>', reason: 'LTTCM MEETING', loc: 'DAW HEALTH UNIT', alert: true },
@@ -749,19 +986,23 @@ export const carePlanScreens: Record<CarePlanKey, CarePlanConfig> = {
     ],
     rows: [{ start: '2026.08.12', end: '', desc: 'ACROPHOBIA', certainty: 'Confirmed', m: '', clip: '-' }],
   },
+  /* The tree node reads "Barriers to Care"; the view header is singular,
+     "Barrier to Care" — confirmed in two builds (art. 303512). The grid is
+     three columns and three flags, with no Participant(s) and no risk
+     slider: its Detail tab holds a single Note field. */
   barriers: {
-    title: 'Barriers to Care', descLabel: 'Barrier:',
-    hasRisk: true, riskLow: 'Minor', riskHigh: 'Major',
+    title: 'Barrier to Care', descLabel: 'Note:',
+    hasRisk: false, riskLow: '', riskHigh: '',
     tabs: ['Detail'], linkedBand: 'Linked Goals - Read Only',
     columns: [
-      { key: 'start', header: 'Start', width: 76, align: 'center' },
-      { key: 'end', header: 'End', width: 76, align: 'center' },
-      { key: 'desc', header: 'Barrier Description' },
-      { key: 'participants', header: 'Participant(s)', width: 180 },
-      { key: 's', header: 'S', width: 24, align: 'center', check: true },
-      { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center' },
+      { key: 'start', header: 'Start', width: 70, align: 'center' },
+      { key: 'end', header: 'End', width: 70, align: 'center' },
+      { key: 'desc', header: 'Barrier to Care' },
+      { key: 's', header: 'S', width: 33, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 29, align: 'center' },
+      { key: 'clip', header: '\u{1F4CE}', width: 17, align: 'center' },
     ],
-    rows: [{ start: '', end: '', desc: '', participants: '', clip: '-' }],
+    rows: [{ start: '', end: '', desc: '', m: '', clip: '-' }],
   },
 }
 
@@ -937,20 +1178,20 @@ export const prescriptionRows = [
   { order: '2026.05.14', med: 'METHADONE HYDROCHLORIDE 1 mg [Oral Solution]', dose: '', amount: '', type: 'CPP', m: '', clip: '-', generic: '' },
   { order: '2026.05.08', med: 'CEFTRIAXONE FOR INJECTION USP 250 mg Powder For Solution', dose: '', amount: '', type: '', m: '', clip: '-', generic: '' },
   { order: '2026.05.07', med: 'SUBOXONE 8 mg Tablet', dose: '', amount: '', type: 'CPP', m: '', clip: '-', generic: '' },
-  { order: '2026.04.21', med: 'BICILLIN L-A 1200000 unit Suspension', dose: '1 DOSE Intramuscular WEE…', amount: '', type: '\u21e9', m: '', clip: '-', generic: '' },
-  { order: '2026.04.21', med: 'BICILLIN L-A 1200000 unit Suspension', dose: '1 DOSE Intramuscular DAIL…', amount: '1 DAY', type: '\u21e9', m: '', clip: '-', generic: '' },
+  { order: '2026.04.21', med: 'BICILLIN L-A 1200000 unit Suspension', dose: '1 DOSE Intramuscular WEE…', amount: '', type: '', m: '\u21e9', clip: '-', generic: '' },
+  { order: '2026.04.21', med: 'BICILLIN L-A 1200000 unit Suspension', dose: '1 DOSE Intramuscular DAIL…', amount: '1 DAY', type: '', m: '\u21e9', clip: '-', generic: '' },
   { order: '2026.02.23', med: 'HYDROMORPHONE HYDROCHLORIDE 10MG LIQUID', dose: '', amount: '', type: 'CPP', m: '', clip: '-', generic: '' },
   { order: '2026.02.19', med: 'ISONIAZID', dose: '400 MG Oral DAILY', amount: '3 MONTH', type: '', m: '', clip: '-', generic: '' },
 ]
 
 export const longTermMedRows = [
-  { start: '2026.01.10', end: '', med: 'INSULIN GLARGINE 100 UNIT [SUBCUTANEOUS SOLUTION]', dose: '2 mg daily', indic: '', type: '\u21e9', m: '-',
+  { start: '2026.01.10', end: '', med: 'INSULIN GLARGINE 100 UNIT [SUBCUTANEOUS SOLUTION]', dose: '2 mg daily', indic: '', type: '', m: '\u21e9',
     generic: 'INSULIN GLARGINE 100UNIT SOLUTION' },
   { start: '2025.10.31', end: '', med: 'ISONIAZID', dose: '400 MG Oral DAILY', indic: '', type: '', m: '1', generic: '' },
   { start: '2026.01.10', end: '', med: 'ISONIAZID', dose: '400 MG Oral DAILY', indic: '', type: '', m: '-', generic: '' },
   { start: '2026.01.10', end: '', med: 'TESTOSTERONE CYPIONATE 100 mg [Intramuscular Solu…', dose: '20mg (0.2ml) sc qweek', indic: '', type: '', m: '-', generic: '' },
   { start: '', end: '2026.01.10', med: '', dose: '', indic: '', type: '', m: '-', generic: '' },
-  { start: '2025.01.15', end: '2026.01.10', med: 'INSULIN GLARGINE 100 unit [Subcutaneous Solution]', dose: '', indic: '', type: '\u21e9', m: '-', generic: '' },
+  { start: '2025.01.15', end: '2026.01.10', med: 'INSULIN GLARGINE 100 unit [Subcutaneous Solution]', dose: '', indic: '', type: '', m: '\u21e9', generic: '' },
   { start: '2025.09.22', end: '2026.01.10', med: 'ISONIAZID', dose: '400 MG Oral DAILY', indic: '', type: '', m: '1', generic: '' },
   { start: '2025.09.22', end: '2025.10.31', med: 'ISONIAZID', dose: '400 MG Oral DAILY', indic: '', type: '', m: '-', generic: '' },
   { start: '2025.03.11', end: '2025.09.22', med: 'ISONIAZID', dose: '200 MG daily', indic: '', type: '', m: '1', generic: '' },

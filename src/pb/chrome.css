@@ -58,7 +58,8 @@
   height: var(--pb-titlebar-h);
   padding-left: 9px;
   background: #ffffff;
-  border-bottom: 1px solid #e6e6e6;
+  /* no rule under the title bar: in the captures it and the menu bar are one
+     unbroken white field from the frame's top edge down to the client inset */
   font-family: var(--pb-font-chrome);
   font-size: var(--pb-fs-chrome);
   color: #1a1a1a;
@@ -86,7 +87,7 @@
 
 .pb-titlebar__buttons { display: flex; flex: none; align-self: stretch; }
 .pb-titlebar__btn {
-  width: 46px;
+  width: 45px;
   display: grid;
   place-items: center;
   border: 0;
@@ -100,21 +101,27 @@
 .pb-titlebar__btn:disabled { color: #c4c4c4; }
 .pb-titlebar__btn:disabled:hover { background: transparent; }
 
-/* --- menu bar ----------------------------------------------------------- */
+/* --- menu bar -------------------------------------------------------------
+   Measured off `reference/menus/*.png` (2x captures, so every figure below is
+   the capture ÷ 2). The eight captions span 417px on the bar: 297px of text
+   at 8px of padding a side — 15 device px, and the captions themselves carry
+   a 18px cap height, which is Segoe UI 13px rather than the 12px the title
+   bar is set in (its caps measure 17 device px in the same captures).     */
 .pb-menubar {
   display: flex;
   align-items: stretch;
   height: var(--pb-menubar-h);
   background: #ffffff;
   font-family: var(--pb-font-chrome);
-  font-size: var(--pb-fs-chrome);
+  font-size: var(--pb-fs-menu);
   user-select: none;
   flex: none;
 }
 .pb-menubar__item {
   display: flex;
   align-items: center;
-  padding: 0 9px;
+  /* the ink gap between labels measures 14.5 in the captures */
+  padding: 0 7px;
   border: 0;
   background: transparent;
   font: inherit;
@@ -125,46 +132,100 @@
 .pb-menubar__item:hover,
 .pb-menubar__item[aria-expanded="true"] { background: #cce8ff; }
 
+/* The dropped panel, measured off all seven captures in `reference/menus/`.
+   Record's nine captions and Maintenance's three both come out at item pitch
+   × count + 7 device px of panel padding, and Action's twelve items and four
+   separators land on 591 device px exactly, so:
+
+     item          22px (44 device, the Win10 standard row)
+     caption inset 34px from the panel's inside edge (69 device), which is
+                   2px of panel padding and 32px of item padding
+     right pad     20px to the end of an accelerator (40-44 device)
+     separator     a 1px #d9d9d9 rule 30px in from the left and 2px from the
+                   right, in a 7px band (the pitch goes 44 -> 58 device)
+     panel         2px of padding inside a 1px #cdcdcd frame
+
+   The panel is placed by pb/popup, not by `position` here: it is portalled
+   onto the desktop so the frame cannot clip it.                          */
 .pb-menu {
-  position: absolute;
-  z-index: 60;
-  min-width: 168px;
+  z-index: 1000;
   padding: 2px;
   background: #f2f2f2;
-  border: 1px solid #b5b5b5;
+  border: 1px solid #cdcdcd;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
   font-family: var(--pb-font-chrome);
-  font-size: var(--pb-fs-chrome);
+  font-size: var(--pb-fs-menu);
 }
 .pb-menu__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  height: 22px;
   width: 100%;
-  padding: 4px 10px 4px 24px;
+  padding: 0 20px 0 32px;
+  position: relative;      /* the fly-out arrow sits in the right pad */
   border: 0;
   background: transparent;
   font: inherit;
   text-align: left;
   color: inherit;
   cursor: default;
+  white-space: nowrap;      /* a Win32 menu widens; it never wraps a caption */
 }
 .pb-menu__item:hover { background: #cce8ff; }
 .pb-menu__item:disabled { color: #a0a0a0; }
 .pb-menu__item:disabled:hover { background: transparent; }
-.pb-menu__key { margin-left: auto; color: #6d6d6d; }
-.pb-menu__item--parent { padding-right: 18px; }
-.pb-menu__arrow { margin-left: auto; color: #3c3c3c; font-size: 13px; line-height: 1; }
-.pb-menu__item--parent .pb-menu__key + .pb-menu__arrow { margin-left: 8px; }
-.pb-menu__sep { height: 1px; margin: 3px 6px; background: #d3d3d3; }
+/* The gap between the caption column and the accelerator column: 35px, which
+   is what sizes Record (173px) and Action (316px) even though several of
+   their rows carry no key at all. A list with fly-outs opens the gap to 51px
+   — Views measures 52 — while the arrow itself is painted out in the right
+   pad, 11px in from the panel's inside edge. */
+.pb-menu__key { margin-left: auto; padding-left: 35px; color: #6d6d6d; }
+.pb-menu--arrows .pb-menu__key,
+.pb-menu--arrows .pb-menu__sizer-keys { padding-left: 51px; }
+.pb-menu__arrow {
+  position: absolute;
+  right: 9px;
+  color: #3c3c3c;
+  font-size: 13px;
+  line-height: 1;
+}
+.pb-menu__sep { height: 1px; margin: 3px 0 3px 28px; background: #d9d9d9; }
+
+/* --- what makes a menu the width it is ------------------------------------
+   Win32 sizes a menu by *columns*, not by rows: the panel is the widest
+   caption plus the widest accelerator, even when no one item carries both,
+   and the accelerator column is reserved whether or not the menu has any.
+   Record proves the first (its width needs `Find First` and `Ctrl+N`, which
+   are four rows apart) and Modules the second (seven captions, no keys, and
+   still 35px wider than its longest one).
+
+   A flex row cannot see across its siblings, so the panel carries a
+   zero-height row of the two columns stacked. It measures; it never paints.
+   The seven captures land within 1.5px of it.                             */
+.pb-menu__sizer {
+  display: flex;
+  height: 0;
+  overflow: hidden;
+  padding: 0 20px 0 32px;
+}
+.pb-menu__sizer > * {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: nowrap;
+}
+.pb-menu__sizer-keys { padding-left: 35px; }
 
 /* --- status bar --------------------------------------------------------- */
+/* the status bar is the other Windows-painted surface: `Go To Chart...`
+   measures 68.15, which is Tahoma 11 (68), cap 8 not MS Sans's 9 */
 .pb-statusbar {
+  font-family: var(--pb-font-ui);
   display: flex;
   align-items: stretch;
   height: var(--pb-status-h);
   background: var(--pb-face);
-  border-top: 1px solid #d6d6d6;
+  border-top: 1px solid #a0a0a4;
   font-size: var(--pb-fs);
   flex: none;
 }
@@ -173,7 +234,7 @@
   align-items: center;
   gap: 5px;
   padding: 0 8px;
-  border-right: 1px solid #c8c8c8;
+  border-right: 1px solid #a0a0a4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -203,6 +264,10 @@
    one file works in both bundlers the kit is built by. */
 .pb-link--mois {
   display: inline-block;
+  /* on the text baseline an inline-block reserves room for a descender under
+     it, which pushed every row carrying one of these to 22.5px; the capture's
+     rows are 20 whether they have a glyph or not */
+  vertical-align: middle;
   width: 16px;
   height: 16px;
   padding: 0;

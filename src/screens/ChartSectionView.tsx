@@ -17,9 +17,22 @@ export function ChartSectionView({ screen, content }: {
   const patient = usePatient()
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
 
-  const commands: PBCommand[] = screen.commands.map((c) =>
-    c === null ? null : { label: c, disabled: screen.disabled?.includes(c) },
-  )
+  /* MOIS lights Save and Undo the moment a record is started and puts them
+     back out when it is saved or thrown away — the same New Record / Save
+     cycle the Encounters list runs. A screen that lists them as disabled is
+     describing its resting state, not a permanent one. */
+  const [dirty, setDirty] = useState(false)
+  const commands: PBCommand[] = screen.commands.map((c) => {
+    if (c === null) return null
+    const gated = screen.disabled?.includes(c) ?? false
+    if (c === 'New Record' || c === 'Quick Entry') {
+      return { label: c, onClick: () => setDirty(true) }
+    }
+    if (gated && (c === 'Save' || c === 'Undo')) {
+      return { label: c, disabled: !dirty, onClick: () => setDirty(false) }
+    }
+    return { label: c, disabled: gated }
+  })
 
   const columns: PBColumn<Record<string, string>>[] = screen.columns.map((c) => ({
     key: c.key,

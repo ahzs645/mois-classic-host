@@ -20,17 +20,20 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 3px 4px 3px 6px;
+  padding: 3px 4px 3px 4px;
   background: var(--pb-window);
   border: 1px solid var(--pb-border);
   font-size: var(--pb-fs);
   user-select: none;
 }
 
-/* --- nested level: the dotted spine ------------------------------------- */
+/* --- nested level: the dotted spine -------------------------------------
+   19px per level, with the spine 12px into the parent's band and the icon
+   4px into its own — measured off PC_Demographics_image1.png, where the root
+   icon sits at +4, the level-1 icon at +23 and the level-2 icon at +42. */
 .pb-tree ul {
-  margin-left: 8px;
-  padding-left: 16px;
+  margin-left: 12px;
+  padding-left: 6px;       /* +1px of dotted border = the 19px step */
   border-left: 1px dotted #9a9a9a;
 }
 .pb-tree ul > li { position: relative; }
@@ -39,19 +42,19 @@
 .pb-tree ul > li::before {
   content: "";
   position: absolute;
-  left: -16px;
+  left: -7px;
   top: 8px;
-  width: 12px;
+  width: 8px;
   border-bottom: 1px dotted #9a9a9a;
 }
 /* the last child masks the spine below its own stub */
 .pb-tree ul > li:last-child::after {
   content: "";
   position: absolute;
-  left: -20px;
+  left: -9px;
   top: 9px;
   bottom: 0;
-  width: 5px;
+  width: 4px;
   background: var(--pb-window);
 }
 
@@ -60,7 +63,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 17px;
+  height: 16px;                    /* measured 1:1 in careplan.png et al */
   padding-right: 6px;
   white-space: nowrap;
   cursor: default;
@@ -71,39 +74,44 @@
 .pb-tree__row::marker { content: ""; }
 
 .pb-tree__row:hover { background: #e5f3ff; }
-.pb-tree__row.is-selected {
-  background: var(--pb-select);
-  outline: 1px solid var(--pb-select-brd);
-  outline-offset: -1px;
+/* MOIS's tree hands focus straight to the work area, so its selection is the
+   grey Win32 draws for an unfocused TreeView — and it hugs the caption rather
+   than filling the row. Sampled at #f0f0f0 in every capture that has a node
+   selected (careplan, paper_forms, dynamic_form, PC_Demographics). */
+.pb-tree__row.is-selected .pb-tree__label {
+  background: #f0f0f0;
+  padding: 0 2px;
+  margin: 0 -2px;
 }
 
 /* --- the +/- box -------------------------------------------------------- */
+/* a node that can open carries `.pb-expander` too (controls.css draws the
+   box and its bars); this is the size and where the spine wants it */
 .pb-tree__toggle {
   width: 9px;
   height: 9px;
   flex: none;
-  margin-left: -21px;      /* sits on the spine, over the stub */
-  margin-right: 7px;
+  margin-left: -11px;      /* centred on the spine, over the stub */
+  margin-right: 2px;       /* +4px of row gap = the 6px MOIS leaves */
   position: relative;
   z-index: 1;
-  display: grid;
-  place-items: center;
-  border: 1px solid #7e9db9;
-  background: var(--pb-window);
-  font-size: 9px;
-  line-height: 1;
-  color: #333;
-  padding: 0;
-  cursor: default;
+  display: inline-block;
 }
-/* a root node has no spine to sit on — note an expandable row is wrapped
-   in <details>, so both shapes need the reset */
-.pb-tree > li > .pb-tree__row > .pb-tree__toggle,
-.pb-tree > li > details > .pb-tree__row > .pb-tree__toggle {
+/* A root row carries no box at all (no TVS_LINESATROOT), so there is nothing
+   to reset there — see PBTree — but MOIS still starts its icon 4px in. */
+.pb-tree > li > .pb-tree__row,
+.pb-tree > li > details > .pb-tree__row { padding-left: 4px; }
+
+/* A tree that does draw buttons at the root (Workspace) puts the box where
+   the row starts and runs its children's spine under it; a root row with no
+   children keeps its icon hard left, as `workspace_summary.PNG` shows. */
+.pb-tree--rootbuttons > li > details > .pb-tree__row > .pb-tree__toggle {
   margin-left: 0;
-  margin-right: 4px;
+  margin-right: 2px;
 }
-/* keep leaf rows aligned with their expandable siblings */
+
+/* keep leaf rows aligned with their expandable siblings — a spacer is the
+   same 9px of room with no `.pb-expander`, so it draws nothing */
 .pb-tree__toggle--spacer { border: 0; background: none; }
 
 .pb-tree__icon { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
@@ -118,7 +126,11 @@
 
    Not the cool 1px-bordered gradient used before — the real strip is warmer,
    higher contrast, and its buttons butt directly against one another.     */
+/* MOIS paints the module bar itself, in the Windows UI font rather than the
+   DataWindow one: `Administration` measures 83.37, which is Tahoma 11 bold
+   (83) and not MS Sans, whose caps would make it wider. */
 .pb-modulebar {
+  font-family: var(--pb-font-ui);
   display: flex;
   flex-direction: column;
   padding: 0;

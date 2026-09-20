@@ -26,21 +26,34 @@
 
 /* --- PB command row -----------------------------------------------------
    The button strip under a view header. PowerBuilder draws these as hard
-   1px black rectangles butted edge to edge — no gap, no rounding, shared
-   borders. This single detail does more for authenticity than anything else. */
+   1px black rectangles butted edge to edge — no gap, no rounding. This single
+   detail does more for authenticity than anything else.
+
+   Each button keeps its own border rather than sharing one with its
+   neighbour, so the rule *between* two buttons is 2px while the strip's own
+   top and bottom edges stay 1px: in `patient-summary-header.png` (2x) the
+   separators measure 4 device px against a 2px outer edge, and the buttons
+   repeat every 81px. */
 .pb-cmdrow {
   display: flex;
   align-items: stretch;
-  background: var(--pb-face);
+  /* the face behind the run, where it shows past the last button */
+  background: #ddd7d3;
   flex: none;
 }
 .pb-cmdrow__btn {
   height: 20px;
-  min-width: 62px;
+  /* MOIS sizes every Task Bar button the same: the nine on Patient Summary
+     measure 80.38-81.01 in `reference/patient-summary-3598.png`, a 724.44px
+     run over nine buttons. */
+  width: 80.5px;
   flex: none;            /* clip at a button edge, never mid-caption */
-  padding: 0 11px;
+  /* Room for the longest caption. `Previous Chart` is 68px of ink and the
+     real button leaves 7.6px to its left and 4.6px to its right, so the
+     padding cannot be more than about 6 — at 11 the caption overflowed its
+     content box and ran into the right border. */
+  padding: 0 4px;
   border: 1px solid var(--pb-border-hard);
-  margin-right: -1px;                /* collapse to a shared 1px rule */
   background: var(--pb-btn-flat-face);
   font-family: var(--pb-font);
   font-size: var(--pb-fs);
@@ -270,16 +283,24 @@ textarea.pb-field {
 .pb-dddw { position: relative; display: inline-flex; align-items: stretch; min-width: 0; }
 .pb-dddw > .pb-field { flex: 1 1 auto; border-right: 0; }
 
+/* The dropped list, sampled from the three gender lists
+   (`reference/advanced-gender-*-list.png`) — the only captures here of a DDDW
+   with its list down. Four things they settle, none of which is what a
+   DataWindow does: the list is ivory rather than white, it does **not** band,
+   its current row is the Win10 selection blue rather than the DataWindow's
+   salmon or a navy, and the frame is the combo-box grey with nothing under
+   it — a list dropped over the window face casts no shadow in the capture. */
 .pb-dddw__list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 90;
+  /* placed by pb/popup: portalled onto the desktop so the frame, or a
+     scrolling DataWindow, cannot clip the dropped list */
+  z-index: 1000;
   max-height: 232px;
   overflow: auto;
-  border: 1px solid #000;
-  background: var(--pb-window);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+  border: 1px solid #797979;
+  background: #fefbf1;
+  /* an in-cell editor inherits its cell's alignment; the list is always
+     left-aligned, the way the capture shows */
+  text-align: left;
 }
 .pb-dddw__table { border-collapse: collapse; width: 100%; font-size: var(--pb-fs); }
 .pb-dddw__table th {
@@ -287,31 +308,107 @@ textarea.pb-field {
   top: 0;
   height: 18px;
   padding: 0 5px;
-  background: #c7c7c7;
+  background: #c8c8c8;
   border-right: 1px solid #fff;
   font-weight: 400;
-  text-align: left;
+  /* the captions are centred over their columns — "Code" sits mid-column in
+     the Insurance By list, and "Description" mid-column beside it */
+  text-align: center;
   white-space: nowrap;
 }
 .pb-dddw__table th:last-child { border-right: 0; }
+/* the columns need not fill the list: a DataWindow's header band stops where
+   its last column does, and the run past it is list background, not header */
+.pb-dddw__table th:empty { background: transparent; border-right: 0; }
 .pb-dddw__table td {
   height: 18px;
   padding: 0 5px;
+  /* the hairline between columns, which the selected row paints over */
+  border-right: 1px solid #f2f2f0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
 }
-.pb-dddw__table tbody tr:nth-child(even) { background: #eeeee4; }
+.pb-dddw__table td:last-child { border-right: 0; }
 .pb-dddw__table tbody tr:hover { background: var(--pb-select); }
-.pb-dddw__table tbody tr.is-current { background: #000080; color: #fff; }
+.pb-dddw__table tbody tr.is-current { background: #3376d0; color: #fff; }
+/* the hairline survives under the selection, lightened rather than hidden */
+.pb-dddw__table tbody tr.is-current td { border-right-color: rgba(255, 255, 255, .8); }
 
 /* --- flagged field -------------------------------------------------------
-   MOIS marks a control the user has changed by painting its *label* yellow.
-   Seen on Preferred Gender in Demographics > Patient Detail.              */
+   MOIS marks a control that needs the reader's attention by painting its
+   *label* yellow. Seen on Preferred Gender in Demographics > Patient Detail
+   and on Gender in the Patient Summary chart block.
+
+   The fill covers the caption, not the run of window face it sits in: in
+   `patient-summary-header.png` the block is 48x15 around a 36px caption, so
+   it reads as a highlighted word. Sampled #ffff7a — a good deal stronger
+   than the pale --pb-yellow of the compact banner — and the caption keeps
+   the weight of every other label beside it.                             */
 .pb-form__label--flagged,
 .pb-flag {
-  background: var(--pb-yellow);
+  display: inline-block;
+  background: var(--pb-flag);
   padding: 0 3px;
-  font-weight: 700;
+  line-height: 15px;
 }
+
+/* --- tooltip -------------------------------------------------------------
+   The Win10 tip MOIS hangs off a flagged control ("This patient has multiple
+   gender designations"). White, a 1px grey frame, no shadow, and it waits
+   the usual half second before it shows.                                 */
+.pb-tip { position: relative; }
+.pb-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  z-index: 120;
+  padding: 1px 5px;
+  border: 1px solid #767676;
+  background: #fff;
+  color: var(--pb-text);
+  font-weight: 400;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+}
+.pb-tip:hover::after { visibility: visible; transition: visibility 0s .5s; }
+
+/* --- the +/- expander box -----------------------------------------------
+   One Win32 widget in two places: the box on a DataWindow group band
+   (`.pb-dw__groupbox`) and the one on a TreeView node (`.pb-tree__toggle`),
+   which own their size and placement and add this class for the look.
+
+   The bars are drawn, not typed. A text "+"/"−" is placed by the font's own
+   metrics — the minus sits on the math axis, well above the middle of a 9px
+   box, and its side bearings are not symmetric — so the glyph never lands on
+   the centre pixel. Measured off the source capture instead: a 5x1 crossbar
+   (and, closed, a 1x5 stem) in near-black on the centre pixel of the 7px
+   interior, leaving a 1px gap to the border all round.                    */
+.pb-expander {
+  box-sizing: border-box;
+  position: relative;
+  border: 1px solid #7e9db9;
+  background: var(--pb-window);
+  padding: 0;
+  cursor: default;
+  /* the box holds no text, so nothing can drag a baseline through it */
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+}
+.pb-expander::before,
+.pb-expander::after {
+  content: '';
+  position: absolute;
+  background: #111;
+}
+/* calc() rather than a centring transform: on the 7px interior both land on
+   whole pixels, so the bars stay hairline-crisp at any zoom the stage uses */
+.pb-expander::before { left: calc(50% - 2.5px); top: calc(50% - 0.5px); width: 5px; height: 1px; }
+.pb-expander::after { left: calc(50% - 0.5px); top: calc(50% - 2.5px); width: 1px; height: 5px; }
+/* open = "−": the stem belongs to the closed box only */
+.pb-expander[data-state='open']::after { content: none; }

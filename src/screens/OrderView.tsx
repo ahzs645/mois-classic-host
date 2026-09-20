@@ -356,16 +356,36 @@ function PBBandRow({ title, actions }: { title: string; actions: string[] }) {
   )
 }
 
-export function EncounterListView({ onOpen }: { onOpen?: (row: typeof encounterRows[number]) => void }) {
+/**
+ * The row New Record puts at the top of the list. The manual's "How to Create
+ * an Encounter" says the date and the doctor arrive filled in and the rest is
+ * typed, and that `#` is the number of five-minute slots the visit needs — so
+ * the draft carries those three and leaves the rest blank.
+ */
+const DRAFT_ENCOUNTER = {
+  id: 'draft', date: '2030.05.06', hr: '', mn: '', code: '', mode: '', nbr: '',
+  provider: 'TECHNICAL SUPPORT', reason: '', loc: '', alert: false,
+}
+
+export function EncounterListView({ onOpen, draft = false, onDraft }: {
+  onOpen?: (row: typeof encounterRows[number]) => void
+  /** a New Record is in progress: the list carries an unsaved row */
+  draft?: boolean
+  onDraft?: (next: boolean) => void
+}) {
   const patient = usePatient()
   const [cur, setCur] = useState(0)
+  const rows = draft ? [DRAFT_ENCOUNTER, ...encounterRows] : encounterRows
   return (
     <>
       <PBViewHeader title="Encounter" />
       <PBCommandRow
         commands={[
-          { label: 'New Record' }, { label: 'Delete Record' }, { label: 'Save', disabled: true },
-          { label: 'Undo', disabled: true }, { label: 'Refresh' }, { label: 'Print' }, { label: 'Attachment' },
+          { label: 'New Record', onClick: () => { onDraft?.(true); setCur(0) } },
+          { label: 'Delete Record' },
+          { label: 'Save', disabled: !draft, onClick: () => onDraft?.(false) },
+          { label: 'Undo', disabled: !draft, onClick: () => { onDraft?.(false); setCur(0) } },
+          { label: 'Refresh' }, { label: 'Print' }, { label: 'Attachment' },
         ]}
       />
       <PBIdentityStrip
@@ -391,7 +411,7 @@ export function EncounterListView({ onOpen }: { onOpen?: (row: typeof encounterR
       </div>
       <div style={{ padding: '0 3px', height: 190, display: 'flex' }}>
         <PBDataWindow
-          rows={encounterRows}
+          rows={rows}
           current={cur}
           onCurrentChange={setCur}
           onActivate={(r) => onOpen?.(r)}

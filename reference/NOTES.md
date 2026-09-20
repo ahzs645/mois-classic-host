@@ -548,9 +548,22 @@ the screenshot set.
 
 Seven new captures: `demographics-full.png`, the five Order tabs
 (`order-report`, `order-distribution`, `order-links`, `order-office-notes`,
-`order-history`) and `patient-summary-header.png`. All are 1.5x — the Windows
-VM renders at 1.5 device px per Windows px — so every measurement below is the
-capture divided by 1.5.
+`order-history`) and `patient-summary-header.png`.
+
+> **Correction (2026-09-20): these captures are 2x, not 1.5x.** Measured three
+> ways in `patient-summary-loaded.png`: the Win10 caption buttons pitch 90.75
+> device px against the OS's fixed 45; the tree's scrollbar track is 32 device
+> px against the OS's 16; and the four summary captions sit at device
+> 398 / 540 / 1234 / 1812, exactly twice the 199 / 270 / 617 / 906 that
+> `patient-summary-3598.png` and `-3924.png` — captures of the same window at
+> 1000 CSS px — put them at. `patient-summary-header.png` has pixel-identical
+> command buttons, so it is the same scale.
+>
+> Every measurement in the rest of this section was taken as capture ÷ 1.5 and
+> is therefore **4/3 too large**; the offsets below (`114 / 243 / 363`, the
+> insurance column at 618, the ~1056px design widths) have not been redone.
+> Patient Summary's grid has since been re-measured at 2x and now carries the
+> painted pixels; Demographics and the Order tabs have not. Measure ÷ 2.
 
 ### The windows do not stretch
 
@@ -664,3 +677,82 @@ vendored as `src/pb/glyphs/goto-record.png` rather than referenced at
 a CSS background (`.pb-link--mois`) rather than an `<img>` because that path is
 already proven in both bundlers. The module name stays as the tooltip and the
 accessible name.
+
+## 5. The menus (`reference/menus/`)
+
+Seven captures of the frame's drop-downs — `record` `modules` `views` `action`
+`utilities` `print` `maintenance` — at the same 2x the rest of the set is at,
+so every figure below is the capture ÷ 2.
+
+### A menu is a window, not a box
+
+The kit drew both the bar's menus and a DDDW's dropped list as
+`position: absolute` children of the control they hang off. In Win32 they are
+top-level windows painted over the *screen*, and the difference shows the
+moment a menu is longer than the frame has room for: `.pb-window` is
+`overflow: hidden`, so Views lost its bottom third and the Gender list
+disappeared under the status bar.
+
+`src/pb/popup.tsx` portals a popup onto the nearest `.pb-desktop` instead —
+the monitor for the standalone viewer, the stage box when Webforms embeds the
+shell — and places it from the anchor's rect: a bar menu drops and, with no
+room, flips up over its caption; a fly-out swaps to the other side; anything
+taller than the screen itself fills it and scrolls. `PBDropDownDataWindow`'s
+`popup="fixed"` escape hatch is gone with it, since every list now escapes.
+
+Two things it has to get right beyond placement. A click-away handler can no
+longer ask "is the target inside me?", because the menu is no longer a
+descendant — hence `data-pb-popup` and `pbInPopup()`, without which mousedown
+closed the menu before the item's click could fire. And `PBMenuList` no longer
+closes its fly-out on `mouseleave`: the pointer now leaves the parent panel on
+its way *into* the fly-out. A Win32 menu keeps a fly-out up until another item
+is hovered anyway, which is what the remaining `onMouseEnter` does.
+
+### What the panel measures
+
+Item pitch is 44 device px in all seven, and panel height is
+`items × 44 + separators × 14 + 7` exactly: Record's nine captions give 403,
+Maintenance's three 139, Action's twelve items and four separators 591. So the
+item is 22px, a separator band 7px, and the panel carries 2px of padding
+inside a 1px `#cdcdcd` frame.
+
+    caption inset 34px from the inside edge (2px panel pad + 32px item pad)
+    right pad     20px to the end of an accelerator
+    separator     1px #d9d9d9, 30px in from the left, 2px from the right
+    font          Segoe UI 13px — caps measure 18-19 device px, against the
+                  title bar's 17 in the same captures, so the bar and its
+                  menus are a size above `--pb-fs-chrome` (`--pb-fs-menu`)
+    bar item      8px of padding a side: the eight captions span 417px
+
+### Width is a column, not a row
+
+A Win32 menu is as wide as its widest caption *plus* its widest accelerator
+even when no one item carries both, and it reserves the accelerator column
+whether or not the menu has any:
+
+| menu | widest caption | widest key | panel |
+|---|---|---|---|
+| Record | `Find First` 47 | `Ctrl+N` 35 | 34 + 47 + 35 + 35 + 20 = **172.5** (measured 173) |
+| Action | 161 | `Ctrl+Shift+R` 65 | **316** (measured 315.5) |
+| Modules | `Administration` 78 | — | **168** (measured 166.5) |
+| Maintenance | 107 | — | **197.5** (measured 196.5) |
+| Views | `Determinants Of Health` 123 | `Alt+C` 31.5 | **262** with the fly-out column (measured 261.5) |
+
+The gap between the two columns is 35px, and 51px in a list with fly-outs —
+the arrow itself is painted out in the right pad, 11px in from the inside
+edge, but the gap opens by its width all the same.
+
+A flex row cannot see across its siblings, so `.pb-menu` carries a
+zero-height `.pb-menu__sizer` row of the two columns stacked; it measures and
+never paints. Every menu lands within 1.5px of its capture **on Windows**. On
+a machine without Segoe UI the panels come out ~7% wide — the fallback is
+Arial, which sets `Determinants Of Health` at 135.8px against Segoe UI's 123.5
+— the same rasterisation gap `text.css` describes for the client area, and
+the same fix would apply (a bundled metric-compatible face, e.g. Selawik).
+
+### Still open
+
+The bar's own height measures 18px against the kit's `--pb-menubar-h: 22px`,
+and its captions sit ~6px higher under the title bar than the Patient Summary
+captures put them. Left alone: the frame's vertical layout below the bar is
+calibrated against those captures, and moving it would shift every screen.

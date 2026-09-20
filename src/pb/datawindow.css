@@ -8,18 +8,33 @@
    ========================================================================= */
 
 .pb-dw {
+  /* How much of the band shows on each side of a cell's fill, before the
+     grid's hairline. Read off native 1:1 Windows captures (field_audit,
+     paper, concept1, default_city and image(145) from the MOIS help site),
+     which all lay an 18px band out the same way, to the pixel:
+
+         1px band · 15px fill · 1px band · 1px #f0f0f0 hairline
+
+     A grid with its rules off (Patient Summary) has none of it: its rows are
+     flush 19px bands with no gap and no hairline. */
+  --pb-dw-cell-gap: 1px;
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  border: 1px solid var(--pb-border);
+  border: 1px solid #646464;
   background: var(--pb-dw-row);
   overflow: hidden;
 }
 .pb-dw--flush { border: 0; }
 
 
-.pb-dw__scroll { overflow: auto; flex: 1 1 auto; min-height: 0; }
+/* A MOIS DataWindow scrolls vertically only. A window too narrow for the
+   columns clips them at its right edge — the training capture of a narrowed
+   Patient Summary cuts the Detail column mid-word and puts no bar under the
+   grid. `pb-dw--hscroll` (the `hscroll` prop) opts a grid back in. */
+.pb-dw__scroll { overflow-x: hidden; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.pb-dw--hscroll .pb-dw__scroll { overflow-x: auto; }
 
 .pb-dw__table {
   border-collapse: separate;
@@ -30,110 +45,170 @@
 }
 
 /* --- header --------------------------------------------------------------*/
-.pb-dw__table thead th {
+.pb-dw__table > thead > tr > th {
   position: sticky;
   top: 0;
   z-index: 2;
   /* a table cell treats `height` as a minimum, so two-line captions still
      expand the band while single-line ones stay exactly 18px */
   height: var(--pb-dw-row-h);
-  padding: 0 4px;
+  /* tighter than a detail cell: the capture fits "Middle Name" (63px) into a
+     71px column, which leaves 3px a side. A grid whose painter set its text
+     further into the column overrides `--pb-dw-pad-x`, the way Patient
+     Summary does — its captions sit 8px in. */
+  padding: 0 var(--pb-dw-pad-x, 3px);
   background: var(--pb-dw-header);
   border-right: 1px solid var(--pb-dw-header-line);
-  border-bottom: 1px solid #8f9db6;
+  /* the header band is inset like a detail cell — in both captures the blue
+     runs 30 device px inside a 36px band, with white either side and no rule
+     under it */
+  border-top: var(--pb-dw-cell-gap) solid var(--pb-dw-row);
+  border-bottom: var(--pb-dw-cell-gap) solid var(--pb-dw-row);
   font-weight: 400;
   text-align: center;
   line-height: 1.15;
+  /* a Win32 header clips a caption it cannot fit; it never re-wraps one.
+     The stacked captions in MOIS are explicit <br>s, which still break. */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   user-select: none;
   cursor: default;
 }
-.pb-dw__table thead th:last-child { border-right: 0; }
-.pb-dw__table thead th:hover { background: #bccdf0; }
-.pb-dw__table thead th.pb-dw__sorted::after { content: " \25B2"; font-size: 8px; }
-.pb-dw__table thead th.pb-dw__sorted--desc::after { content: " \25BC"; font-size: 8px; }
+.pb-dw__table > thead > tr > th:last-child { border-right: 0; }
+.pb-dw__table > thead > tr > th:hover { background: #bccdf0; }
+.pb-dw__table > thead > tr > th.pb-dw__sorted::after { content: " \25B2"; font-size: 8px; }
+.pb-dw__table > thead > tr > th.pb-dw__sorted--desc::after { content: " \25BC"; font-size: 8px; }
 
-/* --- detail band ---------------------------------------------------------*/
-.pb-dw__table tbody td {
+/* --- detail band ---------------------------------------------------------
+   A DataWindow's detail band is 18px, but the column objects sitting in it are
+   only 14px tall, so 2px of the band's own white shows above and below every
+   cell's fill. That gap is what makes a PB grid read as a field of tiles
+   rather than a stack of stripes — and it is why the zebra, the salmon
+   current row and the gutter all look inset. */
+/* --- a grid whose cells wrap ---------------------------------------------
+   Patient Summary's Detail column runs to a second line rather than being cut:
+   `reference/patient-summary-3598.png` prints both pharmacy rows on two lines
+   and grows those rows from 20px to 29px. Everywhere else a DataWindow cell is
+   a single clipped line, which is why this is a variant and not the rule. */
+.pb-dw--wrap .pb-dw__table > tbody > tr > td {
+  /* a table cell's `height` is a minimum, so the band keeps its 20px and a
+     second line grows the row rather than being clipped */
   height: var(--pb-dw-row-h);
-  padding: 0 4px;
-  border-right: 1px solid var(--pb-dw-line);
-  border-bottom: 1px solid var(--pb-dw-line);
+  white-space: normal;
+  text-overflow: clip;
+  overflow: visible;
+  /* one line stays inside the 20px band; a second line takes the row to 29,
+     which is what the capture's two pharmacy rows measure */
+  line-height: 12.5px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.pb-dw__table > tbody > tr > td {
+  height: var(--pb-dw-row-h);
+  padding: 0 var(--pb-dw-pad-x, 4px);
+  /* The row's colour is on the <tr>; these two gradients paint the band back
+     over the cell's edges and lay the grid's hairlines along the bottom and
+     the right, so the fill reads as a 15px tile inside the 18px band. The
+     hairline is what outlines a cell on a white row, where the gap alone is
+     invisible. Both rules run continuously in the captures, so the layers
+     cross rather than interrupt each other. */
+  background-image:
+    linear-gradient(to right,
+      transparent 0 calc(100% - 2px),
+      var(--pb-dw-line-soft) calc(100% - 2px) calc(100% - 1px),
+      transparent calc(100% - 1px) 100%
+    ),
+    linear-gradient(
+      var(--pb-dw-row) 0 var(--pb-dw-cell-gap),
+      transparent var(--pb-dw-cell-gap) calc(100% - var(--pb-dw-cell-gap) - 1px),
+      var(--pb-dw-row) calc(100% - var(--pb-dw-cell-gap) - 1px) calc(100% - 1px),
+      var(--pb-dw-line-soft) calc(100% - 1px) 100%
+    );
+  /* the outer pixel of the column rule: hairline then band, as measured */
+  border-right: 1px solid var(--pb-dw-row);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
 }
-.pb-dw__table tbody td:last-child { border-right: 0; }
-.pb-dw__table tbody tr { background: var(--pb-dw-row); }
-.pb-dw__table tbody tr:nth-child(odd) { background: var(--pb-dw-row-alt); }
+.pb-dw__table > tbody > tr > td:last-child { border-right: 0; }
+.pb-dw__table > tbody > tr { background: var(--pb-dw-row); }
+.pb-dw__table > tbody > tr:nth-child(odd) { background: var(--pb-dw-row-alt); }
 
 /* zebra off — some PB grids are plain white */
-.pb-dw--plain .pb-dw__table tbody tr:nth-child(odd) { background: var(--pb-dw-row); }
+.pb-dw--plain .pb-dw__table > tbody > tr:nth-child(odd) { background: var(--pb-dw-row); }
 
 /* --- current row ---------------------------------------------------------*/
-.pb-dw__table tbody tr.is-current,
-.pb-dw__table tbody tr.is-current:nth-child(odd) { background: var(--pb-dw-select); }
+.pb-dw__table > tbody > tr.is-current,
+.pb-dw__table > tbody > tr.is-current:nth-child(odd) { background: var(--pb-dw-select); }
 
 /* --- group band ----------------------------------------------------------
    A DataWindow with a group level draws a header row per group, with the
    expand box in the gutter. Seen on the "Linked Goals - Read Only" tabs. */
-.pb-dw__table tbody tr.pb-dw__group,
-.pb-dw__table tbody tr.pb-dw__group:nth-child(odd) { background: var(--pb-dw-group); }
-.pb-dw__table tbody tr.pb-dw__group td {
+.pb-dw__table > tbody > tr.pb-dw__group,
+.pb-dw__table > tbody > tr.pb-dw__group:nth-child(odd) { background: var(--pb-dw-group); }
+.pb-dw__table > tbody > tr.pb-dw__group td {
   font-weight: 700;
   border-right: 0;
+  /* a group band is painted across the whole band, not inset like a detail
+     cell, so it keeps its own rule instead of the tile */
+  background-image: none;
   border-bottom: 1px solid var(--pb-dw-line);
 }
+/* the box itself is `.pb-expander` in controls.css; this is its size and
+   where the band puts it */
 .pb-dw__groupbox {
   width: 9px;
   height: 9px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid #7e9db9;
-  background: var(--pb-window);
-  font-size: 9px;
-  line-height: 1;
-  color: #333;
-  padding: 0;
-  cursor: default;
+  display: inline-block;
   vertical-align: middle;
 }
 
 /* an out-of-range result paints its row yellow */
-.pb-dw__table tbody tr.pb-dw--flag,
-.pb-dw__table tbody tr.pb-dw--flag:nth-child(odd) { background: var(--pb-dw-flag); }
+.pb-dw__table > tbody > tr.pb-dw--flag,
+.pb-dw__table > tbody > tr.pb-dw--flag:nth-child(odd) { background: var(--pb-dw-flag); }
 
 /* a linked/selected detail row inside a group is flagged yellow, not salmon.
    Measured from reference/order-links.png and order-distribution.png, where
    the linked row and the distribution recipient are the same saturated
    yellow rather than the paler tint used for an out-of-range result.     */
-.pb-dw__table tbody tr.pb-dw--highlight,
-.pb-dw__table tbody tr.pb-dw--highlight:nth-child(odd) { background: var(--pb-dw-highlight); }
+.pb-dw__table > tbody > tr.pb-dw--highlight,
+.pb-dw__table > tbody > tr.pb-dw--highlight:nth-child(odd) { background: var(--pb-dw-highlight); }
 
 /* --- status-coloured rows ------------------------------------------------*/
-.pb-dw__table tbody tr.pb-dw--alert,
-.pb-dw__table tbody tr.pb-dw--alert:nth-child(odd) { background: var(--pb-dw-alert); }
-.pb-dw__table tbody tr.pb-dw--alert.is-current,
-.pb-dw__table tbody tr.pb-dw--alert.is-current:nth-child(odd) { background: var(--pb-dw-alert-soft); }
-.pb-dw__table tbody tr.pb-dw--ok,
-.pb-dw__table tbody tr.pb-dw--ok:nth-child(odd) { background: var(--pb-dw-ok); }
+.pb-dw__table > tbody > tr.pb-dw--alert,
+.pb-dw__table > tbody > tr.pb-dw--alert:nth-child(odd) { background: var(--pb-dw-alert); }
+.pb-dw__table > tbody > tr.pb-dw--alert.is-current,
+.pb-dw__table > tbody > tr.pb-dw--alert.is-current:nth-child(odd) { background: var(--pb-dw-alert-soft); }
+.pb-dw__table > tbody > tr.pb-dw--ok,
+.pb-dw__table > tbody > tr.pb-dw--ok:nth-child(odd) { background: var(--pb-dw-ok); }
 
 /* an icon parked in the gutter (recurrence, series, locked record) */
 .pb-dw__gutter svg { display: block; margin: 0 auto; }
 
-/* --- gutter with the current-row arrow -----------------------------------*/
+/* --- gutter with the current-row arrow -----------------------------------
+   The gutter is a column of the grid, not a rail beside it: its cell takes
+   whatever colour the row is — white, the zebra grey, the salmon current row,
+   a status colour — so the banding runs right out to the grid's left edge.
+   Measured in advanced-lookup-service.png and order-history.png, where the
+   cell beside the current row is salmon and the one beside a zebra row is
+   #e8e8e8. Only the header band paints over it. */
 .pb-dw__gutter {
-  width: 13px;
+  width: 14px;   /* 15px with its separator, in both captures */
   padding: 0 !important;
   text-align: center;
-  background: var(--pb-dw-gutter);
-  border-right: 1px solid var(--pb-dw-line);
+  border-right: 1px solid var(--pb-dw-line-soft);
   font-weight: 700;
-  color: #333;
+  color: var(--pb-text);
 }
 thead .pb-dw__gutter { background: var(--pb-dw-header); }
+
+/* The current-row indicator: a 5x8 chevron, its shape taken off the pixels in
+   advanced-lookup-service.png. Drawn rather than typed so it keeps the same
+   weight in both text modes. */
+.pb-dw__arrow { display: block; margin: 0 auto; }
 
 /* --- cell modifiers ------------------------------------------------------*/
 .pb-dw__c--num    { text-align: right; }
@@ -190,12 +265,17 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
    Patient Summary's grid is ruleless: rows are separated by their zebra
    banding alone, with no cell borders in either axis. Only the group bands
    keep their bottom edge.                                                   */
-.pb-dw--norules .pb-dw__table tbody td { border-right: 0; border-bottom: 0; }
-.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group td { border-bottom: 1px solid #8f9490; }
+/* Rules off means off: PS_PatientSummary_image1.png stacks flush 19px bands
+   with no gap, no hairline and no column rule between them. */
+.pb-dw--norules .pb-dw__table > tbody > tr > td {
+  background-image: none;
+  border-right: 0;
+}
+.pb-dw--norules .pb-dw__table > tbody > tr.pb-dw__group td { border-bottom: 1px solid #8f9490; }
 
 /* The band's own cell when there is no gutter column beside it. The box sits
    13px in and the caption 7px after it, measured off the capture. */
-.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group td { padding-left: 13px; }
+.pb-dw--norules .pb-dw__table > tbody > tr.pb-dw__group td { padding-left: 13px; }
 .pb-dw__groupcell { display: inline-flex; align-items: center; gap: 7px; }
 
 /* --- coloured group bands ------------------------------------------------
@@ -204,12 +284,13 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
    bottom. Values sampled from the training capture: DEMOGRAPHICS #325a5a,
    PREFERENCES #83238a, REACTION RISKS #da3c33, SERVICE EPISODES #ffff9f,
    everything else the pale blue below.                                     */
-.pb-dw__table tbody tr.pb-dw__group--accent,
-.pb-dw__table tbody tr.pb-dw__group--accent:nth-child(odd) {
+.pb-dw__table > tbody > tr.pb-dw__group--accent,
+.pb-dw__table > tbody > tr.pb-dw__group--accent:nth-child(odd) {
   background: linear-gradient(180deg, #fff 0%, var(--pb-dw-group-accent, #d3e1fb) 100%);
 }
-.pb-dw__table tbody tr.pb-dw__group--accent td {
-  height: 19px;
+.pb-dw__table > tbody > tr.pb-dw__group--accent td {
+  /* the band and a detail row are the same 20px in both 1000px captures */
+  height: 20px;
   border-bottom: 1px solid #8f9490;
   color: #000;
   letter-spacing: .1px;
@@ -217,45 +298,85 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
 
 /* Bands without their own colour are the same gradient in the pale blue the
    summary defaults to, not a flat fill. */
-.pb-dw__table tbody tr.pb-dw__group,
-.pb-dw__table tbody tr.pb-dw__group:nth-child(odd) { background: var(--pb-dw-group); }
-.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group,
-.pb-dw--norules .pb-dw__table tbody tr.pb-dw__group:nth-child(odd) {
+.pb-dw__table > tbody > tr.pb-dw__group,
+.pb-dw__table > tbody > tr.pb-dw__group:nth-child(odd) { background: var(--pb-dw-group); }
+.pb-dw--norules .pb-dw__table > tbody > tr.pb-dw__group,
+.pb-dw--norules .pb-dw__table > tbody > tr.pb-dw__group:nth-child(odd) {
   background: linear-gradient(180deg, #fff 0%, var(--pb-dw-group-accent, #d3e1fb) 100%);
 }
 
 /* --- white column separators ---------------------------------------------
-   The Advanced Lookup Service's grid separates its columns with white 1px
-   lines rather than grey ones, and has no horizontal rules at all: against
-   the zebra they read as gaps, and on a white row they vanish.            */
-.pb-dw--rules-white .pb-dw__table tbody td { border-right-color: #fff; border-bottom: 0; }
-.pb-dw--rules-white .pb-dw__table thead th { border-right-color: #fff; }
+   Detail cells carry the soft hairline everywhere now — at a column rule both
+   captures read #f0f0f0 on a white row, never the grey the kit used to draw —
+   so this variant is only about the header, whose separators the Advanced
+   Lookup Service leaves white. */
+.pb-dw--rules-white .pb-dw__table > thead > tr > th { border-right-color: #fff; }
 
 /* --- grey header band ----------------------------------------------------
    Patient Summary draws its column captions as bold black on the window
    face rather than on the DataWindow blue.                                 */
-.pb-dw--head-grey .pb-dw__table thead th {
+.pb-dw--head-grey .pb-dw__table > thead > tr > th {
   text-align: left;
   background: #f0f0f0;
   border-right: 0;
-  border-bottom: 1px solid #a8a8a8;
+  /* the rule under this header is a true 1px black in the captures, not the
+     hairline the blue-headed grids use */
+  border-bottom: 1px solid #000;
   font-weight: 700;
   color: #000;
 }
-.pb-dw--head-grey .pb-dw__table thead th:hover { background: #f0f0f0; }
+.pb-dw--head-grey .pb-dw__table > thead > tr > th:hover { background: #f0f0f0; }
+/* a column that asks for a centred or right caption keeps it here: without
+   these the grey header flattened every caption to the left, which parked
+   Detail and Hyperlink nowhere near the cells beneath them */
+.pb-dw--head-grey .pb-dw__table > thead > tr > th.pb-dw__c--center { text-align: center; }
+.pb-dw--head-grey .pb-dw__table > thead > tr > th.pb-dw__c--num { text-align: right; }
 
 /* --- filter row ----------------------------------------------------------
    A lookup DataWindow puts a row of filter controls above its headers, on
    the dialog face.                                                         */
-.pb-dw__table thead tr.pb-dw__filters th {
+.pb-dw__table > thead > tr.pb-dw__filters th {
   height: 22px;
   padding: 2px 3px;
   background: var(--pb-band);
-  border-right: 0;
-  border-bottom: 0;
+  border: 0;
   text-align: left;
   cursor: auto;
 }
-.pb-dw__table thead tr.pb-dw__filters th:hover { background: var(--pb-band); }
+.pb-dw__table > thead > tr.pb-dw__filters th:hover { background: var(--pb-band); }
 .pb-dw__filters .pb-field,
 .pb-dw__filters .pb-select { width: 100%; height: 18px; }
+
+/* --- row ink -------------------------------------------------------------
+   MOIS marks a day-book row by its ink, not its fill: an appointment marked
+   Arrived turns blue, and one marked No Show, Rebooked or Cancelled is struck
+   through (art. 303827).
+
+   The strike is measured from the only captures that show this grid widget
+   drawing one — the New Appointment window's History list and the Task Inbox
+   — where both the text and the 1 px line are #868686. No capture in the
+   help-site corpus shows the blue, so this one is a guess, flagged here. */
+.pb-dw__table > tbody > tr.pb-dw--struck > td {
+  color: #868686;
+  text-decoration: line-through;
+  text-decoration-color: #868686;
+  text-decoration-thickness: 1px;
+}
+.pb-dw__table > tbody > tr.pb-dw--arrived > td { color: #0000c0; }
+
+/* A Workspace Basket row the user has ticked and saved: MOIS greys the ink
+   and leaves the row in place until the window refreshes (art. ID303756).
+   Measured at #606060 on `checked_since.PNG`. */
+.pb-dw__table > tbody > tr.pb-dw--checked > td { color: #606060; }
+
+/* Task and Message rows carry their state in the ink. An item that has not
+   been acknowledged is bold; one that is acknowledged and completed is struck
+   through in grey (arts. 1802744-1802747). The zebra underneath is banding,
+   not status, so neither rule touches the fill. */
+.pb-dw__table > tbody > tr.pb-dw--unread > td { font-weight: 700; }
+.pb-dw__table > tbody > tr.pb-dw--done > td {
+  color: #848484;
+  text-decoration: line-through;
+  text-decoration-color: #848484;
+  text-decoration-thickness: 1px;
+}

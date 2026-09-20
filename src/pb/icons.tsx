@@ -53,6 +53,33 @@ export const IconBook = ({ size = 16, style }: IconProps) => (
   </svg>
 )
 
+/* --- Workspace tree glyphs, traced off `workspace_summary.PNG` ------------
+   Basket is the blue in-tray, Task List the red check on a page, and Message
+   Board an envelope — the three icons that tell the Workspace's branches
+   apart at a glance. */
+export const IconBasket = ({ size = 16, style }: IconProps) => (
+  <svg viewBox="0 0 16 16" style={{ ...box(size), ...style }}>
+    <path d="M2 6.5h12l-1.4 6.2c-.1.5-.5.8-1 .8H4.4c-.5 0-.9-.3-1-.8z" fill="#2baaff" stroke="#1b6fb0" />
+    <path d="M5.5 6.3 8 2.6l2.5 3.7" fill="none" stroke="#1b6fb0" />
+    <path d="M2 5.6h12v1.6H2z" fill="#c9e1f7" stroke="#1b6fb0" />
+  </svg>
+)
+
+export const IconTaskCheck = ({ size = 16, style }: IconProps) => (
+  <svg viewBox="0 0 16 16" style={{ ...box(size), ...style }}>
+    <rect x="2.5" y="1.5" width="9" height="12" fill="#fff" stroke="#6b6b6b" />
+    <g stroke="#9a9a9a">{[4.5, 6.5, 8.5].map((y) => <line key={y} x1="4" y1={y} x2="10" y2={y} />)}</g>
+    <path d="M6 9.5 9 13l5-8" fill="none" stroke="#ff674f" strokeWidth="2" />
+  </svg>
+)
+
+export const IconEnvelope = ({ size = 16, style }: IconProps) => (
+  <svg viewBox="0 0 16 16" style={{ ...box(size), ...style }}>
+    <rect x="1.5" y="3.5" width="13" height="9" fill="#ebf6ff" stroke="#656daf" />
+    <path d="M1.5 3.5 8 9l6.5-5.5" fill="none" stroke="#656daf" />
+  </svg>
+)
+
 export const IconChart = ({ size = 16, style }: IconProps) => (
   <svg viewBox="0 0 16 16" style={{ ...box(size), ...style }}>
     <rect x="1.5" y="1.5" width="13" height="13" fill="#fff" stroke="#6b6b6b" />

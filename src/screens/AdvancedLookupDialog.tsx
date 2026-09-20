@@ -20,22 +20,25 @@ import { patients as fallbackRoster, type Patient } from '../data/patients'
 
 type Key = 'status' | 'last' | 'first' | 'middle' | 'dob' | 'home' | 'chart' | 'alias' | 'insurance' | 'insuranceBy' | 'bchn' | 'note' | 'location'
 
-/* widths measured off the capture; Chart Loc. is left unsized so the 13
-   columns always add up to the dialog's width instead of scrolling */
+/* Widths read off the capture's own column rules (the etched white lines in
+   `advanced-lookup-service.png`, at logical x = 26, 72, 167, 262, 333, 400,
+   486, 550, 655, 736, 776, 857, 990, 1107). Chart Loc. is left unsized so the
+   13 columns always add up to the dialog's width instead of scrolling — the
+   measured 117 is what the slack comes to. */
 /* Every column filters — the capture has 13 boxes above 13 columns. */
 const COLUMNS: { key: Key; header: string; width?: number; filter: boolean }[] = [
-  { key: 'status', header: 'Status', width: 68, filter: true },
-  { key: 'last', header: 'Last Name', width: 100, filter: true },
-  { key: 'first', header: 'First Name', width: 100, filter: true },
-  { key: 'middle', header: 'Middle Name', width: 100, filter: true },
-  { key: 'dob', header: 'DoB', width: 76, filter: true },
-  { key: 'home', header: 'Home', width: 100, filter: true },
-  { key: 'chart', header: 'Chart No', width: 74, filter: true },
-  { key: 'alias', header: 'Alias', width: 110, filter: true },
-  { key: 'insurance', header: 'Insurance', width: 100, filter: true },
-  { key: 'insuranceBy', header: 'By', width: 34, filter: true },
-  { key: 'bchn', header: 'BCHN', width: 110, filter: true },
-  { key: 'note', header: 'Note', width: 114, filter: true },
+  { key: 'status', header: 'Status', width: 46, filter: true },
+  { key: 'last', header: 'Last Name', width: 95, filter: true },
+  { key: 'first', header: 'First Name', width: 95, filter: true },
+  { key: 'middle', header: 'Middle Name', width: 71, filter: true },
+  { key: 'dob', header: 'DoB', width: 67, filter: true },
+  { key: 'home', header: 'Home', width: 86, filter: true },
+  { key: 'chart', header: 'Chart No', width: 64, filter: true },
+  { key: 'alias', header: 'Alias', width: 105, filter: true },
+  { key: 'insurance', header: 'Insurance', width: 81, filter: true },
+  { key: 'insuranceBy', header: 'By', width: 40, filter: true },
+  { key: 'bchn', header: 'BCHN', width: 81, filter: true },
+  { key: 'note', header: 'Note', width: 133, filter: true },
   { key: 'location', header: 'Chart Loc.', filter: true },
 ]
 

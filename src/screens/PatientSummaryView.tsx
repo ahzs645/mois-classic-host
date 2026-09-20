@@ -5,6 +5,7 @@ import {
 } from '../pb'
 import { genderRows, insuranceCarrierRows, serviceProviderRows } from '../data/mois'
 import { usePatient } from '../data/patient-context'
+import { AdvancedGenderDialog } from './AdvancedGenderDialog'
 import {
   SUMMARY_DEFAULT_ACCENT, headerIdentity, sectionCaption, summarySections, type SummaryRow,
 } from '../data/summary'
@@ -33,53 +34,65 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
   const [typed, setTyped] = useState(patient.chart)
   const [lastDays, setLastDays] = useState('60')
   const [requiredDays, setRequiredDays] = useState('90')
+  const [genderOpen, setGenderOpen] = useState(false)
   /* MOIS opens the summary with every section collapsed but the first; the
      frame remounts this window per chart, so the state starts over there */
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () => new Set(summarySections(patient).filter((s) => !s.open).map((s) => s.id)),
   )
 
-  const { rows, captions, accents } = useMemo(() => {
+  const { rows, captions, accents, order, counts } = useMemo(() => {
     const sections = summarySections(patient)
     const rows: Row[] = []
     const captions = new Map<string, string>()
     const accents = new Map<string, string>()
+    const counts = new Map<string, number>()
+    /* every band the window paints, in order: a section whose rows were not
+       captured is still a band and a count in MOIS */
+    const order = sections.map((s) => s.id)
     for (const s of sections) {
       const caption = sectionCaption(s, lastDays, requiredDays)
       captions.set(s.id, caption)
       if (s.accent) accents.set(s.id, s.accent)
+      if (s.count !== undefined) counts.set(s.id, s.count)
       for (const r of s.rows) rows.push({ ...r, section: s.id })
     }
-    return { rows, captions, accents }
+    return { rows, captions, accents, order, counts }
   }, [lastDays, patient, requiredDays])
 
   const commands: PBCommand[] = [
-    { label: 'New Chart', width: 78 },
-    { label: 'Delete Chart', width: 78 },
-    { label: 'Save', width: 78 },
-    { label: 'Undo', width: 78 },
-    { label: 'Refresh', width: 78 },
-    { label: 'Search', width: 78, onClick: onLookup },
-    { label: 'Previous Chart', width: 78, onClick: () => onStepChart(-1) },
-    { label: 'Next Chart', width: 78, onClick: () => onStepChart(1) },
-    { label: 'Tear Off', width: 78 },
+    { label: 'New Chart' },
+    { label: 'Delete Chart' },
+    { label: 'Save' },
+    { label: 'Undo' },
+    { label: 'Refresh' },
+    { label: 'Search', onClick: onLookup },
+    { label: 'Previous Chart', onClick: () => onStepChart(-1) },
+    { label: 'Next Chart', onClick: () => onStepChart(1) },
+    { label: 'Tear Off' },
   ]
 
-  /* Painted widths, measured off `reference/patient-summary-loaded.png`.
-     The caption blocks sit at 9..54, 144..270, 846..909 and 1332..1440 of the
-     grid; Date and Description are left-aligned in their columns and Detail
-     and Hyperlink centred, and only one set of widths fits all four:
+  /* Painted widths. The two 1000px captures put the four captions at 199 /
+     269 / 613.5 / 900.5 and `patient-summary-loaded.png` — a window 1321px
+     wider in the grid — puts them at 199 / 270 / 617 / 906. The columns do
+     not move with the window, so they are painted pixels, not proportions:
 
-         Date 0..140 | Description 140..614 | Detail 614..1140 | Hyperlink 1140..1632
+         Date 0..70 | Description 70..415 | Detail 415..702 | Hyperlink 702..808
 
-     `_pad` carries whatever the window has past 1632, so the columns keep
-     those positions while the group bands still run the full width. */
+     A wider window leaves everything past Hyperlink as empty band, which is
+     what `_pad` carries while the coloured bands still run the full width. */
   const columns: PBColumn<Row>[] = [
-    { key: 'date', header: 'Date', width: 140, align: 'left' },
-    { key: 'description', header: 'Description', width: 474 },
-    { key: 'detail', header: 'Detail', width: 526, align: 'left', headAlign: 'center' },
+    { key: 'date', header: 'Date', width: 70, align: 'left' },
+    { key: 'description', header: 'Description', width: 345 },
+    /* Detail's caption is left-aligned on its own data, not centred */
+    { key: 'detail', header: 'Detail', width: 287, align: 'left' },
     {
-      key: 'link', header: 'Hyperlink', width: 492, align: 'center', headAlign: 'center',
+      /* The caption is left-aligned in the column like every other one; the
+         glyph is centred in it. Measured in `patient-summary-3598.png`: the
+         caption's ink runs 900.5..951.5 and every glyph 937.5..949.5, so the
+         glyph ends where the caption ends — which is what a centred glyph in
+         a 109px column comes to, not an alignment of its own. */
+      key: 'link', header: 'Hyperlink', width: 109, align: 'center', headAlign: 'left',
       /* the jump into the module that owns the row: MOIS's own glyph and
          nothing else, the way a form's LinkToMois button shows it. The module
          name is the tooltip and the accessible name, not printed text. */
@@ -100,11 +113,14 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
     <>
       <PBViewHeader
         title="Patient Summary"
+        /* `.pb-viewhead__chart` carries the 13px the capture measures and the
+           gap before `Chart NNNN`; the screen used to inline its own span and
+           lost both. Ink-to-ink the gap is 14px and the number ends 7px from
+           the window edge. */
         right={
-          <span style={{ fontWeight: 700, paddingRight: 6 }}>
+          <span className="pb-viewhead__chart">
             {headerIdentity(patient)}
-            <span style={{ display: 'inline-block', width: 22 }} />
-            Chart {patient.chart}
+            <span className="pb-viewhead__chartno">Chart {patient.chart}</span>
           </span>
         }
       />
@@ -146,7 +162,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
             w={66}
             value={patient.insuranceBy ?? ''}
             display="code"
-            columns={[{ key: 'code', header: 'By', width: 52 }, { key: 'insurer', header: 'Insurer' }]}
+            columns={[{ key: 'code', header: 'Code', width: 52 }, { key: 'insurer', header: 'Description' }]}
             rows={insuranceCarrierRows}
           />
           <Gap to={634} from={523} label="Service Provider:" />
@@ -169,14 +185,19 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
           <Gap to={457} from={361} label="Insurance No.:" />
           <PBInput w={88} value={patient.insurance ?? ''} readOnly />
           <Gap to={579} from={545} label="Dep:" />
-          <PBInput w={35} value={patient.dep ?? '00'} readOnly />
+          <PBInput w={35} value={patient.dep ?? ''} readOnly />
         </div>
 
         <div className="pb-chartfilter__row">
           <span className="pb-chartfilter__label">Birth Date:</span>
           <PBInput w={95} align="center" value={patient.dob} readOnly />
-          {/* MOIS paints the label of a flagged control yellow */}
-          <Gap to={266} from={174} label="Gender:" flagged />
+          {/* MOIS paints the caption of a flagged control yellow and says
+              what the flag means in a tip on hover */}
+          {/* The caption is yellow on every chart captured so far — 3424, 3598
+              and 3924 alike — so it is the Data Audit Service's flag on a
+              registered field (`reference/field-audit.md` lists Gender), not
+              something one chart earns. */}
+          <Gap to={266} from={174} label="Gender:" flagged tip="This patient has multiple gender designations" />
           <PBDropDownDataWindow
             w={74}
             value={patient.gender}
@@ -185,32 +206,54 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
             rows={genderRows}
           />
           <span style={{ width: 3 }} />
-          <PBButton size="sm" style={{ minWidth: 18, padding: 0 }}>.*.</PBButton>
+          {/* the `.*.` beside Gender opens Advanced Gender Designations */}
+          <PBButton
+            size="sm"
+            style={{ minWidth: 18, padding: 0 }}
+            title="Advanced Gender Designations"
+            data-tutorial-id="host.mois.command.gender-designations"
+            onClick={() => setGenderOpen(true)}
+          >
+            .*.
+          </PBButton>
           <Gap to={457} from={361} label="BC Health No.:" />
           <PBInput w={88} value={patient.bchn ?? ''} readOnly />
         </div>
       </div>
 
       {/* ---- expand / collapse + the two day windows ---- */}
+      {/* Painted x, measured off `reference/patient-summary-3598.png` and
+          given here as the gap before each control, the way the chart block
+          above carries its own tab stops. The two links land on the Date and
+          Description column origins (197.5 and 268); the day-window cluster
+          to their right lands on nothing in particular, which is why it can
+          only be transcribed, not derived. */}
       <div className="pb-summarybar">
         <button className="pb-link" onClick={() => setCollapsed(new Set())}>Expand All</button>
-        <span style={{ width: 16 }} />
+        <BarGap w={21} />
         <button className="pb-link" onClick={() => setCollapsed(new Set(captions.keys()))}>Collapse All</button>
-        <span className="pb-summarybar__spacer" />
-        <span>In the last</span>
-        <PBInput w={56} align="center" value={lastDays} onChange={(e) => setLastDays(e.target.value)} />
-        <span>days</span>
-        <PBButton size="sm">Since Last</PBButton>
-        <span className="pb-summarybar__spacer" />
-        <span>Required in the next</span>
-        <PBInput w={56} align="center" value={requiredDays} onChange={(e) => setRequiredDays(e.target.value)} />
-        <span>days</span>
-        <span className="pb-summarybar__spacer" />
+        {/* every label sits in a run that ends where the capture ends it, so a
+            wider or narrower face moves the text, never the controls */}
+        <BarGap w={278} label="In the last" />
+        <BarGap w={5} />
+        <PBInput w={42} align="center" value={lastDays} onChange={(e) => setLastDays(e.target.value)} />
+        <BarGap w={29} label="days" />
+        <BarGap w={7} />
+        <PBButton size="sm" style={{ width: 67 }}>Since Last</PBButton>
+        <BarGap w={126} label="Required in the next" />
+        <BarGap w={5} />
+        <PBInput w={42} align="center" value={requiredDays} onChange={(e) => setRequiredDays(e.target.value)} />
+        <BarGap w={27} label="days" />
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           flush
+          /* the Detail column runs to a second line rather than being cut */
+          wrap
+          /* the painter sets this grid's text 8px into each column, where a
+             lookup grid sets its own 3-4px in */
+          style={{ ['--pb-dw-pad-x' as string]: '8px' }}
           head="grey"
           /* MOIS's summary grid has no gutter and no hairlines: the bands run
              edge to edge and the rows are separated by banding alone */
@@ -219,29 +262,47 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
           columns={columns}
           rows={rows}
           groupBy={(r) => r.section}
-          groupLabel={(id, inGroup) => `${captions.get(id) ?? id}  [${inGroup.length}]`}
+          groups={order}
+          groupLabel={(id, inGroup) => `${captions.get(id) ?? id}  [${counts.get(id) ?? inGroup.length}]`}
           groupAccent={(id) => accents.get(id) ?? SUMMARY_DEFAULT_ACCENT}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
           empty="No summary sections configured for this chart."
         />
       </div>
+
+      {genderOpen && <AdvancedGenderDialog onClose={() => setGenderOpen(false)} />}
     </>
   )
 }
+
+/** A painted run of face in the summary bar, with its label against the end. */
+const BarGap = ({ w, label }: { w: number; label?: string }) => (
+  <span className="pb-summarybar__gap" style={{ width: w }}>{label}</span>
+)
 
 /**
  * The run of window face between one control and the next, carrying the next
  * control's label right-aligned against it. Keeping the painted x offsets in
  * the markup is what stops the row drifting as label text changes length.
  */
-function Gap({ from, to, label, flagged }: { from: number; to: number; label: string; flagged?: boolean }) {
+function Gap({ from, to, label, flagged, tip }: {
+  from: number
+  to: number
+  label: string
+  /** paint the caption yellow — the flag itself, not the face it sits on */
+  flagged?: boolean
+  /** the Win10 tip that says what the flag means */
+  tip?: string
+}) {
+  const classes = ['pb-chartfilter__gap']
+  if (tip) classes.push('pb-chartfilter__gap--tip')
+  const caption: string[] = []
+  if (flagged) caption.push('pb-form__label--flagged')
+  if (tip) caption.push('pb-tip')
   return (
-    <span
-      className={flagged ? 'pb-chartfilter__gap pb-form__label--flagged' : 'pb-chartfilter__gap'}
-      style={{ width: to - from }}
-    >
-      {label}
+    <span className={classes.join(' ')} style={{ width: to - from }}>
+      {flagged || tip ? <span className={caption.join(' ')} data-tip={tip}>{label}</span> : label}
     </span>
   )
 }

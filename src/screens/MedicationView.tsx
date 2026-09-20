@@ -8,9 +8,16 @@ import { longTermMedRows, prescriptionRows } from '../data/mois'
 
 /* ============================================================================
    Rx - Prescription and Long Term Medications are one window family: same
-   grid shape, same Detail/CPP tab pair, same instruction checkbox block.
+   grid shape, same untabbed detail pane, same instruction checkbox block.
    Transcribed from the evidence captures for tdt_prescription and
    tdt_medication_lt.
+
+   This window used to carry a `Detail` / `CPP` tab pair. No capture in the
+   manual shows one — the classic Rx detail pane is untabbed, and the CPP
+   fields it held (On CPP / Sort Order / Heading / Note) appear nowhere in the
+   corpus. Controlled prescribing is a separate window in a different UI
+   toolkit entirely (flat WPF chrome, cyan title bar, orange primary button),
+   so it cannot reuse this kit and is not modelled here.
    ========================================================================= */
 
 type Med = Record<string, string>
@@ -42,7 +49,6 @@ const LTM_COLUMNS: PBColumn<Med>[] = [
 export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   const patient = usePatient()
   const rx = mode === 'rx'
-  const [tab, setTab] = useState('Detail')
   const [cur, setCur] = useState(0)
   const rows = rx ? prescriptionRows : longTermMedRows
 
@@ -99,9 +105,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 0' }}>
-        <PBTabs tabs={['Detail', 'CPP']} active={tab} onChange={setTab} compact>
-          {tab === 'Detail' ? <DetailPage rx={rx} row={rows[cur]} /> : <CppPage />}
-        </PBTabs>
+        <DetailPage rx={rx} row={rows[cur]} />
       </div>
 
       <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
@@ -167,28 +171,40 @@ function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
   )
 }
 
-/* CPP — the cumulative patient profile entry this medication contributes to */
-function CppPage() {
-  return (
-    <div className="pb-form" style={{ gridTemplateColumns: '116px 1fr', padding: '8px 10px', alignItems: 'start' }}>
-      <span className="pb-form__label" style={{ lineHeight: '19px' }}>On CPP:</span>
-      <PBCheckbox label="Include this medication on the Cumulative Patient Profile" />
-      <span className="pb-form__label" style={{ lineHeight: '19px' }}>CPP Sort Order:</span>
-      <PBInput w={64} align="center" />
-      <span className="pb-form__label" style={{ lineHeight: '19px' }}>CPP Heading:</span>
-      <PBLookup w={300} />
-      <span className="pb-form__label" style={{ lineHeight: '19px' }}>CPP Note:</span>
-      <PBTextArea rows={6} w="100%" />
-    </div>
-  )
-}
+/* ============================================================================
+   `Prescription Print Hx` — the chart view that appears under Prescriptions
+   once e-signatures are on. The only tabbed window in this family.
+
+   The previous version of this function invented a `Prescription Print History`
+   window with Printed / Medication / Printed By / Copies. That matches neither
+   real surface. The other one is the `Prescription History` modal reached from
+   the `View Print History` link in the Rx footer, which is a different window
+   again (Date Printed | Printed By over CDIC | MEDICATION | DOSE/FREQ | AMOUNT,
+   one `Reprint Prescription` button) and is not modelled here.
+
+   A reprint appends a row with Version = Copy; the original reads Original.
+   ========================================================================= */
+
+const PRINT_HX_ROWS = [
+  { by: 'MACDONALD, TERESA', created: '2026.07.06  09:31', signed: '\u2713',
+    method: 'PRINT', mby: 'MACDONALD, TERESA', mwhen: '2026.07.06  09:31', version: 'Original' },
+  { by: 'MACDONALD, TERESA', created: '2026.07.06  09:31', signed: '\u2713',
+    method: 'FAX', mby: 'MACDONALD, TERESA', mwhen: '2026.07.06  09:34', version: 'Copy' },
+]
+
+const PRINT_HX_ITEMS = [
+  { code: '02245428', med: 'CEFTRIAXONE FOR INJECTION USP 250 mg Powder For Solution',
+    dose: '1 DOSE Intramuscular DAILY', amount: '1 DAY' },
+]
 
 export function PrintHistoryView() {
   const patient = usePatient()
+  const [tab, setTab] = useState('Prescription Items')
+  const [cur, setCur] = useState(0)
   return (
     <>
-      <PBViewHeader title="Prescription Print History" />
-      <PBCommandRow commands={[{ label: 'Refresh' }, { label: 'Print' }]} />
+      <PBViewHeader title="Prescription Print Hx" />
+      <PBCommandRow commands={[{ label: 'Refresh' }, { label: 'Preview' }]} />
       <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
@@ -196,18 +212,57 @@ export function PrintHistoryView() {
           { label: 'DoB:', value: '2025.01.01' },
         ]}
       />
-      <PBBand>Print History</PBBand>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
+      <div style={{ padding: '0 3px', height: 150, display: 'flex' }}>
         <PBDataWindow
-          rows={[]}
+          rows={PRINT_HX_ROWS}
+          current={cur}
+          onCurrentChange={setCur}
           columns={[
-            { key: 'printed', header: 'Printed', width: 130, align: 'center' },
-            { key: 'med', header: 'Medication' },
-            { key: 'by', header: 'Printed By', width: 170 },
-            { key: 'copies', header: 'Copies', width: 62, align: 'center' },
+            { key: 'by', header: 'Created By', width: 160 },
+            { key: 'created', header: 'Create Date & Time', width: 140, align: 'center' },
+            { key: 'signed', header: 'Signed', width: 52, align: 'center' },
+            { key: 'method', header: 'Method', width: 66, align: 'center' },
+            { key: 'mby', header: 'By', width: 160 },
+            { key: 'mwhen', header: 'Date & Time', width: 140, align: 'center' },
+            { key: 'version', header: 'Version', width: 70, align: 'center' },
           ]}
-          empty="Nothing printed for this patient."
         />
+      </div>
+
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4, padding: '4px 3px 3px' }}>
+        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex' }}>
+          <PBTabs
+            tabs={['Prescription Items', 'Distribution']}
+            active={tab}
+            onChange={setTab}
+            compact
+          >
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
+              <PBDataWindow
+                /* the Distribution tab exists in the capture but is never the
+                   active tab anywhere in the corpus, so its columns are unknown */
+                rows={tab === 'Prescription Items' ? PRINT_HX_ITEMS : []}
+                columns={[
+                  { key: 'code', header: 'Code', width: 90 },
+                  { key: 'med', header: 'Medication' },
+                  { key: 'dose', header: 'Dose / Frequency', width: 180, align: 'center' },
+                  { key: 'amount', header: 'Amount', width: 90, align: 'center' },
+                ]}
+                empty={tab === 'Distribution' ? 'Not captured in the manual.' : undefined}
+              />
+            </div>
+          </PBTabs>
+        </div>
+
+        <div style={{ width: 190, display: 'flex', flexDirection: 'column' }}>
+          <PBBand>Workflow Summary</PBBand>
+          <div className="pb-form" style={{ gridTemplateColumns: '1fr', padding: '6px 8px', gap: 4 }}>
+            <span>Messages: 0</span>
+            <span>Tasks: 0</span>
+            <span>Acknowledgements: 0</span>
+            <button className="pb-link" style={{ textAlign: 'left' }}>View Detail...</button>
+          </div>
+        </div>
       </div>
     </>
   )

@@ -118,6 +118,12 @@ export interface HostEmulatorManifest {
   actions: Record<string, HostActionSpec>
   /** Every anchor the shell can stamp, as `{slug}` templates. */
   anchors: string[]
+  /**
+   * The size the target system's own window is painted at. A PowerBuilder
+   * window does not reflow, so a stage opens the desktop full screen and sets
+   * the window to this rather than stretching it to the browser.
+   */
+  windowSize?: { width: number; height: number }
 }
 
 /** Imperative surface the host drives for autoplay and resume. */
@@ -128,6 +134,11 @@ export interface HostShellApi {
 }
 
 export interface HostShellProps {
+  /**
+   * Open the frame at the size MOIS paints this window, centred on the
+   * desktop, instead of maximised. The desktop still fills the host's box.
+   */
+  windowSize?: { width: number; height: number }
   /** Fixture id from the manifest; unknown ids fall back to the default. */
   fixture?: string
   /**

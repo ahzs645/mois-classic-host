@@ -6,7 +6,7 @@ import {
   PBSummaryBand, PBTabs, PBTextArea, PBTree, PBViewHeader, PBWindow,
   IconFolder, IconIdCard, type PBRowStatus, type PBTreeNode,
 } from '../pb'
-import { THEMES, type PBTheme } from '../data/mois'
+import { TEXT_MODES, THEMES, type PBTextMode, type PBTheme } from '../data/mois'
 
 /* A gallery of every control in the kit, laid out the way a PowerBuilder
    style guide would be. Reachable at #kit. */
@@ -42,6 +42,8 @@ export function UiKit() {
   const [slider, setSlider] = useState(6)
   const [spin, setSpin] = useState(4)
   const [theme, setTheme] = useState<PBTheme>('')
+  /* the gallery opens in the same rasterisation the frame defaults to */
+  const [textMode, setTextMode] = useState<PBTextMode>('pb-text--pixel')
   const [msg, setMsg] = useState<'info' | 'warn' | 'error' | 'question' | null>(null)
   const [answer, setAnswer] = useState('')
 
@@ -50,7 +52,7 @@ export function UiKit() {
   }
 
   return (
-    <div className={`pb-root ${theme}`.trim()}>
+    <div className={`pb-root ${theme} ${textMode}`.trim()}>
       <div className="pb-desktop" style={{ overflow: 'auto', padding: 20 }}>
         <PBWindow title="pb — PowerBuilder Classic UI Kit" style={{ maxWidth: 1180, margin: '0 auto', minHeight: 760 }}>
           <PBMenuBar items={[
@@ -70,6 +72,15 @@ export function UiKit() {
                   value={THEMES.find((t) => t.id === theme)!.label}
                   onChange={(e) =>
                     setTheme(THEMES.find((t) => t.label === e.target.value)!.id)
+                  }
+                />
+                Text:
+                <PBSelect
+                  options={TEXT_MODES.map((t) => t.label)}
+                  w={250}
+                  value={TEXT_MODES.find((t) => t.id === textMode)!.label}
+                  onChange={(e) =>
+                    setTextMode(TEXT_MODES.find((t) => t.label === e.target.value)!.id)
                   }
                 />
               </span>

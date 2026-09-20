@@ -40,7 +40,14 @@ pnpm install && pnpm dev
   | Scheduler ▸ Group Bookings | Group Visit List — 4 tabs |
 
   | Scheduler ▸ Day / Week Views | `DayGridView` — time axis, N provider columns |
-  | Workspace · Billing · Administration · Data Exchange · Reports | each module has its own tree and screens |
+  | Workspace ▸ Workspace Summary | Basket / Task List / Message Board counts, from `workspace_summary.PNG` |
+  | Administration ▸ Configuration ▸ System Settings | the APP SETTING list, from `encounter_limit.PNG` |
+  | Data Exchange ▸ Manual Entry | the seven result folders, from `data_exchange_contents1.png` |
+  | Billing · Reports | each module has its own tree and screens |
+
+  The Workspace, Administration and Data Exchange trees are transcribed from
+  the captures named above rather than invented; Billing and Reports are still
+  placeholders.
 
   Everything else falls through to `ChartSectionView`, the window shape most
   MOIS chart nodes share.
@@ -49,7 +56,10 @@ pnpm install && pnpm dev
   open Patient Service Event; **Goals ▸ New Record** opens New Goal;
   **Demographics ▸ Benefits ▸ Edit** opens the benefit editor, whose **Save**
   raises a classic `PBMessageBox`; the **"…"** beside Chart No. (and **Search**,
-  **Go To Chart…**, **Record ▸ Find**) opens the Advanced Lookup Service.
+  **Go To Chart…**, **Record ▸ Find**) opens the Advanced Lookup Service; the
+  **`.*.`** beside Gender — on Patient Summary and on Demographics alike —
+  opens **Advanced Gender Designations**, where the administrative, preferred
+  and genotypic designations are maintained and **Save / Close (F2)** closes.
 
 ### The window behaves like a window
 
@@ -105,8 +115,8 @@ they name, so the menu bar navigates the same screens the tree does.
 
 Real MOIS has no Window menu, so neither does this. The two things the kit
 needs and MOIS has nowhere to put are parked where they read most naturally:
-the open MDI sheets at the foot of **Views**, and the three looks at the foot
-of **Maintenance** as *Appearance: …*.
+the open MDI sheets at the foot of **Views**, and the three looks plus the two
+text modes at the foot of **Maintenance** as *Appearance: …* and *Text: …*.
 
 ### Transcribed vs extrapolated
 
@@ -157,12 +167,17 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
     `host.mois.selectModule { module }`, `host.mois.command { command }`,
     `host.mois.selectTab { tab }`, `host.mois.menu { menu, item }`,
     `host.mois.lookup { field, dialog }`, `host.mois.selectPatient { chart }`,
-    `host.mois.status { link }`, `host.mois.toggleNode`,
+    `host.mois.status { link }`, `host.mois.daybook { move }`,
+    `host.mois.daybookFor { provider }`, `host.mois.toggleNode`,
     `host.mois.openWindow`, `host.mois.closeDialog` — slugs only. The one
     patient-derived value is the chart number, which a lesson about finding a
     chart has to be able to grade; the roster it names is fictional.
-  - `onStateChange(state)` reports `{ module, node, view, tab, dialog, patient, windows, theme }`,
-    where `patient` is the open chart's number.
+  - `onStateChange(state)` reports
+    `{ module, node, view, tab, dialog, patient, windows, draft, daybook, provider, theme }`.
+    `patient` is the open chart's number, `draft` says whether a New Record is
+    open and unsaved, `daybook` is the day the Scheduler is showing
+    (`YYYY.MM.DD`) and `provider` is whose day book that is — the three a
+    lesson needs to grade a record being started, saved, or a day changed.
   - `onReady(api)` hands over `api.perform(actionId, args)`, which replays any
     action natively (opening a nested tree node expands its branch first), and
     `api.getState()`.
@@ -171,8 +186,15 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
   navigator and work area, every tree node (`host.mois.tree.<id>`), module
   button (`host.mois.module.<id>`), command button (`host.mois.command.<slug>`),
   tab (`host.mois.tab.<slug>`), menu item (`host.mois.menu.<menu>.<item>`),
-  lookup button (`host.mois.lookup.<field>`) and status-bar link
-  (`host.mois.status.<link>`).
+  lookup button (`host.mois.lookup.<field>`), status-bar link
+  (`host.mois.status.<link>`), day-book move (`host.mois.daybook.<move>`) and
+  the Daybook For field (`host.mois.daybookfor`).
+  The frame's own bands carry one each, named the way the manual's window tour
+  names them: `host.mois.menubar` (Toolbar), `host.mois.modulebar` (Main Menu),
+  `host.mois.commandrow` (Task Bar), `host.mois.viewhead` (Information Bar) and
+  `host.mois.statusbar` (Bottom Bar) — so a lesson can ring a region rather
+  than a control. A grid can name one row with `PBDataWindow`'s
+  `rowTutorialId`, which is how `host.mois.row.<slug>` anchors are stamped.
   Command rows, tabs and menus get theirs from `PBInstrumentationProvider`
   (`src/pb/instrumentation.tsx`), so a screen added later is instrumented for
   free; outside a provider the kit renders exactly as before.
@@ -213,7 +235,7 @@ not. Both halves were measured out of the screenshots:
 ### Dialling it
 
 The default is that hybrid. Two overrides shift it either way — switch live
-from **Views ▸ Appearance**, or apply the class yourself:
+from **Maintenance ▸ Appearance**, or apply the class yourself:
 
 | class | look |
 |---|---|
@@ -224,6 +246,37 @@ from **Views ▸ Appearance**, or apply the class yourself:
 ```html
 <div class="pb-root pb-theme--classic"> … </div>
 ```
+
+### Text: Tahoma or the bitmap
+
+Rasterisation is a separate axis from the three looks, because the problem is
+the platform rather than the design. MOIS asks for **Tahoma 11px** — measure
+the Demographics tab captions in `demographics-full.png` and they land within
+1.5px of it — and Windows hints Tahoma onto the pixel grid at that size, which
+is where the hard 1px stems in the screenshots come from. macOS and Linux
+ignore TrueType hinting and render the outline, so the same font comes out
+rounder and softer, and no CSS turns hinting back on.
+
+| class | text |
+|---|---|
+| *(none)* | **Tahoma 11px** — what MOIS asks for. Pixel-exact on Windows, soft elsewhere. |
+| `pb-text--pixel` | **Bitmap MS Sans Serif** — a reconstruction drawn on an 11px grid, so it lands on the grid anywhere. Crisp off Windows. **The frame's default.** |
+
+The shell starts in the bitmap mode, because off Windows it is the only one
+that looks like the captures. Switch it live from **Maintenance ▸ Text**, pin
+it on a link with
+`?text=pixel` or `?text=tahoma`, pass `text` to the shell, or apply the class:
+
+```html
+<div class="pb-root pb-text--pixel"> … </div>
+```
+
+The frame around the client area keeps Segoe UI and its smoothing either way —
+the Windows 10 chrome in the screenshots was never aliased. The bitmap is a
+reconstruction, not Tahoma: a few letterforms differ, captions come out 1–2px
+narrower, it exists at 11px only (so `--pb-fs-sm` and `--pb-fs-banner` are
+pulled onto 11px with it), and `…`, `✓`, `×` and accents fall back to Tahoma.
+See `src/pb/fonts/ATTRIBUTION.md` — the font is CC BY-SA 3.0.
 
 ## Geometry
 

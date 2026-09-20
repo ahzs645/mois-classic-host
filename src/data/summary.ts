@@ -31,6 +31,14 @@ export type SummarySection = {
   /** sections whose caption carries a day window */
   window?: 'last' | 'required'
   open?: boolean
+  /**
+   * What the band's caption prints between the brackets. A section that is
+   * collapsed in a capture shows its count but not the rows behind it, so the
+   * count is transcribed and `rows` stays empty rather than being invented.
+   * Unset = the caption counts the rows, which is the same number whenever
+   * the rows are all there.
+   */
+  count?: number
   rows: SummaryRow[]
 }
 
@@ -45,7 +53,122 @@ export const SUMMARY_ACCENT = {
   service: '#ffff9f',
 } as const
 
+/* ---------------------------------------------------------------------------
+   Transcribed summaries.
+
+   These are read off a capture of the chart itself, section by section, so
+   what the window prints is what MOIS printed. Only the expanded sections'
+   rows are in a capture: a collapsed band shows a count and nothing else, so
+   those sections carry `count` and no rows. Filling them in would be
+   invention, and the emulator would then teach a chart that does not exist.
+   ------------------------------------------------------------------------ */
+
+/** Chart 3924 — `reference/patient-summary-3924.png`, the chart MOIS opens on. */
+const SUMMARY_3924: SummarySection[] = [
+  {
+    id: 'demographics', title: 'DEMOGRAPHICS', accent: SUMMARY_ACCENT.demographics, open: true,
+    rows: [{ description: 'HOME PHONE', detail: '250.765.3212' }],
+  },
+  { id: 'preferences', title: 'PREFERENCES', accent: SUMMARY_ACCENT.preferences, count: 6, rows: [] },
+  { id: 'connections', title: 'CONNECTIONS', count: 6, rows: [] },
+  { id: 'parties', title: 'ASSOCIATED PARTIES', count: 2, rows: [] },
+  { id: 'risks', title: 'REACTION RISKS', accent: SUMMARY_ACCENT.risks, count: 2, rows: [] },
+  { id: 'adverse', title: 'ADVERSE EVENTS', count: 1, rows: [] },
+  { id: 'issues', title: 'HEALTH ISSUES', count: 1, rows: [] },
+  { id: 'ltm', title: 'LONG TERM MEDS', count: 2, rows: [] },
+  { id: 'documents', title: 'DOCUMENTS', window: 'last', count: 6, rows: [] },
+  { id: 'paperforms', title: 'FORMS - PAPER', window: 'last', count: 1, rows: [] },
+  { id: 'prescriptions', title: 'PRESCRIPTIONS', window: 'last', count: 1, rows: [] },
+  { id: 'service', title: 'SERVICE EPISODES', accent: SUMMARY_ACCENT.service, count: 8, rows: [] },
+  { id: 'notifications', title: 'NOTIFICATIONS', window: 'required', count: 1, rows: [] },
+]
+
+/** Chart 3598 — `reference/patient-summary-3598.png`, with CONNECTIONS open.
+    MOIS prints these rows in the case they are stored in, not upper case. */
+const SUMMARY_3598: SummarySection[] = [
+  {
+    id: 'demographics', title: 'DEMOGRAPHICS', accent: SUMMARY_ACCENT.demographics, open: true,
+    rows: [
+      { description: 'HOME PHONE', detail: '259.876.5678' },
+      { description: 'CELL PHONE', detail: '778999666' },
+      { description: 'ETHNICITY', detail: 'FIRST NATIONS' },
+    ],
+  },
+  { id: 'preferences', title: 'PREFERENCES', accent: SUMMARY_ACCENT.preferences, count: 15, rows: [] },
+  {
+    id: 'connections', title: 'CONNECTIONS', open: true,
+    rows: [
+      { date: '2025.03.19', description: 'Aboriginal Organization', detail: 'Blueberry River First Nation', link: 'Demographics' },
+      { date: '2015.01.01', description: 'Aboriginal Organization', detail: "Lheidli T'enneh Band", link: 'Demographics' },
+      { date: '1991.01.01', description: 'First Nation Reserve', detail: 'Blueberry River First Nations', link: 'Demographics' },
+      { date: '2024.09.17', description: 'First Nation Reserve', detail: "Lheidli T'enneh Band", link: 'Demographics' },
+      { date: '2024.09.17', description: 'Pharmacy', detail: 'COSTCO PHARMACY # 158 - 2555 Range Road - Prince George', link: 'Demographics' },
+      { date: '2025.02.11', description: 'Pharmacy', detail: 'PHARMASAVE # 076 - TELEPHARMACY - 2520 Harrison Ave. - Masset', link: 'Demographics' },
+      { date: '2024.09.17', description: 'Primary Provider', detail: 'GIM CLINIC', link: 'Demographics' },
+      { date: '2024.09.17', description: 'Primary Provider', detail: 'NO PRIMARY CARE PROVIDER', link: 'Demographics' },
+      { date: '2025.03.19', description: 'Primary Provider', detail: 'NO PRIMARY CARE PROVIDER', link: 'Demographics' },
+    ],
+  },
+  { id: 'alias', title: 'ALIAS IDS', count: 5, rows: [] },
+  { id: 'parties', title: 'ASSOCIATED PARTIES', count: 1, rows: [] },
+  { id: 'risks', title: 'REACTION RISKS', accent: SUMMARY_ACCENT.risks, count: 3, rows: [] },
+  { id: 'issues', title: 'HEALTH ISSUES', count: 3, rows: [] },
+  { id: 'ltm', title: 'LONG TERM MEDS', count: 2, rows: [] },
+  { id: 'service', title: 'SERVICE EPISODES', accent: SUMMARY_ACCENT.service, count: 18, rows: [] },
+]
+
+/** Chart 3424 — `reference/patient-summary-loaded.png`, the capture the rest
+    of this window was built from. Its counts are what a chart with years of
+    history behind it looks like: 54 preferences, 44 connections, 16 risks. */
+const SUMMARY_3424: SummarySection[] = [
+  {
+    id: 'demographics', title: 'DEMOGRAPHICS', accent: SUMMARY_ACCENT.demographics, open: true,
+    rows: [
+      /* the summary prints this chart's home phone dot-separated, where the
+         Demographics window shows it as it was typed, with hyphens */
+      { description: 'HOME PHONE', detail: '250.565.7890' },
+      { description: 'ETHNICITY', detail: 'FIRST NATIONS' },
+      { description: 'ETHNICITY', detail: 'FIRST NATIONS' },
+      { description: 'ETHNICITY', detail: 'METIS' },
+    ],
+  },
+  { id: 'preferences', title: 'PREFERENCES', accent: SUMMARY_ACCENT.preferences, count: 54, rows: [] },
+  { id: 'connections', title: 'CONNECTIONS', count: 44, rows: [] },
+  { id: 'alias', title: 'ALIAS IDS', count: 16, rows: [] },
+  { id: 'parties', title: 'ASSOCIATED PARTIES', count: 8, rows: [] },
+  { id: 'risks', title: 'REACTION RISKS', accent: SUMMARY_ACCENT.risks, count: 16, rows: [] },
+  { id: 'adverse', title: 'ADVERSE EVENTS', count: 1, rows: [] },
+  { id: 'issues', title: 'HEALTH ISSUES', count: 5, rows: [] },
+  { id: 'ltm', title: 'LONG TERM MEDS', count: 12, rows: [] },
+  { id: 'goals', title: 'GOALS', count: 4, rows: [] },
+  { id: 'documents', title: 'DOCUMENTS', window: 'last', count: 1, rows: [] },
+  { id: 'encforms', title: 'FORMS - ENCOUNTER', window: 'last', count: 2, rows: [] },
+  { id: 'orders', title: 'ORDERS', window: 'last', count: 1, rows: [] },
+  { id: 'service', title: 'SERVICE EPISODES', accent: SUMMARY_ACCENT.service, count: 14, rows: [] },
+  { id: 'notifications', title: 'NOTIFICATIONS', window: 'required', count: 6, rows: [] },
+]
+
+const TRANSCRIBED: Record<string, SummarySection[]> = {
+  '3424': SUMMARY_3424,
+  '3598': SUMMARY_3598,
+  '3924': SUMMARY_3924,
+}
+
+/**
+ * The summary for a chart: its transcript when there is a capture of it, and
+ * otherwise the section list below, which is the shape of chart 3424's window
+ * with row content extrapolated in the MOIS idiom. Which sections a chart
+ * carries is the chart's own — 3924 has no ALIAS IDS or GOALS band and 3598
+ * has no day-window sections at all — so the extrapolated list is a stand-in,
+ * not a rule.
+ */
 export function summarySections(p: Patient): SummarySection[] {
+  const transcribed = TRANSCRIBED[p.chart]
+  if (transcribed) return transcribed
+  return extrapolatedSections(p)
+}
+
+function extrapolatedSections(p: Patient): SummarySection[] {
   const ethnicity: SummaryRow[] = [
     { description: 'ETHNICITY', detail: 'FIRST NATIONS' },
     { description: 'ETHNICITY', detail: 'FIRST NATIONS' },

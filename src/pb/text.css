@@ -1,0 +1,90 @@
+/* ============================================================================
+   pb/text — how the client area's text is rasterised.
+
+   The kit's CSS default is Tahoma 11px, which is what MOIS actually asks for:
+   the Demographics tab captions measured off `demographics-full.png` land
+   within 1.5px of Tahoma 11. On Windows that renders the way the screenshots look,
+   because GDI hints Tahoma onto the pixel grid at 11px — hard 1px stems, flat
+   terminals. macOS and Linux ignore TrueType hinting and render the outline,
+   so the same font comes out rounder and softer. Nothing in CSS turns hinting
+   back on.
+
+   `.pb-text--pixel` sidesteps the rasteriser: it swaps in a bitmap
+   reconstruction of MS Sans Serif drawn on an 11px grid (every advance is a
+   whole number of pixels at `font-size: 11px`) and turns antialiasing off, so
+   the glyphs land on the grid on any platform. It is the same font 98.css
+   uses. Its advances are within ~1px of the real captions too, so the two
+   modes lay out almost identically — this is a rasterisation switch, not a
+   different design.
+
+   Which is why the host frame starts in `.pb-text--pixel` (MoisClassicShell;
+   Maintenance > Text switches it): on macOS and Linux it is the only mode
+   that looks like the captures at all.
+
+   The trade: the bitmap only covers ASCII (116 glyphs) and only looks right at
+   11px, so `--pb-fs-sm` and `--pb-fs-banner` are pulled onto 11px with it, and
+   anything outside its repertoire (…, ✓, ×, accents) falls through to Tahoma.
+   The Win10 frame around the client area — title bar, menu bar, menus — keeps
+   Segoe UI and keeps its smoothing, exactly as the screenshots show it.
+   ========================================================================= */
+
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("./fonts/ms_sans_serif.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("./fonts/ms_sans_serif_bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+.pb-root.pb-text--pixel {
+  --pb-font: "Pixelated MS Sans Serif", "Microsoft Sans Serif", Tahoma, Verdana, "DejaVu Sans Condensed", Arial, sans-serif;
+  --pb-fs-sm: 11px;       /* the bitmap exists at one size only */
+  --pb-fs-banner: 11px;
+  /* The vendored bitmap's space is 2px where MOIS's is 3 — measured twice,
+     `f`->`H` in "Determinants of Health" and `t`->`S` in "Patient Summary".
+     One pixel back per space takes the mean error on multi-word strings from
+     4.2% to 1.7% without touching the glyph grid. */
+  word-spacing: 1px;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+}
+
+/* Anything bigger than the bitmap's one strike has to come off an outline
+   face: the view header is the 16px bold strike and the identity line beside
+   it the 13px one, and a bitmap drawn at 11px cannot be either. */
+.pb-root.pb-text--pixel .pb-viewhead__title,
+.pb-root.pb-text--pixel .pb-viewhead__meta,
+.pb-root.pb-text--pixel .pb-viewhead__chart {
+  font-family: "Microsoft Sans Serif", "MS Sans Serif", Tahoma, Verdana, Arial, sans-serif;
+  word-spacing: normal;
+  /* MS Sans Serif has no bold cut, so Windows fakes one by smearing each
+     glyph a pixel and adding a pixel to its advance — which is why the
+     capture's `Patient Summary` is 134 where the face's own 16px advances
+     come to 122.6. A browser's own synthesis changes no advance at all, so
+     the pixel is added back here. */
+  letter-spacing: 1px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The module bar and status bar are Windows-painted too: they keep Tahoma
+   (`--pb-font-ui`) and its smoothing in every mode. */
+.pb-root.pb-text--pixel .pb-modulebar,
+.pb-root.pb-text--pixel .pb-statusbar {
+  word-spacing: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The frame is Windows 10, not PowerBuilder — it was never aliased. */
+.pb-root.pb-text--pixel .pb-titlebar,
+.pb-root.pb-text--pixel .pb-menubar,
+.pb-root.pb-text--pixel .pb-menu,
+.pb-root.pb-text--pixel .pb-login {
+  -webkit-font-smoothing: antialiased;
+}

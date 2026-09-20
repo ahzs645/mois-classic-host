@@ -1,34 +1,54 @@
 /* ============================================================================
    pb/tabs — the PowerBuilder tab control.
 
-   Flat strip, hairline separators, and the selected tab drawn as a white box
-   whose bottom edge is punched out so it merges into the page below it.
+   Measured off demographics-full.png, order-history.png and
+   encounter-current-screen.png. The anatomy, in the strip's own coordinates
+   (24px tall, every line a #dadada hairline):
+
+     y=0   the selected tab's top edge — it stands 2px proud of the others
+     y=2   every unselected tab's top edge, so 2px of face shows above them
+     y=23  the rule the page hangs from, punched out under the selected tab
+
+   An unselected tab is a flat cell: hairline along the top, hairline down the
+   right edge as the separator, face behind it. The selected one is a white
+   plate two pixels taller and two pixels wider on each side, so it covers the
+   separators either side of it exactly the way Win32 does.
    ========================================================================= */
 
 .pb-tabs { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 
 .pb-tabs__strip {
+  --pb-tab-pad: 9px;
+  position: relative;
   display: flex;
   align-items: flex-end;          /* the selected tab stands proud */
   height: var(--pb-tabstrip-h);
-  padding-left: 1px;
+  padding-left: 2px;
   background: var(--pb-face);
-  border-bottom: 1px solid #9a9a9a;
   flex: none;
   user-select: none;
   overflow: hidden;
 }
+/* The rule under the tabs is drawn as an overlay rather than a border so the
+   selected tab can cover it without escaping the strip's own clip. */
+.pb-tabs__strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--pb-tab-line);
+}
 
-/* An unselected tab is not a box at all — it is a caption with a hairline
-   separator. Only the selected one is drawn, and it is drawn as a white
-   plate carrying the focus rectangle, nothing more. */
 .pb-tabs__tab {
   position: relative;
-  height: 19px;
+  height: calc(var(--pb-tabstrip-h) - 2px);
   min-width: 96px;
-  padding: 0 12px;
+  padding: 0 var(--pb-tab-pad);
   border: 0;
-  border-right: 1px solid #c9c9c9;
+  border-top: 1px solid var(--pb-tab-line);
+  border-right: 1px solid var(--pb-tab-line);
   background: transparent;
   font-family: var(--pb-font);
   font-size: var(--pb-fs);
@@ -39,27 +59,35 @@
 .pb-tabs__tab:hover { background: #e3eefb; }
 
 .pb-tabs__tab.is-active {
-  height: var(--pb-tabstrip-h);
-  margin-bottom: -1px;            /* punch through the strip's bottom rule */
-  border-right: 0;
-  background: #fff;
-  font-weight: 700;
+  height: var(--pb-tabstrip-h);   /* 2px taller, and it sits over the rule */
+  margin: 0 -2px;                 /* …and 2px wider on each side */
+  padding: 0 calc(var(--pb-tab-pad) + 2px);
+  border-left: 1px solid var(--pb-tab-line);
+  background: var(--pb-window);   /* white even when the page is on face */
+  font-weight: 700;               /* PB's boldselectedtext — see --plain   */
   z-index: 1;
 }
-.pb-tabs__tab.is-active:hover { background: #fff; }
-/* the dotted focus rectangle IS the selected tab's outline in MOIS */
-.pb-tabs__tab.is-active::after {
+.pb-tabs__tab.is-active:hover { background: var(--pb-window); }
+
+/* Win32 draws the focus rectangle only while the tab control holds focus, so
+   it arrives when a tab is clicked and leaves when focus moves on. */
+.pb-tabs__strip:focus-within .pb-tabs__tab.is-active::after {
   content: "";
   position: absolute;
-  inset: 1px 1px 0;
+  inset: 3px;
   border: 1px dotted #000;
-  border-bottom: 0;
   pointer-events: none;
 }
-/* the tab immediately before the selected one keeps its separator hidden */
-.pb-tabs__tab.is-active + .pb-tabs__tab { border-left: 1px solid #c9c9c9; }
 
-.pb-tabs__strip--compact .pb-tabs__tab { min-width: 0; padding: 0 9px; }
+/* MOIS runs two tab controls. Encounter and the dialogs use PowerBuilder's
+   fixed-width tabs (96px, measured off encounter-current-screen.png); the
+   chart windows size every tab to its caption and pack them 4px tighter. */
+.pb-tabs__strip--compact { --pb-tab-pad: 5px; }
+.pb-tabs__strip--compact .pb-tabs__tab { min-width: 0; }
+
+/* boldselectedtext is per-control, and Demographics is the one screen in the
+   source material that leaves it off. */
+.pb-tabs__strip--plain .pb-tabs__tab.is-active { font-weight: 400; }
 
 /* Some MOIS views (Notification, Group Visit List) stretch their tabs to fill
    the strip instead of sizing them to the caption. */

@@ -327,6 +327,14 @@ export const reportScreens: Record<string, ReportScreen> = {
   },
 }
 
+/* `Allergy / Intolerances` and its `Reaction Risks` child are the same window in
+   MOIS — clicking the folder opens the child. The tree calls the child node
+   `reaction`, and the shell checks `reportScreens` before `chartScreens`, so
+   without this alias the child fell through to the column-only stub in
+   `chartScreens.reaction` and rendered an empty grid with no review banner and
+   no `No Known` command. */
+reportScreens.reaction = reportScreens.allergy
+
 /* ---------------------------------------------------------------------------
    The remaining Patient Chart windows. Most are the same shape as the report
    class minus the acknowledgement rail and the signature footer: a list, an

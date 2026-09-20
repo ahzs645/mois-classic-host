@@ -9,6 +9,7 @@ import {
   genders, incentiveRows, insuranceCarriers, mspClaimRows, patientContactRows, preferredPhones,
   serviceProviders,
 } from '../data/mois'
+import { AdvancedGenderDialog } from './AdvancedGenderDialog'
 import { BenefitEditor } from './BenefitEditor'
 
 const TABS = [
@@ -43,7 +44,9 @@ export function DemographicsView() {
         commands={[
           { label: 'New Record' }, { label: 'Delete Record' }, { label: 'Save', active: true },
           { label: 'Undo' }, { label: 'Refresh' }, { label: 'Search' },
-          { label: 'Previous Chart', width: 94 }, { label: 'Next Chart', width: 82 },
+          /* no widths: the row is uniform at the kit's 80.5, and the 94/82
+             these carried were a 1.5x reading of a 2x capture (4/3 too wide) */
+          { label: 'Previous Chart' }, { label: 'Next Chart' },
         ]}
       />
 
@@ -59,7 +62,7 @@ export function DemographicsView() {
       />
 
       <PBFixed style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '3px 3px 3px' }}>
-        <PBTabs tabs={TABS} active={tab} onChange={setTab} compact face>
+        <PBTabs tabs={TABS} active={tab} onChange={setTab} compact face boldSelected={false}>
           {tab === 'Incentives' && <IncentivesPage />}
           {tab === 'Demographics' && <DemographicsPage />}
           {tab === 'Settings' && <SettingsPage />}
@@ -457,6 +460,7 @@ const FIELD_COL_R = 378
 
 function DemographicsPage() {
   const patient = usePatient()
+  const [genderOpen, setGenderOpen] = useState(false)
   /* The open chart is the only source for this window. A host hands its own
      charts in — Webforms projects them out of the same `PatientScenario` a
      form binds against — so what shows here is what a form bound to this chart
@@ -500,7 +504,16 @@ function DemographicsPage() {
                 {/* MOIS paints a label yellow once its value has been changed */}
                 <span className="pb-flag">Gender:</span>
                 <PBSelect options={genders} w={95} value={patient.gender} onChange={() => {}} />
-                <PBButton style={{ width: 25, padding: 0 }}>.*.</PBButton>
+                {/* the `.*.` opens Advanced Gender Designations, where the
+                    preferred and genotypic designations are maintained */}
+                <PBButton
+                  style={{ width: 25, padding: 0 }}
+                  title="Advanced Gender Designations"
+                  data-tutorial-id="host.mois.command.gender-designations"
+                  onClick={() => setGenderOpen(true)}
+                >
+                  .*.
+                </PBButton>
               </Row>
 
               <span className="pb-form__label">Current Status:</span>
@@ -712,6 +725,8 @@ function DemographicsPage() {
           <span className="pb-demog__auditkey">Last Modified:</span>{patient.modified ?? ''}
         </span>
       </div>
+
+      {genderOpen && <AdvancedGenderDialog onClose={() => setGenderOpen(false)} />}
     </div>
   )
 }

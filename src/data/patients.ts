@@ -30,6 +30,21 @@ export type Patient = {
   /** YYYY.MM.DD, the way MOIS renders dates everywhere */
   dob: string
   gender: 'M' | 'F' | ''
+  /* --- the other gender designations -----------------------------------
+     `gender` above is the chart's *administrative* gender. MOIS keeps the
+     patient's preferred and genotypic gender beside it, behind the `.*.`
+     next to the Gender field, each with its own "Include on Demographics"
+     flag — see `reference/advanced-gender-designations.png`. A chart
+     carrying one of them is what paints the Gender label yellow. */
+  genderDesignations?: {
+    /** a code from `preferredGenderRows` (F, M, N) */
+    preferred?: string
+    /** a code from `genotypicGenderRows` (F, M, XO, XXY, XYY) */
+    genotypic?: string
+    /** the designations MOIS prints on Demographics */
+    onDemographics?: ('administrative' | 'preferred' | 'genotypic')[]
+    comment?: string
+  }
   /** preferred phone, as typed into the chart — MOIS does not normalise it */
   home?: string
   /* --- Contact Information, as Demographics paints it ------------------
@@ -88,6 +103,10 @@ export const patients: Patient[] = [
        filled the way the training environment shows it */
     chart: '3424', status: 'A', registered: '2025.08.08', last: 'AADAMS', first: 'PATCH', middle: 'WARREN',
     dob: '2024.12.06', gender: 'F', home: '250-565-7890', insurance: '91234657899', insuranceBy: 'AB', dep: '00',
+    /* the Gender label is yellow on this chart's Patient Summary capture, so
+       the chart carries a second designation; which one the capture does not
+       say, and it is assigned here the way `gender` itself is */
+    genderDesignations: { preferred: 'N', onDemographics: ['preferred'] },
     address: '#4554 HOME STREET', city: 'PRINCE GEORGE', province: 'BC', postal: 'V2M 2N0', country: 'Canada',
     preferredPhone: 'Home', homeMessage: true, workMessage: false,
     lastContact: '2026.09.08',
@@ -112,12 +131,19 @@ export const patients: Patient[] = [
       { code: 'ABORG', value: '123' },
     ],
   },
-  { chart: '3598', status: 'A', registered: '2024.11.19',  last: 'AADAMS',   first: 'PATCH',  middle: 'HARRY',      dob: '1993.05.12', gender: 'M', home: '259.876.5678', insurance: '9876588666', insuranceBy: 'BC', bchn: '9876588666' },
+  /* chart block read off `reference/patient-summary-3598.png`: MOIS prints
+     this chart's insurance and health numbers in groups of three */
+  { chart: '3598', status: 'A', registered: '2024.09.17',  last: 'AADAMS',   first: 'PATCH',  middle: 'HARRY',      dob: '1993.05.12', gender: 'M', home: '259.876.5678', cell: '778999666', insurance: '9876 588 666', insuranceBy: 'BC', dep: '00', bchn: '9876 588 666' },
   {
-    chart: '3924', status: 'A', registered: '2025.02.27', last: 'AADAMS', first: 'PATCH', middle: 'JULIAN',
+    /* `reference/patient-summary-3924.png` is the newest capture of this chart
+       and the one the emulator opens on, so its chart block is the authority:
+       no middle name, no insurer, no Dep, no BC Health No. and no service
+       provider. The older encounter captures still show MIDDLE: JULIAN, which
+       is the same chart earlier in its life, not a second reading. */
+    chart: '3924', status: 'A', registered: '2025.08.27', last: 'AADAMS', first: 'PATCH', middle: '',
     alias: 'WEBFORMS TEST', dob: '1986.12.19', gender: 'M', home: '250.765.3212',
     insurance: 'WFvx0zyo', note: 'WEBFORMS TEST mtvx0y',
-    bchn: 'AB *7996654321 00', provider: 'TECHNICAL SUPPORT', encounter: '10065087',
+    encounter: '10065087',
   },
   { chart: '2429', status: 'A', registered: '2019.06.11',  last: 'AARONSON', first: 'FLO',    middle: '',           alias: 'MICKEY', dob: '1970.03.04', gender: 'F', home: '555.555.5678', insurance: '987836902', bchn: '987836902' },
   { chart: '746',  status: 'A', registered: '2016.09.02',  last: 'AARONSON', first: 'FRANK',  middle: 'WOLTER',     dob: '2000.06.14', gender: 'M', home: '250.983.4566', insurance: '9086756685', insuranceBy: 'BC', bchn: '9086756685' },

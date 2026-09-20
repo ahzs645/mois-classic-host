@@ -7,18 +7,23 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  height: 24px;
+  /* 52.57 -> 78.17 in `reference/patient-summary-3598.png` */
+  height: 25.5px;
   padding: 0 8px;
   background: var(--pb-navy);
   color: var(--pb-navy-text);
   flex: none;
 }
-.pb-viewhead__title { font-size: 14px; font-weight: 400; letter-spacing: .2px; white-space: nowrap; }
-.pb-viewhead__meta  { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the view header's title is the 16px strike, bold: cap 12.1, x-height 9.1,
+   descender 4, ink 134.08 for `Patient Summary` */
+.pb-viewhead__title { font-size: 16px; font-weight: 700; letter-spacing: 0; white-space: nowrap; }
+.pb-viewhead__meta  { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-viewhead__spacer { flex: 1 1 auto; }
 /* the chart identity every Patient Chart window prints at the right end */
-.pb-viewhead__chart { font-size: 13px; font-weight: 700; padding-right: 8px; white-space: nowrap; }
-.pb-viewhead__chartno { margin-left: 22px; }
+/* ink-to-ink the identity line and `Chart NNNN` are 14px apart, and the
+   number's ink stops 7px short of the window edge (capture 923.5 / 993) */
+.pb-viewhead__chart { font-size: 13px; font-weight: 700; padding-right: 0; white-space: nowrap; }
+.pb-viewhead__chartno { margin-left: 14px; }
 
 /* --- grey section band (group-box header) ------------------------------- */
 .pb-band {
@@ -474,15 +479,19 @@
    capture (#b1cef3 at the top, white by the last row).                     */
 .pb-chartfilter {
   flex: none;
-  padding: 3px 6px 5px;
+  padding: 3px 6px 2px;
   background: linear-gradient(180deg, #b1cef3 0%, #ffffff 100%);
-  border-bottom: 1px solid #c8c8c8;
+  /* the rule under the block is the dark one, not the panel grey */
+  border-bottom: 1px solid #848484;
+  /* MOIS paints this block's fields 17px tall, not the kit's 19: the three
+     rows plus the rule come to the 62px both 1000px captures measure. */
+  --pb-row-h: 17px;
 }
 .pb-chartfilter__row {
   display: flex;
   align-items: center;
   gap: 0;
-  height: 20px;
+  height: 19px;
   white-space: nowrap;
 }
 /* Nothing in the block shrinks. Without this, a work area narrower than the
@@ -501,6 +510,12 @@
   padding-right: 5px;
   overflow: hidden;
 }
+/* a gap whose label carries a tip has to let the tip out of the row */
+.pb-chartfilter__gap--tip { overflow: visible; }
+/* A flagged caption here is a PB static-text control wider than the words in
+   it, with the text right-aligned: measured on Gender, the fill runs 12px
+   left of the "G" and stops 1px past the colon. */
+.pb-chartfilter__gap > .pb-form__label--flagged { padding: 0 1px 0 12px; }
 /* the chart status letter: an outline on the gradient, not an edit field */
 .pb-chartfilter__status {
   width: 32px;
@@ -514,14 +529,36 @@
 }
 .pb-chartfilter__right { display: flex; align-items: center; gap: 4px; margin-left: 26px; }
 
-/* the links + day boxes between the chart block and the summary grid */
+/* The links + day boxes between the chart block and the summary grid.
+
+   Measured in `reference/patient-summary-3598.png`: 20.8px of #f0f0f0 face
+   between a 1px rule above and a 1px rule below, every run of text on one
+   baseline. The two links sit at the Date and Description column origins;
+   everything to their right is painted at absolute x and lines up with
+   nothing — the free gaps are 219.5 / 19.2 / 36.0px, so the strip is a
+   painter's row, not a distributed one. `.pb-summarybar__gap` carries those
+   gaps, which is why nothing here uses `flex: 1`.                         */
 .pb-summarybar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   flex: none;
-  height: 23px;
+  height: 21px;
   padding: 0 6px;
   background: #f0f0f0;
+  border-bottom: 1px solid #838383;
+  /* the day boxes are 18px, a pixel shorter than a chart-block field */
+  --pb-row-h: 18px;
 }
-.pb-summarybar__spacer { flex: 1 1 auto; }
+/* a painted run of face; a label in one is right-aligned against its end, so
+   the control after it starts at the x the painter put it at whatever the
+   label's own width turns out to be */
+.pb-summarybar__gap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+/* the Since Last button is a touch taller than the boxes beside it */
+.pb-summarybar .pb-btn--sm { height: 18px; }

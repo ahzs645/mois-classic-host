@@ -6,6 +6,7 @@
    standalone viewer app needs.
    ========================================================================= */
 @import "./tokens.css";
+@import "./text.css";
 @import "./chrome.css";
 @import "./controls.css";
 @import "./layout.css";

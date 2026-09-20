@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { pbSlug, usePBInstrumentation } from '../instrumentation'
+import { PBPopup, pbInPopup, usePBPopupOwner } from '../popup'
 import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 const cx = (...v: (string | false | undefined | null)[]) => v.filter(Boolean).join(' ')
@@ -27,7 +28,8 @@ export type PBCommand = { label: string; disabled?: boolean; active?: boolean; o
 export function PBCommandRow({ commands, right }: { commands: PBCommand[]; right?: ReactNode }) {
   const host = usePBInstrumentation()
   return (
-    <div className="pb-cmdrow">
+    /* the manual's "Task Bar": the row of record actions under the header */
+    <div className="pb-cmdrow" data-tutorial-id={host?.anchor('commandrow')}>
       {commands.map((c, i) =>
         c === null ? (
           <span key={i} className="pb-cmdrow__gap" />
@@ -207,11 +209,24 @@ export function PBSpinner({
 
 /* --- PBCheckbox / PBRadio ------------------------------------------------- */
 export function PBCheckbox({
-  label, checked, disabled, onChange,
-}: { label?: ReactNode; checked?: boolean; disabled?: boolean; onChange?: (v: boolean) => void }) {
+  label, checked, disabled, onChange, tutorialId,
+}: {
+  label?: ReactNode; checked?: boolean; disabled?: boolean; onChange?: (v: boolean) => void
+  /* Stamped on the `input`, not on a wrapper. `clickAnchor` calls `.click()`
+     on whatever carries the anchor, and a click on a wrapping element never
+     reaches the control inside it — so an anchor on a surrounding span rings
+     correctly and then silently toggles nothing. */
+  tutorialId?: string
+}) {
   return (
     <label className="pb-check">
-      <input type="checkbox" checked={!!checked} disabled={disabled} onChange={(e) => onChange?.(e.target.checked)} />
+      <input
+        type="checkbox"
+        data-tutorial-id={tutorialId}
+        checked={!!checked}
+        disabled={disabled}
+        onChange={(e) => onChange?.(e.target.checked)}
+      />
       <span className="pb-check__box" />
       {label != null && <span className="pb-check__label">{label}</span>}
     </label>
@@ -265,9 +280,11 @@ export const PBSpacer = () => <span className="pb-row__spacer" />
 
 /* --- PBDropDownDataWindow -------------------------------------------------
    A DDDW: the dropped list is a grid with its own column headers, and the
-   field shows the chosen row's display column.                            */
+   field shows the chosen row's display column. The list is a popup window
+   (pb/popup), so a clipping ancestor — the frame, a scrolling DataWindow —
+   never cuts it off.                                                      */
 export function PBDropDownDataWindow<T extends Record<string, any>>({
-  columns, rows, value, display, onSelect, w, disabled,
+  columns, rows, value, display, onSelect, w, listW, disabled,
 }: {
   columns: { key: string; header: string; width?: number }[]
   rows: T[]
@@ -276,21 +293,34 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
   display?: string
   onSelect?: (row: T) => void
   w?: number | string
+  /**
+   * The dropped list is painted at its own width, not the field's: the gender
+   * designations drop a list twice as wide as the field they hang off. Omit
+   * it and the list is at least as wide as the field, which is the common case.
+   */
+  listW?: number
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState(value ?? '')
   const ref = useRef<HTMLSpanElement>(null)
+  const owner = usePBPopupOwner()
   const key = display ?? columns[0]?.key
+
+  /* the field follows an externally set value — the frame owns "Daybook For",
+     so a replayed pick has to show in the field as well as in the day */
+  useEffect(() => { if (value !== undefined) setText(value) }, [value])
 
   useEffect(() => {
     if (!open) return
     const away = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+      /* the list is portalled off the field, so "inside" is field *or* list */
+      if (ref.current?.contains(e.target as Node) || pbInPopup(e.target, owner)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', away)
     return () => document.removeEventListener('mousedown', away)
-  }, [open])
+  }, [open, owner])
 
   return (
     <span className="pb-dddw" style={{ width: w }} ref={ref}>
@@ -313,7 +343,7 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
       </button>
 
       {open && (
-        <div className="pb-dddw__list" style={{ minWidth: '100%' }}>
+        <PBPopup anchorRef={ref} owner={owner} className="pb-dddw__list" minWidth={listW ?? 'anchor'}>
           <table className="pb-dddw__table">
             <thead>
               <tr>{columns.map((c) => (
@@ -332,7 +362,7 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
               ))}
             </tbody>
           </table>
-        </div>
+        </PBPopup>
       )}
     </span>
   )

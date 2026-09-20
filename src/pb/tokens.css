@@ -16,13 +16,16 @@
   --pb-band-alt:        #e4e0dd;  /* nested / secondary band                 */
 
   /* --- MOIS identity colours ------------------------------------------- */
-  --pb-navy:            #173d7b;  /* module + view header bars              */
+  /* sampled flat (no gradient) at both ends of the view header in
+     `reference/patient-summary-3598.png` and `-3924.png` */
+  --pb-navy:            #004081;  /* module + view header bars              */
   --pb-navy-text:       #ffffff;
   --pb-banner-top-a:    #235594;  /* patient banner, upper band gradient    */
   --pb-banner-top-b:    #557eb2;
   --pb-banner-bottom:   #6fb8e5;  /* patient banner, lower band (flat)      */
   --pb-yellow:          #ffffcc;  /* compact patient banner                 */
   --pb-yellow-border:   #7a7a54;
+  --pb-flag:            #ffff80;  /* flagged label fill (sampled #ffff7a)   */
   --pb-summary-band:    #8fadd0;  /* "Patient - DAYBOOK SUMMARY" strip      */
 
   /* --- lines ----------------------------------------------------------- */
@@ -30,6 +33,7 @@
   --pb-border-strong:   #707070;  /* focused field, hard dividers           */
   --pb-border-hard:     #000000;  /* PB toolbar buttons, DataWindow outline */
   --pb-border-soft:     #d0d0d0;  /* light rules inside white areas         */
+  --pb-tab-line:        #dadada;  /* tab hairline: top edge, separator, rule */
 
   /* --- text ------------------------------------------------------------ */
   --pb-text:            #000000;
@@ -54,17 +58,17 @@
   --pb-accent:          #0078d7;
 
   /* --- DataWindow ------------------------------------------------------ */
-  --pb-dw-header:       #cbdaf7;  /* column header fill                     */
-  --pb-dw-header-line:  #9aa9c4;
+  --pb-dw-header:       #c8dcfa;  /* column header fill                     */
+  --pb-dw-header-line:  #f0f0f0;
   --pb-dw-row:          #ffffff;
   --pb-dw-row-alt:      #e8e8e8;
   --pb-dw-line:         #cfcfcf;
-  --pb-dw-select:       #e39b83;  /* the famous salmon current-row          */
+  --pb-dw-line-soft:    #f0f0f0;  /* the grid's own hairline, both axes     */
+  --pb-dw-select:       #e89c84;  /* the famous salmon current-row          */
   --pb-dw-select-soft:  #e8bfae;
   --pb-dw-alert:        #ee2211;  /* status-coloured rows                   */
   --pb-dw-alert-soft:   #dfa696;
   --pb-dw-ok:           #cdf0c4;
-  --pb-dw-gutter:       #f0f0f0;
   --pb-dw-group:        #dfe8f7;  /* group band inside a grid               */
   --pb-dw-highlight:    #ffff99;  /* linked row on a "Linked X" tab         */
   --pb-dw-flag:         #ffff9e;  /* out-of-range result row                */
@@ -76,23 +80,38 @@
   /* --- metrics ---------------------------------------------------------
      Everything below is what actually produces the "dense enterprise form"
      feeling. Rows are 19px. Gaps are 2-4px. Nothing breathes.            */
-  --pb-font:        Tahoma, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  /* The client area is **MS Sans Serif 8pt** — an 11px em with cap 9, x-height
+     6, descender 2, a 6px digit advance and a 3px space. Measured on every
+     kind of text in `reference/patient-summary-3598.png` and cross-checked
+     against the true-2x `patient-summary-loaded.png`. Tahoma at 11px is cap 8
+     and no Tahoma size gives 9/6, so the old "Tahoma 11px is exact" note here
+     was wrong: Microsoft Sans Serif, its metric-compatible TrueType
+     successor, reproduces seven of eight measured strings within 0.6%
+     (`Determinants of Health` 107 against 107.15). */
+  --pb-font:        "Microsoft Sans Serif", "MS Sans Serif", Tahoma, Verdana, "DejaVu Sans Condensed", Arial, sans-serif;
+  /* The two surfaces MOIS paints with the Windows UI font rather than the
+     DataWindow one: the module bar (Tahoma 11 bold — `A` 8 and `d` 9 rule out
+     MS Sans, whose caps are uniform) and the status bar (Tahoma 11, cap 8). */
+  --pb-font-ui:     Tahoma, "Segoe UI", Verdana, Arial, sans-serif;
   --pb-font-chrome: "Segoe UI", Tahoma, Arial, sans-serif;
   --pb-font-mono:   "Consolas", "Lucida Console", monospace;
   --pb-fs:          11px;   /* the one and only body size                  */
   --pb-fs-sm:       10px;
-  --pb-fs-chrome:   12px;   /* titlebar + menubar are a notch larger       */
+  --pb-fs-chrome:   12px;   /* title bar: caps measure 17 device px at 2x  */
+  --pb-fs-menu:     13px;   /* menu bar + its menus: 18-19 device px       */
   --pb-fs-banner:   13px;
 
   --pb-row-h:       19px;   /* field height                               */
   --pb-row-gap:     3px;    /* vertical gap between form rows             */
-  --pb-dw-row-h:    18px;   /* DataWindow detail band height              */
+  --pb-dw-row-h:    20px;   /* DataWindow detail band height              */
   --pb-band-h:      17px;   /* group-box header band height               */
   --pb-ident-h:     26px;   /* FIRST/MIDDLE/LAST identity strip           */
-  --pb-tabstrip-h:  23px;   /* tab strip, measured from order-office.png  */
-  --pb-titlebar-h:  30px;
+  --pb-tabstrip-h:  24px;   /* tab strip, measured from demographics-full  */
+  /* the caption glyphs centre on y 13.25 in the captures, so the bar is 26.5
+     tall; Windows centres a caption button on the bar it fills */
+  --pb-titlebar-h:  26.5px;
   --pb-menubar-h:   22px;
-  --pb-status-h:    24px;
+  --pb-status-h:    18px;
 
   /* The radio ring is a background image so themes can swap the whole
      construction — flat hairline for MOIS, bevelled for --classic. */
@@ -209,7 +228,8 @@
 .pb-theme--classic .pb-viewhead { background: linear-gradient(90deg, #000080 0%, #1084d0 100%); }
 
 /* tabs: raised, with the selected one lifted and merged into the page */
-.pb-theme--classic .pb-tabs__strip { border-bottom: 0; background: var(--pb-face); }
+.pb-theme--classic .pb-tabs__strip { background: var(--pb-face); }
+.pb-theme--classic .pb-tabs__strip::after { display: none; }
 .pb-theme--classic .pb-tabs__tab {
   border: 0;
   margin-right: 1px;
@@ -222,7 +242,7 @@
   font-weight: 400;
   box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080;
 }
-.pb-theme--classic .pb-tabs__tab.is-active::after { inset: 3px; }
+.pb-theme--classic .pb-tabs__strip:focus-within .pb-tabs__tab.is-active::after { inset: 3px; }
 .pb-theme--classic .pb-tabs__page { background: var(--pb-face); }
 
 /* status bar: each cell is its own sunken panel */

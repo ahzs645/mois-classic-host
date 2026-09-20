@@ -267,14 +267,25 @@ export const chartScreens: Record<string, ChartScreen> = {
     audited: true,
   },
 
+  /* art. 303472: the header is "Care Plan", not "Care Plan Summary"; the
+     command row is five buttons (six once Distribute... arrived in 2.22),
+     with Delete Snapshot disabled until a snapshot row is selected. Print
+     and Copy to Clipboard are hyperlinks above the grid, not buttons. The
+     grid is banded by section with a bracketed count per band, and its
+     columns are Date / Description / Detail / Hyperlink. */
   careplan: {
-    title: 'Care Plan Summary',
-    commands: ['Refresh', 'Print'],
+    title: 'Care Plan',
+    commands: ['Refresh', 'Tear Off', 'Create Snapshot', 'Delete Snapshot', 'Save', 'Distribute...'],
+    disabled: ['Delete Snapshot'],
     columns: [
-      col('section', 'Section', 170), col('detail', 'Detail'),
-      col('phase', 'Phase', 110, 'center'), col('by', 'Recorded By', 150),
+      col('date', 'Date', 80, 'center'), col('description', 'Description', 340),
+      col('detail', 'Detail'), col('link', 'Hyperlink', 70, 'center'),
     ],
-    rows: [{ section: 'GOALS', detail: 'DEV AUDIT GOAL', phase: 'INITIATION', by: 'JALIL, AHMAD' }],
+    tabs: ['Current Care Plan', 'Care Plan Snapshot'],
+    rows: [
+      { date: '2026.01.14', description: 'DEV AUDIT GOAL', detail: 'INITIATION', link: '\u21aa' },
+      { date: '2025.11.02', description: 'SMOKING CESSATION', detail: 'MOTIVATION', link: '\u21aa' },
+    ],
   },
   prefs: {
     title: 'Preferences',
@@ -291,13 +302,18 @@ export const chartScreens: Record<string, ChartScreen> = {
     tabs: ['Detail'],
     audited: true,
   },
+  /* art. 303513: the same three-column shape as Barrier to Care, with the
+     column headed in the singular, and a Detail tab holding one Note field */
   resources: {
     title: 'Patient Resources',
     commands: SAVE_SET, disabled: DIS,
     columns: [
-      col('resource', 'Resource', 240), col('detail', 'Detail'),
-      col('given', 'Given', 100, 'center'), col('by', 'Given By', 150),
+      col('start', 'Start', 70, 'center'), col('end', 'End', 70, 'center'),
+      col('resource', 'Patient Resource'),
+      col('s', 'S', 33, 'center'), col('m', 'M', 29, 'center'),
+      col('clip', '\u{1F4CE}', 17, 'center'),
     ],
+    tabs: ['Detail'],
   },
   summarysettings: {
     title: 'Summary Settings',
@@ -430,8 +446,53 @@ export const schedulerScreens: Record<string, ChartScreen> = {
    Their trees are not in the screenshot set, so these follow the MOIS
    naming conventions rather than transcribing anything. The window shape is
    the documented one; the node lists are inferred.                       */
+/* The eight Basket folders share one shape: what arrived, for whom, and
+   whether it is waiting on an acknowledgement (A) or a review (R) — the "T"
+   column the manual's Workspace Summary article describes. */
+/* Manual Entry: enter a result against a chart, then save it into that chart
+   and the ordering physician's basket. */
+const MANUAL_ENTRY: ChartScreen = {
+  title: 'Data Exchange - Manual Entry', noEncounter: true,
+  commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Attach'], disabled: DIS,
+  columns: [col('date', 'Date', 92, 'center'), col('chart', 'Chart', 64, 'center'),
+    col('patient', 'Patient', 170), col('type', 'Type', 110, 'center'),
+    col('detail', 'Detail'), col('by', 'Ordered By', 150)],
+}
+
+const BASKET_FOLDER: ChartScreen = {
+  title: 'Workspace - Basket', noEncounter: true,
+  commands: ['Refresh', 'Acknowledge', 'Mark Reviewed', 'Go To Chart', 'Print'],
+  columns: [col('t', 'T', 24, 'center'), col('received', 'Received', 110, 'center'),
+    col('chart', 'Chart', 64, 'center'), col('patient', 'Patient', 170),
+    col('detail', 'Detail'), col('from', 'From', 150)],
+}
+
 export const moduleScreens: Record<string, ChartScreen> = {
   /* Workspace */
+  'ws-task-inbox': { title: 'Workspace - Task List - Inbox', noEncounter: true,
+    commands: ['New Task', 'Delete Task', 'Save', 'Undo', 'Refresh'], disabled: DIS,
+    columns: [col('due', 'Due', 92, 'center'), col('patient', 'Patient', 170), col('task', 'Task'),
+      col('ack', 'Ack.', 46, 'center'), col('complete', 'Complete', 62, 'center'), col('by', 'Created By', 140)] },
+  'ws-task-sent': { title: 'Workspace - Task List - Sent Tasks', noEncounter: true,
+    commands: ['Refresh', 'Print'],
+    columns: [col('sent', 'Sent', 92, 'center'), col('task', 'Task'), col('to', 'Sent To', 160),
+      col('ack', 'Ack.', 46, 'center'), col('complete', 'Complete', 62, 'center')] },
+  'ws-msg-inbox': { title: 'Workspace - Message Board - Inbox', noEncounter: true,
+    commands: ['New Message', 'Delete Message', 'Save', 'Undo', 'Refresh'], disabled: DIS,
+    columns: [col('received', 'Received', 110, 'center'), col('from', 'From', 150),
+      col('subject', 'Subject'), col('priority', 'Priority', 70, 'center'), col('read', 'Read', 46, 'center')] },
+  'ws-msg-sent': { title: 'Workspace - Message Board - Sent Messages', noEncounter: true,
+    commands: ['Refresh', 'Print'],
+    columns: [col('sent', 'Sent', 110, 'center'), col('to', 'Sent To', 160),
+      col('subject', 'Subject'), col('priority', 'Priority', 70, 'center'), col('read', 'Read', 46, 'center')] },
+  'ws-measures': { ...BASKET_FOLDER, title: 'Workspace - Basket - Measures' },
+  'ws-imaging': { ...BASKET_FOLDER, title: 'Workspace - Basket - Imaging' },
+  'ws-consults': { ...BASKET_FOLDER, title: 'Workspace - Basket - Consults' },
+  'ws-procedures': { ...BASKET_FOLDER, title: 'Workspace - Basket - Procedures' },
+  'ws-documents': { ...BASKET_FOLDER, title: 'Workspace - Basket - Documents' },
+  'ws-admissions': { ...BASKET_FOLDER, title: 'Workspace - Basket - Facility Admissions' },
+  'ws-progress': { ...BASKET_FOLDER, title: 'Workspace - Basket - Progress Note' },
+  'ws-orders': { ...BASKET_FOLDER, title: 'Workspace - Basket - Orders' },
   'ws-inbox': { title: 'Workspace - Inbox', noEncounter: true,
     commands: ['Refresh', 'Mark Reviewed', 'Forward', 'Print'],
     columns: [col('received', 'Received', 110, 'center'), col('type', 'Type', 110, 'center'),
@@ -490,15 +551,32 @@ export const moduleScreens: Record<string, ChartScreen> = {
     columns: [col('when', 'Date / Time', 130, 'center'), col('user', 'User', 90, 'center'),
       col('action', 'Action', 130, 'center'), col('record', 'Record', 160), col('detail', 'Detail')] },
 
-  /* Data Exchange */
-  'dx-inbound': { title: 'Data Exchange - Inbound', noEncounter: true,
-    commands: ['Refresh', 'Reprocess', 'Print'],
-    columns: [col('received', 'Received', 130, 'center'), col('source', 'Source', 140, 'center'),
-      col('type', 'Message Type', 130, 'center'), col('patient', 'Patient', 170), col('status', 'Status', 100, 'center')] },
-  'dx-outbound': { title: 'Data Exchange - Outbound', noEncounter: true,
-    commands: ['Refresh', 'Resend', 'Print'],
-    columns: [col('sent', 'Sent', 130, 'center'), col('target', 'Target', 140, 'center'),
-      col('type', 'Message Type', 130, 'center'), col('patient', 'Patient', 170), col('status', 'Status', 100, 'center')] },
+  /* Data Exchange — the Manual Entry folders share the shape the manual's
+     "How to Enter Orders" describes: a record per result, keyed to a chart. */
+  'dx-measures': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Measures' },
+  'dx-imaging': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Imaging' },
+  'dx-consults': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Consults' },
+  'dx-procedures': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Procedures' },
+  'dx-documents': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Documents' },
+  'dx-admissions': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Facility Admissions' },
+  'dx-orders': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Orders' },
+  'dx-setup': { title: 'Setup / Registration', noEncounter: true,
+    commands: ['New Record', 'Delete Record', 'Save', 'Close Window'],
+    columns: [col('code', 'Interface Code', 150, 'center'), col('user', 'Interface User Name', 170),
+      col('password', 'Interface Password', 230), col('active', 'Active', 70, 'center')] },
+  'dx-lab-results': { title: 'Electronic Interfaces - Lab Results', noEncounter: true,
+    commands: ['Refresh', 'Distribute', 'Print'],
+    columns: [col('received', 'Received', 110, 'center'), col('chart', 'Chart', 64, 'center'),
+      col('patient', 'Patient', 170), col('test', 'Test'), col('provider', 'Ordered By', 150),
+      col('status', 'Status', 90, 'center')] },
+  'dx-distribution': { title: 'Electronic Interfaces - Inbox Distribution', noEncounter: true,
+    commands: ['Refresh', 'Print'],
+    columns: [col('received', 'Received', 110, 'center'), col('patient', 'Patient', 170),
+      col('result', 'Result'), col('basket', 'Distributed To', 170)] },
+  /* `dx-inbound` / `dx-outbound` used to sit here as invented five-column
+     approximations that nothing routed to — the tree calls these nodes
+     `dx-inbound-msg` and `dx-outbound-msg`. They now route to the transcribed
+     CDX windows in `screens/CdxMessageViews.tsx`. */
   'dx-errors': { title: 'Data Exchange - Errors', noEncounter: true,
     commands: ['Refresh', 'Reprocess', 'Dismiss', 'Print'],
     columns: [col('when', 'Date / Time', 130, 'center'), col('source', 'Source', 140, 'center'),

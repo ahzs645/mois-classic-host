@@ -1,6 +1,7 @@
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { pbSlug, usePBInstrumentation } from '../instrumentation'
+import { PBPopup, pbInPopup, usePBPopupOwner, type PBPopupSide } from '../popup'
 import {
   GlyphClose, GlyphMaximize, GlyphMinimize, GlyphRestore, IconMoisApp,
 } from '../icons'
@@ -83,7 +84,8 @@ export function PBWindow({
 
 /* --- PBMenuBar -----------------------------------------------------------
    Menus open on click and track the pointer across the bar once open, the
-   way a real Win32 menu does.                                              */
+   way a real Win32 menu does. The dropped panel is a popup window, not a box
+   inside the bar — see pb/popup.                                           */
 export type PBMenuItem = {
   label?: string
   key?: string
@@ -98,86 +100,175 @@ export function PBMenuBar({ items }: { items: { label: string; menu?: PBMenuItem
   const [open, setOpen] = useState<number | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const host = usePBInstrumentation()
+  const owner = usePBPopupOwner()
 
   useEffect(() => {
     if (open === null) return
     const away = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(null)
+      /* the panel is portalled off the bar, so "inside" is bar *or* popup */
+      if (ref.current?.contains(e.target as Node) || pbInPopup(e.target, owner)) return
+      setOpen(null)
     }
     document.addEventListener('mousedown', away)
     return () => document.removeEventListener('mousedown', away)
-  }, [open])
+  }, [open, owner])
 
   return (
-    <div className="pb-menubar" ref={ref} style={{ position: 'relative' }}>
+    /* the manual's "Toolbar": the drop-down menus across the frame */
+    <div className="pb-menubar" ref={ref} data-tutorial-id={host?.anchor('menubar')}>
       {items.map((it, i) => (
-        <div key={it.label} style={{ position: 'relative', display: 'flex' }}>
-          <button
-            className="pb-menubar__item"
-            aria-expanded={open === i}
-            data-tutorial-id={host?.anchor('menu', pbSlug(it.label))}
-            onClick={() => setOpen(open === i ? null : i)}
-            onMouseEnter={() => open !== null && setOpen(i)}
-          >
-            {it.label}
-          </button>
-          {open === i && it.menu && (
-            <PBMenuList
-              items={it.menu}
-              menu={it.label}
-              style={{ top: '100%', left: 0 }}
-              onPick={() => setOpen(null)}
-            />
-          )}
-        </div>
+        <PBMenuBarItem
+          key={it.label}
+          item={it}
+          owner={owner}
+          open={open === i}
+          onToggle={() => setOpen(open === i ? null : i)}
+          onHover={() => setOpen((cur) => (cur === null ? cur : i))}
+          onPick={() => setOpen(null)}
+        />
       ))}
     </div>
   )
 }
 
+/* One caption on the bar, and the menu it drops. */
+function PBMenuBarItem({
+  item, owner, open, onToggle, onHover, onPick,
+}: {
+  item: { label: string; menu?: PBMenuItem[] }
+  owner: string
+  open: boolean
+  onToggle: () => void
+  onHover: () => void
+  onPick: () => void
+}) {
+  const host = usePBInstrumentation()
+  const btn = useRef<HTMLButtonElement>(null)
+
+  return (
+    <>
+      <button
+        ref={btn}
+        className="pb-menubar__item"
+        aria-expanded={open}
+        data-tutorial-id={host?.anchor('menu', pbSlug(item.label))}
+        onClick={onToggle}
+        onMouseEnter={onHover}
+      >
+        {item.label}
+      </button>
+      {open && item.menu && (
+        <PBMenuList
+          items={item.menu}
+          menu={item.label}
+          owner={owner}
+          anchorRef={btn}
+          side="below"
+          onPick={onPick}
+        />
+      )}
+    </>
+  )
+}
+
 /* One drop-down. Items carrying their own `menu` open a fly-out beside them. */
 function PBMenuList({
-  items, menu, style, onPick,
+  items, menu, owner, anchorRef, side, onPick,
 }: {
   items: PBMenuItem[]
   /** the top-level menu these items belong to, for anchors */
   menu: string
-  style?: CSSProperties
+  owner: string
+  anchorRef: RefObject<HTMLElement | null>
+  side: PBPopupSide
   onPick: () => void
 }) {
-  const host = usePBInstrumentation()
   const [flyout, setFlyout] = useState<number | null>(null)
+  /* a list with fly-outs reserves the arrow column on every row, which is
+     what makes Views ~15px wider than its captions need */
+  const arrows = items.some((m) => m.menu)
 
   return (
-    <div className="pb-menu" style={style} onMouseLeave={() => setFlyout(null)}>
+    <PBPopup
+      anchorRef={anchorRef}
+      owner={owner}
+      side={side}
+      className={cx('pb-menu', arrows && 'pb-menu--arrows')}
+    >
+      {/* the column measurer — see `.pb-menu__sizer` in chrome.css */}
+      <div className="pb-menu__sizer" aria-hidden="true">
+        <span>
+          {items.map((m, j) => (m.sep ? null : <span key={j}>{m.label}</span>))}
+        </span>
+        <span className="pb-menu__sizer-keys">
+          {items.map((m, j) => (m.key ? <span key={j}>{m.key}</span> : null))}
+        </span>
+      </div>
       {items.map((m, j) =>
         m.sep ? (
           <div key={j} className="pb-menu__sep" />
         ) : (
-          <div key={j} style={{ position: 'relative', display: 'flex' }}>
-            <button
-              className={cx('pb-menu__item', m.menu && 'pb-menu__item--parent')}
-              disabled={m.disabled}
-              data-tutorial-id={m.label ? host?.anchor('menu', pbSlug(menu), pbSlug(m.label)) : undefined}
-              onMouseEnter={() => setFlyout(m.menu ? j : null)}
-              onClick={() => {
-                if (m.menu) { setFlyout(flyout === j ? null : j); return }
-                onPick()
-                if (m.label) host?.report('menu', { menu: pbSlug(menu), item: pbSlug(m.label) })
-                m.onSelect?.()
-              }}
-            >
-              {m.label}
-              {m.key && <span className="pb-menu__key">{m.key}</span>}
-              {m.menu && <span className="pb-menu__arrow">{'\u203a'}</span>}
-            </button>
-            {flyout === j && m.menu && (
-              <PBMenuList items={m.menu} menu={menu} style={{ top: -3, left: '100%' }} onPick={onPick} />
-            )}
-          </div>
+          <PBMenuRow
+            key={j}
+            item={m}
+            menu={menu}
+            owner={owner}
+            open={flyout === j}
+            onHover={() => setFlyout(m.menu ? j : null)}
+            onToggle={() => setFlyout(flyout === j ? null : j)}
+            onPick={onPick}
+          />
         ),
       )}
-    </div>
+    </PBPopup>
+  )
+}
+
+/* One row of a drop-down, and the fly-out it may open beside itself. */
+function PBMenuRow({
+  item, menu, owner, open, onHover, onToggle, onPick,
+}: {
+  item: PBMenuItem
+  menu: string
+  owner: string
+  open: boolean
+  onHover: () => void
+  onToggle: () => void
+  onPick: () => void
+}) {
+  const host = usePBInstrumentation()
+  const btn = useRef<HTMLButtonElement>(null)
+
+  return (
+    <>
+      <button
+        ref={btn}
+        className={cx('pb-menu__item', item.menu && 'pb-menu__item--parent')}
+        disabled={item.disabled}
+        data-tutorial-id={item.label ? host?.anchor('menu', pbSlug(menu), pbSlug(item.label)) : undefined}
+        onMouseEnter={onHover}
+        onClick={() => {
+          if (item.menu) { onToggle(); return }
+          onPick()
+          if (item.label) host?.report('menu', { menu: pbSlug(menu), item: pbSlug(item.label) })
+          item.onSelect?.()
+        }}
+      >
+        {item.label}
+        {item.key && <span className="pb-menu__key">{item.key}</span>}
+        {item.menu && <span className="pb-menu__arrow">{'›'}</span>}
+      </button>
+      {open && item.menu && (
+        <PBMenuList
+          items={item.menu}
+          menu={menu}
+          owner={owner}
+          anchorRef={btn}
+          side="beside"
+          onPick={onPick}
+        />
+      )}
+    </>
   )
 }
 
@@ -210,7 +301,8 @@ export function PBStatusBar({ cells }: { cells: PBStatusCell[] }) {
     )
   }
   return (
-    <div className="pb-statusbar">
+    /* the manual's "Bottom Bar" */
+    <div className="pb-statusbar" data-tutorial-id={host?.anchor('statusbar')}>
       {cells.map((c, i) => (
         <div
           key={i}
@@ -230,8 +322,10 @@ export function PBStatusBar({ cells }: { cells: PBStatusCell[] }) {
 
 /* --- PBViewHeader — the navy band ---------------------------------------- */
 export function PBViewHeader({ title, meta, right }: { title: ReactNode; meta?: ReactNode; right?: ReactNode }) {
+  const host = usePBInstrumentation()
   return (
-    <div className="pb-viewhead">
+    /* the manual's "Information Bar": what is open, and who it is open on */
+    <div className="pb-viewhead" data-tutorial-id={host?.anchor('viewhead')}>
       <span className="pb-viewhead__title">{title}</span>
       {meta && <span className="pb-viewhead__meta">{meta}</span>}
       <span className="pb-viewhead__spacer" />
