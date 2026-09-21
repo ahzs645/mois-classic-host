@@ -3,7 +3,8 @@ import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBLookup,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
+import { MeasureReportPane } from './MeasureReportPane'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ReportField, ReportScreen } from '../data/reportScreens'
 
 
@@ -60,6 +61,7 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
   )
   const columns: PBColumn<Record<string, string>>[] = screen.columns.map((c) => ({
     key: c.key,
+    auditId: c.auditId,
     header: c.header,
     width: c.width,
     align: c.align,
@@ -80,15 +82,15 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
 
   return (
     <>
-      <PBViewHeader title={screen.title} />
+      <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
       <PBCommandRow commands={commands} />
 
       <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:' },
+          { label: 'MIDDLE:', value: patient.middle },
           { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'DoB:', value: patient.dob },
         ]}
         encounter="NO ENCOUNTER"
       />
@@ -109,7 +111,7 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
 
       {screen.banner && <div style={{ padding: '2px 8px 3px', flex: 'none' }}>{screen.banner}</div>}
 
-      <div style={{ padding: '0 3px', height: 214, display: 'flex' }}>
+      <div style={{ padding: '0 3px', height: 220, flex: 'none', display: 'flex' }}>
         <PBDataWindow
           columns={columns}
           rows={screen.rows}
@@ -178,7 +180,7 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
                 </>
               ) : tab === 'Panel (0)' ? (
                 <div className="pb-dw__empty" style={{ padding: 24 }}>This result is not part of a panel.</div>
-              ) : detail}
+              ) : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={screen.rows[cur]} /> : detail}
             </PBTabs>
           ) : (
             <div style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-window)', border: '1px solid var(--pb-border)', overflow: 'auto' }}>

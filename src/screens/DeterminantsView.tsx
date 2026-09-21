@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useChartRows } from '../data/chart-records'
 import {
   PBBand, PBButton, PBCommandRow, PBDataWindow, PBGroupBox, PBIdentityStrip,
   PBInput, PBLookup, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
@@ -22,6 +23,8 @@ const statusColumns: PBColumn<Record<string, string>>[] = [
 ]
 
 export function DeterminantsView() {
+  /* a chart with a real export behind it lists its own records */
+  const exportedRows = useChartRows('determinants')
   const patient = usePatient()
   const [tab, setTab] = useState('Employment')
   const cfg = determinantTabs[tab]
@@ -55,7 +58,7 @@ export function DeterminantsView() {
             {cfg.statusBand}
           </PBBand>
           <div style={{ height: 68, display: 'flex', padding: '0 6px 3px' }}>
-            <PBDataWindow flush gutter={false} columns={statusColumns} rows={cfg.status} empty=" " />
+            <PBDataWindow flush gutter={false} columns={statusColumns} rows={exportedRows ?? cfg.status} empty=" " />
           </div>
 
           <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
@@ -67,7 +70,7 @@ export function DeterminantsView() {
           <div style={{ height: 150, display: 'flex', padding: '0 6px' }}>
             <PBDataWindow
               columns={cfg.columns as PBColumn<Record<string, string>>[]}
-              rows={cfg.rows}
+              rows={exportedRows ?? cfg.rows}
               empty={`No ${cfg.historyBand.toLowerCase()} on file.`}
             />
           </div>

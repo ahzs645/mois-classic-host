@@ -48,6 +48,7 @@ export function NewAppointmentDialog({
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
       <PBWindow
+        tutorialId="host.mois.dialog.new-appointment"
         child
         controls={false}
         title="New Appointment"

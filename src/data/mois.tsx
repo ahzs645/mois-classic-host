@@ -303,6 +303,7 @@ export const makeMainMenu = (
     letter?: () => void
   },
 ) => {
+  const printItem = (label: string) => ({ label, onSelect: () => go?.print?.(label) })
   const view = (label: string, node: string, key?: string) => ({ label, key, onSelect: () => go?.node?.(node) })
   return [
     { label: 'Record', menu: [
@@ -412,30 +413,45 @@ export const makeMainMenu = (
       { label: 'Chart Navigator - Load from File' },
     ]},
     { label: 'Print', menu: [
-      { label: 'Day Sheet - Desktop Provider' },
-      { label: 'Day Sheet - All Providers' },
-      { label: 'Current Daybook as Slate' },
+      /* Every item asks the frame to print it. `go.print` looks the label up in
+         `printReports` and opens whatever that row describes — a Selection
+         Parameter window, or the preview directly when the report has no
+         fields — and does nothing when there is no row yet, which is how an
+         unimplemented report behaves in the stage.
+
+         These used to be bare labels with `onSelect` on only two of them, so
+         clicking any other one just closed the menu. Autoplay never noticed:
+         `host.mois.print` calls `printReportByMenu` itself, so the lesson
+         passed while the same step in practice mode sat there forever waiting
+         for a preview no click could open. Wire the label, not the exception. */
+      ...([
+        'Day Sheet - Desktop Provider',
+        'Day Sheet - All Providers',
+        'Current Daybook as Slate',
+      ].map(printItem)),
       { sep: true },
       { label: 'Form' },
-      { label: 'Problem List for Patient' },
-      { label: 'Cumulative Lab Data for Patient' },
-      { label: 'Lab Code for Patient' },
-      { label: 'Radiology Reports for Patient' },
-      { label: 'Consultations for Patient' },
-      { label: 'Facility Admission for Patient' },
-      { label: 'Procedure List for Patient' },
-      { label: 'Medications for Patient', onSelect: () => go?.print?.('Medications for Patient') },
-      { label: 'Prescriptions for Patient' },
-      { label: 'Interventions for Patient', onSelect: () => go?.print?.('Interventions for Patient') },
-      { label: 'MAR History' },
-      { label: 'Family History (Hx) for Patient' },
-      { label: 'Social History for Patient' },
-      { label: 'Cumulative Progress Notes for Patient' },
-      { label: 'Reminder List for Patient' },
-      { label: 'Clinical History Segment' },
-      { label: 'Clinical History Tabular' },
-      { label: 'Clinical Summary' },
-      { label: 'Access List' },
+      ...([
+        'Problem List for Patient',
+        'Cumulative Lab Data for Patient',
+        'Lab Code for Patient',
+        'Radiology Reports for Patient',
+        'Consultations for Patient',
+        'Facility Admission for Patient',
+        'Procedure List for Patient',
+        'Medications for Patient',
+        'Prescriptions for Patient',
+        'Interventions for Patient',
+        'MAR History',
+        'Family History (Hx) for Patient',
+        'Social History for Patient',
+        'Cumulative Progress Notes for Patient',
+        'Reminder List for Patient',
+        'Clinical History Segment',
+        'Clinical History Tabular',
+        'Clinical Summary',
+        'Access List',
+      ].map(printItem)),
       { label: 'Print Select Text', key: 'Ctrl+Shift+N' },
     ]},
     { label: 'Maintenance', menu: [

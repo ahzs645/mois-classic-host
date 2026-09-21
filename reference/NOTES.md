@@ -756,3 +756,88 @@ The bar's own height measures 18px against the kit's `--pb-menubar-h: 22px`,
 and its captions sit ~6px higher under the title bar than the Patient Summary
 captures put them. Left alone: the frame's vertical layout below the bar is
 calibrated against those captures, and moving it would shift every screen.
+
+## The encounter window's own dialogs (2026-09-20)
+
+Nine captures of the Encounter Detail Window's pickers, all on chart 3924.
+Every one of them was a control that existed on screen and did nothing.
+
+| control | window it opens |
+|---|---|
+| `Visit Code` | a DDDW: `Code · Description · Visit Mode · # · MHK`, the `#` cell painted in the code's own colour |
+| `Ser. Loc.` | a single-column `Service Location` DDDW, 16 sites |
+| `Appt Status` | a `Code · Description` DDDW |
+| `Attending` `…` | `MOIS - Search Window` — providers and provider groups, the group's Members column listing what it stands for |
+| Health Issues `…` | `MOIS - Universal Search Window for Chart Number: …` |
+| Services `…` | `Advanced Lookup Service` ▸ `Master Service Code List` |
+| Service(s) ▸ `New…` | `Patient's Service Episodes` |
+| Measurements ▸ `Template` | the `ENCOUNTER WINDOW` measure grid |
+| Measurements ▸ `Other Template` | `Measure Template / Panel Selection` |
+| Measurements ▸ `Calculator` | `Measure Calculators`, then `Measure Calculator` |
+| Measurements ▸ `New Record` | `Measurement Detail` |
+
+### What the captures settled
+
+**The Advanced Lookup Service is a window class, not a screen.** The Master
+Service Code List is the same window as the Patient Chart List with a
+different binding — band, list, description pane, `Home · PgUp · Ok · Cancel ·
+PgDwn · End`. It filters from one `Search For` box rather than a box per
+column, and adds a `Source · Save on Close` strip under the buttons.
+
+**Determinants of Health is real after all.** `Measure Template / Panel
+Selection` lists `EDUCATION STATUS`, `EMPLOYMENT STATUS` and `HOUSING STATUS`
+as PANELs. The note above calling the Housing and Education tabs an
+extrapolation was wrong: all three domains are MOIS panels.
+
+**The visit-code palette is per-clinic.** The dropped `Visit Code` list carries
+its own colours, and they disagree with `VISIT_CODE_FILL` about `C`. Both were
+sampled from real captures of different sites, so neither is a MOIS default.
+
+**A `data-tutorial-id` on `PBDropDownDataWindow` was silently dropped.** TSX
+never type-checks a hyphenated attribute, so the prop compiled, rendered
+nothing and left two lookups unanchored. The DDDW now takes `tutorialId` the
+way `PBCheckbox` does — the same bug, the same fix, a third time.
+
+### Not transcribed
+
+The four action labels on `Patient's Service Episodes` are reconstructed; only
+the row set, the banner and the button count come from the capture. The
+measure list behind every template except `ENCOUNTER WINDOW` is unknown, so
+those open an empty grid rather than borrowing someone else's measures.
+
+
+## Demographics live comparison (2026-09-21)
+
+Compared the main Demographics tab against MOIS: TRAINING v02.31.23 b250508
+through Windows App. The prior field widths and row spacing were oversized;
+the new geometry uses an 800px form canvas, roughly 390px columns, 283px
+full-width fields and a 19px row pitch. This corrects the earlier 1.5x vs 2x
+capture interpretation without scaling the font. Other tabs retain their
+existing geometry pending separate comparison. Read-only preview fields use
+the live white field appearance, and the birth-date age caption comes from
+the active patient instead of a fixed `(1)`.
+
+The on-screen keyboard successfully delivered Ctrl + Shift + A. Postal code
+and home/work/cell phone controls now carry exact audit occurrence IDs for
+field inspection. Their live dialogs confirmed tdt_chart.str_postal_code and
+str_phone1/2/3. No live record was saved and audit registration was declined.
+
+## Cross-module live visual pass (2026-09-21)
+
+Read-only Windows App comparison against TRAINING v02.31.23 b250508 covered
+all remaining Demographics tabs, Measures Report/Detail, the encounter list
+and detail window, medications, Care Plan overview/empty Needs for Care,
+Provider Work Load/Daybook, and Administration's user/configuration screens.
+
+Corrections are scoped: Demographics gets an 800px content canvas and compact
+form rows; Measures has separate result and provenance arrangements; medication
+lists get the actual tab strip and split; the encounter list is 240px high;
+Care Plan is a banded summary; the provider Daybook fits its 800px work area;
+User Management and Provider Work Load have their own root screens; System
+Settings has its Find strip and blue groups. Patient title/identity strips use
+the active chart rather than a fixed birth date.
+
+Unverified CPP content, care-plan membership, real snapshots and uncaptured
+settings groups are not filled with invented data. Existing tutorial fixture
+entry points stay intact. See the parent repository's
+`docs/mois-visual-accuracy.md` for coverage and limitations.

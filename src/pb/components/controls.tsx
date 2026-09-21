@@ -284,9 +284,11 @@ export const PBSpacer = () => <span className="pb-row__spacer" />
    (pb/popup), so a clipping ancestor — the frame, a scrolling DataWindow —
    never cuts it off.                                                      */
 export function PBDropDownDataWindow<T extends Record<string, any>>({
-  columns, rows, value, display, onSelect, w, listW, disabled,
+  columns, rows, value, display, onSelect, w, listW, disabled, tutorialId,
 }: {
-  columns: { key: string; header: string; width?: number }[]
+  /* a DDDW column paints its own cell when it has to: the visit-code list
+     fills the slot-count cell with the colour the day book books it in */
+  columns: { key: string; header: string; width?: number; render?: (row: T) => ReactNode }[]
   rows: T[]
   value?: string
   /** which column fills the field when a row is chosen (defaults to the first) */
@@ -300,6 +302,9 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
    */
   listW?: number
   disabled?: boolean
+  /* stamped on the input, not a wrapper — `clickAnchor` has to reach the
+     control itself for a replayed step to open the list */
+  tutorialId?: string
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState(value ?? '')
@@ -327,6 +332,7 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
       <input
         type="text"
         className="pb-field"
+        data-tutorial-id={tutorialId}
         value={text}
         disabled={disabled}
         onChange={(e) => setText(e.target.value)}
@@ -357,7 +363,7 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
                   className={r[key] === text ? 'is-current' : undefined}
                   onMouseDown={() => { setText(String(r[key] ?? '')); onSelect?.(r); setOpen(false) }}
                 >
-                  {columns.map((c) => <td key={c.key}>{r[c.key]}</td>)}
+                  {columns.map((c) => <td key={c.key}>{c.render ? c.render(r) : r[c.key]}</td>)}
                 </tr>
               ))}
             </tbody>

@@ -5,6 +5,7 @@ import {
   type PBColumn,
 } from '../pb'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { useChartRows } from '../data/chart-records'
 import {
   encounterRows, orderPayors, orderPriorities, orderReferralSources, orderRows, orderStatuses,
   type OrderDetail, type OrderRecipient, type OrderRow,
@@ -28,27 +29,36 @@ import {
    current row moves.
    ========================================================================= */
 
-/** The width the Order window was painted at. */
-const DESIGN_W = 1060
+/** The width the Order window was painted at, measured from the 1:1 capture:
+ *  a 13px gutter plus 810px of columns. The old 1060 was inferred from a
+ *  scaled screenshot and made every child of this window a third too wide. */
+const DESIGN_W = 823
 
+/* Measured off the 1:1 capture of this window, where the column run is 810px
+   against a ~815px work area. They were ~1.3x larger, which made the window
+   overflow the stage's work area: ST, Links and the paper clip fell off the
+   right edge, Appointment Booking was clipped to "Appo…", and the footer
+   collided with the Referral Note. */
 const columns: PBColumn<OrderRow>[] = [
-  { key: 'date', header: 'Date', width: 78, align: 'center' },
-  { key: 'type', header: 'Order Type', width: 117, align: 'center' },
-  { key: 'by', header: 'Ordered By', width: 195 },
-  { key: 'd1', header: '', dots: true, width: 22 },
-  { key: 'to', header: 'Order To', width: 184 },
-  { key: 'd2', header: '', dots: true, width: 22 },
-  { key: 'for', header: 'Order For', width: 283 },
-  { key: 'd3', header: '', dots: true, width: 27 },
-  { key: 'st', header: 'ST', width: 32, align: 'center' },
-  { key: 'links', header: 'Links', width: 34, align: 'center' },
-  { key: 'attach', header: '\u{1F4CE}', width: 32, align: 'center' },
+  { key: 'date', header: 'Date', width: 62, align: 'center' },
+  { key: 'type', header: 'Order Type', width: 93, align: 'center' },
+  { key: 'by', header: 'Ordered By', width: 138 },
+  { key: 'd1', header: '', dots: true, width: 19 },
+  { key: 'to', header: 'Order To', width: 134 },
+  { key: 'd2', header: '', dots: true, width: 18 },
+  { key: 'for', header: 'Order For', width: 212 },
+  { key: 'd3', header: '', dots: true, width: 19 },
+  { key: 'st', header: 'ST', width: 37, align: 'center' },
+  { key: 'links', header: 'Links', width: 30, align: 'center' },
+  { key: 'attach', header: '\u{1F4CE}', width: 35, align: 'center' },
 ]
 
 const TABS = ['Report', 'Distribution', 'Links', 'Office Notes', 'History'] as const
 type Tab = typeof TABS[number]
 
 export function OrderView({ onAttachment }: { onAttachment: () => void }) {
+  /* a chart with a real export behind it lists its own orders */
+  const exportedOrders = useChartRows('orders') as OrderRow[] | null
   const patient = usePatient()
   const [tab, setTab] = useState<Tab>('Report')
   const [cur, setCur] = useState(0)
@@ -73,7 +83,9 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
       <PBCommandRow
         commands={[
           { label: 'New Record' }, { label: 'Quick Entry' }, { label: 'Delete Record' },
-          { label: 'Save', disabled: true }, { label: 'Undo', disabled: true }, { label: 'Refresh' },
+          /* MOIS draws Save and Undo in full black here, not greyed — both
+             captures of this window show them enabled at rest. */
+          { label: 'Save' }, { label: 'Undo' }, { label: 'Refresh' },
           { label: 'Mark for Review' }, { label: 'Attachment', onClick: onAttachment },
           { label: 'Print' }, { label: 'Paste Provider Addr.', width: 118 }, { label: 'Respond' },
         ]}
@@ -95,8 +107,13 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
         <PBLookup w="100%" />
       </PBFixed>
 
-      <PBFixed style={{ padding: '0 3px', height: 342, display: 'flex' }}>
-        <PBDataWindow columns={columns} rows={orderRows} current={cur} onCurrentChange={setCur} />
+      {/* Ten rows and a header. The capture's grid is 355px against a 1590px
+          column run; at this window's measured 810px run that scales to ~181,
+          and ten rows at the kit's 19px pitch plus the header comes to ~207.
+          At 342 the grid crowded the Report tab until Referral Note and Order
+          Management had no room left and collided with the footer. */}
+      <PBFixed style={{ padding: '0 3px', height: 207, display: 'flex' }}>
+        <PBDataWindow columns={columns} rows={exportedOrders ?? orderRows} current={cur} onCurrentChange={setCur} />
       </PBFixed>
 
       <PBFixed style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
@@ -127,7 +144,7 @@ function ReportPage({ order }: { order?: OrderRow }) {
   return (
     <div className="pb-order-report">
       <div className="pb-order-report__grid">
-        <PBGroup title="Detail Information" style={{ width: 739 }}>
+        <PBGroup title="Detail Information" style={{ width: 553 }}>
           <div className="pb-form" style={{ gridTemplateColumns: '120px 1fr', padding: '2px 0 0' }}>
             <DetailRow label="Attending:" value={d.attending} right="Facility:" rightValue={d.facility} />
             <DetailRow label="Ordered By:" value={d.orderedBy} right="Facility Ref.:" rightValue={d.facilityRef} />
@@ -135,25 +152,25 @@ function ReportPage({ order }: { order?: OrderRow }) {
 
             <span className="pb-form__label">Referred To:</span>
             <div className="pb-row">
-              <PBLookup w={347} defaultValue={d.referredTo ?? ''} />
+              <PBLookup w={244} defaultValue={d.referredTo ?? ''} />
               <span className="pb-row__spacer" />
               <span>Payor:</span>
-              <PBSelect options={orderPayors} w={152} defaultValue={d.payor ?? ''} />
+              <PBSelect options={orderPayors} w={115} defaultValue={d.payor ?? ''} />
             </div>
 
             <span className="pb-form__label">Copies To:</span>
-            <div className="pb-row"><PBLookup w={347} defaultValue={d.copiesTo ?? ''} /></div>
+            <div className="pb-row"><PBLookup w={244} defaultValue={d.copiesTo ?? ''} /></div>
 
             <span className="pb-form__label">Transcribed:</span>
             <div className="pb-row">
-              <PBInput w={182} defaultValue={d.transcribed?.[0] ?? ''} />
+              <PBInput w={135} defaultValue={d.transcribed?.[0] ?? ''} />
               <PBInput w={80} defaultValue={d.transcribed?.[1] ?? ''} />
               <PBInput w={53} defaultValue={d.transcribed?.[2] ?? ''} />
             </div>
           </div>
         </PBGroup>
 
-        <PBGroup title="Appointment Booking" style={{ width: 308 }}>
+        <PBGroup title="Appointment Booking" style={{ width: 235 }}>
           <div className="pb-form" style={{ gridTemplateColumns: '100px 1fr', padding: '2px 0 0' }}>
             <span className="pb-form__label">Responsibility:</span>
             <div className="pb-row" style={{ gap: 22 }}>
@@ -174,25 +191,25 @@ function ReportPage({ order }: { order?: OrderRow }) {
           </div>
         </PBGroup>
 
-        <PBGroup title="Referral Note" fill style={{ width: 739 }}>
+        <PBGroup title="Referral Note" fill style={{ width: 553 }}>
           <PBTextArea
             style={{ flex: '1 1 auto', width: '100%', height: '100%' }}
             defaultValue={d.referralNote ?? ''}
           />
         </PBGroup>
 
-        <PBGroup title="Order Management" style={{ width: 308 }}>
+        <PBGroup title="Order Management" style={{ width: 235 }}>
           <div className="pb-stack" style={{ paddingTop: 2 }}>
             <span>Order Assigned to:</span>
-            <PBLookup w={278} defaultValue={d.assignedTo ?? ''} />
+            <PBLookup w={205} defaultValue={d.assignedTo ?? ''} />
           </div>
           <div className="pb-form" style={{ gridTemplateColumns: '108px 1fr', padding: '6px 0 0' }}>
             <span className="pb-form__label">Referral Source:</span>
-            <PBSelect options={orderReferralSources} w={170} defaultValue={d.referralSource ?? ''} />
+            <PBSelect options={orderReferralSources} w={126} defaultValue={d.referralSource ?? ''} />
             <span className="pb-form__label">Priority:</span>
-            <PBSelect options={orderPriorities} w={170} defaultValue={d.priority ?? ''} />
+            <PBSelect options={orderPriorities} w={126} defaultValue={d.priority ?? ''} />
             <span className="pb-form__label">Status:</span>
-            <PBSelect options={orderStatuses} w={170} defaultValue={d.status ?? ''} />
+            <PBSelect options={orderStatuses} w={126} defaultValue={d.status ?? ''} />
             <span className="pb-form__label">Finished:</span>
             <div className="pb-row">
               <PBInput w={98} defaultValue={d.finishedOn ?? ''} />
@@ -230,10 +247,10 @@ function DetailRow({ label, value, right, rightValue }: {
     <>
       <span className="pb-form__label">{label}</span>
       <div className="pb-row">
-        <PBLookup w={347} defaultValue={value ?? ''} />
+        <PBLookup w={244} defaultValue={value ?? ''} />
         <span className="pb-row__spacer" />
         <span>{right}</span>
-        <PBInput w={152} defaultValue={rightValue ?? ''} />
+        <PBInput w={115} defaultValue={rightValue ?? ''} />
       </div>
     </>
   )
@@ -356,85 +373,340 @@ function PBBandRow({ title, actions }: { title: string; actions: string[] }) {
   )
 }
 
+/* ============================================================================
+   Encounter — the Patient Chart ▸ Encounters window.
+
+   PROVENANCE: `reference/encounter-current-screen.png` and the Ctrl+Shift+A
+   field audit's `MATRIX-R0361-date/ui-original.png`. The two are the same
+   window one column apart — the second has been scrolled right by one — so
+   every painted width from Date to Service Location is readable twice, and
+   the two readings agree to the pixel.
+
+   Everything below is measured off those captures in a window whose work
+   area runs x 480..1293 (813px) and whose grid therefore runs edge to edge
+   with no inset of its own.
+   ========================================================================= */
+
+type EncounterListRow = typeof encounterRows[number]
+
+/** A row of the lower pane's Report list, when a chart's export carries one. */
+type EncounterReportRow = {
+  date?: string; description?: string; detail?: string; link?: string
+  /** the band the row hangs under, which Expand All / Collapse All work on */
+  section?: string
+}
+
+/** A row of the lower pane's Distribution list. */
+type EncounterDistRow = {
+  method?: string; type?: string; name?: string; location?: string; status?: string
+}
+
+/**
+ * The encounter list's columns.
+ *
+ * Widths are the painted pixels: an empty row's cell fills start at 497 / 561
+ * / 584 / 608 / 648 / 688 / 712 / 806 / 951 / 1017 / 1034 / 1084 / 1101 /
+ * 1151 / 1202, off a grid whose own left edge is 480. Both captures give the
+ * same numbers although their windows differ in width, so these are painted
+ * pixels and not proportions — a wider window only shows more of the run.
+ *
+ * `AS` onward are the eight columns the field audit lists after Service
+ * Location (MATRIX-R0374..R0381). No capture reaches them: MOIS clips the
+ * grid at the window edge and draws no horizontal scroll bar, so in the
+ * 813px window Service Location is the last column anyone sees. Their widths
+ * are the Day Book's, which paints the same seven status columns beside a
+ * paper clip — the captures cannot confirm them here.
+ */
+const encounterColumns: PBColumn<EncounterListRow>[] = [
+  { key: 'date', header: 'Date', width: 64, align: 'center', italic: true },
+  { key: 'hr', header: 'HR', width: 23, align: 'center', italic: true },
+  { key: 'mn', header: 'MN', width: 24, align: 'center', italic: true },
+  { key: 'code', header: 'Code', width: 40, align: 'center', italic: true },
+  { key: 'mode', header: 'Mode', width: 40, align: 'center', italic: true },
+  { key: 'nbr', header: '#', width: 24, align: 'center', italic: true },
+  { key: 'provider', header: 'Provider', width: 94, italic: true },
+  { key: 'reason', header: 'Visit Reason', width: 145 },
+  { key: 'issue', header: 'Health Issue', width: 66 },
+  { key: 'd1', header: '', dots: true, width: 17 },
+  { key: 'services', header: 'Services', width: 50 },
+  { key: 'd2', header: '', dots: true, width: 17 },
+  { key: 'payor', header: 'Payor', width: 50 },
+  { key: 'room', header: 'Room', width: 51 },
+  /* the last column the window has room for; its full width is cut off in
+     both captures, so 138 is the emulator's own reading and not a measured
+     one — all it has to do is carry "DAW HEALTH UNIT" */
+  { key: 'loc', header: 'Service Location', width: 138 },
+  { key: 'as', header: 'AS', width: 30, align: 'center' },
+  { key: 'ds', header: 'DS', width: 30, align: 'center' },
+  { key: 'bs', header: 'BS', width: 30, align: 'center' },
+  { key: 'tm', header: 'TM', width: 32, align: 'center' },
+  { key: 'rp', header: 'RP', width: 30, align: 'center' },
+  { key: 'tk', header: 'TK', width: 30, align: 'center' },
+  { key: 'mg', header: 'MG', width: 32, align: 'center' },
+  { key: 'attach', header: '\u{1F4CE}', width: 32, align: 'center' },
+]
+
 /**
  * The row New Record puts at the top of the list. The manual's "How to Create
  * an Encounter" says the date and the doctor arrive filled in and the rest is
  * typed, and that `#` is the number of five-minute slots the visit needs — so
  * the draft carries those three and leaves the rest blank.
  */
-const DRAFT_ENCOUNTER = {
+const DRAFT_ENCOUNTER: EncounterListRow = {
   id: 'draft', date: '2030.05.06', hr: '', mn: '', code: '', mode: '', nbr: '',
   provider: 'TECHNICAL SUPPORT', reason: '', loc: '', alert: false,
 }
 
+/** Today as MOIS stamps a date, so a row's date can be compared to it. */
+function moisToday(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+}
+
+const ENCOUNTER_TABS = ['Report', 'Distribution'] as const
+type EncounterTab = typeof ENCOUNTER_TABS[number]
+
 export function EncounterListView({ onOpen, draft = false, onDraft }: {
-  onOpen?: (row: typeof encounterRows[number]) => void
+  onOpen?: (row: EncounterListRow) => void
   /** a New Record is in progress: the list carries an unsaved row */
   draft?: boolean
   onDraft?: (next: boolean) => void
 }) {
   const patient = usePatient()
   const [cur, setCur] = useState(0)
-  const rows = draft ? [DRAFT_ENCOUNTER, ...encounterRows] : encounterRows
+  const [tab, setTab] = useState<EncounterTab>('Report')
+  /* the two filters over the grid. MOIS really drops rows from the retrieval
+     when they are ticked; the captures only ever show them clear, so here
+     they carry their state and nothing else. */
+  const [hideSeries, setHideSeries] = useState(false)
+  const [hideFuture, setHideFuture] = useState(false)
+  /* a chart with a real export behind it lists its own encounters */
+  const exported = useChartRows('encounters')
+  const listed = (exported ?? encounterRows) as EncounterListRow[]
+  const rows = draft ? [DRAFT_ENCOUNTER, ...listed] : listed
+  const current = rows[cur] ?? rows[0]
+
+  /* MOIS paints an encounter that has not happened yet on a red band — every
+     row in both captures is a 2030 appointment and every one of them is red.
+     A fixture says so outright; a row that arrived from a chart export is
+     judged by its date. */
+  const today = useMemo(() => moisToday(), [])
+  const future = (r: EncounterListRow) =>
+    (typeof r.alert === 'boolean' ? r.alert : (r.date ?? '') > today)
+
+  const distribution = readRowList<EncounterDistRow>(current, 'distribution')
+  const captions = ['Report', `Distribution (${distribution.length})`]
+
   return (
     <>
-      <PBViewHeader title="Encounter" />
+      <PBViewHeader title="Encounter" right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={[
           { label: 'New Record', onClick: () => { onDraft?.(true); setCur(0) } },
           { label: 'Delete Record' },
-          { label: 'Save', disabled: !draft, onClick: () => onDraft?.(false) },
-          { label: 'Undo', disabled: !draft, onClick: () => { onDraft?.(false); setCur(0) } },
+          /* enabled at rest, as the capture shows; the click still only means
+             something while a draft row is open */
+          { label: 'Save', onClick: () => onDraft?.(false) },
+          { label: 'Undo', onClick: () => { onDraft?.(false); setCur(0) } },
           { label: 'Refresh' }, { label: 'Print' }, { label: 'Attachment' },
         ]}
       />
+      {/* the four captions are painted at 13 / 183 / 322 / 493 across the work
+          area, and this window has no Active ENC# block after them */}
       <PBIdentityStrip
         fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:' },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'FIRST:', value: patient.first, w: 170 },
+          { label: 'MIDDLE:', value: patient.middle, w: 139 },
+          { label: 'LAST:', value: patient.last, w: 171 },
+          { label: 'DoB:', value: patient.dob },
         ]}
       />
-      <div className="pb-row" style={{ padding: '3px 8px' }}>
-        <PBInput w={64} /><PBInput w={330} /><PBInput w={96} /><PBInput w={72} /><PBInput w={180} />
+
+      {/* The search band: six unlabelled boxes on the window's grey, ruled off
+          top and bottom. They are painted where the capture puts them — 125 /
+          231 / 325 / 470 / 553 from the work area's left edge — and nothing in
+          the capture says what any of them searches, so none of them carries a
+          caption. The sixth finishes flush with the window's right edge in
+          both captures although the two windows differ in width, so it is
+          anchored there rather than painted at an offset. */}
+      <div
+        className="pb-row"
+        style={{
+          padding: '2px 0',
+          background: 'var(--pb-band)',
+          borderTop: '1px solid #656565',
+          borderBottom: '1px solid #656565',
+          gap: 0,
+          flex: 'none',
+        }}
+      >
+        <PBInput w={39} style={{ marginLeft: 125, flex: 'none' }} />
+        <PBInput w={93} style={{ marginLeft: 67, flex: 'none' }} />
+        <PBInput w={144} style={{ marginLeft: 1, flex: 'none' }} />
+        <PBInput w={65} style={{ marginLeft: 1, flex: 'none' }} />
+        <PBInput w={49} style={{ marginLeft: 18, flex: 'none' }} />
+        <PBInput w={93} style={{ marginLeft: 'auto', flex: 'none' }} />
       </div>
-      <div className="pb-row" style={{ padding: '0 8px 4px', gap: 28 }}>
-        <label className="pb-check">
-          <input type="checkbox" /><span className="pb-check__box" />
-          <span className="pb-check__label">Hide Future Appointment Series</span>
-        </label>
-        <label className="pb-check">
-          <input type="checkbox" /><span className="pb-check__box" />
-          <span className="pb-check__label">Hide Future Appointments All</span>
-        </label>
+
+      <div className="pb-row" style={{ padding: '4px 0 5px 24px', gap: 25, flex: 'none' }}>
+        <PBCheckbox
+          label="Hide Future Appointment Series"
+          checked={hideSeries}
+          onChange={setHideSeries}
+        />
+        <PBCheckbox
+          label="Hide Future Appointments All"
+          checked={hideFuture}
+          onChange={setHideFuture}
+        />
       </div>
-      <div style={{ padding: '0 3px', height: 190, display: 'flex' }}>
+
+      {/* the grid runs the full width; live TRAINING comparison gives a 240px list */}
+      <div style={{ height: 240, display: 'flex', flex: 'none' }}>
         <PBDataWindow
           rows={rows}
           current={cur}
           onCurrentChange={setCur}
           onActivate={(r) => onOpen?.(r)}
-          rowStatus={(r) => (r.alert ? 'alert' : 'normal')}
+          rowStatus={(r) => (future(r) ? 'alert' : 'normal')}
+          columns={encounterColumns}
+        />
+      </div>
+
+      {/* The lower pane belongs to the current encounter, so it is remounted
+          as the row moves — the way MOIS re-retrieves it. */}
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
+        <PBTabs
+          tabs={captions}
+          active={tab === 'Report' ? 'Report' : captions[1]}
+          onChange={(next) => setTab(next.startsWith('Distribution') ? 'Distribution' : 'Report')}
+          compact
+          face
+        >
+          {tab === 'Report' && <EncounterReportPage key={current?.id} row={current} />}
+          {tab === 'Distribution' && <EncounterDistributionPage rows={distribution} />}
+        </PBTabs>
+      </div>
+    </>
+  )
+}
+
+/**
+ * A list the lower pane draws for the current encounter. Neither list is in
+ * the field audit — both are read-only roll-ups — so the row carries them
+ * only when a chart export has them to give.
+ */
+function readRowList<T>(row: EncounterListRow | undefined, key: 'report' | 'distribution'): T[] {
+  if (!row || !(key in row)) return []
+  return (row as { report?: T[]; distribution?: T[] })[key] ?? []
+}
+
+/* --- Encounter ▸ Report ---------------------------------------------------
+   The times the visit was worked through, then the encounter's own record
+   list: the Date / Description / Detail / Hyperlink grid MOIS uses wherever
+   it rolls a chart up, under its Expand All / Collapse All pair.           */
+function EncounterReportPage({ row }: { row?: EncounterListRow }) {
+  const rows = readRowList<EncounterReportRow>(row, 'report')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const banded = rows.some((r) => r.section)
+
+  return (
+    <>
+      {/* Arrived / In-Room / Seen / Discharge, each a date box and a time box
+          — the same pair the Order window books an appointment with. The
+          capture leaves all eight empty and the audit maps none of them. */}
+      <div
+        className="pb-row"
+        style={{
+          padding: '4px 0 4px 6px',
+          gap: 0,
+          borderTop: '1px solid #646464',
+          borderBottom: '1px solid #646464',
+          flex: 'none',
+        }}
+      >
+        <EncounterTime label="Arrived:" labelW={56} />
+        <EncounterTime label="In-Room:" labelW={81} />
+        <EncounterTime label="Seen:" labelW={78} />
+        <EncounterTime label="Discharge:" labelW={82} />
+      </div>
+
+      <div className="pb-row" style={{ padding: '3px 0 3px 8px', gap: 22, flex: 'none' }}>
+        <button className="pb-link" onClick={() => setCollapsed(new Set())}>Expand All</button>
+        <button
+          className="pb-link"
+          onClick={() => setCollapsed(new Set(rows.map((r) => r.section ?? '')))}
+        >
+          Collapse All
+        </button>
+      </div>
+
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <PBDataWindow
+          head="grey"
+          /* the captions sit 8px into their columns, which is what puts them
+             at 492 / 563 / 910 / 1165 in the capture */
+          style={{ ['--pb-dw-pad-x' as string]: '8px' }}
+          gutter={false}
+          rules={false}
+          rows={rows}
+          groupBy={banded ? (r) => r.section ?? '' : undefined}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
           columns={[
-            { key: 'date', header: 'Date', width: 74, align: 'center', italic: true },
-            { key: 'hr', header: 'HR', width: 26, align: 'center', italic: true },
-            { key: 'mn', header: 'MN', width: 30, align: 'center', italic: true },
-            { key: 'code', header: 'Code', width: 40, align: 'center', italic: true },
-            { key: 'mode', header: 'Mode', width: 40, align: 'center', italic: true },
-            { key: 'nbr', header: '#', width: 26, align: 'center', italic: true },
-            { key: 'provider', header: 'Provider', width: 106, italic: true },
-            { key: 'reason', header: 'Visit Reason', width: 160 },
-            { key: 'issue', header: 'Health Issue', width: 84 },
-            { key: 'd1', header: '', dots: true },
-            { key: 'services', header: 'Services', width: 68 },
-            { key: 'd2', header: '', dots: true },
-            { key: 'payor', header: 'Payor', width: 54 },
-            { key: 'room', header: 'Room', width: 52 },
-            { key: 'loc', header: 'Service Location', width: 138 },
+            { key: 'date', header: 'Date', width: 70 },
+            { key: 'description', header: 'Description', width: 348 },
+            { key: 'detail', header: 'Detail', width: 255 },
+            /* the caption is left in the column, the glyph centred in it —
+               the width is Patient Summary's, since the capture's window
+               clips this column rather than finishing it */
+            { key: 'link', header: 'Hyperlink', width: 109, align: 'center', headAlign: 'left' },
+            { key: '_pad', header: '' },
           ]}
+          /* an encounter with nothing on it shows a blank band, not a message */
+          empty=""
         />
       </div>
     </>
+  )
+}
+
+/**
+ * `Arrived: [date] [time]` — the label right-aligned in its own run, which is
+ * what parks the four pairs of boxes at 65 / 265 / 462 / 663 across the pane.
+ */
+function EncounterTime({ label, labelW }: { label: string; labelW: number }) {
+  return (
+    <>
+      <span style={{ width: labelW, textAlign: 'right', paddingRight: 8, flex: 'none' }}>{label}</span>
+      <PBInput w={68} style={{ flex: 'none' }} />
+      <PBInput w={48} align="center" defaultValue=":" style={{ marginLeft: 3, flex: 'none' }} />
+    </>
+  )
+}
+
+/* --- Encounter ▸ Distribution ---------------------------------------------
+   Never captured with anything in it — the tab reads `Distribution (0)` in
+   both shots — so the columns are the Order window's distribution list,
+   which is the same widget in the same chart.                              */
+function EncounterDistributionPage({ rows }: { rows: EncounterDistRow[] }) {
+  return (
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+      <PBDataWindow
+        head="grey"
+        gutter={false}
+        zebra={false}
+        rows={rows}
+        columns={[
+          { key: 'method', header: 'Method', width: 130, align: 'center' },
+          { key: 'type', header: 'Recipient Type', width: 160, align: 'center' },
+          { key: 'name', header: 'Name', width: 190, align: 'center' },
+          { key: 'location', header: 'Location', align: 'center' },
+          { key: 'status', header: 'Status', width: 130, align: 'center' },
+        ]}
+        empty="This encounter has not been distributed."
+      />
+    </div>
   )
 }

@@ -39,7 +39,8 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="pb-modal-layer" style={{ zIndex: 80, background: 'rgba(0,0,0,.18)' }}>
-      <PBWindow child controls={false} title="MOIS: TRAINING" onClose={onClose} style={{ width: 752 }}>
+      <PBWindow
+        tutorialId="host.mois.dialog.login" child controls={false} title="MOIS: TRAINING" onClose={onClose} style={{ width: 752 }}>
         <div className="pb-login__splash">
           <SplashArt />
 

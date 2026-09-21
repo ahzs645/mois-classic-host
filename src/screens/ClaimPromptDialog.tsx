@@ -152,6 +152,8 @@ export function ClaimPromptDialog({
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
       <PBWindow
+        /* the snapshot reports `claim-{prompt}`, so the anchor has to match */
+        tutorialId={`host.mois.dialog.claim-${prompt}`}
         child
         controls={false}
         title={TITLES[prompt]}

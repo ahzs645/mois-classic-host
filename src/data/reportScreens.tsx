@@ -16,16 +16,25 @@ export type ReportField =
   | { label: string; kind: 'date'; w?: number; value?: string; time?: boolean }
   | { kind: 'gap' }
 
+/** one tab's two-column detail form */
+export type ReportForm = { left: ReportField[]; right: ReportField[] }
+
 export type ReportScreen = {
   title: string
   commands: (string | null)[]
   disabled?: string[]
-  columns: { key: string; header: string; width?: number; align?: 'left' | 'center' | 'right'; dots?: boolean; check?: boolean }[]
+  columns: { key: string; header: string; auditId?: string; width?: number; align?: 'left' | 'center' | 'right'; dots?: boolean; check?: boolean }[]
   rows: Record<string, string>[]
   /** omit for the tab-less variants such as Paper Forms */
   tabs?: string[]
+  /** the detail form for `tabs[0]`, which is the tab the window opens on */
   left: ReportField[]
   right: ReportField[]
+  /* Report and Detail are different forms over the same record — MOIS moves
+     the order block and the report body onto Report and the provenance and
+     facility fields onto Detail. `left`/`right` is the first tab; the rest are
+     keyed by tab caption here. */
+  forms?: Record<string, ReportForm>
   /** the Acknowledgement History / Workflow Summary rail */
   rail?: boolean
   /** a plain-text notice between Search For and the grid */
@@ -65,15 +74,15 @@ export const reportScreens: Record<string, ReportScreen> = {
     viewSelect: ['List View', 'Panel View', 'Graph View'],
     flagKey: 'flag',
     columns: [
-      { key: 'collected', header: 'Collected', width: 82, align: 'center' },
-      { key: 'by', header: 'Ordered By', width: 128 },
-      { key: 'code', header: 'Code', width: 60, align: 'center' },
+      { key: 'collected', auditId: 'MATRIX-R0480-collected', header: 'Collected', width: 82, align: 'center' },
+      { key: 'by', auditId: 'MATRIX-R0481-ordered-by', header: 'Ordered By', width: 128 },
+      { key: 'code', auditId: 'MATRIX-R0482-code', header: 'Code', width: 60, align: 'center' },
       dots('d'),
-      { key: 'test', header: 'Test Name' },
-      { key: 'value', header: 'Value', width: 92, align: 'center' },
-      { key: 'flag', header: 'Flag', width: 52, align: 'center' },
-      { key: 'units', header: 'Units', width: 62, align: 'center' },
-      { key: 'status', header: 'Status', width: 52, align: 'center' },
+      { key: 'test', auditId: 'MATRIX-R0483-test-name', header: 'Test Name' },
+      { key: 'value', auditId: 'MATRIX-R0484-value', header: 'Value', width: 92, align: 'center' },
+      { key: 'flag', auditId: 'MATRIX-R0485-flag', header: 'Flag', width: 52, align: 'center' },
+      { key: 'units', auditId: 'MATRIX-R0486-units', header: 'Units', width: 62, align: 'center' },
+      { key: 'status', auditId: 'MATRIX-R0487-status', header: 'Status', width: 52, align: 'center' },
       clip,
     ],
     rows: [
@@ -88,29 +97,53 @@ export const reportScreens: Record<string, ReportScreen> = {
       { collected: '2026.02.13', by: 'TECHNICAL SUPPO…', code: '61838', test: 'NUMBER OF SWOLLEN JOINTS', value: '', flag: '-', units: '', status: '', clip: '-' },
     ],
     tabs: ['Report', 'Detail', 'Panel (0)'],
+    /* Report, the tab the window opens on, over the selected first row —
+       evidence/MATRIX-R0487-status */
     left: [
-      { label: 'Test Name:', kind: 'text', w: 320, value: 'COLUMBIA-SUICIDE SEVERITY RATING SCALE SCREENER-RE' },
-      { label: 'Value:', kind: 'text', w: 116, value: 'MEDIUM' },
+      { label: 'Test Name:', kind: 'text', w: 320, value: 'ESTROGEN 24H UR-SCNC' },
+      { label: 'Value:', kind: 'text', w: 116, value: '5' },
+      { label: 'Flag:', kind: 'text', w: 64 },
       { label: 'Ref. Ranges:', kind: 'range' },
-      { label: 'MOIS Code:', kind: 'text', w: 116, value: '84782' },
-      { label: 'Perform By:', kind: 'text', w: 168 },
-      { label: 'Report By:', kind: 'text', w: 168 },
-      { label: 'Transcribed:', kind: 'text', w: 168 },
-      { label: 'Collect By:', kind: 'text', w: 168, value: 'DUCHARME, AMARILYS' },
-      { label: 'Collect Note:', kind: 'area', rows: 3, w: 320 },
+      { label: 'Report:', kind: 'area', rows: 8, w: '100%' },
+      { label: 'Comments:', kind: 'area', rows: 3, w: '100%' },
     ],
     right: [
-      { label: 'Facility:', kind: 'text', w: 186 },
-      { label: 'Facility Loc.:', kind: 'text', w: 186 },
-      { label: 'Facility Ref.:', kind: 'text', w: 186 },
-      { label: 'Ord. Name:', kind: 'text', w: 186 },
-      { label: 'Volume:', kind: 'text', w: 186 },
-      { label: 'Category:', kind: 'text', w: 186, value: 'PSYCH' },
-      { label: 'Specimen Src.:', kind: 'text', w: 186 },
+      { label: 'Order Date:', kind: 'date', w: 92 },
+      { label: 'Order #:', kind: 'lookup', w: 130 },
+      { label: 'Ordered By:', kind: 'text', w: 250, value: 'DOCTOR, TEST' },
+      { label: 'Copies To:', kind: 'text', w: 250 },
     ],
+    forms: {
+      /* evidence/MATRIX-R0524-specimen-src, captured over the COLUMBIA row */
+      Detail: {
+        left: [
+          { label: 'Test Name:', kind: 'text', w: 320, value: 'COLUMBIA-SUICIDE SEVERITY RATING SCALE SCREENER-RE' },
+          { label: 'Value:', kind: 'text', w: 116, value: 'MEDIUM' },
+          { label: 'Flag:', kind: 'text', w: 64 },
+          { label: 'Ref. Ranges:', kind: 'range' },
+          { label: 'MOIS Code:', kind: 'text', w: 116, value: '84782' },
+          { label: 'LOINC:', kind: 'text', w: 116, value: '93373-9' },
+          { label: 'Perform By:', kind: 'text', w: 168 },
+          { label: 'Report By:', kind: 'text', w: 168 },
+          { label: 'Transcribed:', kind: 'text', w: 168 },
+          { label: 'Collect By:', kind: 'text', w: 168, value: 'DUCHARME, AMARILYS' },
+          { label: 'Collect Note:', kind: 'area', rows: 3, w: 320 },
+        ],
+        right: [
+          { label: 'Facility:', kind: 'text', w: 186 },
+          { label: 'Facility Loc.:', kind: 'text', w: 186 },
+          { label: 'Facility Ref.:', kind: 'text', w: 186 },
+          { label: 'Ord. Name:', kind: 'text', w: 186 },
+          { label: 'Volume:', kind: 'text', w: 186 },
+          { label: 'Category:', kind: 'text', w: 186, value: 'PSYCH' },
+          { label: 'Specimen Src.:', kind: 'text', w: 186 },
+        ],
+      },
+    },
     rail: true,
     footer: { source: 'SYSTEM', code: '-', sign: 'UNSIGNED' },
-    created: '2026.02.19  10:21  DUCHARME, AMARILYS',
+    /* the provenance line belongs to the selected record, which is row 0 */
+    created: '2026.07.14  13:43  SKRECKY, JENNIFER',
   },
 
   allergy: {
@@ -125,7 +158,8 @@ export const reportScreens: Record<string, ReportScreen> = {
       { key: 'onset', header: 'Onset', width: 82, align: 'center' },
       { key: 'tilde', header: '~', width: 24, align: 'center' },
       { key: 'type', header: 'Type', width: 110, align: 'center' },
-      { key: 'category', header: 'Category', width: 62, align: 'center' },
+      /* Category is a tick, not a word — it is `str_is_drug` */
+      { key: 'category', header: 'Category', width: 62, align: 'center', check: true },
       { key: 'code', header: 'Code', width: 70, align: 'center' },
       dots('d'),
       { key: 'agent', header: 'Agent' },
@@ -144,10 +178,13 @@ export const reportScreens: Record<string, ReportScreen> = {
       { onset: '2024.08.08', tilde: '', type: 'DRUG ALLERGY', category: '', code: '00468029', agent: 'PENICILLIN V POTASSIUM 500000UNIT TAB…', reactions: 'ANAPHYLAXIS', m: '', clip: '-' },
     ],
     tabs: ['Detail', 'Reactions', 'Linked Events'],
+    /* evidence/MATRIX-R0660-paper-clip: the agent row spans both columns and a
+       blank band separates it from the four coded dropdowns below */
     left: [
       { label: 'Date of Onset:', kind: 'date', w: 104, value: '2026.07.22' },
       { label: 'Type:', kind: 'text', w: 160, value: 'DRUG ALLERGY' },
-      { label: 'Agent Category:', kind: 'text', w: 104 },
+      { label: 'Agent Category:', kind: 'text', w: 104, value: '02235092' },
+      { kind: 'gap' },
       { label: 'Risk Status:', kind: 'text', w: 160 },
       { label: 'Certainty:', kind: 'text', w: 160 },
       { label: 'Criticality:', kind: 'text', w: 160 },
@@ -157,6 +194,8 @@ export const reportScreens: Record<string, ReportScreen> = {
     right: [
       { label: 'Stop Date:', kind: 'date', w: 104 },
       { label: 'Agent Category:', kind: 'text', w: 186 },
+      { kind: 'gap' },
+      { kind: 'gap' },
       { label: 'Phase at Onset:', kind: 'text', w: 186 },
       { label: 'Informant:', kind: 'text', w: 186 },
       { label: 'Observer:', kind: 'text', w: 186 },
@@ -181,31 +220,63 @@ export const reportScreens: Record<string, ReportScreen> = {
       { key: 'm', header: 'M', width: 22, align: 'center' },
       clip,
     ],
-    rows: [],
+    /* evidence/MATRIX-R0568-facility-ref — one filed exam and two empty records */
+    rows: [
+      { performed: '2025.05.21', by: 'DR. TOPOGRAPHY', test: 'CAT SCAN - WHOLE BODY', region: 'FULL BODY', laterality: '', modality: 'IN PERSON', contrast: 'YES', status: 'C', m: '', clip: '1' },
+      { performed: '', by: '', test: '', region: '', laterality: '', modality: '', contrast: '', status: '', m: '', clip: '-' },
+      { performed: '', by: '', test: '', region: '', laterality: '', modality: '', contrast: '', status: '', m: '', clip: '1' },
+    ],
     tabs: ['Report', 'Detail'],
+    /* Report — evidence/MATRIX-R0535-paper-clip */
     left: [
-      { label: 'Test Name:', kind: 'lookup' },
-      { label: 'Region:', kind: 'text', w: 150 },
+      { label: 'Test Name:', kind: 'text', w: 320, value: 'CAT SCAN - WHOLE BODY' },
+      { label: 'Region:', kind: 'text', w: 150, value: 'FULL BODY' },
       { label: 'Laterality:', kind: 'text', w: 150 },
-      { label: 'Modality:', kind: 'text', w: 150 },
-      { label: 'Contrast:', kind: 'text', w: 150 },
-      { label: 'Exam Reasn:', kind: 'lookup' },
-      { label: 'Report:', kind: 'area', rows: 6 },
+      { label: 'Flag:', kind: 'text', w: 64 },
+      { label: 'Modality:', kind: 'text', w: 150, value: 'IN PERSON' },
+      { label: 'Contrast:', kind: 'text', w: 150, value: 'YES' },
+      { label: 'Status:', kind: 'text', w: 64, value: 'C' },
+      { label: 'Report:', kind: 'area', rows: 8, w: '100%' },
     ],
     right: [
-      { label: 'Perform By:', kind: 'text', w: 180 },
-      { label: 'Date:', kind: 'date', w: 92, time: true },
-      { label: 'Report By:', kind: 'text', w: 180 },
-      { label: 'Date:', kind: 'date', w: 92 },
-      { label: 'Transcribed:', kind: 'text', w: 180 },
-      { label: 'Date:', kind: 'date', w: 92, time: true },
-      { label: 'Facility:', kind: 'text', w: 180 },
-      { label: 'Facility Loc.:', kind: 'text', w: 180 },
-      { label: 'Facility Ref.:', kind: 'text', w: 180 },
+      { label: 'Order Date:', kind: 'date', w: 92 },
+      { label: 'Order #:', kind: 'lookup', w: 130 },
+      { label: 'Ordered By:', kind: 'text', w: 250, value: 'DR. TOPOGRAPHY' },
+      { label: 'Copies To:', kind: 'text', w: 250 },
     ],
+    forms: {
+      /* evidence/MATRIX-R0568-facility-ref: only the facility trio is on the
+         right; who performed, reported and transcribed stays on the left with
+         its date beside it */
+      Detail: {
+        left: [
+          { label: 'Test Name:', kind: 'text', w: 320, value: 'CAT SCAN - WHOLE BODY' },
+          { label: 'Region:', kind: 'text', w: 150, value: 'FULL BODY' },
+          { label: 'Laterality:', kind: 'text', w: 150 },
+          { label: 'Flag:', kind: 'text', w: 64 },
+          { label: 'Modality:', kind: 'text', w: 150, value: 'IN PERSON' },
+          { label: 'Contrast:', kind: 'text', w: 150, value: 'YES' },
+          { label: 'Status:', kind: 'text', w: 64, value: 'C' },
+          { label: 'Perform By:', kind: 'text', w: 180 },
+          { label: 'Date:', kind: 'date', w: 92, time: true, value: '2025.05.21' },
+          { label: 'Report By:', kind: 'text', w: 180 },
+          { label: 'Date:', kind: 'date', w: 92 },
+          { label: 'Transcribed:', kind: 'text', w: 180 },
+          { label: 'Date:', kind: 'date', w: 92, time: true },
+          { label: 'Exam Reasn:', kind: 'text', w: 320 },
+          { label: 'Diag. Desc.:', kind: 'lookup', w: 320 },
+          { label: 'Key Word:', kind: 'area', rows: 3, w: 320 },
+        ],
+        right: [
+          { label: 'Facility:', kind: 'text', w: 180 },
+          { label: 'Facility Loc.:', kind: 'text', w: 180 },
+          { label: 'Facility Ref.:', kind: 'text', w: 180 },
+        ],
+      },
+    },
     rail: true,
     footer: { source: 'SYSTEM', code: '-', sign: 'UNSIGNED' },
-    created: '2024.10.24  08:41  JANG, SEAN',
+    created: '2024.09.27  09:47  KUMAR, PRAVEEN',
   },
 
   consults: {
@@ -220,16 +291,17 @@ export const reportScreens: Record<string, ReportScreen> = {
       dots('d2'),
       { key: 'reason', header: 'Reason for Consult Request' },
       dots('d3'),
-      { key: 's', header: 'S', width: 22, align: 'center' },
+      { key: 's', header: 'S', width: 22, align: 'center', check: true },
       { key: 'm', header: 'M', width: 22, align: 'center' },
       clip,
     ],
     rows: [
-      { refer: '2025.06.01', seen: '2025.07.22', by: '', seenby: '', reason: '', s: '', m: '', clip: '-' },
-      { refer: '2025.05.21', seen: '2025.05.21', by: 'LUCKY', seenby: 'DR. LAD', reason: 'CHEST PAIN UNRESPONSIVE TO NITRO SL AND …', s: '', m: '1', clip: '' },
+      { refer: '2025.06.01', seen: '2025.07.22', by: '', seenby: '', reason: '', s: '', m: '⇩', clip: '-' },
+      { refer: '2025.05.21', seen: '2025.05.21', by: 'LUCKY', seenby: 'DR. LAD', reason: 'CHEST PAIN UNRESPONSIVE TO NITRO SL AND …', s: '', m: '', clip: '1' },
       { refer: '2026.05.05', seen: '', by: '(RN) GIESBRECHT, MARY', seenby: '', reason: '', s: '', m: '', clip: '-' },
     ],
     tabs: ['Report', 'Detail', 'Office Notes (0)'],
+    /* Report — evidence/MATRIX-R0577-paper-clip */
     left: [
       { label: 'Reason:', kind: 'lookup' },
       { label: 'Seen By:', kind: 'text', w: 150 },
@@ -244,6 +316,25 @@ export const reportScreens: Record<string, ReportScreen> = {
       { label: 'Date:', kind: 'date', w: 92 },
       { label: 'Copies To:', kind: 'lookup', w: 200, value: 'CALL CENTRE AGENT 1' },
     ],
+    forms: {
+      /* evidence/MATRIX-R0599-facility-ref */
+      Detail: {
+        left: [
+          { label: 'Reason:', kind: 'lookup', w: 320 },
+          { label: 'Report By:', kind: 'text', w: 168 },
+          { label: 'Date:', kind: 'date', w: 92 },
+          { label: 'Transcribed:', kind: 'text', w: 168 },
+          { label: 'Date:', kind: 'date', w: 92, time: true },
+          { label: "Consultant's\nDiagnosis:", kind: 'lookup', w: 320 },
+          { label: 'Key Word:', kind: 'area', rows: 3, w: 320 },
+        ],
+        right: [
+          { label: 'Facility:', kind: 'text', w: 180 },
+          { label: 'Facility Loc.:', kind: 'text', w: 180 },
+          { label: 'Facility Ref.:', kind: 'text', w: 180 },
+        ],
+      },
+    },
     rail: true,
     footer: { source: 'SYSTEM', code: '-', sign: 'UNSIGNED' },
     created: '2024.08.01  09:48  STEPHENSON, TOM',
@@ -262,19 +353,41 @@ export const reportScreens: Record<string, ReportScreen> = {
     ],
     rows: [{ performed: '', by: '', desc: 'PHLEBOTOMY', m: '', clip: '-' }],
     tabs: ['Report', 'Detail'],
+    /* Report — evidence/MATRIX-R0609-paper-clip */
     left: [
       { label: 'Description:', kind: 'text', w: 320, value: 'PHLEBOTOMY' },
-      { label: 'Perform By:', kind: 'text', w: 168 },
-      { label: 'Report By:', kind: 'text', w: 168 },
-      { label: 'Transcribed:', kind: 'text', w: 168 },
       { label: 'Diag Desc.:', kind: 'lookup', w: 320 },
-      { label: 'Key Word:', kind: 'area', rows: 3, w: 320 },
+      { label: 'Report:', kind: 'area', rows: 8, w: '100%' },
     ],
     right: [
-      { label: 'Facility:', kind: 'text', w: 176 },
-      { label: 'Facility Loc.:', kind: 'text', w: 176 },
-      { label: 'Facility Ref.:', kind: 'text', w: 176 },
+      { label: 'Order Date:', kind: 'date', w: 92 },
+      { label: 'Order #:', kind: 'lookup', w: 130 },
+      { label: 'Ordered By:', kind: 'text', w: 230 },
+      { label: 'Report By:', kind: 'text', w: 150 },
+      { label: 'Date:', kind: 'date', w: 92 },
+      { label: 'Copies To:', kind: 'text', w: 230 },
     ],
+    forms: {
+      /* evidence/MATRIX-R0632-facility-ref */
+      Detail: {
+        left: [
+          { label: 'Description:', kind: 'text', w: 320, value: 'PHLEBOTOMY' },
+          { label: 'Perform By:', kind: 'text', w: 168 },
+          { label: 'Date:', kind: 'date', w: 92, time: true },
+          { label: 'Report By:', kind: 'text', w: 168 },
+          { label: 'Date:', kind: 'date', w: 92 },
+          { label: 'Transcribed:', kind: 'text', w: 168 },
+          { label: 'Date:', kind: 'date', w: 92, time: true },
+          { label: 'Diag Desc.:', kind: 'lookup', w: 320 },
+          { label: 'Key Word:', kind: 'area', rows: 3, w: 320 },
+        ],
+        right: [
+          { label: 'Facility:', kind: 'text', w: 176 },
+          { label: 'Facility Loc.:', kind: 'text', w: 176 },
+          { label: 'Facility Ref.:', kind: 'text', w: 176 },
+        ],
+      },
+    },
     rail: true,
     footer: { source: 'SYSTEM', code: '-', sign: 'UNSIGNED' },
     created: '2024.10.24  08:41  JANG, SEAN',
@@ -362,26 +475,107 @@ Object.assign(reportScreens, {
       { key: 'm', header: 'M', width: 22, align: 'center' },
       clip,
     ],
+    /* evidence/MATRIX-R1140-method — an empty record heads the list */
     rows: [
+      { admitted: '', discharged: '', by: '', facility: '', desc: '', m: '', clip: '-' },
       { admitted: '2025.12.17', discharged: '', by: '', facility: 'MCONNELL ESTAT…', desc: 'ASSISTED LIVING', m: '', clip: '-' },
       { admitted: '2025.12.17', discharged: '', by: '', facility: 'TVL', desc: 'LONG TERM CARE FACILITIES (RESIDENTIAL CARE)', m: '', clip: '-' },
     ],
     tabs: ['Report', 'Detail'],
+    /* Report — evidence/MATRIX-R1149-report */
     left: [
       { label: 'Description:', kind: 'text', w: 310, value: 'ASSISTED LIVING' },
-      { label: 'Transcribed:', kind: 'text', w: 150 },
-      { label: 'Report By:', kind: 'text', w: 150 },
+      { label: 'Attending:', kind: 'text', w: 310 },
       { label: 'Diag Desc.:', kind: 'lookup', w: 310 },
-      { label: 'Key Word:', kind: 'area', rows: 3, w: 310 },
+      { label: 'Report:', kind: 'area', rows: 8, w: '100%' },
     ],
     right: [
-      { label: 'Facility:', kind: 'text', w: 176, value: 'MCONNELL ESTATES' },
-      { label: 'Facility Loc.:', kind: 'text', w: 176 },
-      { label: 'Facility Ref.:', kind: 'text', w: 176 },
+      { label: 'Admit Date:', kind: 'date', w: 92, value: '2025.12.17' },
+      { label: 'Admitted By:', kind: 'text', w: 230 },
+      { label: 'Copies To:', kind: 'text', w: 230 },
     ],
+    forms: {
+      /* evidence/MATRIX-R1141-paper-clip */
+      Detail: {
+        left: [
+          { label: 'Description:', kind: 'text', w: 310, value: 'ASSISTED LIVING' },
+          { label: 'Transcribed:', kind: 'text', w: 150 },
+          { label: 'Date:', kind: 'date', w: 92, time: true },
+          { label: 'Report By:', kind: 'text', w: 150 },
+          { label: 'Date:', kind: 'date', w: 92 },
+          { label: 'Diag Desc.:', kind: 'lookup', w: 310 },
+          { label: 'Key Word:', kind: 'area', rows: 3, w: 310 },
+        ],
+        right: [
+          { label: 'Facility:', kind: 'text', w: 176, value: 'MCONNELL ESTATES' },
+          { label: 'Facility Loc.:', kind: 'text', w: 176 },
+          { label: 'Facility Ref.:', kind: 'text', w: 176 },
+        ],
+      },
+    },
     rail: true,
     footer: { source: 'SYSTEM', code: '-', sign: 'UNSIGNED' },
     created: '2025.10.24  10:23  CALLAHAN, CHARLOTTE',
+  },
+
+  /* tdt_document — the report window again, but its rail is greyed out and
+     points at the linked record, and the grid carries a Link column.
+     Transcribed from evidence/MATRIX-R0801-paper-clip.
+
+     NOTE: this shadows `chartScreens.documents`, which the shell only reaches
+     when `reportScreens` has no entry for the node. Delete that one. */
+  documents: {
+    title: 'Documents',
+    commands: [
+      'New Record', 'Delete Record', 'Save', 'Undo', 'Refresh',
+      'Mark for Review', 'Link to Order', 'Print', 'Distribute',
+    ],
+    disabled: DIS,
+    columns: [
+      { key: 'date', header: 'Date', width: 84, align: 'center' },
+      { key: 'author', header: 'Author', width: 120 },
+      dots('d'),
+      { key: 'type', header: 'Document Type', width: 118 },
+      { key: 'note', header: 'Note' },
+      { key: 's', header: 'S', width: 22, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 22, align: 'center' },
+      { key: 'link', header: 'Link', width: 34, align: 'center' },
+      clip,
+    ],
+    rows: [
+      { date: '2030.05.03', author: '', type: 'PAPER FORM', note: 'INTEGRATED PRIMARY COMMUNITY CARE SERVICE REQUEST', s: '✓', m: '⇩', link: '↷', clip: '-' },
+      { date: '2030.05.02', author: '', type: 'ENCOUNTER', note: 'LTTCM MEETING', s: '', m: '⇩', link: '↷', clip: '1' },
+      { date: '2030.04.26', author: '', type: 'ENCOUNTER', note: '', s: '', m: '⇩', link: '↷', clip: '1' },
+      { date: '2028.12.27', author: '(RN) THOMPSO…', type: 'CONSULTATION', note: 'CODE WHITE DRILL', s: '', m: '⇩', link: '↷', clip: '1' },
+      { date: '2028.12.27', author: 'ENGEN, RACHE…', type: 'CONSULTATION', note: 'CODE WHITE DRILL', s: '', m: '⇩', link: '↷', clip: '1' },
+      { date: '2028.12.27', author: '', type: 'ENCOUNTER', note: 'CODE WHITE DRILL', s: '', m: '⇩', link: '↷', clip: '1' },
+      { date: '2028.12.27', author: '', type: 'ENCOUNTER', note: 'CODE WHITE DRILL', s: '', m: '⇩', link: '↷', clip: '1' },
+      { date: '2028.12.27', author: '', type: 'ENCOUNTER', note: 'CODE WHITE DRILL', s: '', m: '⇩', link: '↷', clip: '1' },
+    ],
+    tabs: ['Report', 'Distribution (0)'],
+    left: [
+      { label: 'Note:', kind: 'text', w: 320, value: 'INTEGRATED PRIMARY COMMUNITY CARE SERVIC…' },
+      { label: 'Attending:', kind: 'lookup', w: 320 },
+      { label: 'Author:', kind: 'lookup', w: 320 },
+      { label: 'Responsible Org.:', kind: 'lookup', w: 320, value: 'PCIPT 2 RSW 2' },
+      { label: 'Recipient:', kind: 'lookup', w: 320 },
+      { label: 'Copies To:', kind: 'lookup', w: 320 },
+      { label: 'Transcribed:', kind: 'text', w: 168 },
+      { label: 'Service Event:', kind: 'lookup', w: 320 },
+      { label: 'Comment:', kind: 'area', rows: 4, w: 320 },
+    ],
+    right: [
+      { label: 'Order #:', kind: 'lookup', w: 200 },
+      { label: 'Source Venue:', kind: 'text', w: 200 },
+      { label: 'Author Type:', kind: 'text', w: 200 },
+      { label: 'Author Role:', kind: 'text', w: 200 },
+      { label: 'Facility:', kind: 'text', w: 200 },
+      { label: 'Facility Ref.:', kind: 'text', w: 200 },
+      { label: 'Facility Loc.:', kind: 'text', w: 200 },
+    ],
+    rail: true,
+    footer: { source: 'SYSTEM', sent: '2030.05.03', code: '11488-4 - Encounter Summary', sign: 'UNSIGNED' },
+    created: '2026.07.20  13:38  (RN) AREMU, OMOTAYO',
   },
 
   /* tdt_intervention — list over a bare comment box */
@@ -423,11 +617,13 @@ Object.assign(reportScreens, {
       { key: 'm', header: 'M', width: 22, align: 'center' },
       clip,
     ],
+    /* evidence/MATRIX-R0649-comment */
     rows: [
       { chart: '', name: '', relationship: 'PARENT', condition: 'CARDIOMYOPATHY', m: '', clip: '-' },
-      { chart: '', name: 'FAKE AARON', relationship: '', condition: 'TYPE 1 DIABETES MELLITUS', m: '', clip: '-' },
+      { chart: '', name: 'FAKE AARON', relationship: 'Father', condition: 'TYPE 1 DIABETES MELLITUS', m: '', clip: '-' },
       { chart: '', name: '', relationship: '', condition: '', m: '', clip: '-' },
-      { chart: '', name: '', relationship: '', condition: 'CARDIAC ARREST', m: '', clip: '-' },
+      { chart: '', name: '', relationship: 'PARENT', condition: '', m: '', clip: '-' },
+      { chart: '', name: '', relationship: 'Father', condition: 'CARDIAC ARREST', m: '', clip: '-' },
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 6, w: '100%' }],
     right: [],
@@ -499,8 +695,10 @@ Object.assign(reportScreens, {
       { start: '2026.06.10', end: '', problem: 'DEVELOPMENTALLY DISABLED', rank: '-', certainty: '', severity: '', m: '', clip: '-' },
     ],
     tabs: ['Detail', 'Linked Goals', 'Medications', 'Rx History'],
+    /* evidence/MATRIX-R0833-paper-clip: a blank band sits under Problem Name */
     left: [
       { label: 'Problem Name:', kind: 'lookup', w: '100%', value: 'ASTHMA' },
+      { kind: 'gap' },
       { label: 'Source:', kind: 'text', w: 176 },
       { label: 'Comment:', kind: 'area', rows: 7, w: '100%' },
     ],
@@ -511,22 +709,27 @@ Object.assign(reportScreens, {
     created: '2026.02.13  06:39  WASHINGTON, ALYSSA',
   },
 
+  /* tdt_social_hx — one free-text Description per record, not a topic/value
+     pair; evidence/MATRIX-R0790-comment */
   socialhx: {
-    title: 'Social Hx',
+    title: 'Social History',
     commands: SIMPLE, disabled: DIS, plain: true,
     columns: [
       { key: 'start', header: 'Start', width: 86, align: 'center' },
       { key: 'end', header: 'End', width: 86, align: 'center' },
-      { key: 'topic', header: 'Topic', width: 190 },
+      { key: 'desc', header: 'Description' },
       dots('d'),
-      { key: 'value', header: 'Value' },
+      { key: 's', header: 'S', width: 22, align: 'center', check: true },
       { key: 'm', header: 'M', width: 22, align: 'center' },
       clip,
     ],
-    rows: [],
+    rows: [
+      { start: '', end: '', desc: '', s: '', m: '', clip: '-' },
+      { start: '2025.02.13', end: '', desc: 'NEWCOMER', s: '✓', m: '', clip: '-' },
+    ],
     left: [{ label: 'Comment:', kind: 'area', rows: 7, w: '100%' }],
     right: [],
-    created: '2026.08.12  09:00  JALIL, AHMAD',
+    created: '2025.02.13  07:41  WARKENTIN, LISA',
   },
 
 

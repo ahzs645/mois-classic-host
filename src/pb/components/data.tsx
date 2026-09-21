@@ -19,6 +19,8 @@ const PB_ROW_ARROW = (
 export type PBColumn<T> = {
   key: string
   header: ReactNode
+  /** Stable field-audit occurrence ID, never a value from the record. */
+  auditId?: string
   width?: number | string
   align?: 'left' | 'center' | 'right'
   /** caption alignment, when it differs from the cells' */
@@ -230,6 +232,7 @@ export function PBDataWindow<T extends Record<string, any>>({
               {columns.map((c) => (
                 <th
                   key={c.key}
+                  data-mois-audit-id={c.auditId}
                   className={cx(
                     (c.headAlign ?? c.align) === 'center' && 'pb-dw__c--center',
                     (c.headAlign ?? c.align) === 'right' && 'pb-dw__c--num',
@@ -292,6 +295,7 @@ export function PBDataWindow<T extends Record<string, any>>({
                   {columns.map((c) => (
                     <td
                       key={c.key}
+                      data-mois-audit-id={c.auditId}
                       className={cx(
                         c.align === 'center' && 'pb-dw__c--center',
                         c.align === 'right' && 'pb-dw__c--num',

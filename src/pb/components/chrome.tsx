@@ -16,7 +16,7 @@ const RESIZE_EDGES: PBResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'
 /* --- PBWindow ------------------------------------------------------------ */
 export function PBWindow({
   title, sub, icon, child, onClose, controls = true, style, className, children,
-  maximized, onMinimize, onMaximize, onMovePointerDown, onResizePointerDown,
+  maximized, onMinimize, onMaximize, onMovePointerDown, onResizePointerDown, tutorialId,
 }: {
   title: ReactNode
   sub?: ReactNode
@@ -37,9 +37,20 @@ export function PBWindow({
   onMovePointerDown?: (event: ReactPointerEvent<HTMLElement>) => void
   /** supplying this draws the eight resize grips around the frame */
   onResizePointerDown?: (edge: PBResizeEdge, event: ReactPointerEvent<HTMLElement>) => void
+  /** the window's own anchor, `host.mois.dialog.{slug}`.
+   *
+   *  A step whose action opens a window needs something to ring, and the
+   *  control it pressed is the wrong answer: the window covers it, so the
+   *  learner is shown a glowing empty rectangle on the new window's chrome.
+   *  Ring the window. */
+  tutorialId?: string
 }) {
   return (
-    <div className={cx('pb-window', child && 'pb-window--child', className)} style={style}>
+    <div
+      className={cx('pb-window', child && 'pb-window--child', className)}
+      style={style}
+      data-tutorial-id={tutorialId}
+    >
       <div
         className="pb-titlebar"
         onPointerDown={onMovePointerDown}

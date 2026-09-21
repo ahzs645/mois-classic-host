@@ -12,7 +12,12 @@ import {
 
 type Appt = Record<string, string>
 
-const columns: PBColumn<Appt>[] = [
+/* The two day books are one DataWindow with one column swapped: the provider
+   book names the Resource, the resource book names the Provider. The field
+   audit counts 24 columns on Provider Schedules ▸ Day Book (matrix rows
+   1269-1292) and 22 on Resource Schedules ▸ Day Book (1299-1320) — the
+   resource book stops at RP and carries no M or attachment column. */
+const identityColumns: PBColumn<Appt>[] = [
   { key: 'hr', header: 'HR', width: 30, align: 'center' },
   { key: 'mn', header: 'MN', width: 32, align: 'center' },
   { key: 'code', header: 'Code', width: 42, align: 'center' },
@@ -23,10 +28,13 @@ const columns: PBColumn<Appt>[] = [
   { key: 'last', header: 'Last Name', width: 96 },
   { key: 'reason', header: 'Visit Reason', width: 160 },
   { key: 'loc', header: 'Service Location', width: 156 },
-  { key: 'resource', header: 'Resource', width: 88 },
-  { key: 'room', header: 'Room', width: 60 },
-  /* the scrolled capture (scheduler-provider-daybook-right) reveals seven
-     more flag columns past Room */
+]
+
+/* everything past Room runs off the right-hand edge of the pane: the audit
+   could not focus a single one of these without scrolling the grid
+   ("The column continues beyond the visible right edge of the shared Day Book
+   grid" — MATRIX-R1311-as, MATRIX-R1320-rp). */
+const flagColumns: PBColumn<Appt>[] = [
   { key: 'as', header: 'AS', width: 30, align: 'center' },
   { key: 'tk', header: 'TK', width: 30, align: 'center' },
   { key: 'mg', header: 'MG', width: 32, align: 'center' },
@@ -37,6 +45,15 @@ const columns: PBColumn<Appt>[] = [
   { key: 'bs', header: 'BS', width: 30, align: 'center' },
   { key: 'tm', header: 'TM', width: 32, align: 'center' },
   { key: 'rp', header: 'RP', width: 30, align: 'center' },
+]
+
+const columns: PBColumn<Appt>[] = [
+  ...identityColumns,
+  { key: 'resource', header: 'Resource', width: 88 },
+  { key: 'room', header: 'Room', width: 60 },
+  ...flagColumns,
+  { key: 'm', header: 'M', width: 26, align: 'center' },
+  { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center' },
 ]
 
 /* The AS cell turns into a drop-down when its row is current: the capture in
@@ -105,9 +122,10 @@ function asColumns(
 }
 
 const resourceColumns: PBColumn<Appt>[] = [
-  ...columns.slice(0, 10),
+  ...identityColumns,
   { key: 'provider', header: 'Provider', width: 120 },
   { key: 'room', header: 'Room', width: 60 },
+  ...flagColumns,
 ]
 
 const HOURS = ['8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00']
@@ -140,8 +158,11 @@ export function daybookOffsetAfter(offset: number, move: DaybookMove): number {
   return move === 'today' ? 0 : offset + DAYBOOK_MOVES[move]
 }
 
+/* PowerBuilder glues the weekday straight onto the date with a space —
+   "Tuesday Aug 11, 2026", not the comma `Intl` puts after a long weekday. */
 const LONG = new Intl.DateTimeFormat('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 const SHORT = new Intl.DateTimeFormat('en-CA', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+const pbDate = (f: Intl.DateTimeFormat, d: Date) => f.format(d).replace(', ', ' ')
 
 export function SchedulerView({
   mode = 'provider', offset = 0, onMove, provider = 'TECHNICAL SUPPORT', onProvider,
@@ -208,22 +229,21 @@ export function SchedulerView({
   return (
     <>
       {isResource
-        ? <PBViewHeader title={`Day Book: ${LONG.format(day)}`} meta={`Appointment(s): ${count}`} right={provider} />
-        : <PBViewHeader title={SHORT.format(day)} meta={`Appointment(s): ${count}`} right={provider} />}
+        ? <PBViewHeader title={`Day Book: ${pbDate(LONG, day)}`} meta={`Appointment(s): ${count}`} right={provider} />
+        : <PBViewHeader title={pbDate(SHORT, day)} meta={`Appointment(s): ${count}`} right={provider} />}
       <PBCommandRow
         commands={[
           { label: 'New Appt', onClick: onNewAppt }, { label: 'Appt Series' }, { label: 'Save', disabled: true },
           { label: 'Delete Appt', disabled: true }, { label: 'Undo', disabled: true }, { label: 'Refresh' },
           ...(isResource ? [] : [
-            null,
-            { label: 'Print List' }, { label: 'Print Encounter', width: 100 }, { label: 'MSP Bill', onClick: () => onBill?.(apptRow) },
-            { label: 'Pre-Slot Wizard', width: 100 },
+            { label: 'Print List' }, { label: 'Print Encounter', width: 81 }, { label: 'MSP Bill', onClick: () => onBill?.(apptRow) },
+            { label: 'Pre-Slot Wizard', width: 81 },
           ] as PBCommand[]),
         ]}
       />
 
       {/* ---- filter form: three panels divided by hairlines ---- */}
-      <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid #c9c9c9', flex: 'none', minWidth: 940 }}>
+      <div className="pb-daybook-filters" style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid #c9c9c9', flex: 'none', minWidth: 800 }}>
         {/* date navigator */}
         <div style={{ padding: '5px 8px', flex: 'none', width: 196 }}>
           <div className="pb-row">
@@ -231,11 +251,12 @@ export function SchedulerView({
             <PBInput w={112} align="center" value={daybookStamp(offset)} readOnly />
           </div>
           <div className="pb-row" style={{ marginTop: 6, gap: 3 }}>
-            {moveButton('prev-week', '\u00ab', 24)}
-            {moveButton('prev-day', '\u2039', 24)}
+            {/* the captures paint these as plain ASCII, not guillemets */}
+            {moveButton('prev-week', '<<', 24)}
+            {moveButton('prev-day', '<', 24)}
             {moveButton('today', 'Today')}
-            {moveButton('next-day', '\u203a', 24)}
-            {moveButton('next-week', '\u00bb', 24)}
+            {moveButton('next-day', '>', 24)}
+            {moveButton('next-week', '>>', 24)}
           </div>
         </div>
 
@@ -267,7 +288,7 @@ export function SchedulerView({
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>Daybook For:</span>
           <div className="pb-row" data-tutorial-id={host?.anchor('daybookfor')}>
             <PBDropDownDataWindow
-              w={244}
+              w={188}
               value={provider}
               display="provider"
               columns={[
@@ -286,7 +307,7 @@ export function SchedulerView({
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '14px' }}>Service<br />Location:</span>
           <div className="pb-row">
-            <PBDropField w={244} />
+            <PBDropField w={188} />
             <PBCheckbox label="Show Only" />
           </div>
 
@@ -309,22 +330,22 @@ export function SchedulerView({
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>or Show Only:</span>
           <div className="pb-row pb-row--gap-lg">
-            <span className="pb-row">AS:<PBInput w={116} /></span>
-            <span className="pb-row">DS:<PBInput w={116} /></span>
+            <span className="pb-row">AS:<PBInput w={78} /></span>
+            <span className="pb-row">DS:<PBInput w={78} /></span>
           </div>
         </div>
 
         <span className="pb-vrule" style={{ margin: 0 }} />
 
         {/* MSP / comment panel */}
-        <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: 'none', width: 380, alignItems: 'start' }}>
+        <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: 'none', width: 296, alignItems: 'start' }}>
           <span className="pb-form__label" style={{ lineHeight: '19px' }}>MSP Loc.:</span>
-          <div className="pb-row"><PBInput w={78} /><span style={{ marginLeft: 12 }}>Alias:</span>
-            <span data-tutorial-id="host.mois.field.daybook-alias"><PBDropField w={160} /></span>
+          <div className="pb-row"><PBInput w={60} /><span style={{ marginLeft: 6 }}>Alias:</span>
+            <span data-tutorial-id="host.mois.field.daybook-alias"><PBDropField w={120} /></span>
           </div>
 
           <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-          <PBTextArea rows={3} w="100%" />
+          <PBTextArea rows={2} w="100%" />
 
           <button className="pb-link" style={{ justifySelf: 'end' }}>see more</button>
           <button className="pb-link" style={{ justifySelf: 'start' }}>Create Call List</button>
@@ -343,29 +364,41 @@ export function SchedulerView({
           <div
             key={h}
             style={{
+              position: 'relative',
               flex: '1 1 0',
               borderRight: '1px solid #c9c9c9',
               fontSize: 11,
+              fontWeight: 700,
               padding: '1px 0 0 4px',
-              background: 'repeating-linear-gradient(90deg, #c9c9c9 0 1px, transparent 1px 25%)',
-              backgroundSize: '100% 7px',
-              backgroundPosition: 'left bottom',
-              backgroundRepeat: 'no-repeat',
             }}
           >
             {h}
+            {/* quarter-hour ticks: dotted rules down the whole cell, not a
+                comb along its foot */}
+            {[25, 50, 75].map((pc) => (
+              <span
+                key={pc}
+                style={{
+                  position: 'absolute', top: 15, bottom: 0, left: `${pc}%`,
+                  borderLeft: '1px dotted #b9b9b9',
+                }}
+              />
+            ))}
           </div>
         ))}
       </div>
 
-      {/* ---- PB's odd "< Scroll <" strip ---- */}
+      {/* ---- PB's odd "< Scroll <" strip ----
+           The day book carries more columns than the pane can show and these
+           pan it; the resource book paints the same strip with the two name
+           filters but no Scroll nubs (MATRIX-R1309-provider). */}
       <div className="pb-scrollrow">
-        <PBButton size="sm" style={{ minWidth: 62 }}>&lsaquo; Scroll &lsaquo;</PBButton>
+        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }}>&lt; Scroll &lt;</PBButton>}
         <span className="pb-scrollrow__spacer" />
         <PBInput w={72} data-tutorial-id="host.mois.field.daybook-filter-first" />
         <PBInput w={72} data-tutorial-id="host.mois.field.daybook-filter-last" />
         <span className="pb-scrollrow__spacer" />
-        <PBButton size="sm" style={{ minWidth: 62 }}>&rsaquo; Scroll &rsaquo;</PBButton>
+        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }}>&gt; Scroll &gt;</PBButton>}
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
@@ -388,7 +421,9 @@ export function SchedulerView({
             return HIDDEN_BY_DEFAULT.has(code) ? 'pb-dw--struck' : undefined
           }}
           rowTutorialId={(row) => `host.mois.row.appt-${row.hr}${row.mn}`}
-          empty="No appointments booked for this day."
+          /* a day with no appointments paints a bare grid — every day-book
+             capture reads "Appointment(s): 0" and carries no message */
+          empty=""
         />
       </div>
 

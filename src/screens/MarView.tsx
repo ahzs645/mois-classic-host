@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useChartRows } from '../data/chart-records'
 import {
   PBButton, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBIdentityStrip,
   PBInput, PBLookup, PBPatientBannerBlue, PBSelect, PBTextArea, PBViewHeader,
@@ -21,6 +22,8 @@ const columns: PBColumn<Record<string, string>>[] = [
 ]
 
 export function MarView() {
+  /* a chart with a real export behind it lists its own records */
+  const exportedRows = useChartRows('mar')
   const patient = usePatient()
   const [open, setOpen] = useState(false)
   const [cur, setCur] = useState(0)
@@ -50,7 +53,7 @@ export function MarView() {
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
         <PBDataWindow
           columns={columns}
-          rows={marRows}
+          rows={exportedRows ?? marRows}
           current={cur}
           onCurrentChange={setCur}
           onActivate={() => setOpen(true)}

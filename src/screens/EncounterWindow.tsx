@@ -1,10 +1,28 @@
 import { useState } from 'react'
 import {
-  PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBInput, PBLookup,
-  PBMenuBar, PBPatientBannerYellow, PBSelect, PBTabs, PBTextArea, PBWindow, IconIdCard,
+  PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBDropDownDataWindow,
+  PBInput, PBLookup, PBMenuBar, PBPatientBannerBlue, PBPatientBannerYellow, PBSelect,
+  PBTabs, PBTextArea, PBWindow, IconIdCard,
 } from '../pb'
+import { pbSlug } from '../pb'
 import { usePatient } from '../data/patient-context'
 import { measurementRows } from '../data/mois'
+import {
+  encounterFormRows, encounterSummaryGroups, encounterSummaryRows, selectFormRows,
+  type EncounterFormRow, type FormListRow,
+} from '../data/encounterForms'
+import {
+  apptStatusCodes, providerSearchRows, serviceEpisodeRows, serviceLocations,
+  type ProviderSearchRow, type ServiceEpisodeRow,
+} from '../data/encounterPickers'
+import { ServiceCodeLookupDialog, UniversalSearchDialog } from './CodeLookupDialogs'
+import {
+  MeasureCalculatorDialog, MeasureCalculatorsDialog, MeasureTemplateGridDialog,
+  MeasureTemplateSelectionDialog, MeasurementDetailDialog, defaultMeasureTemplate,
+  type MeasurementRow,
+} from './MeasureDialogs'
+import { type MeasureTemplate } from '../data/measures'
+import { visitCodeRows } from '../data/daybook'
 
 const MENU = [
   { label: 'Save', menu: [{ label: 'Save Encounter', key: 'Ctrl+S' }, { label: 'Save and Close' }] },
@@ -28,26 +46,35 @@ export type EncounterRecord = {
   loc?: string
 }
 
-export function EncounterWindow({
-  encounter, onClose, onAttachment,
-}: {
+export function EncounterWindow({ encounter, onClose }: {
   encounter?: EncounterRecord
   onClose: () => void
-  onAttachment: () => void
 }) {
   const patient = usePatient()
   const [tab, setTab] = useState('Progress Note(s)')
   const enc: EncounterRecord = encounter ?? { id: patient.encounter ?? 'NO ENCOUNTER' }
   const time = enc.hr && enc.mn ? `${enc.hr} : ${enc.mn}` : '14 : 00'
 
+  /* the four coded-link rows and the attending provider, each of which is
+     filled either by typing or by the picker its "…" opens */
+  const [issues, setIssues] = useState(['', '', '', ''])
+  const [services, setServices] = useState(['', '', '', ''])
+  const [attending, setAttending] = useState('')
+  const [picking, setPicking] = useState<
+    { kind: 'issue' | 'service'; row: number } | { kind: 'attending' } | null
+  >(null)
+
   return (
     <PBWindow
+      /* the MDI child a lesson rings when it is talking about the open
+         encounter rather than the chart behind it */
+      tutorialId="host.mois.window.encounter"
       child
       icon={<IconIdCard />}
       title={`${patient.short} ${patient.age} ${patient.sex}`}
       sub={<>chart no.: {patient.chart} -&nbsp;&nbsp;&nbsp;encounter no.: {enc.id}</>}
       onClose={onClose}
-      style={{ width: 'min(822px, calc(100vw - 40px))', height: 'min(742px, calc(100vh - 90px))' }}
+      style={{ width: 'min(822px, 100%)', height: 'min(742px, 100%)' }}
     >
       <PBMenuBar items={MENU} />
 
@@ -76,23 +103,71 @@ export function EncounterWindow({
           <PBInput defaultValue="FAKERRY, FAKER" />
 
           <span className="pb-form__label">Ser. Loc.:</span>
-          <PBSelect
+          <PBDropDownDataWindow
             key={enc.id + 'l'}
-            options={['ACROPOLIS MANOR', 'DAW HEALTH UNIT', 'URGENT CARE']}
-            defaultValue={enc.loc || 'ACROPOLIS MANOR'}
+            columns={[{ key: 'name', header: 'Service Location' }]}
+            rows={serviceLocations}
+            value={enc.loc || ''}
+            listW={330}
+            tutorialId="host.mois.lookup.service-location"
           />
 
           <span className="pb-form__label">Visit Code:</span>
-          <PBInput w={68} defaultValue="R" readOnly />
+          <PBDropDownDataWindow
+            columns={[
+              { key: 'code', header: 'Code', width: 58 },
+              { key: 'description', header: 'Description', width: 264 },
+              { key: 'mode', header: 'Visit Mode', width: 126 },
+              {
+                key: 'slots',
+                header: '#',
+                width: 46,
+                /* the slot count is painted in the code's own colour — the
+                   same fill the day book books an appointment of it in */
+                render: (r) => (
+                  <span
+                    style={{
+                      display: 'block',
+                      textAlign: 'center',
+                      background: r.slots === '' ? undefined : (r.fill ?? '#ffffff'),
+                    }}
+                  >
+                    {r.slots}
+                  </span>
+                ),
+              },
+              { key: 'mhk', header: 'MHK', width: 44 },
+            ]}
+            rows={visitCodeRows}
+            display="code"
+            w={68}
+            listW={538}
+            tutorialId="host.mois.lookup.visit-code"
+          />
 
           <span className="pb-form__label">Visit Reason:</span>
           <PBInput key={enc.id + 'r'} defaultValue={enc.reason || 'TEST 3'} />
 
           <span className="pb-form__label">Appt Status:</span>
-          <PBSelect options={['', 'Arrived', 'Seen', 'Discharged']} w={62} />
+          <PBDropDownDataWindow
+            columns={[
+              { key: 'code', header: 'Code', width: 52 },
+              { key: 'description', header: 'Description', width: 160 },
+            ]}
+            rows={apptStatusCodes}
+            display="code"
+            w={62}
+            listW={214}
+            tutorialId="host.mois.lookup.appt-status"
+          />
 
           <span className="pb-form__label">Attending:</span>
-          <PBLookup />
+          <PBLookup
+            name="attending"
+            value={attending}
+            onChange={setAttending}
+            onDots={() => setPicking({ kind: 'attending' })}
+          />
         </div>
 
         {/* column 2 — times */}
@@ -116,9 +191,25 @@ export function EncounterWindow({
             <span style={{ width: 76, textAlign: 'center' }}><PBCaption>Services</PBCaption></span>
             <span style={{ width: 32, textAlign: 'center' }}><PBCaption>Nbr. of</PBCaption></span>
           </div>
+          {/* each pair is a lookup: Health Issues opens the Universal Search
+              Window, Services the Master Service Code List */}
           {[0, 1, 2, 3].map((i) => (
             <div className="pb-row" key={i} style={{ marginBottom: 3, gap: 4 }}>
-              <PBLookup w={100} /><PBLookup w={76} /><PBInput w={32} align="center" defaultValue="-" />
+              <PBLookup
+                w={100}
+                name={`health-issue-${i + 1}`}
+                value={issues[i] ?? ''}
+                onChange={(v) => setIssues((r) => r.map((x, j) => (j === i ? v : x)))}
+                onDots={() => setPicking({ kind: 'issue', row: i })}
+              />
+              <PBLookup
+                w={76}
+                name={`service-${i + 1}`}
+                value={services[i] ?? ''}
+                onChange={(v) => setServices((r) => r.map((x, j) => (j === i ? v : x)))}
+                onDots={() => setPicking({ kind: 'service', row: i })}
+              />
+              <PBInput w={32} align="center" defaultValue="-" />
             </div>
           ))}
         </div>
@@ -134,15 +225,202 @@ export function EncounterWindow({
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
         <PBTabs tabs={TABS} active={tab} onChange={setTab}>
           {tab === 'Progress Note(s)' && <ProgressNotePage />}
-          {tab === 'Measurements' && <MeasurementsPage />}
-          {tab === 'Service(s)' && <ServicesPage onNew={onAttachment} />}
+          {tab === 'Measurements' && <MeasurementsPage encounter={enc.id} />}
+          {tab === 'Service(s)' && <ServicesPage />}
           {tab === 'Detail / Coding' && <CodingPage />}
-          {(tab === 'Encounter Summary' || tab === 'Encounter Forms') && (
-            <div className="pb-dw__empty" style={{ padding: 24 }}>{tab} — no content retrieved.</div>
-          )}
+          {tab === 'Encounter Summary' && <EncounterSummaryPage />}
+          {tab === 'Encounter Forms' && <EncounterFormsPage />}
         </PBTabs>
       </div>
+
+      {picking?.kind === 'issue' && (
+        <UniversalSearchDialog
+          onPick={(r) => {
+            setIssues((rows) => rows.map((x, j) => (j === picking.row ? r.term : x)))
+            setPicking(null)
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {picking?.kind === 'service' && (
+        <ServiceCodeLookupDialog
+          onPick={(r) => {
+            setServices((rows) => rows.map((x, j) => (j === picking.row ? r.code : x)))
+            setPicking(null)
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {picking?.kind === 'attending' && (
+        <ProviderSearchDialog
+          onPick={(r) => { setAttending(r.name); setPicking(null) }}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </PBWindow>
+  )
+}
+
+/* ============================================================================
+   Encounter Forms — the forms filed against this encounter.
+
+   `New Form` opens the Select Form picker; picking one and pressing
+   `Create Form` files it here. MOIS lists a completed web form under the
+   ASSESSMENT type rather than the ATTACHMENT type it is registered as.
+   ========================================================================= */
+function EncounterFormsPage() {
+  const [rows, setRows] = useState<EncounterFormRow[]>(encounterFormRows)
+  const [cur, setCur] = useState(0)
+  const [picking, setPicking] = useState(false)
+  return (
+    <>
+      <div className="pb-cmdrow" style={{ padding: 2 }}>
+        <button
+          className="pb-cmdrow__btn"
+          data-tutorial-id="host.mois.command.new-form"
+          onClick={() => setPicking(true)}
+        >
+          New Form
+        </button>
+        <button
+          className="pb-cmdrow__btn"
+          data-tutorial-id="host.mois.command.delete-form"
+          onClick={() => setRows((r) => r.filter((_, i) => i !== cur))}
+        >
+          Delete Form
+        </button>
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <PBDataWindow
+          flush
+          columns={[
+            { key: 'type', header: 'Form Type', width: 268, align: 'center' },
+            { key: 'name', header: 'Form Name', width: 302, align: 'center' },
+            { key: 'attending', header: 'Attending', width: 222, align: 'center' },
+          ]}
+          rows={rows}
+          current={cur}
+          onCurrentChange={setCur}
+          rowTutorialId={(r) => `host.mois.row.form-${pbSlug(String(r.name))}`}
+          empty=""
+        />
+      </div>
+      {picking && (
+        <SelectFormDialog
+          onCreate={(f) => {
+            /* the picker's type is the registration type; the filed row carries
+               the clinical type MOIS assigns it */
+            setRows((r) => [...r, { type: 'ASSESSMENT', name: f.name, attending: '' }])
+            setPicking(false)
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+    </>
+  )
+}
+
+/** The `Select Form` picker: a filterable list of every registered form. */
+function SelectFormDialog({ onCreate, onClose }: {
+  onCreate: (form: FormListRow) => void
+  onClose: () => void
+}) {
+  const [cur, setCur] = useState(0)
+  const [type, setType] = useState('')
+  const [name, setName] = useState('')
+  const shown = selectFormRows.filter((f) =>
+    f.type.toLowerCase().includes(type.toLowerCase())
+    && f.name.toLowerCase().includes(name.toLowerCase()))
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
+      <PBWindow
+        child
+        controls={false}
+        tutorialId="host.mois.dialog.select-form"
+        title="Select Form"
+        onClose={onClose}
+        style={{ width: 'min(760px, 100%)', height: 'min(660px, 100%)' }}
+      >
+        <PBBand>Form List</PBBand>
+        {/* one filter box per column; the Version box is the narrow one */}
+        <div className="pb-row" style={{ gap: 3, padding: '3px 4px' }}>
+          <PBInput w={262} value={type} onChange={(e) => setType(e.target.value)} data-tutorial-id="host.mois.field.form-type" />
+          <PBInput w={372} value={name} onChange={(e) => setName(e.target.value)} data-tutorial-id="host.mois.field.form-name" />
+          <PBInput w={58} />
+        </div>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 4px' }}>
+          <PBDataWindow
+            columns={[
+              { key: 'type', header: 'Form Type', width: 262, align: 'center' },
+              { key: 'name', header: 'Form Name', width: 372, align: 'center' },
+              { key: 'version', header: 'Version', width: 58, align: 'center' },
+            ]}
+            rows={shown}
+            current={cur}
+            onCurrentChange={setCur}
+            rowTutorialId={(r) => `host.mois.row.select-form-${pbSlug(String(r.name))}`}
+          />
+        </div>
+        <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '8px 0 10px' }}>
+          <PBButton
+            style={{ minWidth: 118 }}
+            data-tutorial-id="host.mois.command.create-form"
+            onClick={() => shown[cur] && onCreate(shown[cur]!)}
+          >
+            Create Form
+          </PBButton>
+          <PBButton style={{ minWidth: 118 }} onClick={onClose}>Cancel</PBButton>
+        </div>
+      </PBWindow>
+    </div>
+  )
+}
+
+/* ============================================================================
+   Encounter Summary — everything filed against this encounter, grouped.
+
+   MOIS paints a band per group carrying its own count, and each record row
+   ends in two glyphs: a blue curved arrow that opens the record and a red
+   check clipboard for its acknowledgement state.
+   ========================================================================= */
+function EncounterSummaryPage() {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(['WEB FORMS']))
+  return (
+    <>
+      <div className="pb-row" style={{ gap: 16, padding: '4px 8px' }}>
+        <button className="pb-link" onClick={() => setCollapsed(new Set())}>Expand All</button>
+        <button className="pb-link" onClick={() => setCollapsed(new Set(encounterSummaryGroups))}>
+          Collapse All
+        </button>
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <PBDataWindow
+          flush
+          columns={[
+            { key: 'date', header: 'Date', width: 150 },
+            { key: 'description', header: 'Description', width: 700 },
+            { key: 'detail', header: 'Detail', width: 600 },
+            {
+              key: 'link',
+              header: 'Hyperlink',
+              width: 160,
+              align: 'center',
+              /* the two glyphs MOIS ends each record row with: a blue curved
+                 arrow that opens it, and a red check for its acknowledgement */
+              render: () => <span>{'\u21B7  \u2611'}</span>,
+            },
+          ]}
+          rows={encounterSummaryRows}
+          groupBy={(r) => r.group}
+          /* both bands are painted even when a group has no rows to show */
+          groups={encounterSummaryGroups}
+          groupLabel={(g, rs) => <strong>{`${g}   [${rs.length}]`}</strong>}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          empty=""
+        />
+      </div>
+    </>
   )
 }
 
@@ -176,21 +454,73 @@ function ProgressNotePage() {
   )
 }
 
-function MeasurementsPage() {
+/* ============================================================================
+   Measurements — the measures recorded at this encounter.
+
+   Four of the six commands open a window, and all four end by writing rows
+   into this grid: `New Record` files one blank row and opens Measurement
+   Detail over it, `Template` and `Other Template` file every row of a measure
+   template that was given a value, and `Calculator` files the one measure it
+   computes. A row that has been filed but not yet saved stays current, which
+   is what paints it salmon.
+   ========================================================================= */
+type MeasurementCommand = 'detail' | 'template' | 'other-template' | 'calculators'
+
+function MeasurementsPage({ encounter }: { encounter: string }) {
+  const [rows, setRows] = useState<MeasurementRow[]>(measurementRows)
+  const [cur, setCur] = useState(0)
+  const [open, setOpen] = useState<MeasurementCommand | null>(null)
+  /* Other Template picks a template first, then opens its grid */
+  const [template, setTemplate] = useState<MeasureTemplate | null>(null)
+  const [calculator, setCalculator] = useState<string | null>(null)
+  /* which row Measurement Detail is over: a new blank one, or the current */
+  const [editing, setEditing] = useState<number | null>(null)
+
+  const file = (added: MeasurementRow[]) => {
+    if (!added.length) return
+    setRows((r) => [...r, ...added])
+    setCur(rows.length + added.length - 1)
+  }
+
+  const newRecord = () => {
+    const blank: MeasurementRow = { code: '', name: '', value: '', flag: '', units: '', fresh: true }
+    setRows((r) => [...r, blank])
+    setCur(rows.length)
+    setEditing(rows.length)
+    setOpen('detail')
+  }
+
+  const command = (label: string, onClick: () => void, width?: number) => (
+    <button
+      className="pb-cmdrow__btn"
+      style={width ? { minWidth: width } : undefined}
+      /* namespaced: the chart's own Encounters screen is still behind this
+         window and carries a `New Record` of its own */
+      data-tutorial-id={`host.mois.command.measure-${pbSlug(label)}`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  )
+
   return (
     <>
       <div className="pb-cmdrow" style={{ padding: 2 }}>
-        <button className="pb-cmdrow__btn">New Record</button>
-        <button className="pb-cmdrow__btn">Delete Record</button>
-        <button className="pb-cmdrow__btn">Graph</button>
-        <button className="pb-cmdrow__btn">Calculator</button>
-        <button className="pb-cmdrow__btn">Template</button>
-        <button className="pb-cmdrow__btn" style={{ minWidth: 98 }}>Other Template</button>
+        {command('New Record', newRecord)}
+        {command('Delete Record', () => setRows((r) => r.filter((_, i) => i !== cur)))}
+        {command('Graph', () => {})}
+        {command('Calculator', () => setOpen('calculators'))}
+        {command('Template', () => { setTemplate(null); setOpen('template') })}
+        {command('Other Template', () => setOpen('other-template'), 98)}
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           flush
-          rows={measurementRows}
+          rows={rows}
+          current={cur}
+          onCurrentChange={setCur}
+          onActivate={(_r, i) => { setEditing(i); setOpen('detail') }}
+          rowTutorialId={(r) => `host.mois.row.measure-${pbSlug(String(r.code || r.name || 'new'))}`}
           columns={[
             { key: 'code', header: 'Code', width: 62, align: 'center' },
             { key: 'd', header: '', dots: true },
@@ -201,16 +531,75 @@ function MeasurementsPage() {
           ]}
         />
       </div>
+
+      {open === 'detail' && editing != null && rows[editing] && (
+        <MeasurementDetailDialog
+          row={rows[editing]!}
+          encounter={encounter}
+          onOk={(row) => {
+            setRows((r) => r.map((x, i) => (i === editing ? row : x)))
+            setOpen(null)
+            setEditing(null)
+          }}
+          onClose={() => { setOpen(null); setEditing(null) }}
+        />
+      )}
+      {open === 'template' && (
+        <MeasureTemplateGridDialog
+          title={template?.name ?? defaultMeasureTemplate.name}
+          /* ENCOUNTER WINDOW is the one template whose measure list was
+             captured. Another one opens its grid empty rather than showing
+             the encounter measures under someone else's name. */
+          slots={!template || template.name === defaultMeasureTemplate.name
+            ? defaultMeasureTemplate.slots
+            : []}
+          onSave={(added) => { file(added); setOpen(null) }}
+          onClose={() => setOpen(null)}
+        />
+      )}
+      {open === 'other-template' && (
+        <MeasureTemplateSelectionDialog
+          onOpen={(t) => { setTemplate(t); setOpen('template') }}
+          onClose={() => setOpen(null)}
+        />
+      )}
+      {open === 'calculators' && !calculator && (
+        <MeasureCalculatorsDialog
+          onOpen={setCalculator}
+          onClose={() => setOpen(null)}
+        />
+      )}
+      {open === 'calculators' && calculator && (
+        <MeasureCalculatorDialog
+          calculator={calculator}
+          onSave={(row) => { file([row]); setCalculator(null); setOpen(null) }}
+          onClose={() => { setCalculator(null); setOpen(null) }}
+        />
+      )}
     </>
   )
 }
 
-function ServicesPage({ onNew }: { onNew: () => void }) {
+/* ============================================================================
+   Service(s) — the service events billed against this encounter.
+
+   `New…` picks the episode the event belongs to first: MOIS will not file a
+   service event that is not attached to one of the patient's open episodes.
+   ========================================================================= */
+function ServicesPage() {
+  const [picking, setPicking] = useState(false)
+  const [episode, setEpisode] = useState<ServiceEpisodeRow | null>(null)
   return (
     <>
       <div className="pb-cmdrow" style={{ padding: 2 }}>
-        <button className="pb-cmdrow__btn" onClick={onNew}>New…</button>
-        <button className="pb-cmdrow__btn" onClick={onNew}>Edit…</button>
+        <button
+          className="pb-cmdrow__btn"
+          data-tutorial-id="host.mois.command.new-service"
+          onClick={() => setPicking(true)}
+        >
+          New…
+        </button>
+        <button className="pb-cmdrow__btn" onClick={() => setPicking(true)}>Edit…</button>
         <button className="pb-cmdrow__btn">Delete</button>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
@@ -224,17 +613,152 @@ function ServicesPage({ onNew }: { onNew: () => void }) {
             { key: 'mrp', header: 'Service MRP', width: 140 },
           ]}
           rows={[
-            { start: '2026.08.10', episode: 'PRENATAL CARE', event: 'REMOVAL OF EAR CANAL OSTEOMA', phase: 'One Time', mrp: 'TECHNICAL SUPPORT' },
+            {
+              start: '2026.08.10',
+              episode: episode?.episode ?? 'PRENATAL CARE',
+              event: 'REMOVAL OF EAR CANAL OSTEOMA',
+              phase: 'One Time',
+              mrp: episode?.mrp ?? 'TECHNICAL SUPPORT',
+            },
           ]}
         />
       </div>
+      {picking && (
+        <ServiceEpisodesDialog
+          onPick={(r) => { setEpisode(r); setPicking(false) }}
+          onClose={() => setPicking(false)}
+        />
+      )}
     </>
   )
 }
 
-/* The real Detail / Coding tab: two columns of encounter attributes, a
-   Visit Reason block, then a coding matrix of lookup pairs — Procedure gets
-   two code slots, Health Issue and Service get four each. */
+/* The episode picker: every episode the patient is enrolled in, a stopped one
+   greyed rather than hidden.
+
+   The rows, the banner and the button *count* are from the capture; the four
+   action labels are reconstructed, so they are the one part of this dialog
+   that is not transcribed. Re-capture the window to confirm them. */
+function ServiceEpisodesDialog({ onPick, onClose }: {
+  onPick: (row: ServiceEpisodeRow) => void
+  onClose: () => void
+}) {
+  const patient = usePatient()
+  const [cur, setCur] = useState(0)
+  const row = serviceEpisodeRows[cur]
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
+      <PBWindow
+        child
+        controls={false}
+        tutorialId="host.mois.dialog.service-episodes"
+        title="Patient's Service Episodes"
+        onClose={onClose}
+        style={{ width: 'min(720px, 100%)', height: 'min(420px, 100%)' }}
+      >
+        <PBPatientBannerBlue
+          top={[{ label: 'Patient', value: patient.short }, { label: 'Chart', value: patient.chart }]}
+          bottom={[{ label: 'DoB', value: patient.dob }, { label: 'Sex', value: patient.sex }]}
+        />
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 6 }}>
+          <PBDataWindow
+            columns={[
+              { key: 'episode', header: 'Service Episode', width: 300 },
+              { key: 'mrp', header: 'Episode MRP', width: 180 },
+              { key: 'start', header: 'Start Date', width: 90, align: 'center' },
+              { key: 'stop', header: 'Stop Date', width: 90, align: 'center' },
+            ]}
+            rows={serviceEpisodeRows}
+            current={cur}
+            onCurrentChange={setCur}
+            onActivate={(r) => onPick(r)}
+            /* a stopped episode is struck through rather than dropped */
+            rowClassName={(r) => (r.stop ? 'pb-dw--struck' : undefined)}
+            rowTutorialId={(r) => `host.mois.row.episode-${pbSlug(String(r.episode))}`}
+          />
+        </div>
+        <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '4px 0 10px', flex: 'none' }}>
+          <PBButton
+            style={{ minWidth: 150 }}
+            data-tutorial-id="host.mois.command.use-episode"
+            onClick={() => row && onPick(row)}
+          >
+            Use This Episode
+          </PBButton>
+          <PBButton style={{ minWidth: 150 }}>New Episode…</PBButton>
+          <PBButton style={{ minWidth: 150 }}>Edit Episode…</PBButton>
+          <PBButton style={{ minWidth: 150 }}>Stop Episode</PBButton>
+          <PBButton style={{ minWidth: 100 }} onClick={onClose}>Cancel</PBButton>
+        </div>
+      </PBWindow>
+    </div>
+  )
+}
+
+/* ============================================================================
+   MOIS - Search Window — the `Attending` ellipsis.
+
+   Every provider and provider group on file. A group's Members column lists
+   the providers it stands for, which is how a lesson can tell the two apart.
+   ========================================================================= */
+function ProviderSearchDialog({ onPick, onClose }: {
+  onPick: (row: ProviderSearchRow) => void
+  onClose: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [cur, setCur] = useState(0)
+  const rows = providerSearchRows.filter((r) => (
+    r.name.toUpperCase().includes(search.trim().toUpperCase())
+  ))
+  const row = rows[Math.min(cur, rows.length - 1)]
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
+      <PBWindow
+        child
+        controls={false}
+        tutorialId="host.mois.dialog.provider-search"
+        title="MOIS - Search Window"
+        onClose={onClose}
+        style={{ width: 'min(880px, 100%)', height: 'min(600px, 100%)' }}
+      >
+        <PBBand>Provider List</PBBand>
+        <div className="pb-row" style={{ gap: 4, padding: '3px 4px', flex: 'none' }}>
+          <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
+          <PBLookup w="100%" value={search} onChange={setSearch} name="provider-search" />
+        </div>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 4px' }}>
+          <PBDataWindow
+            columns={[
+              { key: 'name', header: 'Name', width: 210 },
+              { key: 'role', header: 'Role', width: 150 },
+              { key: 'type', header: 'Type', width: 96 },
+              { key: 'members', header: 'Members' },
+              { key: 'status', header: 'Status', width: 56, align: 'center' },
+            ]}
+            rows={rows}
+            current={Math.min(cur, Math.max(0, rows.length - 1))}
+            onCurrentChange={setCur}
+            onActivate={(r) => onPick(r)}
+            rowTutorialId={(r) => `host.mois.row.provider-${pbSlug(String(r.name))}`}
+            empty="No provider matches."
+          />
+        </div>
+        <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '8px 0 10px', flex: 'none' }}>
+          <PBButton
+            style={{ minWidth: 118 }}
+            disabled={!row}
+            data-tutorial-id="host.mois.command.select-provider"
+            onClick={() => row && onPick(row)}
+          >
+            Select
+          </PBButton>
+          <PBButton style={{ minWidth: 118 }} onClick={onClose}>Cancel</PBButton>
+        </div>
+      </PBWindow>
+    </div>
+  )
+}
+
 function CodingPage() {
   const CODE_SLOTS: [string, number][] = [
     ['Procedure:', 2],

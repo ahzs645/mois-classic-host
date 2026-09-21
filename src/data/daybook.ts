@@ -34,6 +34,49 @@ export const VISIT_CODE_FILL: Record<string, string> = {
   PROC: '#ff46a3',
 }
 
+/* ---------------------------------------------------------------------------
+   The visit-code table itself — what the `Visit Code` field drops.
+
+   Transcribed from a capture of the dropped list on the encounter window:
+   `Code | Description | Visit Mode | # | MHK`, the first screenful (A to N)
+   of a longer list. The `#` cell is the code's default slot count, painted in
+   the colour the day book books that code in — which is why this list doubles
+   as the palette legend.
+
+   This is a different clinic's configuration from `VISIT_CODE_FILL` above, so
+   the two palettes disagree about `C`; both are real, neither is the default.
+   Two codes are clipped by their column in the capture and are recorded as
+   MOIS renders them: `CONSU` prints as `CONSI` and `MINOR` as `MINOF`.
+ ------------------------------------------------------------------------- */
+export type VisitCode = {
+  code: string
+  description: string
+  mode: string
+  /** default slots; blank on a code that does not book time */
+  slots: string
+  /** the colour MOIS fills the slot-count cell — and the appointment — with */
+  fill?: string
+}
+
+export const visitCodeRows: VisitCode[] = [
+  { code: 'A', description: 'Ambulatory', mode: '', slots: '' },
+  { code: 'AC', description: 'Anonymous Client', mode: '', slots: '1', fill: '#ffffff' },
+  { code: 'C', description: 'Community Visit', mode: '', slots: '6', fill: '#c8a982' },
+  { code: 'CED', description: 'Client Education', mode: '', slots: '6', fill: '#8080c0' },
+  { code: 'CONSU', description: 'Consultation', mode: '', slots: '12', fill: '#3fd7a4' },
+  { code: 'DT', description: 'Diagnostic Test', mode: '', slots: '2', fill: '#c0c0c0' },
+  { code: 'DTP', description: 'Day Treatment Program', mode: '', slots: '90', fill: '#ff5500' },
+  { code: 'ER', description: 'Emergency Room', mode: '', slots: '3', fill: '#ff8080' },
+  { code: 'G', description: 'Group Medical/Education', mode: '', slots: '12', fill: '#cfe8f8' },
+  { code: 'GPS', description: 'GP Specialist', mode: '', slots: '3', fill: '#a8a8a8' },
+  { code: 'H', description: 'Home Visit', mode: '', slots: '6', fill: '#a8a060' },
+  { code: 'I', description: 'Inpatient', mode: '', slots: '3', fill: '#d8d0a0' },
+  { code: 'INJ', description: 'Injection', mode: '', slots: '0', fill: '#ffffff' },
+  { code: 'LA', description: 'Long Assessment', mode: '', slots: '12', fill: '#b0b0e8' },
+  { code: 'MINOR', description: 'Minor Procedure', mode: '', slots: '6', fill: '#ffc8f0' },
+  { code: 'N', description: 'Note, Patient Not Seen', mode: '', slots: '0', fill: '#ffff00' },
+]
+
 const a = (
   hr: string, mn: string, code: string, chart: string, first: string, last: string,
   reason: string, rest: Partial<Appointment> = {},

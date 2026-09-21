@@ -6,7 +6,8 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="pb-modal-layer">
-      <PBWindow child controls={false} title="New Goal" onClose={onClose} style={{ width: 636, height: 500 }}>
+      <PBWindow
+        tutorialId="host.mois.dialog.new-goal" child controls={false} title="New Goal" onClose={onClose} style={{ width: 636, height: 500 }}>
         <div style={{ background: 'var(--pb-face)', padding: '6px 8px', flex: 'none' }}>
           <div className="pb-form pb-form--cols4" style={{ padding: 0, gridTemplateColumns: 'auto 1fr auto 1fr' }}>
             <span className="pb-form__label">Goal Type:</span>

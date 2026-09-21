@@ -46,27 +46,47 @@ const APP_SETTINGS: Setting[] = [
 /** The row the manual's encounter-window article sends a reader to. */
 const ANCHORED = 'Encounter Window Limit'
 
+// Only group headings were read during this visual pass. Uncaptured groups
+// do not borrow APP SETTING values.
+const SETTING_GROUPS = ['APP SETTING', 'APP SETTING - ADDRESS BOOK', 'APP SETTING - CARECONNECT',
+  'APP SETTING - CPP RX', 'APP SETTING - DESKTOP PROVIDER', 'APP SETTING - HTML FORMS',
+  'APP SETTING - MOIS WEB', 'APP SETTING - PATIENT SUMMARY', 'APP SETTING - PRINT PREVIEW',
+  'APP SETTING - RX', 'APP SETTING - SRFAX', 'APP SETTING - TELEHEALTH',
+  'APP SETTING - UPGRADES', 'APP SETTING - WORKSPACE', 'CHART', 'CLOUD - FILE REDIRECT',
+  'GLOBAL', 'HELP MENU', 'INVOICE STATEMENT', 'LAB INTERFACE', 'LABEL PRINTING', 'LABEL PRINTING - NAME FORMAT']
+
 export function SystemSettingsView() {
   const [cur, setCur] = useState(APP_SETTINGS.findIndex((s) => s.name === ANCHORED))
   const selected = APP_SETTINGS[cur]
+  const [find, setFind] = useState('')
+  const [collapsed, setCollapsed] = useState(() => new Set(SETTING_GROUPS.slice(1)))
+  const rows = APP_SETTINGS.filter((row) => `${row.name} ${row.desc}`.toLowerCase().includes(find.toLowerCase()))
   return (
     <>
       <PBViewHeader title="System Settings" />
-      <PBCommandRow commands={[{ label: 'Save' }, { label: 'Undo' }, { label: 'Close Window' }]} />
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '3px 3px 0' }}>
+      <div className="pb-row" style={{ gap: 0, flex: 'none' }}>
+        <PBCommandRow commands={[{ label: 'Save' }, { label: 'Undo' }, { label: 'Close Window' }]} />
+        <label className="pb-row" style={{ flex: 1, gap: 3, paddingRight: 4 }}>Find:<PBInput aria-label="Find system setting" value={find} onChange={(event) => { setFind(event.target.value); setCollapsed(new Set()) }} style={{ flex: 1, minWidth: 0 }} /></label>
+      </div>
+      <div className="pb-system-settings-grid" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
-          rows={APP_SETTINGS}
-          current={cur}
-          onCurrentChange={setCur}
+          head={false}
+          hscroll
+          rows={rows}
+          current={rows.indexOf(selected)}
+          onCurrentChange={(index) => setCur(APP_SETTINGS.indexOf(rows[index]))}
           groupBy={() => 'APP SETTING'}
-          groupLabel={() => 'APP SETTING'}
+          groups={find ? ['APP SETTING'] : SETTING_GROUPS}
+          groupLabel={(id) => id}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
           rowTutorialId={(row) => (
             row.name === ANCHORED ? 'host.mois.row.encounter-window-limit' : undefined
           )}
           columns={[
-            { key: 'name', header: '', width: 176 },
-            { key: 'value', header: '', width: 300, render: (r) => <PBInput w="100%" value={r.value} readOnly /> },
-            { key: 'desc', header: '' },
+            { key: 'name', header: '', width: 252 },
+            { key: 'value', header: '', width: 300, render: (r) => r === selected ? <PBInput w="100%" value={r.value} readOnly /> : r.value },
+            { key: 'desc', header: '', width: 480 },
           ]}
         />
       </div>

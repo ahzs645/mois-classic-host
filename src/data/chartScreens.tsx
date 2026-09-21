@@ -33,6 +33,18 @@ export type ChartScreen = {
   audited?: boolean
   /** tabs wrap the grid itself; there is no detail form underneath */
   gridOnly?: boolean
+  /**
+   * The window has no "Search For:" band. Encounter Documentation Forms is
+   * the case the captures prove: it filters per column instead.
+   * NOT YET HONOURED — `ChartSectionView` draws the band unconditionally.
+   */
+  noSearch?: boolean
+  /**
+   * Column keys that carry a filter box above the header row, the way a
+   * lookup DataWindow filters. `PBDataWindow` already takes this as its
+   * `filters` prop; NOT YET HONOURED — `ChartSectionView` does not pass it.
+   */
+  filterColumns?: string[]
 }
 
 const SAVE_SET = ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh']
@@ -60,14 +72,25 @@ export const chartScreens: Record<string, ChartScreen> = {
     ],
   },
 
+  /* SHADOWED — `determinants` routes to `DeterminantsView`, whose real
+     configuration is `determinantTabs` in `data/mois.tsx`. This entry only
+     shows if that route is ever removed, so it carries the Employment tab's
+     history grid (the tab MOIS opens on) rather than the invented
+     Date / Determinant / Value / Note / Recorded By set it used to.
+     MATRIX-R0284..R0290: tdt_occupation.dtm_start / dtm_end /
+     str_description / num_hours / str_company / str_phone1. There are no
+     lower tabs — the detail is an Employer Information group box beside a
+     General Notes box. */
   determinants: {
     title: 'Determinants of Health',
     commands: SAVE_SET, disabled: DIS,
     columns: [
-      col('date', 'Date', 86, 'center'), col('determinant', 'Determinant', 210),
-      col('value', 'Value', 150), col('note', 'Note'), col('by', 'Recorded By', 140),
+      col('start', 'Start', 86, 'center'), col('end', 'End', 86, 'center'),
+      col('occupation', 'Occupation'), dots('d'),
+      col('hrs', 'Hrs/Wk', 80, 'right'), col('company', 'Company', 180),
+      col('phone', 'Phone (M)', 130), col('clip', '\u{1F4CE}', 22, 'center'),
     ],
-    tabs: ['Detail', 'History'],
+    audited: true,
   },
 
   measures: {
@@ -207,16 +230,25 @@ export const chartScreens: Record<string, ChartScreen> = {
       col('by', 'Printed By', 160), col('copies', 'Copies', 60, 'center'),
     ],
   },
+  /* SHADOWED — `mar` routes to `MarView`, which holds its own columns. This
+     entry is the list window the capture behind MATRIX-R0758 shows: the
+     caption is "Medication Administration Record", the command row is
+     New … / Open Parent Order (out until a row with a parent order is
+     current) / Open Record / Refresh, and the grid is a grouped tree —
+     one ⊞ band per medication with "(n records)" in the Detail column.
+     Dosage / Route / Site are fields of the detail child window, not
+     columns of this list. */
   mar: {
-    title: 'MAR',
-    commands: ['Refresh', 'Print'],
+    title: 'Medication Administration Record',
+    commands: ['New …', 'Open Parent Order', 'Open Record', 'Refresh'],
+    disabled: ['Open Parent Order'],
     columns: [
-      col('when', 'Date/Time', 120, 'center'),
-      col('by', 'Given By', 150),
+      col('date', 'Date', 88, 'center'),
+      col('time', 'Time', 56, 'center'),
+      col('status', 'Status', 130),
       col('med', 'Medication'),
-      col('dosage', 'Dosage', 100, 'center'),
-      col('route', 'Route', 80, 'center'),
-      col('site', 'Site', 90, 'center'),
+      col('by', 'Admin By', 140),
+      col('detail', 'Detail', 200),
     ],
     audited: true,
   },
@@ -230,21 +262,30 @@ export const chartScreens: Record<string, ChartScreen> = {
     ],
     tabs: ['Detail'],
   },
+  /* MATRIX-R0792..R0822. The command row is nine buttons — Link to Order and
+     Distribute sit either side of Print and were missing, and there is no
+     Attachment button (the paper clip is a grid column). Source Venue is a
+     field of the Report tab (tdt_document.str_source_venue), not a column:
+     the grid runs Date / Author / … / Document Type / Note / S / M / Link /
+     clip, with a lookup "…" column between Author and Document Type and a
+     Link column our set did not have. The lower tab set is two tabs, and
+     MOIS prints the distribution count into the second caption. */
   documents: {
     title: 'Documents',
-    commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Mark for Review', 'Print', 'Attachment'],
+    commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Mark for Review', 'Link to Order', 'Print', 'Distribute'],
     disabled: DIS,
     columns: [
       col('date', 'Date', 88, 'center'),
-      col('author', 'Author', 160),
+      col('author', 'Author', 120),
+      dots('d'),
       col('type', 'Document Type', 150),
-      col('venue', 'Source Venue', 130),
       col('note', 'Note'),
       col('s', 'S', 24, 'center'),
       col('m', 'M', 24, 'center'),
+      col('link', 'Link', 34, 'center'),
       col('clip', '\u{1F4CE}', 22, 'center'),
     ],
-    tabs: ['Report', 'Detail', 'Distribution'],
+    tabs: ['Report', 'Distribution (0)'],
     audited: true,
   },
 
@@ -336,6 +377,10 @@ export const chartScreens: Record<string, ChartScreen> = {
     audited: true,
   },
 
+  /* UNVERIFIED. The audit's "Forms" sub-folder is the three child windows
+     below — Paper Forms, Dynamic Forms and Encounter Documentation Forms —
+     and no capture shows a window for the parent folder itself, so nothing
+     here is observed. Every column and command is still inferred. */
   forms: {
     title: 'Forms',
     commands: SAVE_SET.concat(['Print']), disabled: DIS,
@@ -346,12 +391,60 @@ export const chartScreens: Record<string, ChartScreen> = {
     ],
     tabs: ['Detail'],
   },
-  paper: { title: 'Paper Forms', commands: ['Refresh', 'Print'],
-    columns: [col('form', 'Form Name'), col('category', 'Category', 150, 'center'), col('revised', 'Revised', 100, 'center')] },
-  dynamic: { title: 'Dynamic Forms', commands: ['New Record', 'Refresh', 'Print'],
-    columns: [col('form', 'Form Name'), col('version', 'Version', 80, 'center'), col('status', 'Status', 100, 'center')] },
-  encforms: { title: 'Encounter Forms', commands: ['New Record', 'Refresh', 'Print'],
-    columns: [col('date', 'Date', 86, 'center'), col('form', 'Form Name'), col('encounter', 'Encounter #', 110, 'center'), col('status', 'Status', 100, 'center')] },
+  /* SHADOWED — `paper` routes to `reportScreens.paper`. Kept in step with
+     MATRIX-R1016..R1022: Paper Forms is a tdt_document list, so it carries
+     the Documents columns with Form Name (str_source_code) in place of Note,
+     over the same Note / Attending / Author / Responsible Org detail form.
+     There is no lookup "…" column and no Link column here. */
+  paper: {
+    title: 'Paper Forms',
+    commands: SAVE_SET.concat(['Print']), disabled: DIS,
+    columns: [
+      col('date', 'Date', 88, 'center'),
+      col('author', 'Author', 120),
+      col('type', 'Document Type', 150),
+      col('form', 'Form Name'),
+      col('s', 'S', 24, 'center'),
+      col('m', 'M', 24, 'center'),
+      col('clip', '\u{1F4CE}', 22, 'center'),
+    ],
+    audited: true,
+  },
+  /* MATRIX-R1038..R1043. Four buttons, and Open Form rather than Print is
+     the one that matters — a dynamic form is opened, not printed, from
+     here. The grid fills the window: no lower tabs, no detail form. */
+  dynamic: {
+    title: 'Dynamic Forms',
+    commands: ['New Record', 'Delete Record', 'Refresh', 'Open Form'],
+    columns: [
+      col('date', 'Form Date', 92, 'center'),
+      col('group', 'Group', 205),
+      col('title', 'Title'),
+      col('attending', 'Attending', 120),
+      col('user', 'User Name', 132),
+      col('state', 'State', 100),
+    ],
+    audited: true,
+  },
+  /* MATRIX-R1045..R1048. The caption is "Encounter Documentation Forms",
+     the command row is the single Open Form button, the identity strip stops
+     at DoB (no Active ENC# block), and there is no "Search For:" band — the
+     window filters per column instead, with a box over Form Type, Form Name
+     and Attending but not over Date. */
+  encforms: {
+    title: 'Encounter Documentation Forms',
+    commands: ['Open Form'],
+    noEncounter: true,
+    noSearch: true,
+    filterColumns: ['type', 'form', 'attending'],
+    columns: [
+      col('date', 'Date', 92, 'center'),
+      col('type', 'Form Type', 220),
+      col('form', 'Form Name', 270),
+      col('attending', 'Attending', 190),
+    ],
+    audited: true,
+  },
 
   admissions: {
     title: 'Facility Admissions',
@@ -530,14 +623,10 @@ export const moduleScreens: Record<string, ChartScreen> = {
       col('fee', 'Fee Code', 74, 'center'), col('reason', 'Rejection Reason'), col('code', 'Code', 60, 'center')] },
 
   /* Administration */
-  'ad-users': { title: 'Administration - Users', noEncounter: true,
-    commands: ['New User', 'Delete User', 'Save', 'Undo', 'Refresh', 'Reset Password'], disabled: DIS,
-    columns: [col('user', 'User ID', 100, 'center'), col('name', 'Name', 200),
-      col('role', 'Role', 150, 'center'), col('loc', 'Default Location', 180), col('active', 'Active', 60, 'center')] },
-  'ad-providers': { title: 'Administration - Providers', noEncounter: true,
-    commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh'], disabled: DIS,
-    columns: [col('code', 'Code', 80, 'center'), col('name', 'Provider', 210),
-      col('type', 'Type', 130, 'center'), col('msp', 'MSP No.', 90, 'center'), col('active', 'Active', 60, 'center')] },
+  /* `ad-users` used to sit here as an `Administration - Users` stand-in with
+     invented New User / Reset Password buttons. The captures show the standard
+     New Record · Delete Record · Edit Record · Close Window, and the real
+     `User Accounts` grid now lives in `screens/UserManagementView.tsx`. */
   'ad-locations': { title: 'Administration - Service Locations', noEncounter: true,
     commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh'], disabled: DIS,
     columns: [col('code', 'Code', 80, 'center'), col('name', 'Service Location', 230),

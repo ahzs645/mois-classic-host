@@ -113,7 +113,12 @@
   height: var(--pb-menubar-h);
   background: #ffffff;
   font-family: var(--pb-font-chrome);
-  font-size: var(--pb-fs-menu);
+  /* The bar is Segoe UI 12, not 13: `Maintenance` measures 67.77 in
+     `reference/patient-summary-3598.png` and Segoe UI renders it at 67.79 at
+     12px against 72.07 at 13. The dropdown panels keep `--pb-fs-menu`, which
+     was calibrated against `reference/menus/*.png` and is not re-measured
+     here. */
+  font-size: var(--pb-fs-chrome);
   user-select: none;
   flex: none;
 }

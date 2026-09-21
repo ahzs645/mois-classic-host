@@ -21,10 +21,14 @@ import { BasketFolderView } from '../screens/BasketFolderView'
 import { BillingAdminView } from '../screens/BillingAdminView'
 import { TaskListView } from '../screens/TaskListView'
 import { taskScreens } from '../data/tasks'
+import { chartRowsFor } from '../data/chart-records'
+import { hasChartExport, loadChartExport } from '../data/charts'
 import { ClinicListView } from '../screens/ClinicListView'
 import { clinicListSpecs } from '../data/clinicManagement'
 import { DesignerSectionView } from '../screens/DesignerSectionView'
 import { designerNodes } from '../data/designerSection'
+import { UserManagementView } from '../screens/UserManagementView'
+import { userManagementNodes } from '../data/userManagement'
 import { FindPatientDialog } from '../screens/FindPatientDialog'
 import { AdvanceChartSearchDialog } from '../screens/AdvanceChartSearchDialog'
 import { ReviewingDialog } from '../screens/ReviewingDialog'
@@ -46,6 +50,7 @@ import { SchedulerView, daybookOffsetAfter, daybookStamp, type DaybookMove } fro
 import { DemographicsView } from '../screens/DemographicsView'
 import { NotificationView } from '../screens/NotificationView'
 import { GroupVisitView } from '../screens/GroupVisitView'
+import { CarePlanSummaryView } from '../screens/CarePlanSummaryView'
 import { CarePlanView } from '../screens/CarePlanView'
 import { GoalsView } from '../screens/GoalsView'
 import { ClinicalReportView } from '../screens/ClinicalReportView'
@@ -60,6 +65,7 @@ import { DeterminantsView } from '../screens/DeterminantsView'
 import { chartScreens, moduleScreens, schedulerScreens, type ChartScreen } from '../data/chartScreens'
 import { EncounterWindow, type EncounterRecord } from '../screens/EncounterWindow'
 import { ServiceEventDialog } from '../screens/ServiceEventDialog'
+import { ProviderWorkloadView, UserManagementLanding } from '../screens/ModuleLandingViews'
 import { SystemSettingsView } from '../screens/SystemSettingsView'
 import { ReportListView } from '../screens/ReportListView'
 import { InvoiceView, SentMspView, UnsentMspView } from '../screens/BillingViews'
@@ -86,14 +92,14 @@ import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './type
    ========================================================================= */
 
 type View =
-  | 'summary' | 'order' | 'encounters' | 'scheduler' | 'demographics' | 'notifications'
-  | 'groupvisit' | 'careplan' | 'goals' | 'imaging' | 'resourcebook' | 'section' | 'daygrid' | 'rx' | 'ltm' | 'printhx' | 'waitprov' | 'waitres' | 'report' | 'mar' | 'determinants' | 'settings' | 'wssummary' | 'reportlist' | 'unsentmsp' | 'sentmsp' | 'invoice' | 'basket' | 'billingadmin' | 'tasklist' | 'cliniclist' | 'designer' | 'cdxinbound' | 'cdxoutbound'
+  | 'providerworkload' | 'userlanding' | 'summary' | 'order' | 'encounters' | 'scheduler' | 'demographics' | 'notifications'
+  | 'groupvisit' | 'careplan' | 'goals' | 'imaging' | 'resourcebook' | 'section' | 'daygrid' | 'rx' | 'ltm' | 'printhx' | 'waitprov' | 'waitres' | 'report' | 'mar' | 'determinants' | 'settings' | 'wssummary' | 'reportlist' | 'unsentmsp' | 'sentmsp' | 'invoice' | 'basket' | 'billingadmin' | 'tasklist' | 'cliniclist' | 'designer' | 'cdxinbound' | 'cdxoutbound' | 'usermgt'
 
 /* The MDI window classes this frame can instantiate. Each is opened by key,
    so the same record never opens twice. */
 const WINDOW_CLASSES: Record<string, PBWindowClass> = {
   encounter: ({ encounter, onClose }: { encounter: EncounterRecord; onClose: () => void }) => (
-    <EncounterWindow encounter={encounter} onClose={onClose} onAttachment={() => {}} />
+    <EncounterWindow encounter={encounter} onClose={onClose} />
   ),
 }
 
@@ -104,7 +110,7 @@ const DEFAULT_EXPANDED = [
   /* the Administration sections that have screens behind them. The annotated
      master capture shows every section open; the rest stay shut until they
      are more than a labelled fallback. */
-  'ad-clinic-mgt', 'ad-designer', 'ad-config',
+  'ad-user-mgt', 'ad-clinic-mgt', 'ad-designer', 'ad-config',
   /* the Billing tree draws no +/- boxes in any capture: it is always open */
   'bl-msp', 'bl-pbf', 'bl-lfp', 'bl-pas',
 ]
@@ -123,6 +129,8 @@ const MODULE_TREES: Record<string, { tree: PBTreeNode[]; label: string; first: s
    the shared chart-section window, the way an unimplemented MOIS node lands
    somewhere. */
 const ROUTES: Record<string, View> = {
+  prov: 'providerworkload',
+  'ad-user-mgt': 'userlanding',
   'ad-settings': 'settings',
   'ws-summary': 'wssummary',
   'rp-list': 'reportlist',
@@ -131,6 +139,7 @@ const ROUTES: Record<string, View> = {
   ...Object.fromEntries(taskScreens.map((t) => [t.node, 'tasklist' as View])),
   ...Object.fromEntries(clinicListSpecs.map((v) => [v.node, 'cliniclist' as View])),
   ...Object.fromEntries(designerNodes.map((n) => [n, 'designer' as View])),
+  ...Object.fromEntries(userManagementNodes.map((n) => [n, 'usermgt' as View])),
   'dx-inbound-msg': 'cdxinbound',
   'dx-outbound-msg': 'cdxoutbound',
   'bl-unsent': 'unsentmsp',
@@ -165,7 +174,7 @@ const ROUTES: Record<string, View> = {
   rx: 'rx',
   ltm: 'ltm',
   printhx: 'printhx',
-  prov: 'scheduler',
+
   'p-daybook': 'scheduler',
   res: 'resourcebook',
   waiting: 'waitprov',
@@ -730,14 +739,53 @@ function Frame({
   }, [])
 
   /* instrumented kit controls (command rows, tabs, menus) report through here */
+  /* the callback is created once; read the current node through a ref */
+  const selectedRef = useRef(selected)
+  useEffect(() => { selectedRef.current = selected }, [selected])
+
   const onKitAction = useCallback((action: string, payload?: PBInstrumentationPayload) => {
     if (action === 'host.mois.selectTab' && typeof payload?.tab === 'string') setTab(payload.tab)
+    /* Taskbar buttons that raise a utility window. Without this the button is
+       instrumented but inert: `host.mois.openUtility` opens the window, so a
+       lesson passes in autoplay while the same step in practice mode waits on a
+       click that does nothing. The folder gates are MOIS's own — Search sits
+       only on Patient Summary and Demographics, Review only on the three
+       folders that carry a review history, Link to Order only where a record
+       can belong to one. */
+    if (action === 'host.mois.command' && typeof payload?.command === 'string') {
+      const on = (...nodes: string[]) => nodes.includes(selectedRef.current)
+      if (payload.command === 'search' && on('summary', 'demographic')) setChartSearchOpen(true)
+      if (payload.command === 'review' && on('reaction', 'ltm', 'conditions')) setReviewOpen(true)
+      if (payload.command === 'link-to-order' && on('measures', 'imaging', 'consults', 'procedures')) {
+        setOrderLinkOpen(true)
+      }
+    }
     /* the kit only knows a "…" was pressed; the frame knows it opens the
        chart lookup, so it is the frame that reports the dialog that follows */
     const opensLookup = action === 'host.mois.lookup'
       || (action === 'host.mois.status' && payload?.link === 'go-to-chart')
     report_(action, { ...(payload as HostRecord | undefined), ...(opensLookup ? { dialog: 'chart-lookup' } : {}) })
   }, [report_])
+
+  /* The open chart's own records, when it has an export behind it.
+
+     The export is a lazy chunk, so the first render after opening such a chart
+     has nothing yet and the screen shows its fixture for a frame. `loadedChart`
+     is bumped when the chunk lands, which is what re-runs the lookup. */
+  const [loadedChart, setLoadedChart] = useState<string | null>(null)
+  useEffect(() => {
+    if (!hasChartExport(chart)) return
+    let live = true
+    void loadChartExport(chart).then(() => { if (live) setLoadedChart(chart) })
+    return () => { live = false }
+  }, [chart])
+  const exportRows = useMemo(
+    () => chartRowsFor(chart, selected),
+    /* loadedChart is a dependency even though it is not read: it is the signal
+       that the cache `chartRowsFor` reads has been filled */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chart, selected, loadedChart],
+  )
 
   /* topmost first: the Chart Navigator is opened from the Find Patient window
      and paints over it, so it has to win the chain. */
@@ -944,7 +992,15 @@ function Frame({
     stepChart: (delta) => selectPatient(stepChart(chart, delta, roster)),
     print: (menu) => {
       const found = printReportByMenu(menu)
-      if (found) setPrintParams(found)
+      if (!found) return
+      /* A report with no Selection Parameter fields — the problem list, the
+         family history, the social history — goes straight to the preview in
+         MOIS: there is nothing to ask for. This branch has to match
+         `host.mois.print` above, because a lesson in practice mode drives this
+         path with a real click while autoplay drives the action, and the two
+         diverging is invisible to every test we have. */
+      if (found.fields.length === 0) { setPrintParams(null); setPrintOutput(found) }
+      else { setPrintOutput(null); setPrintParams(found) }
     },
     letter: () => setLetterStep('template'),
   })
@@ -1051,6 +1107,8 @@ function Frame({
               {view === 'resourcebook' && <SchedulerView mode="resource" offset={daybook} onMove={moveDaybook} />}
               {view === 'order' && <OrderView onAttachment={() => setServiceEventOpen(true)} />}
               {view === 'settings' && <SystemSettingsView />}
+              {view === 'userlanding' && <UserManagementLanding />}
+              {view === 'providerworkload' && <ProviderWorkloadView offset={daybook} onMove={moveDaybook} onOpen={(provider) => { setDaybookProvider(provider); selectNode('p-daybook') }} />}
               {view === 'wssummary' && <WorkspaceSummaryView />}
               {view === 'reportlist' && <ReportListView />}
               {view === 'basket' && (
@@ -1063,6 +1121,7 @@ function Frame({
               {view === 'billingadmin' && <BillingAdminView node={selected} />}
               {view === 'cliniclist' && <ClinicListView node={selected} />}
               {view === 'designer' && <DesignerSectionView node={selected} />}
+              {view === 'usermgt' && <UserManagementView node={selected} />}
               {view === 'cdxinbound' && (
                 <InboundMessagesView
                   onOpenDetail={() => setCdxDetail(true)}
@@ -1089,7 +1148,14 @@ function Frame({
               {view === 'careplan' && <CarePlanView screen={carePlan} />}
               {/* New Record on the Goals screen is what opens the dialog */}
               {view === 'goals' && <GoalsView onNew={() => setGoalOpen(true)} />}
-              {view === 'report' && <ClinicalReportView screen={report} />}
+              {/* a chart with a real export behind it draws its own records;
+                  every other patient keeps the transcribed fixture the
+                  tutorials anchor to */}
+              {view === 'report' && (
+                <ClinicalReportView
+                  screen={exportRows ? { ...report, rows: exportRows } : report}
+                />
+              )}
               {view === 'mar' && <MarView />}
               {view === 'determinants' && <DeterminantsView />}
               {view === 'rx' && <MedicationView mode="rx" />}
@@ -1097,7 +1163,13 @@ function Frame({
               {view === 'printhx' && <PrintHistoryView />}
               {view === 'waitprov' && <WaitingListView mode="provider" />}
               {view === 'waitres' && <WaitingListView mode="resource" />}
-              {view === 'section' && <ChartSectionView screen={section} content={sectionContent} />}
+              {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) ?? section.rows }} />}
+              {view === 'section' && section.title !== 'Care Plan' && (
+                <ChartSectionView
+                  screen={exportRows ? { ...section, rows: exportRows } : section}
+                  content={sectionContent}
+                />
+              )}
               {view === 'daygrid' && (
                 <DayGridView columns={dayGrid.columns} mode={dayGrid.mode} title={dayGrid.title} />
               )}

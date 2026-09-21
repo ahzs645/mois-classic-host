@@ -96,6 +96,7 @@ export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, o
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
       <PBWindow
+        tutorialId="host.mois.dialog.chart-lookup"
         child
         controls={false}
         title="Advanced Lookup Service"

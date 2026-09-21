@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useChartRows } from '../data/chart-records'
 import {
   PBIdentityStrip, PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn,
@@ -9,6 +10,8 @@ import { messageRows, notificationTabs } from '../data/mois'
 const TABS = ['Reminders', 'Recalls', 'Tasks', 'Messages', 'Responses - READ ONLY']
 
 export function NotificationView() {
+  /* a chart with a real export behind it lists its own records */
+  const exportedRows = useChartRows('notifications')
   const patient = usePatient()
   const [tab, setTab] = useState('Messages')
   const [lower, setLower] = useState('Detail')
@@ -62,7 +65,7 @@ export function NotificationView() {
 
           <div style={{ height: cfg.lowerTabs || cfg.split ? 196 : 400, display: 'flex', padding: '0 6px' }}>
             <PBDataWindow
-              rows={cfg.rows}
+              rows={exportedRows ?? cfg.rows}
               current={cur}
               onCurrentChange={setCur}
               columns={columns}

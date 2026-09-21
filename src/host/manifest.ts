@@ -207,6 +207,9 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.mois.cell.{column}-{appointment}',
     'host.mois.cell.{column}-{row}',
     'host.mois.group.{group}',
+    /* an MDI child window, for a step whose subject is the open window rather
+       than the chart behind it */
+    'host.mois.window.{window}',
     'host.mois.daybook.{move}',
     'host.mois.daybookfor',
     'host.mois.command.{command}',

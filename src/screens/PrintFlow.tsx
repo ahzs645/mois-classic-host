@@ -29,6 +29,7 @@ export function SelectionParameterDialog({
       <PBWindow
         child
         controls={false}
+        tutorialId="host.mois.dialog.print-params"
         title={report.title}
         onClose={onClose}
         style={{ width: 650, height: 'min(530px, calc(100vh - 80px))' }}
@@ -109,6 +110,7 @@ export function RichtextReportWindow({
       <PBWindow
         child
         controls={false}
+        tutorialId="host.mois.dialog.print-report"
         title={`Richtext Report: ${report.reportTitle}`}
         onClose={onClose}
         style={{ width: 'min(870px, calc(100vw - 60px))', height: 'min(720px, calc(100vh - 60px))' }}

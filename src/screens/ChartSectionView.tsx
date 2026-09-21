@@ -3,7 +3,7 @@ import {
   PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ChartScreen } from '../data/chartScreens'
 
 
@@ -52,7 +52,7 @@ export function ChartSectionView({ screen, content }: {
 
   return (
     <>
-      <PBViewHeader title={screen.title} />
+      <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
       <PBCommandRow commands={commands} />
 
       <PBIdentityStrip

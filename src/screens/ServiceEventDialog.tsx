@@ -13,6 +13,7 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="pb-modal-layer">
       <PBWindow
+        tutorialId="host.mois.dialog.service-event"
         child
         controls={false}
         title="Patient Service Event"

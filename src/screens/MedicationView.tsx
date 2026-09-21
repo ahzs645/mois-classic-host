@@ -3,7 +3,8 @@ import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput,
   PBLookup, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { useChartRows } from '../data/chart-records'
 import { longTermMedRows, prescriptionRows } from '../data/mois'
 
 /* ============================================================================
@@ -50,11 +51,16 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   const patient = usePatient()
   const rx = mode === 'rx'
   const [cur, setCur] = useState(0)
-  const rows = rx ? prescriptionRows : longTermMedRows
+  const [tab, setTab] = useState('Detail')
+  /* a chart with a real export behind it lists its own medications; MOIS keeps
+     prescriptions and long-term meds in one export table, so both folders read
+     it and the LT list is the subset still running */
+  const exported = useChartRows(rx ? 'rx' : 'ltm')
+  const rows = (exported ?? (rx ? prescriptionRows : longTermMedRows)) as typeof prescriptionRows
 
   return (
     <>
-      <PBViewHeader title={rx ? 'Rx - Prescription' : 'Long Term Medications'} />
+      <PBViewHeader title={rx ? 'Rx - Prescription' : 'Long Term Medications'} right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={
           rx
@@ -65,11 +71,11 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
                 { label: 'Duplicate' }, { label: 'Attachment' }, { label: 'Print Rx' },
               ]
             : [
-                { label: 'New' }, { label: 'Rx Favourite' }, { label: 'Delete' },
-                { label: 'Save', disabled: true }, { label: 'Undo', disabled: true },
-                { label: 'Refresh' }, { label: 'Duplicate' }, { label: 'Renew' },
-                { label: 'Attachment' }, { label: 'Print Rx' }, { label: 'Review' },
-                { label: 'No Known' },
+                { width: 66, label: 'New' }, { width: 66, label: 'Rx Favourite' }, { width: 66, label: 'Delete' },
+                { width: 66, label: 'Save', disabled: true }, { width: 66, label: 'Undo', disabled: true },
+                { width: 66, label: 'Refresh' }, { width: 66, label: 'Duplicate' }, { width: 66, label: 'Renew' },
+                { width: 66, label: 'Attachment' }, { width: 66, label: 'Print Rx' }, { width: 66, label: 'Review' },
+                { width: 66, label: 'No Known' },
               ]
         }
       />
@@ -77,9 +83,9 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
       <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:' },
+          { label: 'MIDDLE:', value: patient.middle },
           { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'DoB:', value: patient.dob },
         ]}
         encounter="NO ENCOUNTER"
       />
@@ -95,7 +101,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         </div>
       )}
 
-      <div style={{ padding: '0 3px', height: 186, display: 'flex' }}>
+      <div style={{ padding: '0 3px', height: rx ? 256 : 232, flex: 'none', display: 'flex' }}>
         <PBDataWindow
           columns={rx ? RX_COLUMNS : LTM_COLUMNS}
           rows={rows}
@@ -105,7 +111,9 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 0' }}>
-        <DetailPage rx={rx} row={rows[cur]} />
+        <PBTabs tabs={['Detail', 'CPP']} active={tab} onChange={setTab} compact face>
+          {tab === 'Detail' && <DetailPage rx={rx} row={rows[cur]} />}
+        </PBTabs>
       </div>
 
       <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
@@ -121,13 +129,13 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
 
 function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '6px 8px', alignItems: 'flex-start' }}>
-      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '92px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
+    <div className="pb-medication-detail" style={{ display: 'flex', gap: 8, padding: '6px 8px', alignItems: 'flex-start', minWidth: 0 }}>
+      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '78px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>ATC Code:</span>
         <div className="pb-row">
-          <PBInput w={92} defaultValue={rx ? 'J01DD04' : 'A10AE04'} />
-          <span style={{ marginLeft: 12 }}>{rx ? 'Ordered By:' : 'Started By:'}</span>
-          <PBLookup w={230} defaultValue={rx ? 'PH PHRN 3 PRG' : 'ROSS, ADRIENNE (NHVC)'} />
+          <PBInput w={84} defaultValue={rx ? 'J01DD04' : 'A10AE04'} />
+          <span style={{ marginLeft: 8 }}>{rx ? 'Ordered By:' : 'Started By:'}</span>
+          <PBLookup w={206} defaultValue={rx ? 'PH PHRN 3 PRG' : 'ROSS, ADRIENNE (NHVC)'} />
         </div>
 
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Generic Name:</span>
@@ -148,8 +156,8 @@ function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
       </div>
 
       {/* the instruction flags sit in their own column on the right */}
-      <div style={{ width: 236, flex: 'none' }}>
-        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '68px 1fr', gap: '4px 6px' }}>
+      <div style={{ width: 290, flex: 'none' }}>
+        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '68px 1fr', gap: '0px 6px' }}>
           <span className="pb-form__label">Instructions:</span>
           <div className="pb-row" style={{ gap: 12 }}>
             <PBCheckbox label="Do Not Substitute" checked={rx} />
@@ -166,6 +174,10 @@ function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
             </>
           )}
         </div>
+        {!rx && <div className="pb-groupbox" style={{ marginTop: 24, minHeight: 126 }}>
+          <PBBand>Dose Detail</PBBand>
+          <div style={{ padding: '4px 12px', fontFamily: 'var(--pb-font-mono)', whiteSpace: 'pre-wrap' }}>{row?.dose ?? ''}</div>
+        </div>}
       </div>
     </div>
   )
@@ -198,6 +210,9 @@ const PRINT_HX_ITEMS = [
 ]
 
 export function PrintHistoryView() {
+  /* an exported chart has no print history in the export, so it is empty
+     rather than showing another patient's reprints */
+  const exportedPrintHx = useChartRows('printhx')
   const patient = usePatient()
   const [tab, setTab] = useState('Prescription Items')
   const [cur, setCur] = useState(0)
@@ -209,12 +224,12 @@ export function PrintHistoryView() {
         fields={[
           { label: 'FIRST:', value: patient.first },
           { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'DoB:', value: patient.dob },
         ]}
       />
       <div style={{ padding: '0 3px', height: 150, display: 'flex' }}>
         <PBDataWindow
-          rows={PRINT_HX_ROWS}
+          rows={exportedPrintHx ?? PRINT_HX_ROWS}
           current={cur}
           onCurrentChange={setCur}
           columns={[

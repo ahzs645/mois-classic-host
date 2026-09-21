@@ -18,6 +18,71 @@
    and the patient banners have something to show.
    ========================================================================= */
 
+/* --- the shapes the Patient Detail tab reads ------------------------------
+   Demographics is one chart record plus four history tables beside it. The
+   field audit names the column behind every control on the tab
+   (`~/github/Mois/outputs/019ff32b…/audit-inventory.json`, subFolder
+   "Demographic"), so these follow those columns rather than the screen. */
+
+/** One `tdt_chart.str_race_*` triple: who reported it, the race, and the
+    "Self ID'd" tick. Patient Detail paints three of them, one for the
+    patient, one for each parent. */
+export type Ethnicity = {
+  /** `str_race_*_type` — the capture's small "Self" box */
+  type?: string
+  /** `str_race_*` */
+  race?: string
+  /** `str_race_*_sid` */
+  selfIdd?: boolean
+}
+
+/** One `tdt_chart_status` row — Patient Detail ▸ Status History. */
+export type ChartStatusEntry = {
+  /** str_status_code */
+  code?: string
+  /** dtm_effective, YYYY.MM.DD */
+  effective?: string
+  /** str_note */
+  note?: string
+}
+
+/** One `tdt_chart_name` row — Patient Detail ▸ Name History. */
+export type ChartNameEntry = {
+  first?: string
+  middle?: string
+  last?: string
+  /** dtm_expiry, YYYY.MM.DD */
+  expiry?: string
+  note?: string
+}
+
+/** One `tdt_chart_address` row — Patient Detail ▸ Historical Contact
+    Information. The block pages through these one record at a time. */
+export type ChartAddressEntry = {
+  /** dtm_expiry */
+  expiry?: string
+  address?: string
+  address2?: string
+  city?: string
+  province?: string
+  postal?: string
+  country?: string
+  /** str_phone1 */
+  home?: string
+  /** str_phone2 */
+  work?: string
+  /** str_phone4 — the block calls it "Other", the chart calls it Pager */
+  other?: string
+  /** str_phone3 */
+  cell?: string
+  /** str_phone2_ext */
+  ext?: string
+  fax?: string
+  emailHome?: string
+  emailWork?: string
+  note?: string
+}
+
 export type Patient = {
   /** tdt_chart.chart_no — the identifier MOIS puts on every window */
   chart: string
@@ -61,6 +126,9 @@ export type Patient = {
   work?: string
   workExt?: string
   cell?: string
+  /** tdt_chart.str_phone4 — Contact Information ▸ Pager, and the number the
+      Historical Contact block calls "Other" */
+  pager?: string
   fax?: string
   emailHome?: string
   emailWork?: string
@@ -72,6 +140,16 @@ export type Patient = {
 
   /* --- Office / Pharmacy / audit --------------------------------------- */
   lastContact?: string
+  /** tdt_chart.str_facility_code — Office Information ▸ Facility */
+  facility?: string
+  /** tdt_chart.str_location_code — Office Information ▸ Location. Distinct
+      from `location` below, which is the Chart Loc. the paper file sits in. */
+  officeLocation?: string
+  /** tdt_chart.str_service_center — Office Information ▸ Service */
+  service?: string
+  /** Office Information ▸ Invoice Balance. Read-only in MOIS, computed from
+      billing rather than stored on the chart; MOIS prints `-` for nothing. */
+  invoiceBalance?: string
   pharmacy?: { name?: string; address?: string; phone?: string; fax?: string }
   /** `YYYY.MM.DD  HH:MM  USER` — the window's Created / Last Modified line */
   created?: string
@@ -82,8 +160,15 @@ export type Patient = {
   /** insurance carrier: BC (MSP), AB, PP (private pay) */
   insuranceBy?: string
   dep?: string
+  /** tdt_chart.str_benefit_source — Insurance Information ▸ Benefit Source */
+  benefitSource?: string
   bchn?: string
+  /** tdt_chart.str_short_note — General Information ▸ Short Note */
   note?: string
+  /** tdt_chart.str_note — General Information ▸ General Note. The same column
+      feeds Patient Detail ▸ Background Information ▸ General Notes, so both
+      windows read this one field. */
+  generalNotes?: string
   /** chart location */
   location?: string
   provider?: string
@@ -91,10 +176,54 @@ export type Patient = {
   registered?: string
   /** the open encounter, when the chart has one */
   encounter?: string
+
+  /* --- Patient Detail ▸ Background Information (all tdt_chart) ----------
+     The audit maps every control on that block to a column on the chart
+     record, so they belong to the patient rather than to the window. */
+  /** str_race_self* / str_race_father* / str_race_mother*, the three
+      "Ethnicity:" rows in painting order */
+  ethnicity?: { self?: Ethnicity; father?: Ethnicity; mother?: Ethnicity }
+  /** str_country_origin */
+  countryOrigin?: string
+  /** str_language_first */
+  firstLanguage?: string
+  /** str_religion */
+  religion?: string
+  /** str_first_nation_status */
+  firstNationStatus?: string
+  /** str_adopted */
+  adopted?: boolean
+  /** str_gestation */
+  multiGestation?: boolean
+  /** str_relationship_status */
+  relationshipStatus?: string
+  /** str_education_level */
+  educationLevel?: string
+  /** str_socio_economic */
+  socioeconomic?: string
+  /** str_live_arrangement — the window's "Living Arrangements:" (the audit
+      sheet spells it "Living Arranegments"; the screen does not) */
+  livingArrangements?: string
+
+  /* --- Patient Detail's three history tables ---------------------------- */
+  /** tdt_chart_status */
+  statusHistory?: ChartStatusEntry[]
+  /** tdt_chart_name */
+  nameHistory?: ChartNameEntry[]
+  /** tdt_chart_address */
+  addressHistory?: ChartAddressEntry[]
 }
 
 /** The date the training environment was captured; ages are figured from it. */
 export const MOIS_TODAY = '2026.09.18'
+
+import { chart87288Summary } from './charts/chart-87288.summary'
+import { patientFromChartRecord } from './charts/to-patient'
+
+/* The one chart with a real MOIS export behind it. Its demographics are
+   derived from that export rather than transcribed, so the Demographics window
+   and every clinical screen describe the same person. */
+export const referencePatient: Patient = patientFromChartRecord(chart87288Summary)
 
 export const patients: Patient[] = [
   {
@@ -163,6 +292,7 @@ export const patients: Patient[] = [
   { chart: '712',  status: 'A', registered: '2015.04.09',  last: 'ADAMSON',  first: 'SAM',    middle: '',           alias: 'SAMMY', dob: '1972.03.08', gender: 'M', home: '250.987.6543', insurance: '9042191021', insuranceBy: 'PP', bchn: '9042191021' },
   { chart: '2494', status: 'A', registered: '2024.01.25',  last: 'AKEEM',    first: 'BABY',   middle: 'TEDDY JAMES', dob: '2024.01.23', gender: 'M', insurance: '9876567898', insuranceBy: 'PP' },
   { chart: '4146', status: 'A', registered: '2026.06.04',  last: 'ALAN',     first: 'BABY',   middle: '',           dob: '2026.06.03', gender: 'M', home: '250.333.2222', insurance: '9874587458', insuranceBy: 'BC', bchn: '9874587458' },
+  referencePatient,
 ]
 
 /**

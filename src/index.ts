@@ -4,3 +4,7 @@
    ─ the `pb` kit: the PowerBuilder classic look as plain CSS + React wrappers. */
 export * from './host'
 export * from './pb'
+/* the frame's menu tree and the print catalogue, so a test can assert that a
+   control a lesson tells the learner to click is actually wired */
+export { makeMainMenu } from './data/mois'
+export { printReportByMenu, printReports, type PrintReport } from './data/printReports'
