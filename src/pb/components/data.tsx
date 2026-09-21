@@ -216,7 +216,7 @@ export function PBDataWindow<T extends Record<string, any>>({
       <div className="pb-dw__scroll">
         <table className="pb-dw__table">
           <colgroup>
-            {gutter && <col style={{ width: 13 }} />}
+            {gutter && <col style={{ width: 'var(--pb-dw-gutter-width, 13px)' }} />}
             {columns.map((c) => <col key={c.key} style={{ width: c.width ?? (c.dots ? 16 : undefined) }} />)}
           </colgroup>
           {head !== false && (

@@ -217,6 +217,8 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.mois.lookup.{field}',
     'host.mois.status.{link}',
     'host.mois.menu.{menu}',
+    /* the launcher while closed, then the whole dropdown while open */
+    'host.mois.menu-region.{menu}',
     'host.mois.menu.{menu}.{item}',
   ],
   /* The size MOIS paints this window at — both Patient Summary captures were

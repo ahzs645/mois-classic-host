@@ -11,6 +11,7 @@
    ========================================================================= */
 
 export type FormListRow = {
+  presetKey?: string
   type: string
   name: string
   /** ATTACHMENT forms are versioned; the built-in encounter forms are not */
@@ -46,6 +47,8 @@ export const selectFormRows: FormListRow[] = [
 ]
 
 export type EncounterFormRow = {
+  presetKey?: string
+  formId?: string
   /** the capture files a completed web form under ASSESSMENT, not ATTACHMENT */
   type: string
   name: string

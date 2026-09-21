@@ -133,7 +133,25 @@ export interface HostShellApi {
   getState(): HostRecord
 }
 
+export interface HostEncounterForm {
+  presetKey?: string
+  type: string
+  name: string
+  version: string
+}
+
+export interface HostEncounterFormSlot {
+  initialData?: Record<string, unknown>;
+  onFormDataChange?: (data: Record<string, unknown>) => void;
+  presetKey: string
+  encounterId: string
+  formId: string
+  onClose: () => void
+}
+
 export interface HostShellProps {
+  loadEncounterForms?: () => Promise<HostEncounterForm[]>
+  encounterFormSlot?: (slot: HostEncounterFormSlot) => ReactNode
   /**
    * Open the frame at the size MOIS paints this window, centred on the
    * desktop, instead of maximised. The desktop still fills the host's box.

@@ -98,9 +98,7 @@ type View =
 /* The MDI window classes this frame can instantiate. Each is opened by key,
    so the same record never opens twice. */
 const WINDOW_CLASSES: Record<string, PBWindowClass> = {
-  encounter: ({ encounter, onClose }: { encounter: EncounterRecord; onClose: () => void }) => (
-    <EncounterWindow encounter={encounter} onClose={onClose} />
-  ),
+  encounter: EncounterWindow,
 }
 
 const DEFAULT_EXPANDED = [
@@ -528,6 +526,7 @@ export function MoisClassicShell(props: MoisClassicShellProps) {
 function Frame({
   fixture, patients, chart: chartProp, onChartChange,
   onAction, onStateChange, onReady, formSlot, className, onOpenKit, text, windowSize,
+  loadEncounterForms, encounterFormSlot,
 }: MoisClassicShellProps) {
   const start = useMemo(() => resolveMoisClassicFixture(fixture), [fixture])
   /* the roster this frame can open: the host's charts, or the training set */
@@ -694,10 +693,10 @@ function Frame({
       kind: 'encounter',
       key: `encounter:${row.id}`,
       title: `Encounter ${row.id}`,
-      props: { encounter: row },
+      props: { encounter: row, loadEncounterForms, encounterFormSlot },
     })
     report_('host.mois.openWindow', { kind: 'encounter' })
-  }, [mdi, report_])
+  }, [mdi, report_, loadEncounterForms, encounterFormSlot])
 
   const closeDialogs = useCallback(() => {
     setServiceEventOpen(false)

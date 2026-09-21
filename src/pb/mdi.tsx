@@ -106,6 +106,12 @@ export function PBMdiHost({ classes }: { classes: Record<string, PBWindowClass> 
   const [, force] = useState(0)
   const posRef = useRef<Record<string, { x: number; y: number }>>({})
 
+  useEffect(() => {
+    for (const key of Object.keys(posRef.current)) {
+      if (!instances.some((instance) => instance.key === key)) delete posRef.current[key]
+    }
+  }, [instances])
+
   /* dragging writes to a ref and repaints, so a fast drag does not queue a
      state update per mousemove */
   useEffect(() => {
@@ -136,7 +142,13 @@ export function PBMdiHost({ classes }: { classes: Record<string, PBWindowClass> 
           <div
             key={inst.key}
             className="pb-mdi__sheet"
-            style={{ left: pos.x, top: pos.y, zIndex: inst.z }}
+            style={{
+              left: pos.x, top: pos.y, zIndex: inst.z,
+              ...(inst.kind === 'encounter' ? {
+                width: `min(940px, calc(100% - ${pos.x + 8}px))`,
+                height: `min(870px, calc(100% - ${pos.y + 8}px))`,
+              } : {}),
+            }}
             onMouseDown={() => focus(inst.key)}
             onMouseDownCapture={(e) => {
               const bar = (e.target as HTMLElement).closest('.pb-titlebar')

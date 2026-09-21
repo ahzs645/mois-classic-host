@@ -601,3 +601,44 @@
 }
 /* the Since Last button is a touch taller than the boxes beside it */
 .pb-summarybar .pb-btn--sm { height: 18px; }
+
+/* Select Form: one inset frame and one column grid shared by filters,
+   captions and rows, matching the MOIS Select Form capture. */
+.pb-select-form__list {
+  --pb-dw-gutter-width: 18px;
+  --pb-dw-row-h: 21px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 11px 14px 0;
+  border: 1px solid #808080;
+  box-shadow: inset 1px 1px #fff;
+}
+.pb-select-form__list > .pb-band {
+  min-height: 27px;
+  padding: 3px 6px;
+  border-bottom: 1px solid #808080;
+  font-weight: 700;
+}
+.pb-select-form__list > .pb-dw { flex: 1 1 auto; }
+.pb-select-form__list .pb-dw__scroll { scrollbar-gutter: stable; }
+.pb-select-form__list .pb-dw__table > thead > tr > th,
+.pb-select-form__list .pb-dw__table > tbody > tr > td {
+  background-image: none;
+  border-top: 0;
+  border-right: 1px solid #fff;
+  border-bottom: 1px solid #fff;
+}
+.pb-select-form__list .pb-dw__table > thead > tr:not(.pb-dw__filters) > th { top: 28px; }
+.pb-select-form__list .pb-dw__table > thead > tr.pb-dw__filters > th {
+  top: 0;
+  height: 28px;
+  padding: 4px 0;
+  background: var(--pb-face);
+  border-right: 0;
+  border-bottom: 1px solid #808080;
+}
+.pb-select-form__list .pb-dw__filters .pb-field { height: 19px; }
+.pb-select-form__actions { justify-content: center; gap: 12px; padding: 15px 0 17px; }
+.pb-select-form__actions .pb-btn { height: 25px; }

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { HostShellProps } from '../host/types'
 import {
   PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBDropDownDataWindow,
   PBInput, PBLookup, PBMenuBar, PBPatientBannerBlue, PBPatientBannerYellow, PBSelect,
@@ -46,9 +47,11 @@ export type EncounterRecord = {
   loc?: string
 }
 
-export function EncounterWindow({ encounter, onClose }: {
+export function EncounterWindow({ encounter, onClose, loadEncounterForms, encounterFormSlot }: {
   encounter?: EncounterRecord
   onClose: () => void
+  encounterFormSlot?: HostShellProps['encounterFormSlot']
+  loadEncounterForms?: () => Promise<FormListRow[]>
 }) {
   const patient = usePatient()
   const [tab, setTab] = useState('Progress Note(s)')
@@ -74,7 +77,7 @@ export function EncounterWindow({ encounter, onClose }: {
       title={`${patient.short} ${patient.age} ${patient.sex}`}
       sub={<>chart no.: {patient.chart} -&nbsp;&nbsp;&nbsp;encounter no.: {enc.id}</>}
       onClose={onClose}
-      style={{ width: 'min(822px, 100%)', height: 'min(742px, 100%)' }}
+      style={{ width: 940, height: 870, maxWidth: '100%', maxHeight: '100%' }}
     >
       <PBMenuBar items={MENU} />
 
@@ -229,7 +232,9 @@ export function EncounterWindow({ encounter, onClose }: {
           {tab === 'Service(s)' && <ServicesPage />}
           {tab === 'Detail / Coding' && <CodingPage />}
           {tab === 'Encounter Summary' && <EncounterSummaryPage />}
-          {tab === 'Encounter Forms' && <EncounterFormsPage />}
+          <div style={{ display: tab === 'Encounter Forms' ? 'flex' : 'none', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
+            <EncounterFormsPage encounterId={enc.id} loadEncounterForms={loadEncounterForms} encounterFormSlot={encounterFormSlot} />
+          </div>
         </PBTabs>
       </div>
 
@@ -268,8 +273,14 @@ export function EncounterWindow({ encounter, onClose }: {
    `Create Form` files it here. MOIS lists a completed web form under the
    ASSESSMENT type rather than the ATTACHMENT type it is registered as.
    ========================================================================= */
-function EncounterFormsPage() {
-  const [rows, setRows] = useState<EncounterFormRow[]>(encounterFormRows)
+function EncounterFormsPage({ encounterId, loadEncounterForms, encounterFormSlot }: {
+  encounterId: string
+  loadEncounterForms?: () => Promise<FormListRow[]>
+  encounterFormSlot?: HostShellProps['encounterFormSlot']
+}) {
+  const [rows, setRows] = useState<EncounterFormRow[]>(loadEncounterForms ? [] : encounterFormRows)
+  const [opened, setOpened] = useState<EncounterFormRow | null>(null)
+  const formData = useRef<Record<string, Record<string, unknown>>>({})
   const [cur, setCur] = useState(0)
   const [picking, setPicking] = useState(false)
   return (
@@ -294,24 +305,39 @@ function EncounterFormsPage() {
         <PBDataWindow
           flush
           columns={[
-            { key: 'type', header: 'Form Type', width: 268, align: 'center' },
-            { key: 'name', header: 'Form Name', width: 302, align: 'center' },
-            { key: 'attending', header: 'Attending', width: 222, align: 'center' },
+            { key: 'type', header: 'Form Type', width: 268, headAlign: 'center' },
+            { key: 'name', header: 'Form Name', width: 302, headAlign: 'center' },
+            { key: 'attending', header: 'Attending', width: 222, headAlign: 'center' },
           ]}
           rows={rows}
           current={cur}
           onCurrentChange={setCur}
+          onActivate={(row) => { if (row.presetKey) setOpened(row) }}
           rowTutorialId={(r) => `host.mois.row.form-${pbSlug(String(r.name))}`}
           empty=""
         />
       </div>
+      {opened?.presetKey && opened.formId && encounterFormSlot && (
+        <EncounterWebformWindow onClose={() => setOpened(null)}>
+          {encounterFormSlot({
+            presetKey: opened.presetKey, encounterId, formId: opened.formId,
+            initialData: formData.current[opened.formId],
+            onFormDataChange: (data) => { formData.current[opened.formId!] = data },
+            onClose: () => setOpened(null),
+          })}
+        </EncounterWebformWindow>
+      )}
       {picking && (
         <SelectFormDialog
+          loadEncounterForms={loadEncounterForms}
           onCreate={(f) => {
             /* the picker's type is the registration type; the filed row carries
                the clinical type MOIS assigns it */
-            setRows((r) => [...r, { type: 'ASSESSMENT', name: f.name, attending: '' }])
+            const row = { type: 'ASSESSMENT', name: f.name, attending: '', presetKey: f.presetKey, formId: crypto.randomUUID() }
+            setRows((r) => [...r, row])
+            setCur(rows.length)
             setPicking(false)
+            if (row.presetKey) setOpened(row)
           }}
           onClose={() => setPicking(false)}
         />
@@ -321,55 +347,97 @@ function EncounterFormsPage() {
 }
 
 /** The `Select Form` picker: a filterable list of every registered form. */
-function SelectFormDialog({ onCreate, onClose }: {
+/** MOIS hosts the modern webform renderer in a separate File / View window. */
+function EncounterWebformWindow({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  const [maximized, setMaximized] = useState(false)
+  const toggleMaximized = () => setMaximized((value) => !value)
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: maximized ? 0 : 8, zIndex: 91 }}>
+      <PBWindow title="MOIS" child onClose={onClose} onMinimize={onClose}
+        tutorialId="host.mois.window.webform"
+        maximized={maximized} onMaximize={toggleMaximized}
+        style={{ width: maximized ? '100%' : 'min(1020px, 100%)', height: maximized ? '100%' : 'min(830px, 100%)' }}>
+        <PBMenuBar items={[
+          { label: 'File', menu: [{ label: 'Close', onSelect: onClose }] },
+          { label: 'View', menu: [{ label: maximized ? 'Restore Down' : 'Maximize', onSelect: toggleMaximized }] },
+        ]} />
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+          {children}
+        </div>
+      </PBWindow>
+    </div>
+  )
+}
+
+function SelectFormDialog({ onCreate, onClose, loadEncounterForms }: {
   onCreate: (form: FormListRow) => void
   onClose: () => void
+  loadEncounterForms?: () => Promise<FormListRow[]>
 }) {
   const [cur, setCur] = useState(0)
   const [type, setType] = useState('')
   const [name, setName] = useState('')
-  const shown = selectFormRows.filter((f) =>
+  const [version, setVersion] = useState('')
+  const [forms, setForms] = useState(loadEncounterForms ? [] : selectFormRows)
+  const [loading, setLoading] = useState(Boolean(loadEncounterForms))
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!loadEncounterForms) return
+    let active = true
+    loadEncounterForms().then((rows) => {
+      if (active) { setForms(rows); setLoading(false); setCur(0) }
+    }).catch(() => {
+      if (active) { setError('Could not load the MOIS forms. Close this window and try again.'); setLoading(false) }
+    })
+    return () => { active = false }
+  }, [loadEncounterForms])
+  const shown = forms.filter((f) =>
     f.type.toLowerCase().includes(type.toLowerCase())
-    && f.name.toLowerCase().includes(name.toLowerCase()))
+    && f.name.toLowerCase().includes(name.toLowerCase())
+    && f.version.toLowerCase().includes(version.toLowerCase()))
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 90 }}>
       <PBWindow
         child
         controls={false}
         tutorialId="host.mois.dialog.select-form"
+        className="pb-select-form"
         title="Select Form"
         onClose={onClose}
-        style={{ width: 'min(760px, 100%)', height: 'min(660px, 100%)' }}
+        style={{ width: 'min(735px, 100%)', height: 'min(698px, 100%)' }}
       >
-        <PBBand>Form List</PBBand>
-        {/* one filter box per column; the Version box is the narrow one */}
-        <div className="pb-row" style={{ gap: 3, padding: '3px 4px' }}>
-          <PBInput w={262} value={type} onChange={(e) => setType(e.target.value)} data-tutorial-id="host.mois.field.form-type" />
-          <PBInput w={372} value={name} onChange={(e) => setName(e.target.value)} data-tutorial-id="host.mois.field.form-name" />
-          <PBInput w={58} />
-        </div>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 4px' }}>
+        <div className="pb-select-form__list">
+          <PBBand>Form List</PBBand>
+          {error && <div role="alert" style={{ padding: 8 }}>{error}</div>}
           <PBDataWindow
+            flush
             columns={[
-              { key: 'type', header: 'Form Type', width: 262, align: 'center' },
-              { key: 'name', header: 'Form Name', width: 372, align: 'center' },
-              { key: 'version', header: 'Version', width: 58, align: 'center' },
+              { key: 'type', header: 'Form Type', width: 252, headAlign: 'center' },
+              { key: 'name', header: 'Form Name', headAlign: 'center' },
+              { key: 'version', header: 'Version', width: 48, headAlign: 'center' },
+            ]}
+            filters={[
+              <PBInput key="type" value={type} onChange={(e) => { setType(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.form-type" />,
+              <PBInput key="name" value={name} onChange={(e) => { setName(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.form-name" />,
+              <PBInput key="version" value={version} onChange={(e) => { setVersion(e.target.value); setCur(0) }} />,
             ]}
             rows={shown}
+            empty={loading ? 'Loading MOIS forms…' : 'No matching forms'}
             current={cur}
             onCurrentChange={setCur}
             rowTutorialId={(r) => `host.mois.row.select-form-${pbSlug(String(r.name))}`}
           />
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '8px 0 10px' }}>
+        <div className="pb-row pb-select-form__actions">
           <PBButton
-            style={{ minWidth: 118 }}
+            style={{ minWidth: 108 }}
             data-tutorial-id="host.mois.command.create-form"
+            disabled={loading || !shown[cur]}
             onClick={() => shown[cur] && onCreate(shown[cur]!)}
           >
             Create Form
           </PBButton>
-          <PBButton style={{ minWidth: 118 }} onClick={onClose}>Cancel</PBButton>
+          <PBButton style={{ minWidth: 108 }} onClick={onClose}>Cancel</PBButton>
         </div>
       </PBWindow>
     </div>
@@ -745,14 +813,14 @@ function ProviderSearchDialog({ onPick, onClose }: {
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '8px 0 10px', flex: 'none' }}>
           <PBButton
-            style={{ minWidth: 118 }}
+            style={{ minWidth: 108 }}
             disabled={!row}
             data-tutorial-id="host.mois.command.select-provider"
             onClick={() => row && onPick(row)}
           >
             Select
           </PBButton>
-          <PBButton style={{ minWidth: 118 }} onClick={onClose}>Cancel</PBButton>
+          <PBButton style={{ minWidth: 108 }} onClick={onClose}>Cancel</PBButton>
         </div>
       </PBWindow>
     </div>

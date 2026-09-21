@@ -163,6 +163,7 @@ function PBMenuBarItem({
         className="pb-menubar__item"
         aria-expanded={open}
         data-tutorial-id={host?.anchor('menu', pbSlug(item.label))}
+        data-tutorial-aliases={!open || !item.menu ? host?.anchor('menu-region', pbSlug(item.label)) : undefined}
         onClick={onToggle}
         onMouseEnter={onHover}
       >
@@ -195,6 +196,7 @@ function PBMenuList({
   onPick: () => void
 }) {
   const [flyout, setFlyout] = useState<number | null>(null)
+  const host = usePBInstrumentation()
   /* a list with fly-outs reserves the arrow column on every row, which is
      what makes Views ~15px wider than its captions need */
   const arrows = items.some((m) => m.menu)
@@ -205,6 +207,7 @@ function PBMenuList({
       owner={owner}
       side={side}
       className={cx('pb-menu', arrows && 'pb-menu--arrows')}
+      tutorialId={side === 'below' ? host?.anchor('menu-region', pbSlug(menu)) : undefined}
     >
       {/* the column measurer — see `.pb-menu__sizer` in chrome.css */}
       <div className="pb-menu__sizer" aria-hidden="true">

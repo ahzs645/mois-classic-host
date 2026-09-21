@@ -95,7 +95,7 @@ function place(
 }
 
 export function PBPopup({
-  anchorRef, owner, side = 'below', minWidth, className, style, children,
+  anchorRef, owner, side = 'below', minWidth, className, style, tutorialId, children,
 }: {
   /** the control the popup hangs off — already mounted when the popup opens */
   anchorRef: RefObject<HTMLElement | null>
@@ -105,6 +105,7 @@ export function PBPopup({
   minWidth?: number | 'anchor'
   className?: string
   style?: CSSProperties
+  tutorialId?: string
   children: ReactNode
 }) {
   const popRef = useRef<HTMLDivElement>(null)
@@ -129,7 +130,7 @@ export function PBPopup({
   if (!layer) return null
 
   return createPortal(
-    <div ref={popRef} data-pb-popup={owner} className={className} style={{ ...style, ...box }}>
+    <div ref={popRef} data-pb-popup={owner} data-tutorial-id={tutorialId} className={className} style={{ ...style, ...box }}>
       {children}
     </div>,
     layer,
