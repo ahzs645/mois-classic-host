@@ -7,7 +7,7 @@ import { genderRows, insuranceCarrierRows, serviceProviderRows } from '../data/m
 import { usePatient } from '../data/patient-context'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
 import {
-  SUMMARY_DEFAULT_ACCENT, headerIdentity, sectionCaption, summarySections, type SummaryRow,
+  SUMMARY_DEFAULT_ACCENT, SUMMARY_LINK_NODES, headerIdentity, sectionCaption, summarySections, type SummaryRow,
 } from '../data/summary'
 
 /* ============================================================================
@@ -23,12 +23,14 @@ import {
 
 type Row = SummaryRow & { section: string }
 
-export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
+export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenSection }: {
   /** opens the Advanced Lookup Service — the "…", and Search */
   onLookup: () => void
   onStepChart: (delta: 1 | -1) => void
   /** a chart number typed into Chart No. and committed with Enter */
   onOpenChart: (chart: string) => void
+  /** Navigate within the current chart through the shell's normal routing. */
+  onOpenSection: (node: typeof SUMMARY_LINK_NODES[keyof typeof SUMMARY_LINK_NODES]) => void
 }) {
   const patient = usePatient()
   const [typed, setTyped] = useState(patient.chart)
@@ -99,9 +101,11 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart }: {
       render: (r) => (r.link
         ? (
           <button
+            type="button"
             className="pb-link pb-link--mois"
             title={`Open ${r.link} in MOIS`}
             aria-label={`Open ${r.link} in MOIS`}
+            onClick={() => { if (r.link) onOpenSection(SUMMARY_LINK_NODES[r.link]) }}
           />
         )
         : null),

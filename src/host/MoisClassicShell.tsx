@@ -1082,6 +1082,7 @@ function Frame({
                   onLookup={openLookup}
                   onStepChart={(delta) => selectPatient(stepChart(chart, delta, roster))}
                   onOpenChart={(next) => { if (findPatient(next, roster)) selectPatient(next) }}
+                  onOpenSection={openNode}
                 />
               )}
               {view === 'scheduler' && (

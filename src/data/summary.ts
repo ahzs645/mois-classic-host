@@ -15,12 +15,29 @@ import { ageOf, fullName, type Patient } from './patients'
    DEMOGRAPHICS rows, which are read off the open chart.
    ========================================================================= */
 
+/** Summary hyperlink captions differ from the navigator's stable node IDs. */
+export const SUMMARY_LINK_NODES = {
+  'Care Plan': 'careplan',
+  Demographics: 'demographic',
+  Prescriptions: 'rx',
+  'Reaction Risks': 'reaction',
+  Events: 'events',
+  'Health Issues': 'issues',
+  'Long Term Meds': 'ltm',
+  Goals: 'goals',
+  Documents: 'documents',
+  'Encounter Forms': 'encforms',
+  Encounters: 'encounters',
+  Orders: 'orders',
+  Notifications: 'notifications',
+} as const
+
 export type SummaryRow = {
   date?: string
   description: string
   detail?: string
-  /** the blue text in the Hyperlink column, which jumps to the source record */
-  link?: string
+  /** Accessible caption of the MOIS glyph, which opens the source section. */
+  link?: keyof typeof SUMMARY_LINK_NODES
 }
 
 export type SummarySection = {
@@ -202,9 +219,9 @@ function extrapolatedSections(p: Patient): SummarySection[] {
     {
       id: 'alias', title: 'ALIAS IDS',
       rows: [
-        ...(p.alias ? [{ description: 'ALIAS', detail: p.alias, link: 'Demographics' }] : []),
-        ...(p.insurance ? [{ description: 'INSURANCE NO.', detail: p.insurance, link: 'Demographics' }] : []),
-        ...(p.bchn ? [{ description: 'BC HEALTH NO.', detail: p.bchn, link: 'Demographics' }] : []),
+        ...(p.alias ? [{ description: 'ALIAS', detail: p.alias, link: 'Demographics' as const }] : []),
+        ...(p.insurance ? [{ description: 'INSURANCE NO.', detail: p.insurance, link: 'Demographics' as const }] : []),
+        ...(p.bchn ? [{ description: 'BC HEALTH NO.', detail: p.bchn, link: 'Demographics' as const }] : []),
       ],
     },
     {
