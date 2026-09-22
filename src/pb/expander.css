@@ -1,0 +1,36 @@
+/* --- the +/- expander box -----------------------------------------------
+   One Win32 widget in two places: the box on a DataWindow group band
+   (`.pb-dw__groupbox`) and the one on a TreeView node (`.pb-tree__toggle`),
+   which own their size and placement and add this class for the look.
+
+   The bars are drawn, not typed. A text "+"/"−" is placed by the font's own
+   metrics — the minus sits on the math axis, well above the middle of a 9px
+   box, and its side bearings are not symmetric — so the glyph never lands on
+   the centre pixel. Measured off the source capture instead: a 5x1 crossbar
+   (and, closed, a 1x5 stem) in near-black on the centre pixel of the 7px
+   interior, leaving a 1px gap to the border all round.                    */
+
+.pb-expander {
+  box-sizing: border-box;
+  position: relative;
+  border: 1px solid #7e9db9;
+  background: var(--pb-window);
+  padding: 0;
+  cursor: default;
+  /* the box holds no text, so nothing can drag a baseline through it */
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+}
+.pb-expander::before,
+.pb-expander::after {
+  content: '';
+  position: absolute;
+  background: #111;
+}
+/* calc() rather than a centring transform: on the 7px interior both land on
+   whole pixels, so the bars stay hairline-crisp at any zoom the stage uses */
+.pb-expander::before { left: calc(50% - 2.5px); top: calc(50% - 0.5px); width: 5px; height: 1px; }
+.pb-expander::after { left: calc(50% - 0.5px); top: calc(50% - 2.5px); width: 1px; height: 5px; }
+/* open = "−": the stem belongs to the closed box only */
+.pb-expander[data-state='open']::after { content: none; }

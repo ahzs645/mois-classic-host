@@ -87,14 +87,16 @@ export type Patient = {
   /** tdt_chart.chart_no — the identifier MOIS puts on every window */
   chart: string
   /** A = active, LU = look-up only */
-  status: 'A' | 'LU'
+  status: string
   first: string
   middle: string
   last: string
   alias?: string
+  aliasLast?: string
+  photo?: string
   /** YYYY.MM.DD, the way MOIS renders dates everywhere */
   dob: string
-  gender: 'M' | 'F' | ''
+  gender: 'M' | 'F' | 'X' | 'U' | ''
   /* --- the other gender designations -----------------------------------
      `gender` above is the chart's *administrative* gender. MOIS keeps the
      patient's preferred and genotypic gender beside it, behind the `.*.`

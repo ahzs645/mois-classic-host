@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import {
+  AFTER_ATTACHING, ATTACH_FILE_MODES, FORM_LETTER_GROUPS, FORM_LETTER_WIDTHS,
+  formLetterRows,
+  type AttachFileMode, type AttachFileRow, type FormLetterRow
+} from '../data/chartUtilities'
+import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBSpinner,
   PBTabs, PBWindow, pbSlug,
 } from '../pb'
-import {
-  AFTER_ATTACHING, ATTACH_FILE_MODES, FORM_LETTER_GROUPS, FORM_LETTER_WIDTHS,
-  attachFileRows, formLetterRows,
-  type AttachFileMode, type AttachFileRow, type FormLetterRow,
-} from '../data/chartUtilities'
 
 /* ============================================================================
    Add Attachment.
@@ -159,7 +159,7 @@ function AttachFileTab({ mode, onMode }: { mode: AttachFileMode; onMode: (m: Att
   /* a blank spare row carrying only the `...` sits under the last populated
      row, which is how MOIS offers the next file */
   const [rows, setRows] = useState<AttachFileRow[]>(
-    () => [...attachFileRows, { location: '', note: '', clip: '' }],
+    () => [{ location: '', note: '', clip: '' }],
   )
   const [current, setCurrent] = useState(0)
 

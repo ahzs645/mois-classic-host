@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react'
+import { type TagCarePlanRecord } from '../data/chartUtilities'
 import { PBButton, PBDropField, PBGroup, PBInput, PBWindow } from '../pb'
-import { tagCarePlanRecords, type TagCarePlanRecord } from '../data/chartUtilities'
 
 /* ============================================================================
    Tag Information to Care Plan — the right-click option list's
@@ -34,7 +34,7 @@ const y = (captureY: number) => captureY - 393 - TITLEBAR_H
 /** The greyed labels and read-only grey faces of the Record Information group. */
 const READONLY: CSSProperties = { background: 'var(--pb-field-ro)' }
 
-export function TagToCarePlanDialog({ node, record, onOk, onClose }: {
+export function TagToCarePlanDialog({ record, onOk, onClose }: {
   /** the folder the record was right-clicked in */
   node?: string
   /** or the record itself, when the caller already has it */
@@ -45,7 +45,7 @@ export function TagToCarePlanDialog({ node, record, onOk, onClose }: {
   /* Only the Consults record was captured. A caller tagging out of another
      folder passes its own; nothing here derives one, because the Category and
      Section vocabularies are not in the corpus. */
-  const rec = record ?? (node ? tagCarePlanRecords[node] : undefined) ?? tagCarePlanRecords.consults!
+  const rec = record ?? { category: '', code: '', description: '', section: '' }
   const [section, setSection] = useState(rec.section)
   const [rank, setRank] = useState('0')
 

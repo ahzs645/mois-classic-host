@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { usePatient } from '../data/patient-context'
 import {
   PBButton, PBCheckbox, PBInput, PBMessageBox, PBPatientBannerBlue, PBSection,
   PBTextArea, PBWindow,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
 
 
 /* "Edit Benefit Source / Service" — a child window built from rule-separated
@@ -36,34 +36,34 @@ export function BenefitEditor({ onClose }: { onClose: () => void }) {
           <PBSection>
             <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr', alignItems: 'start' }}>
               <span className="pb-form__label" style={{ lineHeight: '19px' }}>Source:</span>
-              <b style={{ lineHeight: '19px' }}>MSP</b>
+              <b style={{ lineHeight: '19px' }}></b>
 
               <span className="pb-form__label" style={{ lineHeight: '19px' }}>Patient ID:</span>
               <div className="pb-row">
-                <PBInput w={190} value={`DEV${patient.chart}`} readOnly />
+                <PBInput w={190} value="" readOnly />
                 <span style={{ marginLeft: 10 }}>ID Type:</span>
-                <PBInput w={124} defaultValue="DEV" />
+                <PBInput w={124} defaultValue="" />
               </div>
 
               <span className="pb-form__label" style={{ lineHeight: '14px' }}>Source Contact<br />Info:</span>
-              <PBTextArea rows={2} w="100%" defaultValue="DEV AUDIT" />
+              <PBTextArea rows={2} w="100%" defaultValue="" />
 
               <span className="pb-form__label" style={{ lineHeight: '19px' }}>Source Note:</span>
-              <PBTextArea rows={3} w="100%" defaultValue="SYNTHETIC DEV BENEFIT" />
+              <PBTextArea rows={3} w="100%" defaultValue="" />
             </div>
           </PBSection>
 
           <PBSection>
             <div className="pb-row">
               <span className="pb-form__label" style={{ width: 104 }}>Service:</span>
-              <b>BASIC COVERAGE</b>
+              <b></b>
             </div>
           </PBSection>
 
           <PBSection title="Enrollment">
             <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr' }}>
               <span className="pb-form__label">Start Date:</span>
-              <PBInput w={106} align="center" defaultValue="2026.08.12" />
+              <PBInput w={106} align="center" defaultValue="" />
               <span className="pb-form__label">Stop Date:</span>
               <PBInput w={106} align="center" />
             </div>
@@ -83,20 +83,20 @@ export function BenefitEditor({ onClose }: { onClose: () => void }) {
               <span className="pb-form__label">Other:</span>
               <PBCheckbox label="Include on Demographics" />
               <span />
-              <PBCheckbox label="Include on Care Plan Summary" checked />
+              <PBCheckbox label="Include on Care Plan Summary" />
             </div>
           </PBSection>
 
           <PBSection>
             <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr', alignItems: 'start' }}>
               <span className="pb-form__label" style={{ lineHeight: '19px' }}>Note:</span>
-              <PBTextArea rows={3} w="100%" defaultValue="DEV" />
+              <PBTextArea rows={3} w="100%" defaultValue="" />
             </div>
           </PBSection>
 
           <div style={{ padding: '6px 10px', color: 'var(--pb-text-dim)' }}>
-            <div>Record Created:&nbsp;&nbsp; 2026.08.12&nbsp; 10:23&nbsp;&nbsp; JALIL, AHMAD</div>
-            <div>Last Modified:&nbsp;&nbsp;&nbsp; 2026.08.12&nbsp; 10:30&nbsp;&nbsp; JALIL, AHMAD</div>
+            <div>Record Created:</div>
+            <div>Last Modified:</div>
           </div>
         </div>
 

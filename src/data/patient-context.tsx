@@ -1,4 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { useLoadedChart } from './charts'
+import { patientFromExport } from './charts/to-patient'
+import { usePatientEdits } from './patient-edits'
 import {
   DEFAULT_CHART, ageOf, findPatient, fullName, patients, shortName, type Patient,
 } from './patients'
@@ -40,6 +43,8 @@ export function toChartPatient(p: Patient): ChartPatient {
 export const defaultPatient = toChartPatient(findPatient(DEFAULT_CHART) ?? patients[0])
 
 const PatientContext = createContext<ChartPatient | null>(null)
+const PatientRosterContext = createContext<Patient[]>(patients)
+export const usePatientRoster = () => useContext(PatientRosterContext)
 
 export function PatientProvider({ chart, roster, children }: {
   chart: string
@@ -47,12 +52,14 @@ export function PatientProvider({ chart, roster, children }: {
   roster?: Patient[]
   children: ReactNode
 }) {
+  const data = useLoadedChart(chart)
+  const edits = usePatientEdits(chart)
   const value = useMemo(() => {
     const list = roster ?? patients
-    const found = findPatient(chart, list) ?? list[0]
-    return found ? toChartPatient(found) : defaultPatient
-  }, [chart, roster])
-  return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>
+    const found = data ? patientFromExport(data) : findPatient(chart, list)
+    return toChartPatient({ ...(found ?? { chart, first: '', middle: '', last: '', dob: '', gender: '', status: 'A' }), ...edits })
+  }, [chart, roster, data, edits])
+  return <PatientRosterContext.Provider value={roster ?? patients}><PatientContext.Provider value={value}>{children}</PatientContext.Provider></PatientRosterContext.Provider>
 }
 
 /** The chart the surrounding window is showing. */

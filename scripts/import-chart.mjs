@@ -19,7 +19,7 @@ import { basename, join } from 'node:path'
 /* Record groups, in the order the emulator's tree walks them. A group absent
    from an export simply comes back empty. */
 const GROUPS = [
-  'chart_address', 'chart_occupant', 'chart_preference', 'chart_service', 'connection',
+  'chart_status', 'chart_name', 'chart_address', 'chart_occupant', 'chart_preference', 'chart_service', 'connection',
   'encounter', 'encounter_note', 'measure', 'panel', 'order', 'document',
   'prescription', 'drug_dose', 'drug_duration',
   'health_issue', 'allergy', 'reaction_risk', 'reaction_event',
@@ -78,10 +78,7 @@ function recordsOf(group) {
   return out
 }
 
-const chart = fieldsOf(
-  (xml.match(/<chart><id_chart>[\s\S]*?(?=<chart_address>|<chart_preference>|<encounter>)/) ?? [''])[0]
-    .replace(/<(chart_address|chart_preference|chart_service|connection)>[\s\S]*?<\/\1>/g, ''),
-)
+const chart = recordsOf('chart')[0] ?? {}
 const num = chart.num_chart
 if (!num) { console.error('no <num_chart> in', src); process.exit(1) }
 

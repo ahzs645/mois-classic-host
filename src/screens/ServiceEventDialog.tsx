@@ -1,10 +1,10 @@
 import { useState } from 'react'
+import { linkedOrderRows } from '../data/mois'
+import { usePatient } from '../data/patient-context'
 import {
   PBBand, PBButton, PBDataWindow, PBGroupBox, PBInput, PBLookup, PBPatientBannerBlue,
   PBSelect, PBTabs, PBTextArea, PBWindow,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
-import { linkedOrderRows, serviceHealthIssueRows } from '../data/mois'
 
 export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
@@ -30,12 +30,12 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
             { label: 'PREFERRED PHONE NUMBER', value: <>{patient.phone}&nbsp;&nbsp;<span style={{ fontWeight: 400, fontSize: 11 }}>Home Phone</span></> },
           ]}
           bottom={[
-            { label: 'DATE', value: '2026.08.10', w: 92 },
-            { label: 'TIME', value: '14 : 00', w: 70 },
-            { label: 'VISIT', value: 'R', w: 52 },
-            { label: 'ATTENDING', value: 'FAKERRY, FAKER', w: 152 },
-            { label: 'SERVICE LOCATION', value: 'ACROPOLIS MANOR', w: 240 },
-            { label: 'APPOINTMENT NOTE', value: 'TEST 3' },
+            { label: 'DATE', value: '', w: 92 },
+            { label: 'TIME', value: '', w: 70 },
+            { label: 'VISIT', value: '', w: 52 },
+            { label: 'ATTENDING', value: '', w: 152 },
+            { label: 'SERVICE LOCATION', value: '', w: 240 },
+            { label: 'APPOINTMENT NOTE', value: '' },
           ]}
         />
 
@@ -44,13 +44,13 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
         <div style={{ display: 'flex', padding: '6px 8px 8px', gap: 0, background: '#fff', flex: 'none' }}>
           <div className="pb-form" style={{ padding: 0, width: 452, flex: 'none', gridTemplateColumns: '96px 1fr' }}>
             <span className="pb-form__label">Start Date:</span>
-            <PBInput w={92} align="center" defaultValue="2026.08.10" />
+            <PBInput w={92} align="center" defaultValue="" />
 
             <span className="pb-form__label pb-form__label--dim">Service Episode:</span>
-            <PBInput defaultValue="PRENATAL CARE" disabled />
+            <PBInput defaultValue="" disabled />
 
             <span className="pb-form__label">Service MRP:</span>
-            <PBLookup defaultValue="TECHNICAL SUPPORT" />
+            <PBLookup defaultValue="" />
 
             <span className="pb-form__label pb-form__label--right">As a Member Of:</span>
             <PBLookup w={300} />
@@ -61,7 +61,7 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
 
           <div className="pb-form" style={{ padding: 0, flex: '1 1 auto', minWidth: 0, gridTemplateColumns: '84px 1fr', alignItems: 'start' }}>
             <span className="pb-form__label" style={{ lineHeight: '19px' }}>Stop Date:</span>
-            <PBInput w={92} align="center" defaultValue="2026.08.12" />
+            <PBInput w={92} align="center" defaultValue="" />
 
             <span className="pb-form__label" style={{ lineHeight: '19px' }}>Stop Reason:</span>
             <PBLookup disabled />
@@ -87,7 +87,7 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
                     <span className="pb-form__label">Service Phase:</span>
                     <PBSelect options={['One Time', 'Initiation', 'Maintenance', 'Completion']} w={108} />
                     <span className="pb-form__label">Service Event:</span>
-                    <PBLookup w={362} defaultValue="REMOVAL OF EAR CANAL OSTEOMA" />
+                    <PBLookup w={362} defaultValue="" />
                   </div>
                 </PBGroupBox>
 
@@ -106,7 +106,7 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
                         { key: 'certainty', header: 'Certainty', width: 120 },
                         { key: 'blank', header: '' },
                       ]}
-                      rows={serviceHealthIssueRows}
+                      rows={[] as Record<string, string>[]}
                       empty="No health issues linked to this service event."
                     />
                   </div>
@@ -119,7 +119,7 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
                 </div>
                 <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
                   <PBDataWindow
-                    rows={linkedOrderRows}
+                    rows={[] as Record<string, string>[]}
                     columns={[
                       { key: 'date', header: 'Order Date', width: 100, align: 'center' },
                       { key: 'by', header: 'Ordered By', width: 136, align: 'center' },

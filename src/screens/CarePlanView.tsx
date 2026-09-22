@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { useChartRows } from '../data/chart-records'
+import { useChartExport, useChartRows, useNodeRecords } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts'
+import { stamp } from '../data/charts/detail'
+import { linkedGoals } from '../data/charts/relations'
+import { carePlanScreens, type CarePlanKey } from '../data/mois'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBIdentityStrip, PBInput, PBLookup,
   PBSlider, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import { carePlanScreens, linkedGoalRows, type CarePlanKey } from '../data/mois'
 
 /* Needs for Care, Planned Actions, Barriers to Care, Risks for Conditions and
    Conditions are all the same PowerBuilder window with a different DataWindow
@@ -26,16 +29,19 @@ type Row = Record<string, any>
 
 /* art. MATRIX-R0830-severity: Condition is the one screen in the family that
    carries two extra commands and a review band over the grid. */
-const REVIEW_BAND = 'Health Conditions have not been reviewed for this patient'
 
 export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: () => void }) {
   /* a chart with a real export behind it lists its own records */
   const exportedRows = useChartRows(screen)
   const patient = usePatient()
   const cfg = carePlanScreens[screen]
-  const rows = exportedRows ?? cfg.rows
+  const rows = exportedRows
   const [tab, setTab] = useState<string>(cfg.tabs[0])
-  const [risk, setRisk] = useState(1)
+  const data = useChartExport()
+  const records = useNodeRecords(screen)
+  const [cur, setCur] = useState(0)
+  const record = records[cur]
+  const linked = linkedGoals(data, { conditions: 'health_issue', risks: 'risk', needs: 'need', actions: 'action', barriers: 'barrier' }[screen], record)
 
   /* each screen carries its own DataWindow, not a shared one */
   const columns: PBColumn<Row>[] = cfg.columns.map((c) => ({
@@ -44,7 +50,7 @@ export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: (
     width: c.width,
     align: c.align,
     dots: c.dots,
-    render: c.check ? () => <PBCheckbox /> : undefined,
+    render: c.check ? (r) => <PBCheckbox checked={r[c.key] === '✓' || r[c.key] === 'Y'} /> : undefined,
   }))
 
   const commands: PBCommand[] = [
@@ -72,10 +78,10 @@ export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: (
         <span>Search For:</span><PBLookup w="100%" />
       </div>
 
-      {screen === 'conditions' && <PBBand>{REVIEW_BAND}</PBBand>}
+
 
       <div style={{ height: 260, flex: 'none', display: 'flex', padding: '0 3px' }}>
-        <PBDataWindow columns={columns} rows={rows} empty=" " />
+        <PBDataWindow columns={columns} rows={rows} current={cur} onCurrentChange={setCur} empty=" " />
       </div>
 
       {/* tab strip is rendered by hand: MOIS puts these tabs hard against the
@@ -96,8 +102,8 @@ export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: (
 
         <div className="pb-tabs__page" style={{ background: 'var(--pb-face)', overflow: 'auto' }}>
           {tab === 'Detail'
-            ? rows.length > 0 && <DetailPage screen={screen} risk={risk} setRisk={setRisk} />
-            : <LinkedPage band={tab === 'Linked Goals' ? cfg.linkedBand : tab} goals={tab === 'Linked Goals'} />}
+            ? rows.length > 0 && <DetailPage key={cur} screen={screen} record={record} />
+            : <LinkedPage band={tab === 'Linked Goals' ? cfg.linkedBand : tab} goals={tab === 'Linked Goals'} rows={tab === 'Linked Goals' ? linked : []} />}
         </div>
       </div>
 
@@ -107,9 +113,9 @@ export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: (
           bottom of the window with no strip under it */}
       {tab === 'Detail' && rows.length > 0 && (
         <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-          <span>Created:&nbsp;&nbsp;&nbsp;2026.08.12&nbsp; 12:04&nbsp;&nbsp; JALIL, AHMAD</span>
+          <span>Created: {stamp(record)}</span>
           <span className="pb-row__spacer" />
-          <button className="pb-link">ENC# EMPTY</button>
+          {record?.id_encounter && <button className="pb-link">ENC# {record.id_encounter}</button>}
         </div>
       )}
     </>
@@ -121,19 +127,19 @@ export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: (
    label column and the field widths are the ones MOIS paints.             */
 
 function DetailPage({
-  screen, risk, setRisk,
-}: { screen: CarePlanKey; risk: number; setRisk: (v: number) => void }) {
-  if (screen === 'actions') return <ActionDetail />
-  if (screen === 'barriers') return <NoteDetail />
-  if (screen === 'conditions') return <ConditionDetail />
-  if (screen === 'risks') return <RiskDetail risk={risk} setRisk={setRisk} />
-  return <NeedDetail risk={risk} setRisk={setRisk} />
+  screen, record,
+}: { screen: CarePlanKey; record?: MoisRecord }) {
+  if (screen === 'actions') return <ActionDetail record={record} />
+  if (screen === 'barriers') return <NoteDetail record={record} />
+  if (screen === 'conditions') return <ConditionDetail record={record} />
+  if (screen === 'risks') return <RiskDetail record={record} />
+  return <NeedDetail record={record} />
 }
 
 /** `Low Risk … High Risk`, the value box and its `(/10)` suffix.
     PowerBuilder paints the scale at a fixed width — roughly 320 px of track —
     rather than stretching it to the pane. */
-function RiskScale({ risk, setRisk }: { risk: number; setRisk: (v: number) => void }) {
+function RiskScale({ value = '' }: { value?: string }) {
   return (
     <div style={{ width: 396 }}>
       <div className="pb-row" style={{ gap: 0 }}>
@@ -144,8 +150,8 @@ function RiskScale({ risk, setRisk }: { risk: number; setRisk: (v: number) => vo
         <span>Value</span>
       </div>
       <div className="pb-row">
-        <PBSlider value={risk} onChange={setRisk} style={{ flex: '1 1 auto' }} />
-        <PBInput w={40} align="center" value={String(risk)} readOnly />
+        {value !== '' ? <PBSlider value={Number(value)} onChange={() => {}} style={{ flex: '1 1 auto' }} /> : <span className="pb-row__spacer" />}
+        <PBInput w={40} align="center" value={value} readOnly />
         <span>(/10)</span>
       </div>
     </div>
@@ -156,51 +162,51 @@ const PAGE: React.CSSProperties = { display: 'grid', padding: '8px 10px', gap: '
 
 /* Need for Care — the Participants box sits beside the description and the
    risk scale, and Comment runs the full width underneath it. */
-function NeedDetail({ risk, setRisk }: { risk: number; setRisk: (v: number) => void }) {
+function NeedDetail({ record }: { record?: MoisRecord }) {
   return (
     <div style={{ ...PAGE, gridTemplateColumns: '84px minmax(0, 1fr) auto 210px' }}>
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Need Desc.:</span>
-      <PBInput w="100%" />
+      <PBInput w="100%" value={record?.str_description ?? ''} readOnly />
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Participants:</span>
-      <PBTextArea rows={3} w="100%" style={{ gridRow: 'span 2' }} />
+      <PBTextArea value={record?.str_participants ?? ''} readOnly rows={3} w="100%" style={{ gridRow: 'span 2' }} />
 
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Risk Rating:</span>
-      <RiskScale risk={risk} setRisk={setRisk} />
+      <RiskScale value={record?.num_risk} />
 
       <span className="pb-form__label" style={{ gridColumn: 1, lineHeight: '19px' }}>Comment:</span>
-      <PBTextArea rows={9} w="100%" style={{ gridColumn: '2 / -1' }} />
+      <PBTextArea value={record?.str_comment ?? ''} readOnly rows={9} w="100%" style={{ gridColumn: '2 / -1' }} />
     </div>
   )
 }
 
 /* Risk for Condition — the description is painted, not editable, and the scale
    is captioned "Risk Severity". No Participants box. */
-function RiskDetail({ risk, setRisk }: { risk: number; setRisk: (v: number) => void }) {
+function RiskDetail({ record }: { record?: MoisRecord }) {
   return (
     <div style={{ ...PAGE, gridTemplateColumns: '110px minmax(0, 1fr)' }}>
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Risk Description:</span>
       <div className="pb-row" style={{ gap: 0 }}>
-        <span />
+        <span>{record?.str_description ?? ''}</span>
         <span className="pb-row__spacer" />
-        <span>(description has been changed)</span>
+        <span />
       </div>
 
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Risk Severity:</span>
-      <RiskScale risk={risk} setRisk={setRisk} />
+      <RiskScale value={record?.num_risk} />
 
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-      <PBTextArea rows={11} w="100%" />
+      <PBTextArea value={record?.str_comment ?? ''} readOnly rows={11} w="100%" />
     </div>
   )
 }
 
 /* Condition — Severity System and Severity Code hang off the right of the
    Problem Name row; Source is a drop-down of its own. */
-function ConditionDetail() {
+function ConditionDetail({ record }: { record?: MoisRecord }) {
   return (
     <div style={{ ...PAGE, gridTemplateColumns: '92px minmax(0, 1fr) auto 210px' }}>
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Problem Name:</span>
-      <PBLookup w="100%" />
+      <PBLookup w="100%" value={record?.str_problem_name ?? ''} readOnly />
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Severity System:</span>
       <PBDropField w="100%" />
 
@@ -215,33 +221,33 @@ function ConditionDetail() {
       <span />
 
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-      <PBTextArea rows={10} w="100%" style={{ gridColumn: '2 / -1' }} />
+      <PBTextArea value={record?.str_comment ?? ''} readOnly rows={10} w="100%" style={{ gridColumn: '2 / -1' }} />
     </div>
   )
 }
 
 /* Planned Actions — two blocks divided by a hairline: Detail beside the
    participant list, then Outcome beside the completion flags. */
-function ActionDetail() {
+function ActionDetail({ record }: { record?: MoisRecord }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div style={{ ...PAGE, gridTemplateColumns: '60px minmax(0, 1fr) auto 210px', paddingBottom: 8 }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Detail:</span>
-        <PBTextArea rows={8} w="100%" />
+        <PBTextArea value={record?.str_action ?? ''} readOnly rows={8} w="100%" />
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Participant(s):</span>
-        <PBInput w="100%" />
+        <PBInput w="100%" value={record?.str_participants ?? ''} readOnly />
       </div>
 
       <div style={{ borderTop: '1px solid #d6d6d6' }} />
 
       <div style={{ ...PAGE, gridTemplateColumns: '60px minmax(0, 1fr) auto 210px' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Outcome:</span>
-        <PBTextArea rows={3} w="100%" style={{ gridRow: 'span 2' }} />
+        <PBTextArea value={record?.str_outcome ?? ''} readOnly rows={3} w="100%" style={{ gridRow: 'span 2' }} />
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Completed:</span>
-        <PBCheckbox label="Yes" />
+        <PBCheckbox label="Yes" checked={record?.str_completed === 'Y'} />
 
         <span className="pb-form__label" style={{ gridColumn: 3, lineHeight: '19px' }}>Completed Date:</span>
-        <PBInput w={140} />
+        <PBInput w={140} value={record?.dtm_completed?.replace(/\//g, '.') ?? ''} readOnly />
       </div>
     </div>
   )
@@ -249,23 +255,23 @@ function ActionDetail() {
 
 /* Barrier to Care (and Patient Resources, which shares the window): one Note
    field, full width. */
-function NoteDetail() {
+function NoteDetail({ record }: { record?: MoisRecord }) {
   return (
     <div style={{ ...PAGE, gridTemplateColumns: '60px minmax(0, 1fr)' }}>
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Note:</span>
-      <PBTextArea rows={10} w="100%" />
+      <PBTextArea value={record?.str_note ?? ''} readOnly rows={10} w="100%" />
     </div>
   )
 }
 
-function LinkedPage({ band, goals }: { band: string; goals: boolean }) {
+function LinkedPage({ band, goals, rows }: { band: string; goals: boolean; rows: Record<string, string>[] }) {
   return (
     <>
       <PBBand>{band}</PBBand>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           flush
-          rows={goals ? linkedGoalRows : []}
+          rows={rows}
           groupBy={goals ? (r) => r.group : undefined}
           rowStatus={() => 'highlight'}
           columns={[

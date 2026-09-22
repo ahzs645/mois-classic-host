@@ -1,10 +1,19 @@
 import { useState } from 'react'
-import {
-  PBIdentityStrip, PBCheckbox, PBSlider, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBRadio,
-  PBSection, PBSelect, PBTextArea, PBViewHeader, type PBColumn,
-} from '../pb'
-import { usePatient } from '../data/patient-context'
+import { useChartExport, useNodeRecords } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts'
+import { stamp } from '../data/charts/detail'
+import { goalTargets } from '../data/charts/relations'
 import { goalLinkedTabs, goalRows } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import {
+  PBCheckbox,
+  PBCommandRow, PBDataWindow,
+  PBIdentityStrip,
+  PBInput, PBLookup, PBRadio,
+  PBSection, PBSelect,
+  PBSlider,
+  PBTextArea, PBViewHeader, type PBColumn,
+} from '../pb'
 
 type Goal = typeof goalRows[number]
 
@@ -12,8 +21,12 @@ const TABS = ['Detail', 'Quantitative Settings', 'Evaluation', 'Linked Health Is
 
 export function GoalsView({ onNew }: { onNew?: () => void }) {
   const patient = usePatient()
+  const data = useChartExport()
+  const records = useNodeRecords('goals')
+  const goalRows = records.map(r => ({ start: r.dtm_start?.replace(/\//g, '.') ?? '', end: r.dtm_end?.replace(/\//g, '.') ?? '', goal: r.str_goal ?? '', phase: r.str_phase ?? '', quant: r.str_quantitative === 'Y', commit: r.num_commitment ?? '', importance: r.num_importance ?? '', s: r.str_sensitive === 'Y', clip: r.num_attachments ?? '' }))
   const [tab, setTab] = useState('Quantitative Settings')
   const [cur, setCur] = useState(0)
+  const record = records[cur]
   const quant = !!goalRows[cur]?.quant
   const activeTab = tab === 'Quantitative Settings' && !quant ? 'Detail' : tab
 
@@ -77,20 +90,20 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
             )
           })}
         </div>
-        <div className="pb-tabs__page">
-          {activeTab === 'Quantitative Settings' && <QuantitativePage goal={goalRows[cur]?.goal ?? ''} />}
-          {activeTab === 'Detail' && <DetailPage goal={goalRows[cur]?.goal ?? ''} />}
+        <div key={cur} className="pb-tabs__page">
+          {activeTab === 'Quantitative Settings' && <QuantitativePage goal={goalRows[cur]?.goal ?? ''} record={record} />}
+          {activeTab === 'Detail' && <DetailPage goal={goalRows[cur]?.goal ?? ''} record={record} />}
           {activeTab === 'Evaluation' && (
             <div className="pb-dw__empty" style={{ padding: 24 }}>No evaluations recorded.</div>
           )}
-          {(activeTab === 'Linked Health Issue(s)' || activeTab === 'Linked Action(s)') && <LinkedPage title={activeTab} />}
+          {(activeTab === 'Linked Health Issue(s)' || activeTab === 'Linked Action(s)') && <LinkedPage title={activeTab} rows={goalTargets(data, record, activeTab === 'Linked Action(s)')} />}
         </div>
       </div>
 
       <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-        <span>Created:&nbsp;&nbsp;&nbsp;2026.08.12&nbsp; 10:45&nbsp;&nbsp; JALIL, AHMAD</span>
+        <span>Created: {stamp(record)}</span>
         <span className="pb-row__spacer" />
-        <button className="pb-link">ENC# EMPTY</button>
+        {record?.id_encounter && <button className="pb-link">ENC# {record.id_encounter}</button>}
       </div>
     </>
   )
@@ -98,8 +111,8 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
 
 /* The quantitative page is a stack of rule-separated sections, not a single
    grid — each band holds one logical setting. */
-function QuantitativePage({ goal }: { goal: string }) {
-  const [by, setBy] = useState<'Code' | 'Concept'>('Concept')
+function QuantitativePage({ goal, record }: { goal: string; record?: MoisRecord }) {
+  const [by, setBy] = useState<'Code' | 'Concept'>(record?.str_code ? 'Code' : 'Concept')
   return (
     <div>
       <PBSection>
@@ -112,7 +125,7 @@ function QuantitativePage({ goal }: { goal: string }) {
       <PBSection>
         <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '100px 1fr' }}>
           <span className="pb-form__label">Subject:</span>
-          <PBSelect options={['MEASURE', 'OBSERVATION', 'LAB RESULT']} w={136} />
+          <PBSelect options={['', 'MEASURE', 'OBSERVATION', 'LAB RESULT']} defaultValue={record?.str_type ?? ''} w={136} />
 
           <span className="pb-form__label">Identified By:</span>
           <div className="pb-row pb-row--gap-lg">
@@ -121,7 +134,7 @@ function QuantitativePage({ goal }: { goal: string }) {
           </div>
 
           <span className="pb-form__label">Concept:</span>
-          <PBLookup w="100%" defaultValue="BMI" />
+          <PBLookup w="100%" defaultValue={record?.str_concept ?? record?.str_code ?? ''} />
         </div>
       </PBSection>
 
@@ -129,7 +142,7 @@ function QuantitativePage({ goal }: { goal: string }) {
         <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '100px 1fr' }}>
           <span className="pb-form__label">Target Value:</span>
           <div className="pb-row">
-            <PBSelect options={['=', '<', '<=', '>', '>=', 'between']} w={84} />
+            <PBSelect options={['', '=', '<', '<=', '>', '>=', 'between']} defaultValue={record?.str_operator ?? ''} w={84} />
             <PBInput w={148} />
           </div>
         </div>
@@ -149,8 +162,8 @@ function QuantitativePage({ goal }: { goal: string }) {
   )
 }
 
-function DetailPage({ goal }: { goal: string }) {
-  const [levels, setLevels] = useState({ commitment: 1, confidence: 1, importance: 1 })
+function DetailPage({ goal, record }: { goal: string; record?: MoisRecord }) {
+  const [levels, setLevels] = useState({ commitment: record?.num_commitment ?? '', confidence: record?.num_confidence ?? '', importance: record?.num_importance ?? '' })
   const BARS = [
     ['Patient Commitment Level', 'Not Committed', 'Very Committed', 'commitment'],
     ['Patient Confidence Level', 'Not Confident', 'Very Confident', 'confidence'],
@@ -163,9 +176,9 @@ function DetailPage({ goal }: { goal: string }) {
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Goal:</span>
         <PBInput w="100%" key={goal} defaultValue={goal} />
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Detail:</span>
-        <PBTextArea rows={5} w="100%" defaultValue="DEV" />
+        <PBTextArea rows={5} w="100%" defaultValue={record?.str_reason ?? ''} />
         <span className="pb-form__label" style={{ lineHeight: '14px' }}>Expected<br />Outcome:</span>
-        <PBTextArea rows={5} w="100%" defaultValue="DEV" />
+        <PBTextArea rows={5} w="100%" defaultValue={record?.str_outcome_expected ?? ''} />
       </div>
 
       <div style={{ width: 340, flex: 'none' }}>
@@ -180,11 +193,11 @@ function DetailPage({ goal }: { goal: string }) {
               <span>Value</span>
             </div>
             <div className="pb-row">
-              <PBSlider
-                value={levels[key]}
-                onChange={(v) => setLevels({ ...levels, [key]: v })}
+              {levels[key] !== '' ? <PBSlider
+                value={Number(levels[key])}
+                onChange={(v) => setLevels({ ...levels, [key]: String(v) })}
                 style={{ flex: '1 1 auto' }}
-              />
+              /> : <span className="pb-row__spacer" />}
               <PBInput w={40} align="center" value={String(levels[key])} readOnly />
               <span>(/10)</span>
             </div>
@@ -195,7 +208,7 @@ function DetailPage({ goal }: { goal: string }) {
   )
 }
 
-function LinkedPage({ title }: { title: keyof typeof goalLinkedTabs }) {
+function LinkedPage({ title, rows }: { title: keyof typeof goalLinkedTabs; rows: Record<string, string>[] }) {
   const cfg = goalLinkedTabs[title]
   return (
     <>
@@ -207,7 +220,7 @@ function LinkedPage({ title }: { title: keyof typeof goalLinkedTabs }) {
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           flush
-          rows={cfg.rows as unknown as Record<string, string>[]}
+          rows={rows}
           groupBy={(r) => r.group}
           rowStatus={() => 'highlight'}
           columns={[

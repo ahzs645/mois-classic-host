@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import {
-  PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, PBWindow,
-} from '../pb'
-import { usePatient } from '../data/patient-context'
-import {
   bmiClassification, calculatorMeasureCode, encounterWindowMeasures, measureCalculators,
   measureFlags, measureTemplates, type MeasureSlot, type MeasureTemplate,
 } from '../data/measures'
+import { usePatient } from '../data/patient-context'
+import {
+  PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, PBWindow,
+} from '../pb'
 
 /* ============================================================================
    The Measurements command row.
@@ -27,6 +27,11 @@ export type MeasurementRow = {
   units: string
   /** a row that has been filed but not yet saved — MOIS leaves it current */
   fresh?: boolean
+  collected?: string
+  by?: string
+  report?: string
+  lower?: string
+  upper?: string
 }
 
 /* ---------------------------------------------------------------------------
@@ -75,9 +80,9 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
         <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', padding: '5px 8px' }}>
           <span className="pb-form__label">Collected:</span>
           <div className="pb-row">
-            <PBSelect w={158} options={['JALIL, AHMAD', 'FAKERRY, FAKER']} />
-            <PBInput w={82} align="center" defaultValue="2026.08.10" />
-            <PBInput w={46} align="center" defaultValue="14 : 00" />
+            <PBInput w={158} value={row.by ?? ''} readOnly />
+            <PBInput w={82} align="center" defaultValue={row.collected?.replace(/\//g, '.') ?? ''} />
+            <PBInput w={46} align="center" defaultValue="" />
           </div>
 
           <span className="pb-form__label">Code:</span>
@@ -126,13 +131,13 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
           </div>
         </div>
 
-        <RefRanges />
+        <RefRanges row={draft} />
 
         <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', padding: '5px 8px' }}>
           <span className="pb-form__label">Collector Note:</span>
           <PBInput w="100%" />
           <span className="pb-form__label">Report:</span>
-          <PBTextArea rows={5} w="100%" />
+          <PBTextArea rows={5} w="100%" value={draft.report ?? ''} readOnly />
         </div>
 
         <div
@@ -162,7 +167,7 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
 /* The reference-range strip: five boxes reading outwards from the normal
    range, the two extremes pink and the two warnings yellow. The `‹ ›` at each
    end step through the ranges a measure can carry more than one of. */
-function RefRanges() {
+function RefRanges({ row }: { row: MeasurementRow }) {
   const box = (bg: string) => ({ height: 18, background: bg, border: '1px solid var(--pb-border)' })
   /* four boxes and five captions: the middle caption names the gap between
      the low pair and the high pair, so boxes and captions share one grid */
@@ -175,9 +180,9 @@ function RefRanges() {
         <div style={{ flex: '1 1 auto', minWidth: 0 }}>
           <div style={grid}>
             <input className="pb-field" style={box('#ffcfcf')} />
-            <input className="pb-field" style={box('var(--pb-dw-flag)')} />
+            <PBInput value={row.lower ?? ''} readOnly style={box('var(--pb-dw-flag)')} />
             <span />
-            <input className="pb-field" style={box('var(--pb-dw-flag)')} />
+            <PBInput value={row.upper ?? ''} readOnly style={box('var(--pb-dw-flag)')} />
             <input className="pb-field" style={box('#ffcfcf')} />
           </div>
           <div style={{ ...grid, marginTop: 1, textAlign: 'center' }}>

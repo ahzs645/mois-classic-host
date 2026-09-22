@@ -1,0 +1,48 @@
+/* Preferences uses a two-by-two form on the window face, not the generic
+   clinical report's white canvas. Geometry follows the supplied MOIS capture. */
+.pb-preference-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(138px, 1fr) minmax(84px, auto);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 4px;
+  background: var(--pb-face);
+}
+.pb-preference-detail > div { min-width: 0; padding: 8px 6px; }
+.pb-preference-detail__subject,
+.pb-preference-detail__instruction,
+.pb-preference-detail__reason {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-content: start;
+  align-items: center;
+  gap: 4px 6px;
+}
+.pb-preference-detail__subject { border-right: 1px solid #ccc; }
+.pb-preference-detail__radios { gap: 16px; }
+.pb-preference-detail__other {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 6px;
+  align-content: start;
+}
+.pb-preference-detail label { display: grid; gap: 5px; }
+.pb-preference-detail__dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pb-preference-detail__flags { display: grid; align-content: start; gap: 4px; }
+.pb-preference-detail .pb-check { display: inline-flex; gap: 4px; }
+.pb-preference-detail__instruction,
+.pb-preference-detail__reason { border-top: 1px solid #ccc; }
+.pb-preference-detail__instruction { border-right: 1px solid #ccc; }
+.pb-preference-detail textarea { height: 36px; min-height: 36px; }
+.pb-preference-choice { width: 100%; min-width: 0; }
+.pb-preference-choice__popup { z-index: 95; border: 1px solid #777; background: white; color: #000; max-height: 310px; overflow: auto; }
+.pb-preference-choice__popup [role="option"] { min-height: 20px; padding: 1px 3px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; cursor: default; }
+.pb-preference-choice__popup [role="option"]:hover,
+.pb-preference-choice__popup .is-current { background: var(--pb-dw-current, #e99b82); }
+.pb-preference-choice__popup .is-empty { min-height: 110px; }
+.pb-preference-encounter__body { flex: 1; min-height: 0; overflow: auto; }
+.pb-preference-encounter__empty { padding: 16px; }
+.pb-preference-encounter__row { display: grid; grid-template-columns: 104px 1fr auto; padding: 5px 14px 5px 40px; gap: 4px; background: #fff; min-height: 28px; }
+.pb-preference-encounter__row:nth-child(even) { background: #d4d4d4; }

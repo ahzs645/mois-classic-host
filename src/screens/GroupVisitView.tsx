@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { groupVisitRows } from '../data/mois'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { groupVisitRows } from '../data/mois'
 
 type Visit = typeof groupVisitRows[number]
 
@@ -58,7 +58,7 @@ export function GroupVisitView() {
       <div style={{ height: 244, display: 'flex', padding: '0 3px' }}>
         <PBDataWindow
           columns={columns}
-          rows={groupVisitRows}
+          rows={[] as Visit[]}
           current={cur}
           onCurrentChange={setCur}
           rowIcon={(r) => (r.series ? <SeriesGlyph /> : null)}
@@ -141,7 +141,7 @@ function VisitDetailPage() {
         <PBTextArea rows={8} w="100%" />
       </div>
       <div className="pb-row" style={{ padding: '2px 10px 4px', gap: 0 }}>
-        <span>Record Created:&nbsp; 2026.03.26&nbsp; 14:17&nbsp;&nbsp; WHEAT, KATHARINE</span>
+        <span>Record Created:</span>
         <span style={{ width: 60 }} />
         <span>Last Modified:</span>
       </div>

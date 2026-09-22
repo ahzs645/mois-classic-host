@@ -1,5 +1,7 @@
-import { PBBand, PBButton, PBCheckbox, PBInput, PBSelect, PBWindow } from '../pb'
+import { chartRowsFor, useChartExport } from '../data/chart-records'
+import { usePatient } from '../data/patient-context'
 import type { PrintReport } from '../data/printReports'
+import { PBBand, PBButton, PBCheckbox, PBInput, PBSelect, PBWindow } from '../pb'
 
 /* ============================================================================
    The two windows every MOIS print goes through.
@@ -54,7 +56,7 @@ export function SelectionParameterDialog({
                 return (
                   <div key={i} className="pb-row" style={{ gap: 6, padding: '2px 0 2px 12px' }}>
                     <span className="pb-form__label" style={{ width: 72 }}>{f.label}</span>
-                    <PBInput w={f.width ?? 120} defaultValue={f.value} />
+                    <PBInput w={f.width ?? 120} defaultValue="" />
                   </div>
                 )
               })}
@@ -105,6 +107,19 @@ export function RichtextReportWindow({
   report: PrintReport
   onClose?: () => void
 }) {
+  const patient = usePatient()
+  useChartExport()
+  const nodes: Record<string, string> = {
+    'Interventions for Patient': 'interventions', 'Medications for Patient': 'ltm',
+    'Problem List for Patient': 'conditions', 'Family History (Hx) for Patient': 'famhx',
+    'Social History for Patient': 'socialhx', 'Radiology Reports for Patient': 'imaging',
+    'Consultations for Patient': 'consults', 'Procedure List for Patient': 'procedures',
+    'Facility Admission for Patient': 'admissions', 'MAR History': 'mar',
+  }
+  const rows = chartRowsFor(patient.chart, nodes[report.menu] ?? '')
+  const lines = [report.reportTitle, `Patient: ${patient.full}    Chart: ${patient.chart}`, `DoB: ${patient.dob}`, '',
+    ...rows.map(row => Object.entries(row).filter(([key, value]) => value && !['m', 's', 'clip', 'd', 'd1', 'd2', 'd3'].includes(key)).map(([key, value]) => `${key}: ${value}`).join('   ')),
+    ...(rows.length ? [] : ['No records available.'])]
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
       <PBWindow
@@ -140,7 +155,7 @@ export function RichtextReportWindow({
             whiteSpace: 'pre',
           }}
         >
-          {report.page.split('\n').map((line, i) => (
+          {lines.map((line, i) => (
             line === '%RULE%'
               /* MOIS rules these reports with a drawn paragraph border that
                  spans the full 93-column measure, not a row of dashes */
@@ -149,7 +164,7 @@ export function RichtextReportWindow({
           ))}
         </div>
         <div className="pb-row" style={{ padding: '2px 6px', borderTop: '1px solid #9a9a9a', flex: 'none', color: '#404040' }}>
-          FILE: C:\Users\admin\AppData\Local\Temp\MOIS09\202603181342099600.rtf
+
         </div>
       </PBWindow>
     </div>

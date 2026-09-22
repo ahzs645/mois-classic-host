@@ -13,10 +13,10 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
             <span className="pb-form__label">Goal Type:</span>
             <PBCheckbox label="Quantitative Goal" />
             <span className="pb-form__label pb-form__label--right">Phase:</span>
-            <PBInput w={140} defaultValue="INITIATION" />
+            <PBInput w={140} defaultValue="" />
 
             <span className="pb-form__label">Start Date:</span>
-            <PBInput w={92} align="center" defaultValue="2026.08.12" />
+            <PBInput w={92} align="center" defaultValue="" />
             <span className="pb-form__label pb-form__label--right">End Date:</span>
             <PBInput w={100} align="center" />
           </div>
@@ -25,13 +25,13 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
         <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff' }}>
           <div className="pb-form" style={{ gridTemplateColumns: '96px 1fr', alignItems: 'start', padding: '8px 10px' }}>
             <span className="pb-form__label" style={{ lineHeight: '19px' }}>Goal:</span>
-            <PBInput w="100%" defaultValue="DEV AUDIT GOAL" />
+            <PBInput w="100%" defaultValue="" />
 
             <span className="pb-form__label" style={{ lineHeight: '19px' }}>Detail:</span>
-            <PBTextArea rows={4} w="100%" defaultValue="DEV AUDIT" />
+            <PBTextArea rows={4} w="100%" defaultValue="" />
 
             <span className="pb-form__label" style={{ lineHeight: '14px' }}>Expected<br />Outcome:</span>
-            <PBTextArea rows={4} w="100%" defaultValue="DEV AUDIT" />
+            <PBTextArea rows={4} w="100%" defaultValue="" />
           </div>
 
           <div style={{ padding: '4px 10px 10px' }}>

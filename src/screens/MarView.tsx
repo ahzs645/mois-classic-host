@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useChartRows } from '../data/chart-records'
+import { useChartRows, useNodeRecords } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts'
+import { stamp } from '../data/charts/detail'
+import { adminSites } from '../data/mois'
+import { usePatient } from '../data/patient-context'
 import {
   PBButton, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBIdentityStrip,
   PBInput, PBLookup, PBPatientBannerBlue, PBSelect, PBTextArea, PBViewHeader,
   PBWindow, type PBColumn,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
-import { adminSites, marRows } from '../data/mois'
 
 /* MAR list, plus the Medication Administration Detail Record child window it
    opens. Transcribed from the tdt_mar evidence capture. */
@@ -24,6 +26,8 @@ const columns: PBColumn<Record<string, string>>[] = [
 export function MarView() {
   /* a chart with a real export behind it lists its own records */
   const exportedRows = useChartRows('mar')
+  const records = useNodeRecords('mar')
+  const [creating, setCreating] = useState(false)
   const patient = usePatient()
   const [open, setOpen] = useState(false)
   const [cur, setCur] = useState(0)
@@ -33,7 +37,7 @@ export function MarView() {
       <PBViewHeader title="MAR" />
       <PBCommandRow
         commands={[
-          { label: 'New Record', onClick: () => setOpen(true) },
+          { label: 'New Record', onClick: () => { setCreating(true); setOpen(true) } },
           { label: 'Delete Record' }, { label: 'Save', disabled: true },
           { label: 'Undo', disabled: true }, { label: 'Refresh' }, { label: 'Print' },
         ]}
@@ -43,7 +47,7 @@ export function MarView() {
           { label: 'FIRST:', value: patient.first },
           { label: 'MIDDLE:' },
           { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'DoB:', value: patient.dob },
         ]}
         encounter="NO ENCOUNTER"
       />
@@ -53,21 +57,21 @@ export function MarView() {
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
         <PBDataWindow
           columns={columns}
-          rows={exportedRows ?? marRows}
+          rows={exportedRows}
           current={cur}
           onCurrentChange={setCur}
-          onActivate={() => setOpen(true)}
+          onActivate={() => { setCreating(false); setOpen(true) }}
           empty="No medication administrations recorded."
         />
       </div>
 
-      {open && <MarDetailDialog onClose={() => setOpen(false)} />}
+      {open && <MarDetailDialog record={creating ? undefined : records[cur]} onClose={() => setOpen(false)} />}
     </>
   )
 }
 
 /* --- Medication Administration Detail Record ----------------------------- */
-export function MarDetailDialog({ onClose }: { onClose: () => void }) {
+export function MarDetailDialog({ onClose, record }: { onClose: () => void; record?: MoisRecord }) {
   const patient = usePatient()
   return (
     <div className="pb-modal-layer">
@@ -79,14 +83,14 @@ export function MarDetailDialog({ onClose }: { onClose: () => void }) {
       >
         <PBPatientBannerBlue
           top={[
-            { label: 'CHART NO.', value: '87297', w: 92 },
+            { label: 'CHART NO.', value: patient.chart, w: 92 },
             { label: 'PATIENT (F/M/L)', value: patient.full, w: 220 },
             { label: 'DATE OF BIRTH', value: patient.dob, w: 150 },
             { label: 'GENDER', value: patient.sex, w: 74 },
-            { label: 'BC HEALTH NO.', value: '666666667' },
+            { label: 'BC HEALTH NO.', value: patient.bchn ?? '' },
           ]}
           bottom={[
-            { label: 'SCHEDULED', value: '2025.10.08   10:47' },
+            { label: 'SCHEDULED', value: record?.dtm_scheduled ?? '' },
           ]}
         />
 
@@ -98,23 +102,23 @@ export function MarDetailDialog({ onClose }: { onClose: () => void }) {
 
               <span className="pb-form__full"><div className="pb-hrule" /></span>
 
-              <span className="pb-form__label">Action:</span><PBSelect options={['', 'GIVEN', 'HELD', 'REFUSED']} w={170} />
+              <span className="pb-form__label">Action:</span><PBSelect defaultValue={record?.str_action_type ?? ''} options={['', record?.str_action_type ?? '', 'GIVEN', 'HELD', 'REFUSED']} w={170} />
               <span className="pb-form__label">Date / Time:</span>
-              <div className="pb-row"><PBInput w={104} align="center" /><PBInput w={64} align="center" /></div>
-              <span className="pb-form__label">Given By:</span><PBLookup w="100%" />
+              <div className="pb-row"><PBInput w={104} align="center" value={record?.dtm_admin_date?.replace(/\//g, '.') ?? ''} readOnly /><PBInput w={64} align="center" value={record?.dtm_admin_time ?? ''} readOnly /></div>
+              <span className="pb-form__label">Given By:</span><PBLookup w="100%" value={record?.str_admin_by ?? ''} readOnly />
 
               <span className="pb-form__full"><div className="pb-hrule" /></span>
 
-              <span className="pb-form__label">Medication:</span><PBLookup w="100%" />
-              <span className="pb-form__label">Lot Number:</span><PBInput w={170} />
+              <span className="pb-form__label">Medication:</span><PBLookup w="100%" value={record?.str_medication ?? ''} readOnly />
+              <span className="pb-form__label">Lot Number:</span><PBInput w={170} value={record?.str_lot_number ?? ''} readOnly />
               <span className="pb-form__label" style={{ alignSelf: 'start', paddingTop: 2 }}>Details:</span>
               <PBTextArea rows={3} w="100%" />
-              <span className="pb-form__label">Route:</span><PBSelect options={['', 'IM', 'SC', 'PO', 'IV']} w={170} />
+              <span className="pb-form__label">Route:</span><PBSelect defaultValue={record?.str_route ?? ''} options={['', record?.str_route ?? '', 'IM', 'SC', 'PO', 'IV']} w={170} />
               <span className="pb-form__label">Site:</span>
               <PBDropDownDataWindow
                 w={230}
                 columns={[{ key: 'site', header: 'Site', width: 86 }, { key: 'desc', header: 'Description' }]}
-                rows={adminSites}
+                rows={adminSites} value={record?.str_site ?? ''}
                 display="site"
               />
             </div>
@@ -134,13 +138,13 @@ export function MarDetailDialog({ onClose }: { onClose: () => void }) {
           <div style={{ padding: '2px 8px' }}><b>Other</b></div>
           <div className="pb-form" style={{ gridTemplateColumns: '104px 1fr', padding: '0 8px 6px', width: 420 }}>
             <span className="pb-form__label">Reason:</span>
-            <PBSelect options={['AS PRESCRIBED (NON-IMMUNIZATIONS)', 'IMMUNIZATION']} w={230} />
+            <PBSelect defaultValue={record?.str_reason_for_immun ?? ''} options={['', record?.str_reason_for_immun ?? '', 'AS PRESCRIBED (NON-IMMUNIZATIONS)', 'IMMUNIZATION']} w={230} />
             <span className="pb-form__label">Informed Consent:</span>
-            <PBSelect options={['YES', 'NO']} w={230} />
+            <PBSelect defaultValue={record?.str_informed_consent ?? ''} options={['', record?.str_informed_consent ?? '', 'YES', 'NO']} w={230} />
             <span className="pb-form__label">Form of Consent:</span>
-            <PBSelect options={['IN PERSON', 'WRITTEN', 'VERBAL']} w={230} />
+            <PBSelect defaultValue={record?.str_form_of_consent ?? ''} options={['', record?.str_form_of_consent ?? '', 'IN PERSON', 'WRITTEN', 'VERBAL']} w={230} />
             <span className="pb-form__label">Consented By:</span>
-            <PBSelect options={['CLIENT', 'GUARDIAN', 'SUBSTITUTE']} w={230} />
+            <PBSelect defaultValue={record?.str_consented_by ?? ''} options={['', record?.str_consented_by ?? '', 'CLIENT', 'GUARDIAN', 'SUBSTITUTE']} w={230} />
             <span className="pb-form__label" style={{ lineHeight: '14px' }}>Client Facility /<br />Worksite:</span>
             <PBLookup w={230} />
             <span className="pb-form__label">Client Employee ID:</span>
@@ -148,9 +152,9 @@ export function MarDetailDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="pb-row" style={{ padding: '2px 8px 6px', gap: 0 }}>
-            <span>Created:&nbsp;&nbsp;&nbsp;&nbsp;2025.10.08&nbsp; 10:48&nbsp; JORGENSON, ELLA</span>
+            <span>Created: {stamp(record)}</span>
             <span className="pb-row__spacer" />
-            <button className="pb-link">ENC# 533920</button>
+            {record?.id_encounter && <button className="pb-link">ENC# {record.id_encounter}</button>}
           </div>
         </div>
 

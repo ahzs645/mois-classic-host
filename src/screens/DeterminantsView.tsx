@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useChartRows } from '../data/chart-records'
+import { determinantTabs } from '../data/mois'
+import { usePatient } from '../data/patient-context'
 import {
   PBBand, PBButton, PBCommandRow, PBDataWindow, PBGroupBox, PBIdentityStrip,
   PBInput, PBLookup, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
-import { determinantTabs } from '../data/mois'
 
 /* Determinants of Health — four domain tabs, each a current-status grid over
    a history grid with a detail panel underneath. Transcribed from the
@@ -41,9 +41,9 @@ export function DeterminantsView() {
       <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:' },
+          { label: 'MIDDLE:', value: patient.middle },
           { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'DoB:', value: patient.dob },
         ]}
         encounter="NO ENCOUNTER"
       />
@@ -58,7 +58,7 @@ export function DeterminantsView() {
             {cfg.statusBand}
           </PBBand>
           <div style={{ height: 68, display: 'flex', padding: '0 6px 3px' }}>
-            <PBDataWindow flush gutter={false} columns={statusColumns} rows={exportedRows ?? cfg.status} empty=" " />
+            <PBDataWindow flush gutter={false} columns={statusColumns} rows={exportedRows} empty=" " />
           </div>
 
           <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
@@ -70,11 +70,11 @@ export function DeterminantsView() {
           <div style={{ height: 150, display: 'flex', padding: '0 6px' }}>
             <PBDataWindow
               columns={cfg.columns as PBColumn<Record<string, string>>[]}
-              rows={exportedRows ?? cfg.rows}
+              rows={exportedRows}
               empty={`No ${cfg.historyBand.toLowerCase()} on file.`}
             />
           </div>
-          {cfg.total && (
+          {cfg.total && exportedRows.length > 0 && (
             <div style={{ textAlign: 'center', padding: '4px 0' }}>
               {cfg.total.label}&nbsp;&nbsp;&nbsp;&nbsp;{cfg.total.value}
             </div>
@@ -85,7 +85,7 @@ export function DeterminantsView() {
             <PBGroupBox title={cfg.detailBand} style={{ width: 430, flex: 'none' }}>
               <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '96px 1fr' }}>
                 {cfg.fields.map((f) => (
-                  <Field key={f.label} label={f.label} kind={f.kind} w={f.w} value={f.value} pair={f.pair} />
+                  <Field key={f.label} label={f.label} kind={f.kind} w={f.w} value="" pair={f.pair} />
                 ))}
               </div>
             </PBGroupBox>

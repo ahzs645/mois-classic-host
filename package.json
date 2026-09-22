@@ -10,7 +10,9 @@
     ".": "./src/index.ts",
     "./manifest": "./src/host/manifest.ts",
     "./kit.css": "./src/pb/kit.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./tree": "./src/pb/components/tree.ts",
+    "./tree.css": "./src/pb/tree.css"
   },
   "sideEffects": [
     "**/*.css"

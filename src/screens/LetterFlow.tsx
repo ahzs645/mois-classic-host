@@ -1,14 +1,17 @@
 import { useState } from 'react'
+import { recordsForNode, useChartExport } from '../data/chart-records'
+import {
+  LETTER_SETUP_COLUMNS, LETTER_SETUP_GLOSSARY,
+  LETTER_SETUP_ROWS,
+  LETTER_TEMPLATES, TEMPLATE_PICKER, TEMPLATE_PREVIEW, TEMPLATE_SEARCH_HELP,
+  type LetterSetupRow, type LetterTemplate
+} from '../data/letterSetup'
+import { LW } from '../data/letterWriter'
+import { usePatient } from '../data/patient-context'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBWindow,
   pbSlug,
 } from '../pb'
-import { LW } from '../data/letterWriter'
-import {
-  LETTER_SETUP_COLUMNS, LETTER_SETUP_GLOSSARY, LETTER_SETUP_PATIENT, LETTER_SETUP_ROWS,
-  LETTER_TEMPLATES, TEMPLATE_PICKER, TEMPLATE_PREVIEW, TEMPLATE_SEARCH_HELP,
-  type LetterSetupRow, type LetterTemplate,
-} from '../data/letterSetup'
 
 /* ============================================================================
    The two windows the Letter Writer opens behind.
@@ -197,8 +200,14 @@ export function LetterSetupWindow({
   onContinue?: () => void
   onClose?: () => void
 }) {
-  const [rows, setRows] = useState<LetterSetupRow[]>(LETTER_SETUP_ROWS)
-  const p = LETTER_SETUP_PATIENT
+  const patient = usePatient()
+  const data = useChartExport()
+  const nodes: Record<string, string> = { CONSULT: 'consults', ENCOUNTERS: 'encounters', 'HEALTH ISSUES': 'conditions', IMAGES: 'imaging', 'LT MEDS': 'ltm', MEASURES: 'measures', PROCEDURE: 'procedures', ALLERGIES: 'allergy', DOCUMENTS: 'documents', 'FAMILY HX': 'famhx' }
+  const [rows, setRows] = useState<LetterSetupRow[]>(() => LETTER_SETUP_ROWS.map(row => {
+    const count = recordsForNode(data, nodes[row.section] ?? '').length
+    return { ...row, available: count, selected: 0, attachAvailable: 0, attachSelected: 0, tooltip: undefined }
+  }))
+  const p = { ...patient, phn: patient.bchn ?? '', phnSuffix: patient.dep ?? '' }
 
   const setAction = (section: string, action: 'all' | 'choose') =>
     setRows((v) => v.map((r) => (r.section === section ? { ...r, action } : r)))
@@ -259,13 +268,13 @@ export function LetterSetupWindow({
         <div style={{ padding: '5px 10px', flex: 'none' }}>
           <div className="pb-row" style={{ gap: 6, marginBottom: 3 }}>
             <span className="pb-form__label" style={{ width: 110 }}>Author:</span>
-            <PBLookup w={300} name="Author" defaultValue="DR. DEREK SHEPHERD" />
+            <PBLookup w={300} name="Author" defaultValue="" />
           </div>
           <div className="pb-row" style={{ gap: 6 }}>
             <span className="pb-form__label" style={{ width: 110 }}>Primary Recipient:</span>
             {/* the ellipsis opens the Master Provider List, which is named in
                 prose but captured in NO article — so it is not built here */}
-            <PBLookup w={300} name="Primary Recipient" defaultValue="PEDIATRICIAN, ANDY" />
+            <PBLookup w={300} name="Primary Recipient" defaultValue="" />
           </div>
         </div>
 

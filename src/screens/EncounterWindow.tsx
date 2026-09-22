@@ -1,29 +1,34 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { HostShellProps } from '../host/types'
+import { useChartExport, useChartRecords } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts'
+import { stamp } from '../data/charts/detail'
+import { date, serviceEpisodes } from '../data/charts/relations'
+import { visitCodeRows } from '../data/daybook'
 import {
-  PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBDropDownDataWindow,
-  PBInput, PBLookup, PBMenuBar, PBPatientBannerBlue, PBPatientBannerYellow, PBSelect,
-  PBTabs, PBTextArea, PBWindow, IconIdCard,
-} from '../pb'
-import { pbSlug } from '../pb'
-import { usePatient } from '../data/patient-context'
-import { measurementRows } from '../data/mois'
-import {
-  encounterFormRows, encounterSummaryGroups, encounterSummaryRows, selectFormRows,
-  type EncounterFormRow, type FormListRow,
+  selectFormRows,
+  type EncounterFormRow, type FormListRow
 } from '../data/encounterForms'
 import {
-  apptStatusCodes, providerSearchRows, serviceEpisodeRows, serviceLocations,
-  type ProviderSearchRow, type ServiceEpisodeRow,
+  apptStatusCodes, providerSearchRows,
+  serviceLocations,
+  type ProviderSearchRow, type ServiceEpisodeRow
 } from '../data/encounterPickers'
+import { type MeasureTemplate } from '../data/measures'
+import { usePatient } from '../data/patient-context'
+import type { HostShellProps } from '../host/types'
+import {
+  IconIdCard,
+  PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBDropDownDataWindow,
+  PBInput, PBLookup, PBMenuBar, PBPatientBannerBlue, PBPatientBannerYellow, PBSelect,
+  PBTabs, PBTextArea, PBWindow,
+  pbSlug,
+} from '../pb'
 import { ServiceCodeLookupDialog, UniversalSearchDialog } from './CodeLookupDialogs'
 import {
   MeasureCalculatorDialog, MeasureCalculatorsDialog, MeasureTemplateGridDialog,
   MeasureTemplateSelectionDialog, MeasurementDetailDialog, defaultMeasureTemplate,
   type MeasurementRow,
 } from './MeasureDialogs'
-import { type MeasureTemplate } from '../data/measures'
-import { visitCodeRows } from '../data/daybook'
 
 const MENU = [
   { label: 'Save', menu: [{ label: 'Save Encounter', key: 'Ctrl+S' }, { label: 'Save and Close' }] },
@@ -56,13 +61,14 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
   const patient = usePatient()
   const [tab, setTab] = useState('Progress Note(s)')
   const enc: EncounterRecord = encounter ?? { id: patient.encounter ?? 'NO ENCOUNTER' }
-  const time = enc.hr && enc.mn ? `${enc.hr} : ${enc.mn}` : '14 : 00'
+  const record = useChartRecords('encounter').find(r => r.id_encounter === enc.id)
+  const time = enc.hr && enc.mn ? `${enc.hr} : ${enc.mn}` : ''
 
   /* the four coded-link rows and the attending provider, each of which is
      filled either by typing or by the picker its "…" opens */
-  const [issues, setIssues] = useState(['', '', '', ''])
-  const [services, setServices] = useState(['', '', '', ''])
-  const [attending, setAttending] = useState('')
+  const [issues, setIssues] = useState([1, 2, 3, 4].map(i => record?.[`str_diag_code_${i}`] ?? ''))
+  const [services, setServices] = useState([1, 2, 3, 4].map(i => record?.[`str_fee_code_${i}`] ?? ''))
+  const [attending, setAttending] = useState(record?.str_attending ?? '')
   const [picking, setPicking] = useState<
     { kind: 'issue' | 'service'; row: number } | { kind: 'attending' } | null
   >(null)
@@ -96,14 +102,14 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
         <div className="pb-form" style={{ padding: 0, gridTemplateColumns: 'auto 1fr', width: 250, flex: 'none' }}>
           <span className="pb-form__label">Date:</span>
           <div className="pb-row">
-            <PBInput key={enc.id + 'd'} w={68} align="center" defaultValue={enc.date ?? '2026.08.10'} />
+            <PBInput key={enc.id + 'd'} w={68} align="center" defaultValue={enc.date ?? ''} />
             <PBInput key={enc.id + 't'} w={46} align="center" defaultValue={time} />
             <span style={{ marginLeft: 6 }}>Slots:</span>
-            <PBInput w={26} align="center" defaultValue="4" />
+            <PBInput w={26} align="center" defaultValue={record?.num_time_slots ?? ''} />
           </div>
 
           <span className="pb-form__label">Provider:</span>
-          <PBInput defaultValue="FAKERRY, FAKER" />
+          <PBInput defaultValue={record?.lkp_provider ?? ''} />
 
           <span className="pb-form__label">Ser. Loc.:</span>
           <PBDropDownDataWindow
@@ -142,6 +148,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
               { key: 'mhk', header: 'MHK', width: 44 },
             ]}
             rows={visitCodeRows}
+            value={record?.str_visit_code ?? ''}
             display="code"
             w={68}
             listW={538}
@@ -149,7 +156,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
           />
 
           <span className="pb-form__label">Visit Reason:</span>
-          <PBInput key={enc.id + 'r'} defaultValue={enc.reason || 'TEST 3'} />
+          <PBInput key={enc.id + 'r'} defaultValue={enc.reason ?? ''} />
 
           <span className="pb-form__label">Appt Status:</span>
           <PBDropDownDataWindow
@@ -158,6 +165,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
               { key: 'description', header: 'Description', width: 160 },
             ]}
             rows={apptStatusCodes}
+            value={record?.str_appt_status ?? ''}
             display="code"
             w={62}
             listW={214}
@@ -227,11 +235,11 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
       {/* ---- tabbed detail ---- */}
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
         <PBTabs tabs={TABS} active={tab} onChange={setTab}>
-          {tab === 'Progress Note(s)' && <ProgressNotePage />}
+          {tab === 'Progress Note(s)' && <ProgressNotePage encounter={enc.id} />}
           {tab === 'Measurements' && <MeasurementsPage encounter={enc.id} />}
-          {tab === 'Service(s)' && <ServicesPage />}
-          {tab === 'Detail / Coding' && <CodingPage />}
-          {tab === 'Encounter Summary' && <EncounterSummaryPage />}
+          {tab === 'Service(s)' && <ServicesPage encounter={enc.id} />}
+          {tab === 'Detail / Coding' && <CodingPage record={record} />}
+          {tab === 'Encounter Summary' && <EncounterSummaryPage encounter={enc.id} />}
           <div style={{ display: tab === 'Encounter Forms' ? 'flex' : 'none', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
             <EncounterFormsPage encounterId={enc.id} loadEncounterForms={loadEncounterForms} encounterFormSlot={encounterFormSlot} />
           </div>
@@ -278,7 +286,8 @@ function EncounterFormsPage({ encounterId, loadEncounterForms, encounterFormSlot
   loadEncounterForms?: () => Promise<FormListRow[]>
   encounterFormSlot?: HostShellProps['encounterFormSlot']
 }) {
-  const [rows, setRows] = useState<EncounterFormRow[]>(loadEncounterForms ? [] : encounterFormRows)
+  const forms = useChartRecords('form_header').filter(r => r.id_encounter === encounterId)
+  const [rows, setRows] = useState<EncounterFormRow[]>(() => forms.map(r => ({ type: r.id_form_type ?? '', name: r.str_form_window ?? '', attending: r.id_author ?? '', formId: r.id_form_header })))
   const [opened, setOpened] = useState<EncounterFormRow | null>(null)
   const formData = useRef<Record<string, Record<string, unknown>>>({})
   const [cur, setCur] = useState(0)
@@ -451,13 +460,20 @@ function SelectFormDialog({ onCreate, onClose, loadEncounterForms }: {
    ends in two glyphs: a blue curved arrow that opens the record and a red
    check clipboard for its acknowledgement state.
    ========================================================================= */
-function EncounterSummaryPage() {
+function EncounterSummaryPage({ encounter }: { encounter: string }) {
+  const data = useChartExport()
+  const rows = [
+    ...(data?.encounter_note ?? []).filter(r => r.id_encounter === encounter).map(r => ({ group: 'PROGRESS NOTES', date: date(r.dtm_note_create), description: r.str_author ?? '', detail: r.str_note ?? '' })),
+    ...(data?.measure ?? []).filter(r => r.id_encounter === encounter).map(r => ({ group: 'MEASUREMENTS', date: date(r.dtm_collect_date), description: r.str_description ?? '', detail: [r.str_value, r.str_units].filter(Boolean).join(' ') })),
+    ...(data?.form_header ?? []).filter(r => r.id_encounter === encounter).map(r => ({ group: 'ENCOUNTER FORMS', date: date(r.dtm_created), description: r.str_form_window ?? '', detail: '' })),
+  ]
+  const groups = [...new Set(rows.map(r => r.group))]
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(['WEB FORMS']))
   return (
     <>
       <div className="pb-row" style={{ gap: 16, padding: '4px 8px' }}>
         <button className="pb-link" onClick={() => setCollapsed(new Set())}>Expand All</button>
-        <button className="pb-link" onClick={() => setCollapsed(new Set(encounterSummaryGroups))}>
+        <button className="pb-link" onClick={() => setCollapsed(new Set(groups))}>
           Collapse All
         </button>
       </div>
@@ -475,13 +491,13 @@ function EncounterSummaryPage() {
               align: 'center',
               /* the two glyphs MOIS ends each record row with: a blue curved
                  arrow that opens it, and a red check for its acknowledgement */
-              render: () => <span>{'\u21B7  \u2611'}</span>,
+              render: () => null,
             },
           ]}
-          rows={encounterSummaryRows}
+          rows={rows}
           groupBy={(r) => r.group}
           /* both bands are painted even when a group has no rows to show */
-          groups={encounterSummaryGroups}
+          groups={groups}
           groupLabel={(g, rs) => <strong>{`${g}   [${rs.length}]`}</strong>}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
@@ -492,7 +508,10 @@ function EncounterSummaryPage() {
   )
 }
 
-function ProgressNotePage() {
+function ProgressNotePage({ encounter }: { encounter: string }) {
+  const notes = useChartRecords('encounter_note', 'dtm_note_create').filter(r => r.id_encounter === encounter)
+  const [index, setIndex] = useState(0)
+  const note = notes[index]
   return (
     <>
       <PBBand right={<><PBButton size="sm">Print Note</PBButton><PBButton size="sm">New Note</PBButton><PBButton size="sm">Delete Note</PBButton></>}>
@@ -500,21 +519,21 @@ function ProgressNotePage() {
       </PBBand>
       <div className="pb-row" style={{ padding: '3px 6px' }}>
         <span>Author:</span>
-        <PBSelect options={['', 'JALIL, AHMAD', 'FAKERRY, FAKER']} w={158} />
+        <PBInput value={note?.str_author ?? ''} readOnly w={158} />
         <span style={{ width: 8 }} />
-        <PBCheckbox label="Complete" />
+        <PBCheckbox label="Complete" checked={note?.str_complete === 'Y'} />
         <span style={{ width: 8 }} />
-        <span>Created By:</span>
+        <span>Created By: {note?.stp_user_create ?? ''}</span>
         <span className="pb-row__spacer" />
-        <PBButton size="sm" style={{ minWidth: 20 }}>&lsaquo;</PBButton>
-        <span style={{ width: 46, textAlign: 'center' }}>* of 0</span>
-        <PBButton size="sm" style={{ minWidth: 20 }}>&rsaquo;</PBButton>
+        <PBButton size="sm" style={{ minWidth: 20 }} disabled={index === 0} onClick={() => setIndex(i => i - 1)}>&lsaquo;</PBButton>
+        <span style={{ width: 46, textAlign: 'center' }}>{notes.length ? index + 1 : 0} of {notes.length}</span>
+        <PBButton size="sm" style={{ minWidth: 20 }} disabled={index >= notes.length - 1} onClick={() => setIndex(i => i + 1)}>&rsaquo;</PBButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, padding: '0 6px 4px', display: 'flex' }}>
-        <PBTextArea style={{ flex: '1 1 auto', height: '100%' }} />
+        <PBTextArea value={note?.str_note ?? ''} readOnly style={{ flex: '1 1 auto', height: '100%' }} />
       </div>
       <div className="pb-row" style={{ padding: '2px 6px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-        <span>Created:&nbsp;&nbsp;&nbsp;2026.08.12&nbsp; 07:39&nbsp;&nbsp; JALIL, AHMAD</span>
+        <span>Created: {stamp(note)}</span>
         <span style={{ width: 90 }} />
         <span>Last Modified:</span>
       </div>
@@ -535,7 +554,8 @@ function ProgressNotePage() {
 type MeasurementCommand = 'detail' | 'template' | 'other-template' | 'calculators'
 
 function MeasurementsPage({ encounter }: { encounter: string }) {
-  const [rows, setRows] = useState<MeasurementRow[]>(measurementRows)
+  const measures = useChartRecords('measure').filter(r => r.id_encounter === encounter)
+  const [rows, setRows] = useState<MeasurementRow[]>(() => measures.map(r => ({ code: r.str_code ?? '', name: r.str_description ?? '', value: r.str_value ?? '', flag: r.str_abnormal ?? '', units: r.str_units ?? '', collected: r.dtm_collect_date, by: r.str_collect_by, report: r.str_report, lower: r.str_normal_lower, upper: r.str_normal_high })))
   const [cur, setCur] = useState(0)
   const [open, setOpen] = useState<MeasurementCommand | null>(null)
   /* Other Template picks a template first, then opens its grid */
@@ -654,9 +674,14 @@ function MeasurementsPage({ encounter }: { encounter: string }) {
    `New…` picks the episode the event belongs to first: MOIS will not file a
    service event that is not attached to one of the patient's open episodes.
    ========================================================================= */
-function ServicesPage() {
+function ServicesPage({ encounter }: { encounter: string }) {
+  const data = useChartExport()
+  const events = (data?.service_event ?? []).filter(r => r.str_object === 'tdt_encounter' && r.id_object === encounter)
+  const rows = events.map(r => {
+    const service = data?.chart_service.find(s => s.id_chart_service === r.id_chart_service)
+    return { start: date(service?.dtm_start), episode: service?.str_service_code_term ?? '', event: r.str_service_code_term ?? '', phase: r.str_service_phase ?? '', mrp: service?.str_service_mrp ?? '' }
+  })
   const [picking, setPicking] = useState(false)
-  const [episode, setEpisode] = useState<ServiceEpisodeRow | null>(null)
   return (
     <>
       <div className="pb-cmdrow" style={{ padding: 2 }}>
@@ -680,20 +705,12 @@ function ServicesPage() {
             { key: 'phase', header: 'Phase', width: 82, align: 'center' },
             { key: 'mrp', header: 'Service MRP', width: 140 },
           ]}
-          rows={[
-            {
-              start: '2026.08.10',
-              episode: episode?.episode ?? 'PRENATAL CARE',
-              event: 'REMOVAL OF EAR CANAL OSTEOMA',
-              phase: 'One Time',
-              mrp: episode?.mrp ?? 'TECHNICAL SUPPORT',
-            },
-          ]}
+          rows={rows}
         />
       </div>
       {picking && (
         <ServiceEpisodesDialog
-          onPick={(r) => { setEpisode(r); setPicking(false) }}
+          onPick={() => setPicking(false)}
           onClose={() => setPicking(false)}
         />
       )}
@@ -713,6 +730,7 @@ function ServiceEpisodesDialog({ onPick, onClose }: {
 }) {
   const patient = usePatient()
   const [cur, setCur] = useState(0)
+  const serviceEpisodeRows = serviceEpisodes(useChartExport())
   const row = serviceEpisodeRows[cur]
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
@@ -827,7 +845,7 @@ function ProviderSearchDialog({ onPick, onClose }: {
   )
 }
 
-function CodingPage() {
+function CodingPage({ record }: { record?: MoisRecord }) {
   const CODE_SLOTS: [string, number][] = [
     ['Procedure:', 2],
     ['Health Issue:', 4],
@@ -837,12 +855,12 @@ function CodingPage() {
     <div style={{ padding: '6px 8px' }}>
       <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
         <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '84px 1fr', width: 264, flex: 'none' }}>
-          <span className="pb-form__label">Resource:</span><PBInput w={176} defaultValue="VC1NHA" />
+          <span className="pb-form__label">Resource:</span><PBInput w={176} defaultValue={record?.str_resource ?? ''} />
           <span className="pb-form__label">Room:</span><PBInput w={68} />
           <span className="pb-form__label">Docu. Status:</span>
-          <div className="pb-row"><PBInput w={22} align="center" defaultValue="I" /><span>(C = Complete)</span></div>
+          <div className="pb-row"><PBInput w={22} align="center" defaultValue={record?.str_status_docu ?? ''} /><span>(C = Complete)</span></div>
           <span className="pb-form__label">Billing Status:</span>
-          <div className="pb-row"><PBInput w={22} align="center" defaultValue="I" /><span>(B = Billed)</span></div>
+          <div className="pb-row"><PBInput w={22} align="center" defaultValue={record?.str_status_bill ?? ''} /><span>(B = Billed)</span></div>
           <span className="pb-form__label">Payor:</span><PBSelect options={['', 'MSP', 'ICBC', 'WCB']} w={84} />
         </div>
 
@@ -850,9 +868,9 @@ function CodingPage() {
           <span className="pb-form__label pb-form__label--right">Appt Status:</span>
           <PBSelect options={['', 'Arrived', 'Seen', 'Discharged']} w={62} />
           <span className="pb-form__label pb-form__label--right">Service Location:</span>
-          <PBSelect options={['ACROPOLIS MANOR', 'DAW HEALTH UNIT']} w={170} />
+          <PBSelect options={['', record?.str_service_location ?? '']} defaultValue={record?.str_service_location ?? ''} w={170} />
           <span className="pb-form__label pb-form__label--right">Visit Mode:</span>
-          <PBSelect options={['DIRECT ENCOUNTER WITH CLIENT ALONE', 'TELEPHONE', 'VIDEO']} w={358} />
+          <PBSelect options={['', record?.str_visit_mode ?? '', 'TELEPHONE', 'VIDEO']} defaultValue={record?.str_visit_mode ?? ''} w={358} />
           <span className="pb-form__label pb-form__label--right">Priority:</span>
           <PBSelect options={['', 'ROUTINE', 'URGENT']} w={170} />
           <span className="pb-form__label pb-form__label--right">Encounter Ref.:</span>
@@ -866,7 +884,7 @@ function CodingPage() {
           <PBLookup w={80} />
           <PBLookup w={80} />
         </span>
-        <PBInput w={330} defaultValue="TEST 3" style={{ alignSelf: 'flex-start' }} />
+        <PBInput w={330} defaultValue={record?.str_appt_note ?? ''} style={{ alignSelf: 'flex-start' }} />
       </div>
 
       <div className="pb-hrule" style={{ margin: '6px 0 4px' }} />

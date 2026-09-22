@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
+import { useChartExport } from '../data/chart-records'
+import { genderRows, insuranceCarrierRows, serviceProviderRows } from '../data/mois'
+import { usePatient } from '../data/patient-context'
+import {
+  SUMMARY_DEFAULT_ACCENT, SUMMARY_LINK_NODES, SUMMARY_SELECTED_ROW, headerIdentity, sectionCaption, summarySections, type SummaryRow,
+} from '../data/summary'
 import {
   PBButton, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBInput, PBLookup, PBViewHeader,
   type PBColumn, type PBCommand,
 } from '../pb'
-import { genderRows, insuranceCarrierRows, serviceProviderRows } from '../data/mois'
-import { usePatient } from '../data/patient-context'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
-import {
-  SUMMARY_DEFAULT_ACCENT, SUMMARY_LINK_NODES, headerIdentity, sectionCaption, summarySections, type SummaryRow,
-} from '../data/summary'
 
 /* ============================================================================
    Patient Summary — the window MOIS lands on when a chart is opened.
@@ -30,9 +31,10 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
   /** a chart number typed into Chart No. and committed with Enter */
   onOpenChart: (chart: string) => void
   /** Navigate within the current chart through the shell's normal routing. */
-  onOpenSection: (node: typeof SUMMARY_LINK_NODES[keyof typeof SUMMARY_LINK_NODES]) => void
+  onOpenSection: (node: typeof SUMMARY_LINK_NODES[keyof typeof SUMMARY_LINK_NODES], recordId?: string) => void
 }) {
   const patient = usePatient()
+  const data = useChartExport()
   const [typed, setTyped] = useState(patient.chart)
   const [lastDays, setLastDays] = useState('60')
   const [requiredDays, setRequiredDays] = useState('90')
@@ -40,11 +42,11 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
   /* MOIS opens the summary with every section collapsed but the first; the
      frame remounts this window per chart, so the state starts over there */
   const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(summarySections(patient).filter((s) => !s.open).map((s) => s.id)),
+    () => new Set(summarySections(patient, data, lastDays).filter((s) => !s.open).map((s) => s.id)),
   )
 
   const { rows, captions, accents, order, counts } = useMemo(() => {
-    const sections = summarySections(patient)
+    const sections = summarySections(patient, data, lastDays)
     const rows: Row[] = []
     const captions = new Map<string, string>()
     const accents = new Map<string, string>()
@@ -60,7 +62,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
       for (const r of s.rows) rows.push({ ...r, section: s.id })
     }
     return { rows, captions, accents, order, counts }
-  }, [lastDays, patient, requiredDays])
+  }, [lastDays, patient, requiredDays, data])
 
   const commands: PBCommand[] = [
     { label: 'New Chart' },
@@ -85,7 +87,10 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
      what `_pad` carries while the coloured bands still run the full width. */
   const columns: PBColumn<Row>[] = [
     { key: 'date', header: 'Date', width: 70, align: 'left' },
-    { key: 'description', header: 'Description', width: 345 },
+    { key: 'description', header: 'Description', width: 345, render: (r) => <>
+      {r.description}
+      {r.instructionComment && <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>Instruction Comment:<br />{r.instructionComment}</div>}
+    </> },
     /* Detail's caption is left-aligned on its own data, not centred */
     { key: 'detail', header: 'Detail', width: 287, align: 'left' },
     {
@@ -105,7 +110,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
             className="pb-link pb-link--mois"
             title={`Open ${r.link} in MOIS`}
             aria-label={`Open ${r.link} in MOIS`}
-            onClick={() => { if (r.link) onOpenSection(SUMMARY_LINK_NODES[r.link]) }}
+            onClick={() => { if (r.link) onOpenSection(SUMMARY_LINK_NODES[r.link], r.recordId) }}
           />
         )
         : null),
@@ -257,7 +262,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
           wrap
           /* the painter sets this grid's text 8px into each column, where a
              lookup grid sets its own 3-4px in */
-          style={{ ['--pb-dw-pad-x' as string]: '8px' }}
+          style={{ ['--pb-dw-pad-x' as string]: '8px', ['--pb-dw-select' as string]: SUMMARY_SELECTED_ROW }}
           head="grey"
           /* MOIS's summary grid has no gutter and no hairlines: the bands run
              edge to edge and the rows are separated by banding alone */

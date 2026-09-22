@@ -30,5 +30,7 @@ export type MoisChartExport = {
   /** who exported it, from which build — the provenance MOIS stamps itself */
   header: Record<string, string>
   /** the single <chart> record: demographics, insurance, status */
+  chart_status?: MoisRecord[]
+  chart_name?: MoisRecord[]
   chart: MoisRecord
 } & Record<MoisChartGroup, MoisRecord[]>

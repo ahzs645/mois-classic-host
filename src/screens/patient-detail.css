@@ -1,0 +1,22 @@
+.pb-patient-detail { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.pb-patient-detail__upper { display: grid; grid-template-columns: 1fr 1fr; flex: 1 0 380px; min-height: 380px; }
+.pb-patient-detail__background { min-width: 0; }
+.pb-patient-detail__histories { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.pb-patient-detail__field { display: grid; grid-template-columns: 105px minmax(0, 1fr); align-items: center; gap: 5px; margin-bottom: 3px; }
+.pb-patient-detail__field input, .pb-patient-detail__field select, .pb-patient-detail__field textarea { width: 100%; min-width: 0; }
+.pb-patient-detail__name { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; border-bottom: 1px solid #ccc; }
+.pb-patient-detail__name label { display: flex; gap: 5px; align-items: center; min-width: 0; }
+.pb-patient-detail__name label span { width: 40px; text-transform: capitalize; flex: none; }
+.pb-patient-detail__name input, .pb-patient-detail__name textarea { width: 100%; min-width: 0; }
+.pb-patient-detail__name.is-current input, .pb-patient-detail__name.is-current textarea { background: #e99b82; }
+.pb-patient-detail__addresses { flex: none; }
+.pb-patient-detail__contact-grid { padding: 6px; display: grid; grid-template-columns: 1.2fr 1fr 1.3fr; gap: 12px; }
+.pb-patient-detail__contact-grid .pb-patient-detail__field { grid-template-columns: 65px minmax(0, 1fr); }
+
+.pb-patient-detail__name { grid-template-areas: "first expiry" "middle note" "last note" "count count"; }
+.pb-patient-detail__name-first { grid-area: first; }
+.pb-patient-detail__name-middle { grid-area: middle; }
+.pb-patient-detail__name-last { grid-area: last; }
+.pb-patient-detail__name-expiry { grid-area: expiry; }
+.pb-patient-detail__name-note { grid-area: note; }
+.pb-patient-detail__name-count { grid-area: count; text-align: right; }

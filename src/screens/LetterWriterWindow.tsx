@@ -1,19 +1,23 @@
+import type { ReactNode } from 'react'
 import { useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import { useChartRows } from '../data/chart-records'
+import { TEMPLATE_PREVIEW } from '../data/letterSetup'
+import {
+  ADVANCE_SELECTION_BLOCKS, ADVANCE_SELECTION_MODES,
+  LETTER_DOCUMENT_TYPES, LETTER_MENUS, LETTER_TOOLBOX, LETTER_WRITER_COMMANDS,
+  LW, LW_BANDS, LW_CREATED_ROW, LW_HEADER_GRID, LW_LEFT_FIELDS, LW_RAIL, LW_SOURCE_ROW,
+  LW_STATUS, LW_TOOLBAR,
+  SELECTION_LISTS, TEMPLATE_DESIGN_COMMANDS,
+  TEMPLATE_TOOLBOX,
+  type LetterCommand, type LetterMetaRun,
+  type SelectionList,
+  type ToolboxGroup
+} from '../data/letterWriter'
+import { usePatient } from '../data/patient-context'
 import {
   PBButton, PBCheckbox, PBGroup, PBInput, PBMenuBar, PBRadio, PBSelect, PBStatusBar, PBWindow,
   pbSlug, usePBInstrumentation,
 } from '../pb'
-import {
-  ADVANCE_SELECTION_BLOCKS, ADVANCE_SELECTION_MODES, IMAGE_DETAIL_BLOCK, LETTER_BODY,
-  LETTER_DOCUMENT_TYPES, LETTER_MENUS, LETTER_TOOLBOX, LETTER_WRITER_COMMANDS,
-  LW, LW_BANDS, LW_CREATED_ROW, LW_HEADER_GRID, LW_LEFT_FIELDS, LW_RAIL, LW_SOURCE_ROW,
-  LW_STATUS, LW_TOOLBAR, MEASURE_TABLE, SELECTION_LISTS, TEMPLATE_DESIGN_COMMANDS,
-  TEMPLATE_TOOLBOX,
-  type LetterCommand, type LetterMetaRun, type LetterParagraph, type SelectionList,
-  type ToolboxGroup,
-} from '../data/letterWriter'
-import { TEMPLATE_PREVIEW } from '../data/letterSetup'
 
 /* ============================================================================
    MOIS Letter Writer — the CURRENT FLAT generation.
@@ -162,8 +166,8 @@ function HeaderFieldPanel({ docTypeId }: { docTypeId: string }) {
   const doc = LETTER_DOCUMENT_TYPES.find((d) => d.id === docTypeId) ?? LETTER_DOCUMENT_TYPES[0]!
   const right = [
     { label: 'Type:', value: doc.type },
-    { label: 'Code:', value: doc.code },
-    { label: doc.row3Label, value: doc.row3Value },
+    { label: 'Code:', value: '' },
+    { label: doc.row3Label, value: '' },
     { label: 'Copies To:', value: '' },
   ]
 
@@ -215,7 +219,7 @@ function HeaderFieldPanel({ docTypeId }: { docTypeId: string }) {
     >
       {[0, 1, 2, 3].map((i) => (
         <span key={i} style={{ display: 'contents' }}>
-          {cell(LW_LEFT_FIELDS[i]!.label, LW_LEFT_FIELDS[i]!.value, 'left')}
+          {cell(LW_LEFT_FIELDS[i]!.label, '', 'left')}
           {cell(right[i]!.label, right[i]!.value, 'right')}
         </span>
       ))}
@@ -286,81 +290,17 @@ function Ruler() {
 
 /* --- the page -------------------------------------------------------------
    The body is a token stream because the colours are the content. */
-const TOKEN_STYLE: Record<string, CSSProperties> = {
-  plain: {},
-  pop: { background: LW.populator },
-  order: { background: LW.orderField },
-}
-
-function Paragraph({ p }: { p: LetterParagraph }) {
-  return (
-    <div style={{ marginBottom: p.gap ?? 0, fontWeight: p.bold ? 700 : 400, minHeight: '1.4em' }}>
-      {p.tokens.map((t, i) => (
-        <span
-          key={i}
-          style={TOKEN_STYLE[t.t]}
-          data-tutorial-id={t.t === 'order' ? 'host.mois.field.order-report' : undefined}
-          /* the blue field is the only editable run on the page */
-          contentEditable={t.t === 'order' ? true : undefined}
-          suppressContentEditableWarning={t.t === 'order' ? true : undefined}
-        >
-          {t.s}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-/** Add Table of Records output: a #c0c0c0 header row over #ffff9c cells. */
-function GeneratedTable() {
-  return (
-    <table
-      data-tutorial-id="host.mois.field.generated-table"
-      style={{ borderCollapse: 'collapse', margin: '10px 0 14px', fontSize: 11 }}
-    >
-      <thead>
-        <tr>
-          {MEASURE_TABLE.columns.map((c) => (
-            <th
-              key={c}
-              style={{ background: LW.tableHead, border: '1px solid #808080', padding: '1px 6px', textAlign: 'left', fontWeight: 700 }}
-            >
-              {c}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {MEASURE_TABLE.rows.map((r, i) => (
-          <tr key={i}>
-            {r.map((v, j) => (
-              <td key={j} style={{ background: LW.yellow, border: '1px solid #808080', padding: '1px 6px' }}>{v}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-/** Add Detail Report output: a labelled block, all #ffff9c. */
-function GeneratedDetail() {
-  const pair = ([label, value]: string[]) => (
-    <div key={label} className="pb-row" style={{ gap: 6 }}>
-      <span style={{ width: 96, flex: 'none' }}>{label}</span>
-      <span style={{ background: LW.yellow }}>{value}</span>
-    </div>
-  )
-  return (
-    <div data-tutorial-id="host.mois.field.generated-detail" style={{ margin: '10px 0 14px' }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>{IMAGE_DETAIL_BLOCK.title}</div>
-      <div className="pb-row" style={{ alignItems: 'flex-start', gap: 40 }}>
-        <div>{IMAGE_DETAIL_BLOCK.left.map(pair)}</div>
-        <div>{IMAGE_DETAIL_BLOCK.right.map(pair)}</div>
-      </div>
-      <div style={{ marginTop: 6 }}>{IMAGE_DETAIL_BLOCK.blocks.map(pair)}</div>
-    </div>
-  )
+function GeneratedRecords({ list, detail }: { list: SelectionList; detail: boolean }) {
+  const columns = list.columns.filter(c => !c.check && !c.link && c.key !== 'clip')
+  return <div data-tutorial-id={`host.mois.field.generated-${detail ? 'detail' : 'table'}`} style={{ margin: '10px 0 14px' }}>
+    <strong>{list.title}</strong>
+    {detail ? list.rows.map((row, i) => <div key={i} style={{ marginTop: 8 }}>
+      {columns.map(c => <div key={c.key}><span>{c.header}: </span><span style={{ background: LW.yellow }}>{String(row[c.key] ?? '')}</span></div>)}
+    </div>) : <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
+      <thead><tr>{columns.map(c => <th key={c.key} style={{ background: LW.tableHead, border: '1px solid #808080', padding: '1px 6px' }}>{c.header}</th>)}</tr></thead>
+      <tbody>{list.rows.map((row, i) => <tr key={i}>{columns.map(c => <td key={c.key} style={{ background: LW.yellow, border: '1px solid #808080', padding: '1px 6px' }}>{String(row[c.key] ?? '')}</td>)}</tr>)}</tbody>
+    </table>}
+  </div>
 }
 
 /* --- toolbox rail ---------------------------------------------------------
@@ -507,10 +447,12 @@ function SelectionWindow({
   list, onContinue, onClose,
 }: {
   list: SelectionList
-  onContinue: () => void
+  onContinue: (rows: SelectionList['rows']) => void
   onClose: () => void
 }) {
   const [cur, setCur] = useState(0)
+  const [rows, setRows] = useState(list.rows)
+  const selectAll = (checked: boolean) => setRows(all => all.map(row => ({ ...row, ...Object.fromEntries(list.columns.filter(c => c.check).map(c => [c.key, checked])) })))
   return (
     <div className="pb-modal-layer" style={{ zIndex: 90 }}>
       <PBWindow
@@ -533,8 +475,8 @@ function SelectionWindow({
             >
               <span>{list.title}</span>
               <span className="pb-band__spacer" />
-              {list.selectAll && <PBButton size="sm">Select All</PBButton>}
-              <PBButton size="sm">Clear Selections</PBButton>
+              {list.selectAll && <PBButton size="sm" onClick={() => selectAll(true)}>Select All</PBButton>}
+              <PBButton size="sm" onClick={() => selectAll(false)}>Clear Selections</PBButton>
             </div>
             <div className="pb-dw" style={{ flex: '1 1 auto', minHeight: 0 }}>
               <div className="pb-dw__scroll">
@@ -550,7 +492,7 @@ function SelectionWindow({
                     </tr>
                   </thead>
                   <tbody>
-                    {list.rows.map((r, i) => (
+                    {rows.map((r, i) => (
                       <tr
                         key={i}
                         className={i === cur ? 'is-current' : undefined}
@@ -568,7 +510,7 @@ function SelectionWindow({
                             }
                           >
                             {c.check
-                              ? <PBCheckbox checked={Boolean(r[c.key])} />
+                              ? <PBCheckbox checked={Boolean(r[c.key])} onChange={checked => setRows(all => all.map((row, j) => j === i ? { ...row, [c.key]: checked } : row))} />
                               : c.link
                                 ? <button className="pb-link">{String(r[c.key] ?? '')}</button>
                                 : String(r[c.key] ?? '')}
@@ -628,7 +570,7 @@ function SelectionWindow({
             className="pb-btn--default"
             style={{ width: 80 }}
             data-tutorial-id="host.mois.command.continue"
-            onClick={onContinue}
+            onClick={() => onContinue(rows)}
           >
             Continue
           </PBButton>
@@ -659,35 +601,40 @@ export function LetterWriterWindow({
   onClose?: () => void
   onCommand?: (label: string) => void
 }) {
+  const patient = usePatient()
   const template = mode === 'template'
   const doc = LETTER_DOCUMENT_TYPES.find((d) => d.id === documentType) ?? LETTER_DOCUMENT_TYPES[0]!
 
   const [source, setSource] = useState<Record<string, string>>({})
-  const [inserts, setInserts] = useState<{ kind: 'table' | 'detail'; id: number }[]>([])
+  const [inserts, setInserts] = useState<{ kind: 'table' | 'detail'; list: SelectionList }[]>([])
   const [selection, setSelection] = useState<{ list: SelectionList; insert: 'table' | 'detail' | null } | null>(null)
 
-  /* the Add-Table / Add-Detail output lands at the cursor; the cursor in a
-     fresh letter sits in the blue order field, so the insert goes just after
-     the paragraph that holds it */
-  const splitAt = LETTER_BODY.findIndex((p) => p.tokens.some((t) => t.t === 'order')) + 1
+  const measures = useChartRows('measures')
+  const documents = useChartRows('documents')
+  const chartList = (key: string): SelectionList => {
+    const layout = SELECTION_LISTS[key] ?? SELECTION_LISTS['MEASURE LIST']!
+    return { ...layout, rows: key === 'MEASURE LIST' ? measures.map(r => ({
+      ...r, date: r.collected ?? '', test: r.test ?? '', value: [r.value, r.units].filter(Boolean).join(' '), table: false, detail: false,
+    })) : key === 'ATTACHMENTS' ? documents.map(r => ({ ...r, select: false, open: '' })) : [] }
+  }
 
   const railAction = (group: ToolboxGroup, label: string) => {
     if (label === 'Add Table') {
       const key = source[group.title] ?? (group.kind === 'source' ? group.options[0]! : '')
-      setSelection({ list: SELECTION_LISTS[key] ?? SELECTION_LISTS['MEASURE LIST']!, insert: 'table' })
+      setSelection({ list: chartList(key), insert: 'table' })
       return
     }
     if (label === 'Add Detail') {
-      setSelection({ list: SELECTION_LISTS['MEASURE LIST']!, insert: 'detail' })
+      setSelection({ list: chartList('MEASURE LIST'), insert: 'detail' })
       return
     }
     if (label === 'Attachments') {
-      setSelection({ list: SELECTION_LISTS.ATTACHMENTS!, insert: null })
+      setSelection({ list: chartList('ATTACHMENTS'), insert: null })
     }
   }
 
   const status = [
-    ...LW_STATUS.map((c) => ({ text: c.text, width: c.width })),
+    ...LW_STATUS.map((c) => ({ text: '', width: c.width })),
     { text: '', grow: true },
     /* the right-hand zoom widgets, from x=647: fit-page icons, - slider +, 90% */
     { text: <span className="pb-row" style={{ gap: 6 }}><span>{'⊟'}</span><span>{'⊖'}</span><span>{'—'}</span><span>{'⊕'}</span><span>90%</span></span>, width: 150 },
@@ -739,7 +686,7 @@ export function LetterWriterWindow({
                 overflow: 'hidden',
               }}
             >
-              {template ? 'LETTER TEMPLATE' : doc.title}
+              {template ? 'LETTER TEMPLATE' : doc.title.split(' - ')[0]}
             </div>
             {RULE(LW.rule)}
 
@@ -756,13 +703,13 @@ export function LetterWriterWindow({
                   <HeaderFieldPanel docTypeId={doc.id} />
                   {RULE(LW.ruleSoft)}
                   <MetaRow
-                    runs={LW_SOURCE_ROW}
+                    runs={LW_SOURCE_ROW.map(r => ({ ...r, text: r.field || r.text.startsWith('- ') ? '' : r.text }))}
                     height={LW_BANDS.sourceRow}
                     anchor="host.mois.field.source-row"
                   />
                   {RULE(LW.ruleSoft)}
                   <MetaRow
-                    runs={LW_CREATED_ROW}
+                    runs={LW_CREATED_ROW.map(r => ({ ...r, text: r.field ? '' : r.text }))}
                     height={LW_BANDS.createdRow}
                     anchor="host.mois.field.created-row"
                   />
@@ -806,13 +753,9 @@ export function LetterWriterWindow({
                 ))
                 : (
                   <>
-                    {LETTER_BODY.slice(0, splitAt).map((p, i) => <Paragraph key={i} p={p} />)}
-                    {inserts.map((ins) => (
-                      ins.kind === 'table'
-                        ? <GeneratedTable key={ins.id} />
-                        : <GeneratedDetail key={ins.id} />
-                    ))}
-                    {LETTER_BODY.slice(splitAt).map((p, i) => <Paragraph key={splitAt + i} p={p} />)}
+                    <div>{patient.full} · Chart {patient.chart}</div>
+                    {inserts.length === 0 && <div style={{ marginTop: 12 }}>No letter content selected.</div>}
+                    {inserts.map((entry, i) => <GeneratedRecords key={i} list={entry.list} detail={entry.kind === 'detail'} />)}
                   </>
                 )}
             </div>
@@ -836,10 +779,11 @@ export function LetterWriterWindow({
       {selection && (
         <SelectionWindow
           list={selection.list}
-          onContinue={() => {
+          onContinue={(rows) => {
             if (selection.insert) {
               const kind = selection.insert
-              setInserts((v) => [...v, { kind, id: Date.now() }])
+              const selected = rows.filter(row => row[kind])
+              if (selected.length) setInserts((v) => [...v, { kind, list: { ...selection.list, rows: selected } }])
             }
             setSelection(null)
           }}

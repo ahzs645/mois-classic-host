@@ -779,14 +779,16 @@ Object.assign(reportScreens, {
 
   prefs: {
     title: 'Preferences',
-    commands: SIMPLE, disabled: DIS, plain: true,
+    commands: ['New Record', 'Quick Entry', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Attachment'], plain: true,
     columns: [
-      { key: 'start', header: 'Start', width: 86, align: 'center' },
-      { key: 'type', header: 'Type', width: 130, align: 'center' },
-      { key: 'subject', header: 'Subject', width: 210 },
-      { key: 'detail', header: 'Detail' },
-      { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'demo', header: 'Show on Demo', width: 90, align: 'center', check: true },
+      { key: 'start', header: 'Start', width: 67, align: 'center' },
+      { key: 'type', header: <>Type<br /><span style={{ color: '#909090' }}>(read-only)</span></>, width: 124 },
+      { key: 'subject', header: 'Subject', width: 89 },
+      { key: 'detail', header: 'Detail', width: 229 },
+      { key: 'instruction', header: <>Instruction<br /><span style={{ color: '#909090' }}>(read-only)</span></>, width: 166 },
+      { key: 's', header: 'S', width: 23, align: 'center', check: true },
+      { key: 'demo', header: <>Show on<br />Demo.</>, width: 50, align: 'center', check: true },
+      { key: 'clip', header: '📎', width: 20, align: 'center' },
     ],
     rows: [],
     tabs: ['Detail'],

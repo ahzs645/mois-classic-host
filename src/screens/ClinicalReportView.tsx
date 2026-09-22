@@ -1,11 +1,17 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState } from 'react'
+import { useChartExport, useNodeRecords } from '../data/chart-records'
+import { bindReportField, stamp } from '../data/charts/detail'
+import type { MoisRecord } from '../data/charts'
+import { rowsFromExport } from '../data/charts/to-rows'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import type { ReportField, ReportScreen } from '../data/reportScreens'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBLookup,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
+import { PreferencesDetail } from './PreferencesDetail'
+import { PreferenceEncounterDialog } from './PreferenceEncounterDialog'
 import { MeasureReportPane } from './MeasureReportPane'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import type { ReportField, ReportScreen } from '../data/reportScreens'
 
 
 /* One component for Imaging Reports, Consult Reports, Procedure and Paper
@@ -24,7 +30,7 @@ function Field({ f }: { f: ReportField }) {
     case 'area':
       return <>{label}<PBTextArea rows={f.rows ?? 4} w={f.w ?? '100%'} defaultValue={f.value} /></>
     case 'check':
-      return <>{label}<PBCheckbox label={f.value} checked /></>
+      return <>{label}<PBCheckbox checked={f.value === 'Y'} /></>
     case 'range':
       return (
         <>{label}
@@ -33,7 +39,7 @@ function Field({ f }: { f: ReportField }) {
             <span>to</span>
             <PBInput w={92} style={{ background: 'var(--pb-dw-flag)' }} />
             <span style={{ marginLeft: 10 }}>Status:</span>
-            <PBInput w={44} align="center" defaultValue="F" />
+            <PBInput w={44} align="center" defaultValue="" />
           </div>
         </>
       )
@@ -51,13 +57,39 @@ function Field({ f }: { f: ReportField }) {
   }
 }
 
-export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
+export function ClinicalReportView({ screen: layout, node = '', initialRecordId }: { screen: ReportScreen; node?: string; initialRecordId?: string }) {
+  const data = useChartExport()
+  const records = useNodeRecords(node)
+  const encounters = useNodeRecords('encounters')
+  // Preference edits are local to this mounted chart view, never export writes.
+  const [drafts, setDrafts] = useState<Record<string, MoisRecord>>({})
+  const [saved, setSaved] = useState<Record<string, MoisRecord>>({})
+  const [encounterOpen, setEncounterOpen] = useState(false)
+  const screen = { ...layout, banner: undefined }
+
   const patient = usePatient()
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
-  const [cur, setCur] = useState(0)
+  const [cur, setCur] = useState(() => initialRecordId && node === 'prefs' ? Math.max(0, records.findIndex(r => r.id_chart_preference === initialRecordId)) : 0)
+  const preferenceGrid = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (node !== 'prefs') return
+    preferenceGrid.current?.querySelectorAll('tbody tr')[cur]?.scrollIntoView?.({ block: 'nearest' })
+  }, [cur, node, records.length])
+  const sourceRecord = records[cur]
+  const recordId = sourceRecord?.id_chart_preference ?? ''
+  const record = node === 'prefs' && sourceRecord ? { ...sourceRecord, ...drafts[recordId] } : sourceRecord
+  const changePreference = (field: string, value: string) => {
+    if (recordId) setDrafts(previous => ({ ...previous, [recordId]: { ...previous[recordId], [field]: value } }))
+  }
+  const encounterId = record?.id_encounter && record.id_encounter !== '-1' && record.id_encounter !== '0' ? record.id_encounter : ''
+  const form = screen.forms?.[tab] ?? screen
+  const reactions = record ? (node === 'events' ? data?.reaction_event.filter(r => r.id_adverse_event === record.id_adverse_event) : data?.reaction_risk.filter(r => r.id_allergy === record.id_allergy)) ?? [] : []
 
   const commands: PBCommand[] = screen.commands.map((c) =>
-    c === null ? null : { label: c, disabled: screen.disabled?.includes(c) },
+    c === null ? null : { label: c, disabled: screen.disabled?.includes(c), onClick: node !== 'prefs' ? undefined
+      : c === 'Save' ? () => setSaved(drafts)
+      : c === 'Undo' ? () => setDrafts(previous => ({ ...previous, [recordId]: saved[recordId] ?? {} }))
+      : c === 'Refresh' ? () => { setDrafts({}); setSaved({}) } : undefined },
   )
   const columns: PBColumn<Record<string, string>>[] = screen.columns.map((c) => ({
     key: c.key,
@@ -66,16 +98,16 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
     width: c.width,
     align: c.align,
     dots: c.dots,
-    render: c.check ? () => <PBCheckbox /> : undefined,
+    render: c.check ? (r) => <PBCheckbox checked={r[c.key] === '✓' || r[c.key] === 'Y'} /> : undefined,
   }))
 
   const detail = (
     <div style={{ display: 'flex', gap: 10, padding: '6px 8px', alignItems: 'flex-start', minWidth: 0 }}>
       <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
-        {screen.left.map((f, i) => <Fragment key={i}><Field f={f} /></Fragment>)}
+        {form.left.map((f, i) => <Fragment key={`${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}
       </div>
       <div className="pb-form" style={{ padding: 0, gridTemplateColumns: 'auto 1fr', flex: 'none', alignItems: 'start' }}>
-        {screen.right.map((f, i) => <Fragment key={i}><Field f={f} /></Fragment>)}
+        {form.right.map((f, i) => <Fragment key={`${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}
       </div>
     </div>
   )
@@ -111,12 +143,13 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
 
       {screen.banner && <div style={{ padding: '2px 8px 3px', flex: 'none' }}>{screen.banner}</div>}
 
-      <div style={{ padding: '0 3px', height: 220, flex: 'none', display: 'flex' }}>
+      <div ref={preferenceGrid} style={{ padding: '0 3px', height: node === 'prefs' ? 278 : 220, flex: 'none', display: 'flex' }}>
         <PBDataWindow
           columns={columns}
-          rows={screen.rows}
+          rows={node === 'prefs' ? rowsFromExport('prefs', records.map(r => ({ ...r, ...drafts[r.id_chart_preference ?? ''] }))) : screen.rows}
           current={cur}
-          onCurrentChange={setCur}
+          rowTutorialId={node === 'prefs' ? (_r, i) => `host.mois.row.preference-${records[i]?.id_chart_preference}` : undefined}
+          onCurrentChange={i => { setCur(i); setEncounterOpen(false) }}
           rowStatus={(r) => (screen.flagKey && r[screen.flagKey] === 'H' ? 'flag' : 'normal')}
           empty={`No ${screen.title.toLowerCase()} on file.`}
         />
@@ -152,7 +185,7 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
                   <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
                     <PBDataWindow
                       flush gutter={false}
-                      rows={[{ reaction: 'MALAISE AND FATIGUE', rank: '1', severity: '', comment: '' }]}
+                      rows={reactions.map(r => ({ reaction: r.str_reaction ?? '', rank: r.num_rank ?? '', severity: r.str_severity ?? '', comment: r.str_comment ?? '' }))}
                       columns={[
                         { key: 'reaction', header: 'Reaction', width: 240 },
                         { key: 'rank', header: 'Rank', width: 56, align: 'center' },
@@ -179,8 +212,8 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
                   </div>
                 </>
               ) : tab === 'Panel (0)' ? (
-                <div className="pb-dw__empty" style={{ padding: 24 }}>This result is not part of a panel.</div>
-              ) : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={screen.rows[cur]} /> : detail}
+                <div className="pb-dw__empty" style={{ padding: 24 }}>No panel detail available.</div>
+              ) : node === 'prefs' ? <PreferencesDetail key={recordId} record={record} records={records} onChange={changePreference} /> : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={screen.rows[cur]} /> : detail}
             </PBTabs>
           ) : (
             <div style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-window)', border: '1px solid var(--pb-border)', overflow: 'auto' }}>
@@ -216,20 +249,22 @@ export function ClinicalReportView({ screen }: { screen: ReportScreen }) {
       {screen.footer && !screen.plain && (
         <div className="pb-row" style={{ padding: '2px 8px 0', gap: 0 }}>
           <span style={{ width: 70 }}>Source:</span>
-          <span style={{ width: 92 }}>{screen.footer.source}</span>
-          <span>Sent Date:&nbsp;</span><span style={{ width: 100 }}>{screen.footer.sent ?? ''}</span>
-          <span>Code:&nbsp;&nbsp;{screen.footer.code}</span>
+          <span style={{ width: 92 }}>{record?.str_source ?? ''}</span>
+          <span>Sent Date:&nbsp;</span><span style={{ width: 100 }}>{record?.dtm_sent ?? ''}</span>
+          <span>Code:&nbsp;&nbsp;{record?.str_code ?? ''}</span>
           <span className="pb-row__spacer" />
-          <button className="pb-link">{screen.footer.sign}</button>
+          <button className="pb-link">{record?.str_signature ?? ''}</button>
         </div>
       )}
       <div className="pb-row" style={{ padding: '0 8px 4px', gap: 0 }}>
-        <span>Created:&nbsp;&nbsp;&nbsp;{screen.created}</span>
+        <span>Created:&nbsp;&nbsp;&nbsp;{stamp(record)}</span>
         <span style={{ width: 28 }} />
-        <span>Last Modified:</span>
+        <span>Last Modified: {stamp(record, 'modify')}</span>
         <span className="pb-row__spacer" />
-        <button className="pb-link">ENC# EMPTY</button>
+        {node === 'prefs' ? record && <button type="button" className="pb-link" onClick={() => setEncounterOpen(true)}>ENC# {encounterId || 'EMPTY'}</button> : record?.id_encounter && <button className="pb-link">ENC# {record.id_encounter}</button>}
       </div>
+      {node === 'prefs' && record && encounterOpen && <PreferenceEncounterDialog key={recordId} encounterId={encounterId}
+        encounters={encounters} onChange={id => changePreference('id_encounter', id)} onClose={() => setEncounterOpen(false)} />}
     </>
   )
 }

@@ -1,77 +1,81 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { basketFolders } from '../data/basket'
+import { billingAdminViews } from '../data/billingAdmin'
+import { chartRowsFor } from '../data/chart-records'
+import { hasChartExport, loadChartExport } from '../data/charts'
+import { chartScreens, moduleScreens, schedulerScreens, type ChartScreen } from '../data/chartScreens'
+import { clinicListSpecs } from '../data/clinicManagement'
+import { bookedAppointment, type Appointment } from '../data/daybook'
+import { designerNodes } from '../data/designerSection'
+import {
+  adminTree, billingTree, daybookProviders,
+  exchangeTree, makeMainMenu, makeStatusCells, modules,
+  patientChartTree, reportsTree, schedulerTree, workspaceTree,
+  type CarePlanKey, type PBTextMode, type PBTheme
+} from '../data/mois'
+import { PatientProvider } from '../data/patient-context'
+import {
+  DEFAULT_CHART, findPatient, normalizePatient,
+  stepChart,
+  patients as trainingRoster,
+  type Patient,
+} from '../data/patients'
+import { printReportByMenu, type PrintReport } from '../data/printReports'
+import { reportScreens } from '../data/reportScreens'
+import { taskScreens } from '../data/tasks'
+import { userManagementNodes } from '../data/userManagement'
 import {
   PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
 } from '../pb'
-import {
-  adminTree, billingTree, daybookProviders, encounterRows, exchangeTree, makeMainMenu, makeStatusCells, modules,
-  patientChartTree, reportsTree, schedulerTree, workspaceTree,
-  type CarePlanKey, type PBTextMode, type PBTheme,
-} from '../data/mois'
-import {
-  DEFAULT_CHART, findPatient, normalizePatient, patients as trainingRoster, stepChart, type Patient,
-} from '../data/patients'
-import { PatientProvider } from '../data/patient-context'
-import { PatientSummaryView } from '../screens/PatientSummaryView'
+import '../pb/kit.css'
+import { AddAttachmentDialog } from '../screens/AddAttachmentDialog'
+import { AdvanceChartSearchDialog } from '../screens/AdvanceChartSearchDialog'
 import { AdvancedLookupDialog } from '../screens/AdvancedLookupDialog'
-import { NewAppointmentDialog } from '../screens/NewAppointmentDialog'
-import { ClaimPromptDialog, type ClaimPrompt } from '../screens/ClaimPromptDialog'
-import { RichtextReportWindow, SelectionParameterDialog } from '../screens/PrintFlow'
 import { BasketFolderView } from '../screens/BasketFolderView'
 import { BillingAdminView } from '../screens/BillingAdminView'
-import { TaskListView } from '../screens/TaskListView'
-import { taskScreens } from '../data/tasks'
-import { chartRowsFor } from '../data/chart-records'
-import { hasChartExport, loadChartExport } from '../data/charts'
-import { ClinicListView } from '../screens/ClinicListView'
-import { clinicListSpecs } from '../data/clinicManagement'
-import { DesignerSectionView } from '../screens/DesignerSectionView'
-import { designerNodes } from '../data/designerSection'
-import { UserManagementView } from '../screens/UserManagementView'
-import { userManagementNodes } from '../data/userManagement'
-import { FindPatientDialog } from '../screens/FindPatientDialog'
-import { AdvanceChartSearchDialog } from '../screens/AdvanceChartSearchDialog'
-import { ReviewingDialog } from '../screens/ReviewingDialog'
-import { OrderLinkingServiceDialog } from '../screens/OrderLinkingServiceDialog'
-import { TagToCarePlanDialog } from '../screens/TagToCarePlanDialog'
-import { ChartNavigatorWindow } from '../screens/ChartNavigatorWindow'
-import { AddAttachmentDialog } from '../screens/AddAttachmentDialog'
+import { InvoiceView, SentMspView, UnsentMspView } from '../screens/BillingViews'
+import { CarePlanSummaryView } from '../screens/CarePlanSummaryView'
+import { CarePlanView } from '../screens/CarePlanView'
 import {
   InboundMessagesView, OutboundMessagesView, PatientMessageDetailWindow, RecordNavigatorWindow,
 } from '../screens/CdxMessageViews'
-import { LetterWriterWindow } from '../screens/LetterWriterWindow'
-import { LetterSetupWindow, SelectLetterTemplateDialog } from '../screens/LetterFlow'
-import { billingAdminViews } from '../data/billingAdmin'
-import { basketFolders } from '../data/basket'
-import { printReportByMenu, type PrintReport } from '../data/printReports'
-import { bookedAppointment, type Appointment } from '../data/daybook'
-import { EncounterListView, OrderView } from '../screens/OrderView'
-import { SchedulerView, daybookOffsetAfter, daybookStamp, type DaybookMove } from '../screens/SchedulerView'
-import { DemographicsView } from '../screens/DemographicsView'
-import { NotificationView } from '../screens/NotificationView'
-import { GroupVisitView } from '../screens/GroupVisitView'
-import { CarePlanSummaryView } from '../screens/CarePlanSummaryView'
-import { CarePlanView } from '../screens/CarePlanView'
-import { GoalsView } from '../screens/GoalsView'
-import { ClinicalReportView } from '../screens/ClinicalReportView'
-import { reportScreens } from '../data/reportScreens'
+import { ChartNavigatorWindow } from '../screens/ChartNavigatorWindow'
 import { ChartSectionView } from '../screens/ChartSectionView'
+import { ClaimPromptDialog, type ClaimPrompt } from '../screens/ClaimPromptDialog'
+import { ClinicalReportView } from '../screens/ClinicalReportView'
+import { ClinicListView } from '../screens/ClinicListView'
 import { DayGridView } from '../screens/DayGridView'
-import { LoginDialog } from '../screens/LoginDialog'
-import { MedicationView, PrintHistoryView } from '../screens/MedicationView'
-import { WaitingListView } from '../screens/WaitingListView'
-import { MarView } from '../screens/MarView'
+import { DemographicsView } from '../screens/DemographicsView'
+import { DesignerSectionView } from '../screens/DesignerSectionView'
 import { DeterminantsView } from '../screens/DeterminantsView'
-import { chartScreens, moduleScreens, schedulerScreens, type ChartScreen } from '../data/chartScreens'
 import { EncounterWindow, type EncounterRecord } from '../screens/EncounterWindow'
-import { ServiceEventDialog } from '../screens/ServiceEventDialog'
-import { ProviderWorkloadView, UserManagementLanding } from '../screens/ModuleLandingViews'
-import { SystemSettingsView } from '../screens/SystemSettingsView'
-import { ReportListView } from '../screens/ReportListView'
-import { InvoiceView, SentMspView, UnsentMspView } from '../screens/BillingViews'
-import { WorkspaceSummaryView } from '../screens/WorkspaceSummaryView'
+import { FindPatientDialog } from '../screens/FindPatientDialog'
 import { GoalDialog } from '../screens/GoalDialog'
-import '../pb/kit.css'
+import { GoalsView } from '../screens/GoalsView'
+import { GroupVisitView } from '../screens/GroupVisitView'
+import { LetterSetupWindow, SelectLetterTemplateDialog } from '../screens/LetterFlow'
+import { LetterWriterWindow } from '../screens/LetterWriterWindow'
+import { LoginDialog } from '../screens/LoginDialog'
+import { MarView } from '../screens/MarView'
+import { MedicationView, PrintHistoryView } from '../screens/MedicationView'
+import { ProviderWorkloadView, UserManagementLanding } from '../screens/ModuleLandingViews'
+import { NewAppointmentDialog } from '../screens/NewAppointmentDialog'
+import { NotificationView } from '../screens/NotificationView'
+import { OrderLinkingServiceDialog } from '../screens/OrderLinkingServiceDialog'
+import { EncounterListView, OrderView } from '../screens/OrderView'
+import { PatientSummaryView } from '../screens/PatientSummaryView'
+import { RichtextReportWindow, SelectionParameterDialog } from '../screens/PrintFlow'
+import { ReportListView } from '../screens/ReportListView'
+import { ReviewingDialog } from '../screens/ReviewingDialog'
+import { SchedulerView, daybookOffsetAfter, daybookStamp, type DaybookMove } from '../screens/SchedulerView'
+import { ServiceEventDialog } from '../screens/ServiceEventDialog'
+import { SystemSettingsView } from '../screens/SystemSettingsView'
+import { TagToCarePlanDialog } from '../screens/TagToCarePlanDialog'
+import { TaskListView } from '../screens/TaskListView'
+import { UserManagementView } from '../screens/UserManagementView'
+import { WaitingListView } from '../screens/WaitingListView'
+import { WorkspaceSummaryView } from '../screens/WorkspaceSummaryView'
 import { resolveMoisClassicFixture } from './manifest'
 import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './types'
 
@@ -537,6 +541,7 @@ function Frame({
   const [module, setModule] = useState<string>(start.module)
   const [view, setView] = useState<View>(start.view)
   const [selected, setSelected] = useState<string>(start.node)
+  const [recordSelection, setRecordSelection] = useState<{ chart: string; node: string; id: string } | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(DEFAULT_EXPANDED))
   const mdi = useMdi()
   /* a New Record on the Encounters list, unsaved: the frame holds it so the
@@ -647,6 +652,7 @@ function Frame({
   }, [])
 
   const selectNode = useCallback((id: string) => {
+    setRecordSelection(null)
     setSelected(id)
     setTab(null)
     routeNode(id, isScheduler)
@@ -670,7 +676,8 @@ function Frame({
 
   /* autoplay opens a nested node the learner never expanded: switch to its
      module, open every ancestor, then select it exactly as a click would */
-  const openNode = useCallback((id: string) => {
+  const openNode = useCallback((id: string, recordId?: string) => {
+    setRecordSelection(recordId ? { chart, node: id, id: recordId } : null)
     const owner = moduleOfNode(id)
     if (!owner) throw new Error(`Unknown MOIS tree node: ${id}`)
     const ancestors = ancestorsOf(MODULE_TREES[owner].tree, id) ?? []
@@ -686,17 +693,17 @@ function Frame({
     setTab(null)
     routeNode(id, owner === 'scheduler')
     report_('host.mois.selectNode', { node: id })
-  }, [module, report_, routeNode])
+  }, [chart, module, report_, routeNode])
 
   const openEncounter = useCallback((row: EncounterRecord) => {
     mdi.open({
       kind: 'encounter',
-      key: `encounter:${row.id}`,
+      key: `encounter:${chart}:${row.id}`,
       title: `Encounter ${row.id}`,
       props: { encounter: row, loadEncounterForms, encounterFormSlot },
     })
     report_('host.mois.openWindow', { kind: 'encounter' })
-  }, [mdi, report_, loadEncounterForms, encounterFormSlot])
+  }, [chart, mdi, report_, loadEncounterForms, encounterFormSlot])
 
   const closeDialogs = useCallback(() => {
     setServiceEventOpen(false)
@@ -719,6 +726,15 @@ function Frame({
     setLetterStep(null)
     report_('host.mois.closeDialog')
   }, [report_])
+
+  const previousChart = useRef(chart)
+  useLayoutEffect(() => {
+    if (previousChart.current === chart) return
+    previousChart.current = chart
+    mdi.closeAll()
+    closeDialogs()
+    setEncounterDraft(false)
+  }, [chart, mdi.closeAll, closeDialogs])
 
   /* picking a row in the Advanced Lookup Service is what changes the chart */
   const selectPatient = useCallback((next: string) => {
@@ -768,14 +784,13 @@ function Frame({
 
   /* The open chart's own records, when it has an export behind it.
 
-     The export is a lazy chunk, so the first render after opening such a chart
-     has nothing yet and the screen shows its fixture for a frame. `loadedChart`
-     is bumped when the chunk lands, which is what re-runs the lookup. */
+     The export is a lazy chunk. Rows stay empty until it arrives;
+     `loadedChart` then re-runs the lookup and resets the selected detail. */
   const [loadedChart, setLoadedChart] = useState<string | null>(null)
   useEffect(() => {
     if (!hasChartExport(chart)) return
     let live = true
-    void loadChartExport(chart).then(() => { if (live) setLoadedChart(chart) })
+    void loadChartExport(chart).then(() => { if (live) setLoadedChart(chart) }).catch(() => { if (live) setLoadedChart(null) })
     return () => { live = false }
   }, [chart])
   const exportRows = useMemo(
@@ -922,10 +937,13 @@ function Frame({
              the one at args.index, opens in its own MDI window */
           if (args.kind !== undefined && args.kind !== 'encounter') throw new Error(`${actionId}: unknown window kind ${String(args.kind)}`)
           const index = typeof args.index === 'number' ? args.index : 0
-          const row = encounterRows[index]
+          await loadChartExport(chart)
+          if (previousChart.current !== chart) throw new Error(`${actionId}: chart changed while opening encounter`)
+          const row = chartRowsFor(chart, 'encounters')[index] as EncounterRecord | undefined
           if (!row) throw new Error(`${actionId}: no encounter row ${index}`)
           openNode('encounters')
           await nextFrame()
+          if (previousChart.current !== chart) throw new Error(`${actionId}: chart changed while opening encounter`)
           openEncounter(row)
           return undefined
         }
@@ -1008,7 +1026,7 @@ function Frame({
 
   return (
     <PBInstrumentationProvider namespace="host.mois" onAction={onKitAction}>
-    <PatientProvider chart={chart} roster={roster}>
+    <PatientProvider key={chart} chart={chart} roster={roster}>
     <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, textMode, className)}>
       <div
         className="pb-desktop"
@@ -1075,7 +1093,7 @@ function Frame({
             <div className="pb-split__gutter" />
 
             {/* ---- right work area ---- */}
-            <div className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea">
+            <div key={`${chart}:${selected}:${loadedChart === chart}`} className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea">
               {view === 'summary' && (
                 <PatientSummaryView
                   key={chart}
@@ -1148,12 +1166,11 @@ function Frame({
               {view === 'careplan' && <CarePlanView screen={carePlan} />}
               {/* New Record on the Goals screen is what opens the dialog */}
               {view === 'goals' && <GoalsView onNew={() => setGoalOpen(true)} />}
-              {/* a chart with a real export behind it draws its own records;
-                  every other patient keeps the transcribed fixture the
-                  tutorials anchor to */}
+              {/* Patient records come only from this chart; missing exports stay empty */}
               {view === 'report' && (
                 <ClinicalReportView
-                  screen={exportRows ? { ...report, rows: exportRows } : report}
+                  node={selected} screen={{ ...report, rows: exportRows }}
+                  initialRecordId={recordSelection?.chart === chart && recordSelection.node === selected ? recordSelection.id : undefined}
                 />
               )}
               {view === 'mar' && <MarView />}
@@ -1163,10 +1180,10 @@ function Frame({
               {view === 'printhx' && <PrintHistoryView />}
               {view === 'waitprov' && <WaitingListView mode="provider" />}
               {view === 'waitres' && <WaitingListView mode="resource" />}
-              {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) ?? section.rows }} />}
+              {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) }} />}
               {view === 'section' && section.title !== 'Care Plan' && (
                 <ChartSectionView
-                  screen={exportRows ? { ...section, rows: exportRows } : section}
+                  screen={module === 'chart' ? { ...section, rows: exportRows } : section}
                   content={sectionContent}
                 />
               )}

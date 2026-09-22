@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react'
+import { useChartExport, useChartRows, useNodeRecords } from '../data/chart-records'
+import { date } from '../data/charts/relations'
+import {
+  encounterRows, orderPayors, orderPriorities, orderReferralSources,
+  orderStatuses,
+  type OrderDetail, type OrderRecipient, type OrderRow
+} from '../data/mois'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup, PBIdentityStrip, PBInput,
   PBLookup, PBRadio, PBSelect, PBTabs, PBTextArea, PBViewHeader,
   type PBColumn,
 } from '../pb'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import { useChartRows } from '../data/chart-records'
-import {
-  encounterRows, orderPayors, orderPriorities, orderReferralSources, orderRows, orderStatuses,
-  type OrderDetail, type OrderRecipient, type OrderRow,
-} from '../data/mois'
 
 /* ============================================================================
    Order — the Patient Chart ▸ Orders window.
@@ -58,12 +60,22 @@ type Tab = typeof TABS[number]
 
 export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   /* a chart with a real export behind it lists its own orders */
-  const exportedOrders = useChartRows('orders') as OrderRow[] | null
+  const exportedOrders = useChartRows('orders') as unknown as OrderRow[]
   const patient = usePatient()
   const [tab, setTab] = useState<Tab>('Report')
   const [cur, setCur] = useState(0)
 
-  const order = orderRows[cur] ?? orderRows[0]
+  const records = useNodeRecords('orders')
+  const r = records[cur]
+  const order: OrderRow | undefined = exportedOrders?.[cur] ? { ...exportedOrders[cur], detail: {
+    attending: r?.str_attending, orderedBy: r?.str_order_by, responsibleOrg: r?.str_responsible_org,
+    referredTo: r?.str_performed_by, copiesTo: r?.str_copy_to, facility: r?.str_facility,
+    facilityRef: r?.str_filler_ref_no, facilityLoc: r?.str_facility_loc,
+    referralNote: r?.str_note, assignedTo: r?.str_assignedto, priority: r?.str_priority_code,
+    status: r?.str_status, finishedOn: r?.dtm_finish_date?.replace(/\//g, '.'),
+    source: r?.str_source, created: [r?.stp_date_create, r?.stp_user_create].filter(Boolean).join('  '),
+    encounter: r?.id_encounter,
+  } } : undefined
   /* MOIS counts the children of the current order in the tab captions, and
      a distribution counts its recipients rather than its events. */
   const counts = useMemo(() => ({
@@ -113,11 +125,12 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
           At 342 the grid crowded the Report tab until Referral Note and Order
           Management had no room left and collided with the footer. */}
       <PBFixed style={{ padding: '0 3px', height: 207, display: 'flex' }}>
-        <PBDataWindow columns={columns} rows={exportedOrders ?? orderRows} current={cur} onCurrentChange={setCur} />
+        <PBDataWindow columns={columns} rows={exportedOrders} current={cur} onCurrentChange={setCur} />
       </PBFixed>
 
       <PBFixed style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
         <PBTabs
+          key={cur}
           tabs={captions}
           active={caption}
           onChange={(next) => setTab(TABS.find((t) => next.startsWith(t)) ?? 'Report')}
@@ -483,7 +496,7 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
   const [hideFuture, setHideFuture] = useState(false)
   /* a chart with a real export behind it lists its own encounters */
   const exported = useChartRows('encounters')
-  const listed = (exported ?? encounterRows) as EncounterListRow[]
+  const listed = exported as unknown as EncounterListRow[]
   const rows = draft ? [DRAFT_ENCOUNTER, ...listed] : listed
   const current = rows[cur] ?? rows[0]
 
@@ -578,6 +591,7 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
           as the row moves — the way MOIS re-retrieves it. */}
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
         <PBTabs
+          key={cur}
           tabs={captions}
           active={tab === 'Report' ? 'Report' : captions[1]}
           onChange={(next) => setTab(next.startsWith('Distribution') ? 'Distribution' : 'Report')}
@@ -607,7 +621,12 @@ function readRowList<T>(row: EncounterListRow | undefined, key: 'report' | 'dist
    list: the Date / Description / Detail / Hyperlink grid MOIS uses wherever
    it rolls a chart up, under its Expand All / Collapse All pair.           */
 function EncounterReportPage({ row }: { row?: EncounterListRow }) {
-  const rows = readRowList<EncounterReportRow>(row, 'report')
+  const data = useChartExport()
+  const rows: EncounterReportRow[] = row ? [
+    ...(data?.encounter_note ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'PROGRESS NOTES', date: date(r.dtm_note_create), description: r.str_author ?? '', detail: r.str_note ?? '' })),
+    ...(data?.measure ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'MEASUREMENTS', date: date(r.dtm_collect_date), description: r.str_description ?? '', detail: [r.str_value, r.str_units].filter(Boolean).join(' ') })),
+    ...(data?.form_header ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'ENCOUNTER FORMS', date: date(r.dtm_created), description: r.str_form_window ?? '', detail: '' })),
+  ] : []
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const banded = rows.some((r) => r.section)
 

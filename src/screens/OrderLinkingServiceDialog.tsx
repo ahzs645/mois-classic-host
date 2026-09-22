@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { PBButton, PBDataWindow, PBDropField, PBGroup, PBTextArea, PBWindow, pbSlug } from '../pb'
-import { ORDER_LINK_COMMENT, orderLinkRows, type OrderLinkRow } from '../data/chartUtilities'
+import { useChartRecords } from '../data/chart-records'
+import { date } from '../data/charts/relations'
+import { type OrderLinkRow } from '../data/chartUtilities'
 import { usePatient } from '../data/patient-context'
+import { PBButton, PBDataWindow, PBDropField, PBGroup, PBTextArea, PBWindow, pbSlug } from '../pb'
 
 /* ============================================================================
    Order Linking Service — the Patient Chart's Taskbar `Link to Order`.
@@ -47,7 +49,8 @@ export function OrderLinkingServiceDialog({ onLink, onClose }: {
   onClose: () => void
 }) {
   const patient = usePatient()
-  const [rows, setRows] = useState<OrderLinkRow[]>(orderLinkRows)
+  const records = useChartRecords('order', 'dtm_ord_date')
+  const [rows, setRows] = useState<OrderLinkRow[]>(() => records.map(r => ({ date: date(r.dtm_ord_date), orderBy: r.str_order_by ?? '', referral: r.str_performed_by ?? '', description: r.str_description ?? '', detail: r.str_note ?? '', status: r.str_status ?? '', priority: r.str_priority_code ?? '', links: r.num_results ?? '' })))
   const [current, setCurrent] = useState(0)
 
   const picked = rows[Math.min(current, Math.max(0, rows.length - 1))]
@@ -132,7 +135,7 @@ export function OrderLinkingServiceDialog({ onLink, onClose }: {
               <PBTextArea
                 w="100%"
                 readOnly
-                value={picked ? ORDER_LINK_COMMENT : ''}
+                value={picked?.detail ?? ''}
                 style={{ flex: '1 1 auto', minHeight: 0, background: 'var(--pb-field-ro)' }}
               />
             </PBGroup>

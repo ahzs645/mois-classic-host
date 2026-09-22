@@ -282,4 +282,4 @@
   color: transparent;
   text-decoration: none;
 }
-.pb-link--mois:hover { background-color: var(--pb-btn-hover); }
+.pb-link--mois:hover { background-color: transparent; color: transparent; }

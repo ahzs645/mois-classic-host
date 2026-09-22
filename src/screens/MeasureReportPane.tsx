@@ -9,8 +9,8 @@ export function MeasureReportPane({ detail, row }: { detail: boolean; row?: Reco
     <div className="pb-measure-pane__top">
       <div className="pb-measure-pane__result">
         <span>Test Name:</span>{input('test')}
-        <span>Value:</span><div className="pb-row">{input('value', 100)}{input(undefined, 60)}<span>Flag:</span>{input('flag', 58)}</div>
-        <span>Ref. Ranges:</span><div className="pb-row"><PBInput w={62} className="pb-measure-range" readOnly /><span>to</span><PBInput w={62} className="pb-measure-range" readOnly /><span>Status:</span>{input('status', 58)}</div>
+        <span>Value:</span><div className="pb-row">{input('value', 100)}{input('units', 60)}<span>Flag:</span>{input('flag', 58)}</div>
+        <span>Ref. Ranges:</span><div className="pb-row"><PBInput w={62} className="pb-measure-range" value={value('lower')} readOnly /><span>to</span><PBInput w={62} className="pb-measure-range" value={value('upper')} readOnly /><span>Status:</span>{input('status', 58)}</div>
       </div>
       <div className="pb-measure-pane__ordering">
         {detail ? <>

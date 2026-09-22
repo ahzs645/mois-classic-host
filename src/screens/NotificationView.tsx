@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useChartRows } from '../data/chart-records'
+import { notificationTabs } from '../data/mois'
+import { usePatient } from '../data/patient-context'
 import {
-  PBIdentityStrip, PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBTabs, PBTextArea,
+  PBBand, PBCheckbox, PBCommandRow, PBDataWindow,
+  PBIdentityStrip,
+  PBInput, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn,
 } from '../pb'
-import { usePatient } from '../data/patient-context'
-import { messageRows, notificationTabs } from '../data/mois'
 
 const TABS = ['Reminders', 'Recalls', 'Tasks', 'Messages', 'Responses - READ ONLY']
 
@@ -37,9 +39,9 @@ export function NotificationView() {
       <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:' },
+          { label: 'MIDDLE:', value: patient.middle },
           { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: '2025.01.01' },
+          { label: 'DoB:', value: patient.dob },
         ]}
       />
 
@@ -65,7 +67,7 @@ export function NotificationView() {
 
           <div style={{ height: cfg.lowerTabs || cfg.split ? 196 : 400, display: 'flex', padding: '0 6px' }}>
             <PBDataWindow
-              rows={exportedRows ?? cfg.rows}
+              rows={exportedRows}
               current={cur}
               onCurrentChange={setCur}
               columns={columns}
@@ -96,7 +98,7 @@ export function NotificationView() {
                       <PBTextArea
                         key={`${tab}-${cur}`}
                         style={{ flex: '1 1 auto', height: '100%' }}
-                        defaultValue={tab === 'Messages' ? messageRows[cur]?.body ?? '' : ''}
+                        defaultValue=""
                       />
                     </div>
                   ) : (
@@ -112,7 +114,7 @@ export function NotificationView() {
                     <div key={who} style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
                       <PBDataWindow
                         gutter={false}
-                        rows={who === 'Sent To' ? [{ to: 'JALIL, AHMAD', ack: '✓', comp: '' }] : []}
+                        rows={[]}
                         columns={[
                           { key: 'to', header: who, width: 116 },
                           { key: 'ack', header: 'Ack', width: 34, align: 'center' },

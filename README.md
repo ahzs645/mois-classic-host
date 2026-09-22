@@ -99,11 +99,16 @@ patient its Patients dialog is on — and how a chart opened in the lookup
 becomes that dialog's active patient. The transcribed 21 are what the
 standalone viewer shows when nobody supplies anything.
 
-What does *not* change with the chart is the clinical detail: orders,
-encounters, measures and the rest are one shared sample set, because the kit
-exists to show the screens rather than to be a database. The Patient Summary's
-DEMOGRAPHICS, ALIAS IDS and CONNECTIONS bands are the exception — they are
-built from the open chart's own record.
+Clinical detail comes only from the selected chart's imported export. Chart
+87288 is backed by `MOIS_REF_10000013`; unimported charts retain their roster
+identity but have empty clinical folders. Missing groups and fields stay empty,
+including while the export loads. Changing charts closes patient dialogs and
+resets selection and local drafts so one chart's detail cannot remain on another.
+
+The Patient Chart bindings, missing data groups, and requested view captures
+are tracked in [Chart export coverage](docs/chart-export-coverage.md). Other
+modules such as Scheduler, Billing, Workspace, and Data Exchange still contain
+separate demonstration datasets; they are not a live MOIS connection.
 
 ### The menus
 

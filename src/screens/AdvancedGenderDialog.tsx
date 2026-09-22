@@ -7,6 +7,8 @@ import {
   genotypicGenderRows, preferredGenderRows, type GenderDesignationRow,
 } from '../data/mois'
 import { usePatient } from '../data/patient-context'
+import { updatePatient } from '../data/patient-edits'
+import type { Patient } from '../data/patients'
 
 /* ============================================================================
    Advanced Gender Designations — the window the `.*.` beside Gender opens.
@@ -68,9 +70,7 @@ export function AdvancedGenderDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
   const held = patient.genderDesignations
 
-  /* The dialog edits a copy. Nothing in the emulator writes back to a chart —
-     a host owns its roster — so Save / Close closes, the way every other
-     editor here does. */
+  /* Edit a copy, then apply it to the chart-scoped in-memory preview. */
   const [codes, setCodes] = useState<Record<DesignationKey, string>>({
     administrative: patient.gender,
     preferred: held?.preferred ?? '',
@@ -83,14 +83,20 @@ export function AdvancedGenderDialog({ onClose }: { onClose: () => void }) {
   })
   const [comment, setComment] = useState(held?.comment ?? '')
 
+  const save = () => {
+    updatePatient(patient.chart, { gender: codes.administrative as Patient['gender'], genderDesignations: {
+      preferred: codes.preferred, genotypic: codes.genotypic, comment,
+      onDemographics: DESIGNATIONS.filter(d => shown[d.key]).map(d => d.key),
+    } }); onClose()
+  }
   /* the button says (F2), and in MOIS it means it */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'F2') { e.preventDefault(); onClose() }
+      if (e.key === 'F2') { e.preventDefault(); save() }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  })
 
   return (
     <div className="pb-modal-layer">
@@ -164,7 +170,7 @@ export function AdvancedGenderDialog({ onClose }: { onClose: () => void }) {
           <PBButton
             style={{ width: 91 }}
             data-tutorial-id="host.mois.command.save-gender-designations"
-            onClick={onClose}
+            onClick={save}
           >
             Save / Close (F2)
           </PBButton>

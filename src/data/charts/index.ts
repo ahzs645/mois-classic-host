@@ -13,6 +13,7 @@
    that chart, and bundling it eagerly doubled the stage's payload for every
    learner who never selects it.
    ========================================================================= */
+import { useSyncExternalStore } from 'react'
 import { chart87288Summary } from './chart-87288.summary'
 import type { MoisChartExport, MoisRecord } from './types'
 
@@ -28,6 +29,13 @@ const loaders: Record<string, () => Promise<MoisChartExport>> = {
 
 /** resolved exports, so a chart is fetched once per session */
 const loaded: Record<string, MoisChartExport> = {}
+const pending: Record<string, Promise<MoisChartExport> | undefined> = {}
+const listeners = new Set<() => void>()
+const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
+/** Loading and missing exports are empty, never permission to borrow fixture data. */
+export function useLoadedChart(chart: string): MoisChartExport | null {
+  return useSyncExternalStore(subscribe, () => loaded[chart] ?? null, () => null)
+}
 
 export const hasChartExport = (chart: string): boolean => chart in loaders
 
@@ -40,9 +48,12 @@ export async function loadChartExport(chart: string): Promise<MoisChartExport | 
   if (loaded[chart]) return loaded[chart]!
   const load = loaders[chart]
   if (!load) return null
-  const data = await load()
-  loaded[chart] = data
-  return data
+  pending[chart] ??= load().then((data) => {
+    loaded[chart] = data
+    listeners.forEach((listener) => listener())
+    return data
+  }).finally(() => { delete pending[chart] })
+  return pending[chart]!
 }
 
-export type { MoisChartExport, MoisRecord, MoisChartGroup } from './types'
+export type { MoisChartExport, MoisChartGroup, MoisRecord } from './types'

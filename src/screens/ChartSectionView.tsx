@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react'
+import type { ChartScreen } from '../data/chartScreens'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import {
   PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import type { ChartScreen } from '../data/chartScreens'
 
 
 /* The window most Patient Chart and Scheduler nodes open into. Everything
@@ -15,6 +15,7 @@ export function ChartSectionView({ screen, content }: {
   content?: ReactNode
 }) {
   const patient = usePatient()
+  const [current, setCurrent] = useState(0)
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
 
   /* MOIS lights Save and Undo the moment a record is started and puts them
@@ -46,6 +47,8 @@ export function ChartSectionView({ screen, content }: {
     <PBDataWindow
       columns={columns}
       rows={screen.rows ?? []}
+      current={current}
+      onCurrentChange={setCurrent}
       empty={`No ${screen.title.toLowerCase()} on file.`}
     />
   )
@@ -84,7 +87,7 @@ export function ChartSectionView({ screen, content }: {
             <PBTabs tabs={screen.tabs} active={tab} onChange={setTab} compact>
               <div style={{ flex: '1 1 auto', minHeight: 0, padding: 4, display: 'flex' }}>
                 {tab === screen.tabs[0] ? (
-                  <PBTextArea style={{ flex: '1 1 auto', height: '100%' }} />
+                  <PBTextArea value={screen.rows?.[current]?.note ?? screen.rows?.[current]?.detail ?? ''} readOnly style={{ flex: '1 1 auto', height: '100%' }} />
                 ) : (
                   <div className="pb-dw__empty" style={{ margin: 'auto' }}>
                     {tab} — nothing to display.

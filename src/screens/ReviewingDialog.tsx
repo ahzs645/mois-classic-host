@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug } from '../pb'
 import {
-  REVIEW_NOUNS, REVIEW_TODAY, REVIEW_USER, reviewHistory, type ReviewRow,
+  REVIEW_NOUNS,
+  type ReviewRow
 } from '../data/chartUtilities'
 import { usePatient } from '../data/patient-context'
+import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug } from '../pb'
 
 /* ============================================================================
    Reviewing: <folder> — the Patient Chart's Taskbar `Review`.
@@ -64,13 +65,13 @@ export function ReviewingDialog({ node, onClose }: {
 }) {
   const patient = usePatient()
   const noun = REVIEW_NOUNS[node]
-  const [rows, setRows] = useState<ReviewRow[]>(reviewHistory)
+  const [rows, setRows] = useState<ReviewRow[]>([])
   const [note, setNote] = useState('')
 
   if (!noun) return null
 
   const markReviewed = () => {
-    setRows((r) => [{ date: REVIEW_TODAY, by: REVIEW_USER, note }, ...r])
+    setRows((r) => [{ date: new Date().toLocaleDateString('en-CA').replace(/-/g, '.'), by: 'LOCAL PREVIEW', note }, ...r])
     setNote('')
   }
 
@@ -117,7 +118,7 @@ export function ReviewingDialog({ node, onClose }: {
                 { key: 'by', header: 'Reviewed By', width: 88 },
                 { key: 'note', header: 'Note', width: 389 },
               ]}
-              empty="This folder has not been reviewed for this patient."
+              empty="No review history available in this export."
               style={{
                 flex: '1 1 auto', minWidth: 0,
                 /* v2.30 Cloud chart grid: ≈19–20px pitch under an 18px band,

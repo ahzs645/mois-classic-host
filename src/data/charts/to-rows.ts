@@ -3,10 +3,9 @@
 
    Each screen owns its column keys (`collected`, `test`, `value`, …). This maps
    MOIS's export fields onto them, one entry per tree node, so a screen needs no
-   knowledge of the export format and the fallback path stays untouched.
+   knowledge of the export format.
 
-   A node absent from `ROW_MAPS` has no mapping yet and keeps its transcribed
-   fixture, which is also what every patient without an export gets.
+   A node absent from `ROW_MAPS` is empty. Missing exports never use fixture rows.
 
    Dates: MOIS exports `YYYY/MM/DD` and renders `YYYY.MM.DD`.
 
@@ -39,6 +38,13 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
     sort: 'dtm_collect_date',
     row: (r) => ({
       collected: d(r.dtm_collect_date),
+      loinc: r.str_loinic_num ?? '', report: r.str_report ?? '',
+      collectedBy: r.str_collect_by ?? '', orderName: r.str_order_name ?? '',
+      facilityReference: r.str_filler_ref_no ?? '', category: r.str_class ?? '',
+      lower: r.str_normal_lower ?? '', upper: r.str_normal_high ?? '',
+      created: r.stp_date_create ?? '', createdBy: r.stp_user_create ?? '',
+      encounter: r.id_encounter ?? '', id: r.id_measure ?? '',
+
       by: r.str_order_by ?? r.str_collect_by ?? '',
       code: r.str_code ?? '',
       test: r.str_description ?? r.str_order_name ?? '',
@@ -118,8 +124,8 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
     row: (r) => ({
       id: r.id_encounter ?? '',
       date: d(r.dtm_appoint),
-      hr: (r.num_appoint_hr ?? '').padStart(2, '0'),
-      mn: (r.num_appoint_min ?? '').padStart(2, '0'),
+      hr: r.num_appoint_hr?.padStart(2, '0') ?? '',
+      mn: r.num_appoint_min?.padStart(2, '0') ?? '',
       code: r.str_visit_code ?? '',
       mode: r.str_visit_mode ?? '',
       nbr: r.num_time_slots ?? '',
@@ -170,19 +176,8 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
     }),
   },
 
-  ltm: {
-    group: 'prescription', sort: 'dtm_order',
-    row: (r) => ({
-      start: d(r.dtm_order),
-      end: '',
-      med: r.str_medication ?? '',
-      dose: r.str_dose_freq ?? '',
-      indic: '',
-      type: r.str_type ?? '',
-      m: '',
-      generic: r.str_generic_name ?? '',
-    }),
-  },
+  // The chart export has prescriptions, but no tdt_medication_lt records.
+  // Long Term Medications remains unmapped until that data source is available.
 
   /* ---- Orders, split the way the chart tree splits them ----------------
      MOIS keeps consults, lab requisitions and the rest in one order table and
@@ -231,9 +226,9 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
 
   /* ---- Allergy / Intolerances ------------------------------------------ */
   events: {
-    group: 'adverse_event', sort: 'dtm_start',
+    group: 'adverse_event', sort: 'dtm_administered',
     row: (r) => ({
-      date: d(r.dtm_start),
+      date: d(r.dtm_administered),
       code: r.str_substance_code ?? '',
       agent: r.str_agents ?? '',
       event: r.str_reactions ?? r.str_report_type ?? '',
@@ -286,6 +281,9 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
   goals: {
     group: 'goal', sort: 'dtm_start',
     row: (r) => ({
+      start: d(r.dtm_start), end: d(r.dtm_end), goal: r.str_goal ?? '',
+      s: tick(r.str_sensitive), clip: clip(r.num_attachments),
+      phase: r.str_phase ?? '', quant: r.str_quantitative ?? '', commit: r.num_commitment ?? '', importance: r.num_importance ?? '',
       date: d(r.dtm_start),
       description: r.str_goal ?? '',
       detail: [r.str_phase, r.str_outcome_expected, r.str_reason].filter(Boolean).join(' — '),
@@ -299,6 +297,8 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       type: r.str_classification ?? '',
       subject: r.str_type ?? '',
       detail: r.str_preference ?? '',
+      instruction: r.str_instruction_code ?? '',
+      clip: clip(r.num_attachments),
       s: tick(r.str_sensitive),
       demo: tick(r.str_include_demo),
     }),
@@ -313,7 +313,7 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       by: r.str_admin_by ?? '',
       /* the grid shows the generic name; str_medication is the branded form */
       med: r.str_generic_name ?? r.str_medication ?? '',
-      dosage: [r.num_dose_size, r.str_dose_units].filter(Boolean).join(' '),
+      dosage: [r.num_dose_size, r.str_dose_unit].filter(Boolean).join(' '),
       route: r.str_route ?? '',
       site: r.str_site ?? '',
     }),

@@ -1,17 +1,27 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useChartRecords } from '../data/chart-records'
+import { date } from '../data/charts/relations'
 import {
-  PBIdentityStrip, PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup,
+  chartFacilities, chartLocations,
+  countries,
+  genders, incentiveRows, insuranceCarriers,
+  preferredPhones, serviceProviders
+} from '../data/mois'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import type { Patient } from '../data/patients'
+import {
+  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup,
+  PBIdentityStrip,
   PBInput, PBLookup, PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import {
-  benefitRows, chartFacilities, chartLocations, chartServices, clinicContactRows, countries,
-  genders, genotypicGenderRows, incentiveRows, insuranceCarriers, mspClaimRows,
-  patientContactRows, preferredGenderRows, preferredPhones, serviceProviders,
-} from '../data/mois'
-import type { ChartAddressEntry } from '../data/patients'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
 import { BenefitEditor } from './BenefitEditor'
+import { PatientDetailPage } from './PatientDetailPage'
+import { savePatient, undoPatient, refreshPatient, updatePatient } from '../data/patient-edits'
+import { demographicServiceCenters } from '../data/demographic-lookups'
+import { PBDropDownDataWindow } from '../pb'
+import { AddressExpiryDialog, AddressWizardDialog, PatientPhotoDialog, MspEligibilityDialog, DemographicLookupDialog,
+  DemographicModal, DialogButtons, geographicTerms, today } from './DemographicDialogs'
 
 const TABS = [
   'Demographics', 'Patient Detail', 'ID Alias', 'Connections', 'Services',
@@ -43,8 +53,8 @@ export function DemographicsView() {
       <PBViewHeader title="Demographics" right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={[
-          { label: 'New Record' }, { label: 'Delete Record' }, { label: 'Save', active: true },
-          { label: 'Undo' }, { label: 'Refresh' }, { label: 'Search' },
+          { label: 'New Record' }, { label: 'Delete Record' }, { label: 'Save', active: true, onClick: () => savePatient(patient.chart) },
+          { label: 'Undo', onClick: () => undoPatient(patient.chart) }, { label: 'Refresh', onClick: () => refreshPatient(patient.chart) }, { label: 'Search' },
           /* no widths: the row is uniform at the kit's 80.5, and the 94/82
              these carried were a 1.5x reading of a 2x capture (4/3 too wide) */
           { label: 'Previous Chart' }, { label: 'Next Chart' },
@@ -95,218 +105,6 @@ export function DemographicsView() {
 
    PROVENANCE: the field audit's Patient Detail captures, chart 87297
    (evidence/MATRIX-R0082 … MATRIX-R0121). */
-function PatientDetailPage() {
-  const patient = usePatient()
-  const race = patient.ethnicity ?? {}
-  const rows: [string, typeof race.self][] = [
-    ['self', race.self], ['father', race.father], ['mother', race.mother],
-  ]
-  const history = patient.addressHistory ?? []
-  /* MOIS pages this block one record at a time through a scrollbar down the
-     right edge of the pane. That control is not reproduced, so the window
-     shows the first record and says so. */
-  const addr: ChartAddressEntry = history[0] ?? {}
-  const name = patient.nameHistory?.[0] ?? {}
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: '1 1 auto' }}>
-      <div style={{ display: 'flex', gap: 0, flex: '0 0 68%', minHeight: 0 }}>
-        {/* background information */}
-        <div className="pb-groupbox" style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <PBBand>Background Information</PBBand>
-          <div className="pb-form" style={{ gridTemplateColumns: '108px 1fr', padding: '5px 8px' }}>
-            {rows.map(([who, e]) => (
-              <Fragment key={who}>
-                <span className="pb-form__label">Ethnicity:</span>
-                <div className="pb-row">
-                  {/* who reported it — the capture's small "Self" box */}
-                  <PBInput w={54} value={e?.type ?? ''} readOnly />
-                  {/* the race itself is maintained through the "…", never typed */}
-                  <PBLookup w={160} value={e?.race ?? ''} readOnly />
-                  <PBCheckbox label="Self ID'd" checked={e?.selfIdd ?? false} />
-                </div>
-              </Fragment>
-            ))}
-
-            <span className="pb-form__label pb-form__label--flagged">Preferred Gender:</span>
-            <div className="pb-row">
-              <PBSelect
-                options={['', ...preferredGenderRows.map((g) => g.gender)]}
-                w={62}
-                value={patient.genderDesignations?.preferred ?? ''}
-                onChange={() => {}}
-              />
-              <span className="pb-flag" style={{ marginLeft: 8 }}>Genotypic Gender:</span>
-              <PBSelect
-                options={['', ...genotypicGenderRows.map((g) => g.gender)]}
-                w={62}
-                value={patient.genderDesignations?.genotypic ?? ''}
-                onChange={() => {}}
-              />
-            </div>
-
-            <span className="pb-form__label">Country Origin:</span>
-            <PBLookup w={230} value={patient.countryOrigin ?? ''} readOnly />
-            <span className="pb-form__label">First Language:</span>
-            <PBLookup w={230} value={patient.firstLanguage ?? ''} readOnly />
-            <span className="pb-form__label">Religion:</span>
-            <PBInput w={230} value={patient.religion ?? ''} readOnly />
-            <span className="pb-form__label">First Nation Status:</span>
-            <PBSelect
-              options={['', 'Status Indian', 'Non-Status', 'Not Applicable']}
-              w={200}
-              value={patient.firstNationStatus ?? ''}
-              onChange={() => {}}
-            />
-
-            <span className="pb-form__label">Patient Adopted:</span>
-            <div className="pb-row">
-              <PBCheckbox label="Yes" checked={patient.adopted ?? false} />
-              <span style={{ marginLeft: 18 }}>Multi-Gestation:</span>
-              <PBCheckbox label="Yes" checked={patient.multiGestation ?? false} />
-            </div>
-
-            <span className="pb-form__label">Relationship:</span>
-            <PBSelect
-              options={['', 'Married', 'Single', 'Common Law', 'Widowed']}
-              w={166}
-              value={patient.relationshipStatus ?? ''}
-              onChange={() => {}}
-            />
-            <span className="pb-form__label">Education Level:</span>
-            <PBSelect
-              options={['', 'POST SECONDARY CERTIFICATE', 'SECONDARY', 'NONE']}
-              w={230}
-              value={patient.educationLevel ?? ''}
-              onChange={() => {}}
-            />
-            <span className="pb-form__label">Socioeconomic:</span>
-            <PBLookup w={230} value={patient.socioeconomic ?? ''} readOnly />
-            <span className="pb-form__label">Living Arrangements:</span>
-            <PBLookup w={230} value={patient.livingArrangements ?? ''} readOnly />
-
-            <span className="pb-form__label" style={{ alignSelf: 'start', paddingTop: 2 }}>General Notes:</span>
-            {/* tdt_chart.str_note — the same column the Demographics tab's
-                General Notes box shows, so the two never disagree */}
-            <PBTextArea
-              rows={4}
-              w="100%"
-              style={{ fontFamily: 'var(--pb-font-mono)' }}
-              value={patient.generalNotes ?? ''}
-              readOnly
-            />
-          </div>
-        </div>
-
-        {/* status and name history */}
-        <div style={{ width: '50%', flex: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div className="pb-groupbox" style={{ flex: '0 0 36%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <PBBand>Status History</PBBand>
-            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-              <PBDataWindow
-                flush
-                gutter={false}
-                rows={patient.statusHistory ?? []}
-                columns={[
-                  { key: 'code', header: 'Status Code', width: 84, align: 'center' },
-                  { key: 'effective', header: 'Effective', width: 74, align: 'center' },
-                  { key: 'note', header: 'Note' },
-                ]}
-                empty=" "
-              />
-            </div>
-          </div>
-
-          <div className="pb-groupbox" style={{ flex: '1 1 auto' }}>
-            <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
-              Name History
-            </PBBand>
-            {patient.nameHistory?.length ? <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr auto 1fr', padding: '5px 8px' }}>
-              <span className="pb-form__label">First:</span>
-              <PBInput value={name.first ?? ''} readOnly />
-              <span className="pb-form__label pb-form__label--right">Expiry:</span>
-              <div className="pb-row">
-                <PBInput w={88} value={name.expiry ?? ''} readOnly />
-                <span>{`${patient.nameHistory?.length ? 1 : 0} or ${patient.nameHistory?.length ?? 0}`}</span>
-              </div>
-              <span className="pb-form__label">Middle:</span>
-              <PBInput value={name.middle ?? ''} readOnly />
-              <span className="pb-form__label pb-form__label--right">Note:</span>
-              <PBTextArea rows={2} w="100%" value={name.note ?? ''} readOnly />
-              <span className="pb-form__label">Last:</span>
-              <PBInput value={name.last ?? ''} readOnly />
-              <span /><span />
-            </div> : null}
-          </div>
-        </div>
-      </div>
-
-      {/* Historical Contact Information, paged.
-
-          The capture (the MOIS window is only 685px tall on the audit
-          machine) is cut off below "Province:" and "Cell:", so the last two
-          rows of the left and middle columns are placed from the audit's own
-          row order — Expiry Date, Address, Address, City, Province, Postal
-          Code, Country, Home, Work, Other, Cell, Ext, Fax, eMail (Home),
-          eMail (Work), Note — which reads the block column by column. */}
-      <div className="pb-groupbox" style={{ marginTop: 0, flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
-        <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
-          Historical Contact Information
-        </PBBand>
-        {/* the record's own strip: the DataWindow blue, bold at both ends */}
-        <div
-          className="pb-row"
-          style={{ padding: '2px 8px', background: 'var(--pb-dw-header)', fontWeight: 700, flex: 'none' }}
-        >
-          <span>Expiry Date:</span>
-          <PBInput w={104} align="center" value={addr.expiry ?? ''} readOnly style={{ fontWeight: 400 }} />
-          <span className="pb-row__spacer" />
-          <span>{`This is ${history.length ? 1 : 0} of ${history.length} records`}</span>
-        </div>
-        <div className="pb-form pb-form--cols4" style={{ gridTemplateColumns: 'auto 1fr auto 1fr auto 1fr', padding: '0 8px 6px' }}>
-          <span className="pb-form__label pb-form__label--right">Address:</span>
-          <PBInput value={addr.address ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Home:</span>
-          <PBInput w={116} value={addr.home ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">eMail (H):</span>
-          <PBInput value={addr.emailHome ?? ''} readOnly />
-
-          <span />
-          <PBInput value={addr.address2 ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Work:</span>
-          <PBInput w={116} value={addr.work ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">eMail (W):</span>
-          <PBInput value={addr.emailWork ?? ''} readOnly />
-
-          <span className="pb-form__label pb-form__label--right">City:</span>
-          <PBInput w={150} value={addr.city ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Other:</span>
-          <PBInput w={116} value={addr.other ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Note:</span>
-          <PBTextArea rows={2} w="100%" value={addr.note ?? ''} readOnly />
-
-          <span className="pb-form__label pb-form__label--right">Province:</span>
-          <PBInput w={150} value={addr.province ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Cell:</span>
-          <PBInput w={116} value={addr.cell ?? ''} readOnly />
-          <span /><span />
-
-          <span className="pb-form__label pb-form__label--right">Postal Code:</span>
-          <PBInput w={150} value={addr.postal ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Ext.:</span>
-          <PBInput w={116} value={addr.ext ?? ''} readOnly />
-          <span /><span />
-
-          <span className="pb-form__label pb-form__label--right">Country:</span>
-          <PBInput w={150} value={addr.country ?? ''} readOnly />
-          <span className="pb-form__label pb-form__label--right">Fax:</span>
-          <PBInput w={116} value={addr.fax ?? ''} readOnly />
-          <span /><span />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* --- the list tabs -------------------------------------------------------
    ID Alias, Connections, Services, Associated Parties, WCB Claims and Other
    Claims are all the same window: a band with New / Delete, a strip of
@@ -345,7 +143,7 @@ const Gap = ({ w }: { w: number }) => <span style={{ width: w, flex: 'none' }} /
 const FlexFilter = () => <PBInput style={{ flex: '1 1 auto', minWidth: 0 }} />
 
 function ListShell({
-  band, filters, columns, rows = [], empty, detail, detailHeight,
+  band, filters, columns, rows = [], empty, detail, detailHeight, current, onCurrentChange,
 }: {
   band: string
   filters?: ReactNode
@@ -354,6 +152,8 @@ function ListShell({
   empty?: string
   detail?: ReactNode
   detailHeight?: number
+  current?: number
+  onCurrentChange?: (index: number) => void
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
@@ -362,7 +162,7 @@ function ListShell({
       </PBBand>
       <FilterStrip>{filters}</FilterStrip>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={columns} rows={rows} empty={empty} />
+        <PBDataWindow columns={columns} rows={rows} current={current} onCurrentChange={onCurrentChange} empty={empty} />
       </div>
       {detail && (
         <div style={{ flex: 'none', height: detailHeight, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -410,9 +210,11 @@ function IdAliasPage() {
 /* --- Connections --------------------------------------------------------- */
 function ConnectionsPage() {
   const [sub, setSub] = useState('Connection Detail')
+  const records = useChartRecords('connection')
   return (
     <ListShell
       band="Connections"
+      rows={records.map(r => ({ role: r.str_connection_type ?? '', resource: r.str_provider_source ?? '', connection: r.str_provider ?? '', start: date(r.dtm_start), end: date(r.dtm_end), demo: r.str_include_demo === 'Y' ? '✓' : '', team: r.str_member_care_team === 'Y' ? '✓' : '' }))}
       filters={
         <>
           <PBInput w={114} /><PBInput w={134} /><FlexFilter />
@@ -488,9 +290,13 @@ function ConnectionsPage() {
 /* --- Services ------------------------------------------------------------ */
 function ServicesPage() {
   const [sub, setSub] = useState('Detail')
+  const records = useChartRecords('chart_service')
+  const [cur, setCur] = useState(0)
+  const record = records[cur]
   return (
     <ListShell
-      band="Services"
+      band="Services" current={cur} onCurrentChange={setCur}
+      rows={records.map(r => ({ episode: r.str_service_code_term ?? '', mrp: r.str_service_mrp ?? '', start: date(r.dtm_start), stop: date(r.dtm_end), demo: r.str_include_demo === 'Y' ? '✓' : '' }))}
       filters={
         <>
           <FlexFilter />
@@ -524,8 +330,8 @@ function ServicesPage() {
             <>
               <div style={{ display: 'flex', gap: 12, padding: '5px 8px', flex: '1 1 auto', minHeight: 0 }}>
                 <div className="pb-form" style={{ gridTemplateColumns: '104px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
-                  <span className="pb-form__label">Service Episode:</span><PBLookup w="100%" />
-                  <span className="pb-form__label">Service MRP:</span><PBLookup w="100%" />
+                  <span className="pb-form__label">Service Episode:</span><PBLookup w="100%" value={record?.str_service_code_term ?? ''} readOnly />
+                  <span className="pb-form__label">Service MRP:</span><PBLookup w="100%" value={record?.str_service_mrp ?? ''} readOnly />
                   <span />
                   <button className="pb-link" style={{ justifySelf: 'start' }}>View Members</button>
                   {/* maintained by the episode, never typed — the capture
@@ -537,8 +343,8 @@ function ServicesPage() {
                   <PBTextArea rows={4} w="100%" />
                 </div>
                 <div className="pb-form" style={{ gridTemplateColumns: '84px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
-                  <span className="pb-form__label">Stop Date:</span><PBInput w={104} align="center" />
-                  <span className="pb-form__label">Stop Reason:</span><PBLookup w="100%" />
+                  <span className="pb-form__label">Stop Date:</span><PBInput w={104} align="center" value={date(record?.dtm_end)} readOnly />
+                  <span className="pb-form__label">Stop Reason:</span><PBLookup w="100%" value={record?.str_stop_code_term ?? ''} readOnly />
                   <span className="pb-form__label">Stop Note:</span><PBTextArea rows={3} w="100%" />
                   <span />
                   <button className="pb-link" style={{ justifySelf: 'end' }}>Show History</button>
@@ -733,12 +539,12 @@ function SettingsPage() {
         Patient Contact Preferences
       </PBBand>
       <div style={{ height: 200, flex: 'none', display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={prefCols} rows={patientContactRows} />
+        <PBDataWindow columns={prefCols} rows={[]} />
       </div>
 
       <PBBand>Clinic Contact Preferences (READ-ONLY)</PBBand>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={prefCols} rows={clinicContactRows} />
+        <PBDataWindow columns={prefCols} rows={[]} />
       </div>
     </>
   )
@@ -755,7 +561,7 @@ function SettingsPage() {
    the one value the capture shows selected — what else it drops is unknown. */
 function BenefitsPage({ onEdit }: { onEdit: () => void }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const sources = [...new Set(benefitRows.map((r) => r.group))]
+  const sources: string[] = []
   return (
     <>
       <div className="pb-row" style={{ gap: 12, padding: '3px 6px', background: '#cde6f7', flex: 'none' }}>
@@ -770,7 +576,7 @@ function BenefitsPage({ onEdit }: { onEdit: () => void }) {
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
         <PBDataWindow
-          rows={benefitRows}
+          rows={[] as ListRow[]}
           groupBy={(r) => r.group}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
@@ -807,7 +613,7 @@ function IncentivesPage() {
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px' }}>
-        <PBDataWindow columns={incentiveCols} rows={incentiveRows} current={cur} onCurrentChange={setCur} />
+        <PBDataWindow columns={incentiveCols} rows={[]} current={cur} onCurrentChange={setCur} />
       </div>
 
       <div style={{ padding: '4px 6px', flex: 'none' }}>
@@ -829,7 +635,7 @@ function IncentivesPage() {
             <PBDataWindow
               flush
               gutter={false}
-              rows={mspClaimRows}
+              rows={[]}
               columns={[
                 { key: 'service', header: 'Service', width: 72, align: 'center' },
                 { key: 'provider', header: 'Provider', width: 160 },
@@ -846,7 +652,7 @@ function IncentivesPage() {
       </div>
 
       <div style={{ padding: '2px 6px 4px', borderTop: '1px solid #d6d6d6', flex: 'none' }}>
-        Created:&nbsp;&nbsp;&nbsp;2026.08.12&nbsp; 10:38&nbsp;&nbsp; JALIL, AHMAD
+        Created:
       </div>
     </>
   )
@@ -885,6 +691,10 @@ const FIELD_COL_R = 284
 function DemographicsPage() {
   const patient = usePatient()
   const [genderOpen, setGenderOpen] = useState(false)
+  const [dialog, setDialog] = useState<'photo' | 'msp' | 'wizard' | 'archive' | 'status' | 'pharmacy' | null>(null)
+  const [cityOpen, setCityOpen] = useState(false)
+  const [copied, setCopied] = useState<Partial<Patient> | null>(null)
+  const change = (patch: Partial<Patient>) => updatePatient(patient.chart, patch)
   /* The open chart is the only source for this window. A host hands its own
      charts in — Webforms projects them out of the same `PatientScenario` a
      form binds against — so what shows here is what a form bound to this chart
@@ -903,31 +713,31 @@ function DemographicsPage() {
               <Row>
                 <PBLookup w={110} value={patient.chart} readOnly />
                 <span className="pb-row__spacer" />
-                <PBButton style={{ width: 92 }}>Patient Photo</PBButton>
+                <PBButton style={{ width: 92 }} onClick={() => setDialog('photo')}>Patient Photo</PBButton>
               </Row>
 
               <span className="pb-form__label">Name (F/M/L):</span>
               <Row>
-                <PBInput w={92} value={patient.first} data-mois-audit-id="MATRIX-R0009-first-name" readOnly />
-                <PBInput w={86} value={patient.middle} data-mois-audit-id="MATRIX-R0010-middle-name" readOnly />
-                <PBInput w={95} value={patient.last} data-mois-audit-id="MATRIX-R0011-last-name" readOnly />
+                <PBInput aria-label="Demographics first" w={92} value={patient.first} data-mois-audit-id="MATRIX-R0009-first-name" onChange={e => change({ first: e.target.value })} />
+                <PBInput aria-label="Demographics middle" w={86} value={patient.middle} data-mois-audit-id="MATRIX-R0010-middle-name" onChange={e => change({ middle: e.target.value })} />
+                <PBInput aria-label="Demographics last" w={95} value={patient.last} data-mois-audit-id="MATRIX-R0011-last-name" onChange={e => change({ last: e.target.value })} />
               </Row>
 
               <span className="pb-form__label">Alias (F/L):</span>
               <Row>
-                <PBInput w={92} value={patient.alias ?? ''} readOnly />
+                <PBInput aria-label="Demographics alias" w={92} value={patient.alias ?? ''} onChange={e => change({ alias: e.target.value })} />
                 <span className="pb-row__spacer" />
-                <PBInput w={95} />
+                <PBInput aria-label="Last alias" w={95} value={patient.aliasLast ?? ''} onChange={e => change({ aliasLast: e.target.value })} />
               </Row>
 
               <span className="pb-form__label">Birth Date:</span>
               <Row>
-                <PBInput w={92} align="center" value={patient.dob} data-mois-audit-id="MATRIX-R0014-birth-date" readOnly />
+                <PBInput aria-label="Demographics dob" w={92} align="center" value={patient.dob} data-mois-audit-id="MATRIX-R0014-birth-date" onChange={e => change({ dob: e.target.value })} />
                 {patient.age && <span aria-label="Age">({patient.age.replace(' YR OLD', '').replace(' MTH OLD', ' mth')})</span>}
                 <span className="pb-row__spacer" />
                 {/* MOIS paints a label yellow once its value has been changed */}
-                <span className="pb-flag">Gender:</span>
-                <PBSelect options={genders} w={71} value={patient.gender} onChange={() => {}} />
+                <span className={patient.genderDesignations?.preferred || patient.genderDesignations?.genotypic ? 'pb-flag' : undefined}>Gender:</span>
+                <PBSelect options={genders} w={71} value={patient.gender} onChange={e => change({ gender: e.target.value as Patient['gender'] })} />
                 {/* the `.*.` opens Advanced Gender Designations, where the
                     preferred and genotypic designations are maintained */}
                 <PBButton
@@ -942,65 +752,65 @@ function DemographicsPage() {
 
               <span className="pb-form__label">Current Status:</span>
               <Row>
-                <PBInput w={56} align="center" value={patient.status} readOnly />
+                <PBInput aria-label="Demographics status" w={56} align="center" value={patient.status} readOnly />
                 <span style={{ paddingLeft: 18 }}>Date:</span>
-                <PBInput w={85} align="center" value={patient.registered ?? ''} readOnly />
+                <PBInput aria-label="Demographics registered" w={85} align="center" value={patient.registered ?? ''} readOnly />
                 <span className="pb-row__spacer" />
-                <PBButton style={{ width: 92 }}>Update Status</PBButton>
+                <PBButton style={{ width: 92 }} onClick={() => setDialog('status')}>Update Status</PBButton>
               </Row>
 
               <span className="pb-form__label">BC Health No.:</span>
-              <Row><PBInput w={92} value={patient.bchn ?? ''} readOnly /></Row>
+              <Row><PBInput aria-label="Demographics bchn" w={92} value={patient.bchn ?? ''} onChange={e => change({ bchn: e.target.value })} /></Row>
             </div>
           </PBGroup>
 
           <PBGroup title="Contact Information">
             <div className="pb-form pb-demog__form">
               <span className="pb-form__label">Address:</span>
-              <Row><PBInput w={281} value={patient.address ?? ''} readOnly /></Row>
+              <Row><PBInput aria-label="Demographics address" w={281} value={patient.address ?? ''} onChange={e => change({ address: e.target.value })} /></Row>
               <span className="pb-form__label">Address:</span>
-              <Row><PBInput w={281} value={patient.address2 ?? ''} readOnly /></Row>
+              <Row><PBInput aria-label="Demographics address2" w={281} value={patient.address2 ?? ''} onChange={e => change({ address2: e.target.value })} /></Row>
 
               <span className="pb-form__label">City:</span>
               <Row>
-                <PBLookup w={123} value={patient.city ?? ''} readOnly />
+                <PBLookup w={123} name="demographic-city" value={patient.city ?? ''} onChange={city => change({ city })} onDots={() => setCityOpen(true)} />
                 <span className="pb-row__spacer" />
                 <span>Province:</span>
-                <PBInput w={94} value={patient.province ?? ''} readOnly />
+                <PBInput aria-label="Demographics province" w={94} value={patient.province ?? ''} onChange={e => change({ province: e.target.value })} />
               </Row>
 
               <span className="pb-form__label">Postal Code:</span>
               <Row>
-                <PBInput w={86} value={patient.postal ?? ''} data-mois-audit-id="MATRIX-R0037-postal-code" readOnly />
+                <PBInput aria-label="Demographics postal" w={86} value={patient.postal ?? ''} data-mois-audit-id="MATRIX-R0037-postal-code" onChange={e => change({ postal: e.target.value })} />
                 <span className="pb-row__spacer" />
                 <span>Country:</span>
-                <PBSelect options={countries} w={94} value={patient.country ?? ''} onChange={() => {}} />
+                <PBSelect options={[...new Set([...countries, patient.country ?? ''])]} w={94} value={patient.country ?? ''} onChange={e => change({ country: e.target.value as Patient['country'] })} />
               </Row>
 
               {/* the preferred phone is the one MOIS underlines */}
               {/* MOIS underlines whichever contact method the chart prefers */}
               <PhoneLabel label="Home:" preferred={patient.preferredPhone} />
               <Row>
-                <PBInput w={86} align="center" value={patient.home ?? ''} data-mois-audit-id="MATRIX-R0039-home-phone" readOnly />
+                <PBInput aria-label="Demographics home" w={86} align="center" value={patient.home ?? ''} data-mois-audit-id="MATRIX-R0039-home-phone" onChange={e => change({ home: e.target.value })} />
                 <span className="pb-row__spacer" />
-                <PBCheckbox label="Leave Message" checked={patient.homeMessage ?? false} />
+                <PBCheckbox label="Leave Message" checked={patient.homeMessage ?? false} onChange={e => change({ homeMessage: e })} />
               </Row>
 
               <PhoneLabel label="Work:" preferred={patient.preferredPhone} />
               <Row>
-                <PBInput w={83} value={patient.work ?? ''} data-mois-audit-id="MATRIX-R0041-work-phone" readOnly />
+                <PBInput aria-label="Demographics work" w={83} value={patient.work ?? ''} data-mois-audit-id="MATRIX-R0041-work-phone" onChange={e => change({ work: e.target.value })} />
                 <span style={{ paddingLeft: 9 }}>Ext.:</span>
-                <PBInput w={60} value={patient.workExt ?? ''} readOnly />
+                <PBInput aria-label="Demographics workExt" w={60} value={patient.workExt ?? ''} onChange={e => change({ workExt: e.target.value })} />
                 <span className="pb-row__spacer" />
-                <PBCheckbox label="Leave Message" checked={patient.workMessage ?? false} />
+                <PBCheckbox label="Leave Message" checked={patient.workMessage ?? false} onChange={e => change({ workMessage: e })} />
               </Row>
 
               <PhoneLabel label="Cell:" preferred={patient.preferredPhone} />
               <Row>
-                <PBInput w={83} value={patient.cell ?? ''} data-mois-audit-id="MATRIX-R0044-cell-phone" readOnly />
+                <PBInput aria-label="Demographics cell" w={83} value={patient.cell ?? ''} data-mois-audit-id="MATRIX-R0044-cell-phone" onChange={e => change({ cell: e.target.value })} />
                 <span className="pb-row__spacer" />
                 <span>Pager:</span>
-                <PBInput w={94} value={patient.pager ?? ''} readOnly />
+                <PBInput aria-label="Demographics pager" w={94} value={patient.pager ?? ''} onChange={e => change({ pager: e.target.value })} />
               </Row>
 
               <span className="pb-form__label">Preferred Phone:</span>
@@ -1009,40 +819,40 @@ function DemographicsPage() {
                   options={preferredPhones}
                   w={86}
                   value={patient.preferredPhone ?? ''}
-                  onChange={() => {}}
+                  onChange={e => change({ preferredPhone: e.target.value as Patient['preferredPhone'] })}
                 />
                 <span className="pb-row__spacer" />
                 <span>Fax:</span>
-                <PBInput w={94} value={patient.fax ?? ''} readOnly />
+                <PBInput aria-label="Demographics fax" w={94} value={patient.fax ?? ''} onChange={e => change({ fax: e.target.value })} />
               </Row>
 
               <span className="pb-form__label">eMail (Home):</span>
-              <Row><PBInput w={281} value={patient.emailHome ?? ''} readOnly /></Row>
+              <Row><PBInput aria-label="Demographics emailHome" w={281} value={patient.emailHome ?? ''} onChange={e => change({ emailHome: e.target.value })} /></Row>
               <span className="pb-form__label">eMail (Work):</span>
-              <Row><PBInput w={281} value={patient.emailWork ?? ''} readOnly /></Row>
+              <Row><PBInput aria-label="Demographics emailWork" w={281} value={patient.emailWork ?? ''} onChange={e => change({ emailWork: e.target.value })} /></Row>
             </div>
 
             <div className="pb-row" style={{ gap: 6, padding: '4px 0 1px' }}>
-              <PBButton style={{ width: 81 }}>Copy Addr.</PBButton>
-              <PBButton style={{ width: 70 }}>Paste Addr.</PBButton>
-              <PBButton style={{ width: 115 }}>Change Addr. Wizard</PBButton>
+              <PBButton style={{ width: 81 }} onClick={() => setCopied({ address: patient.address, address2: patient.address2, city: patient.city, province: patient.province, postal: patient.postal, country: patient.country })}>Copy Addr.</PBButton>
+              <PBButton style={{ width: 70 }} disabled={!copied} onClick={() => copied && change(copied)}>Paste Addr.</PBButton>
+              <PBButton style={{ width: 115 }} onClick={() => setDialog('wizard')}>Change Addr. Wizard</PBButton>
               <span className="pb-row__spacer" />
-              <PBButton style={{ width: 94 }}>Archive Addr.</PBButton>
+              <PBButton style={{ width: 94 }} onClick={() => setDialog('archive')}>Archive Addr.</PBButton>
             </div>
           </PBGroup>
 
           <PBGroup title="General Information" fill>
             <div className="pb-form pb-demog__form" style={{ paddingBottom: 3 }}>
               <span className="pb-form__label">Short Note:</span>
-              <Row><PBInput w={281} value={patient.note ?? ''} readOnly /></Row>
+              <Row><PBInput aria-label="Demographics note" w={281} value={patient.note ?? ''} onChange={e => change({ note: e.target.value })} /></Row>
             </div>
             <div className="pb-demog__notes">
               <span className="pb-form__label">General Notes:</span>
               {/* tdt_chart.str_note, the column Patient Detail also shows */}
               <PBTextArea
                 style={{ width: 281, height: '100%', fontFamily: 'var(--pb-font-mono)' }}
-                value={patient.generalNotes ?? ''}
-                readOnly
+                aria-label="Demographics general notes" value={patient.generalNotes ?? ''}
+                onChange={e => change({ generalNotes: e.target.value })}
               />
             </div>
           </PBGroup>
@@ -1055,35 +865,38 @@ function DemographicsPage() {
             <div className="pb-form pb-demog__form pb-demog__form--right">
               <span className="pb-form__label">Facility:</span>
               <RowR>
-                <PBSelect options={chartFacilities} w={188} value={patient.facility ?? ''} onChange={() => {}} />
+                <PBSelect options={[...new Set([...chartFacilities, patient.facility ?? ''])]} w={188} value={patient.facility ?? ''} onChange={e => change({ facility: e.target.value as Patient['facility'] })} />
                 <span className="pb-row__spacer" />
                 <span className="pb-demog__stacked">Last Contact</span>
               </RowR>
 
               <span className="pb-form__label">Location:</span>
               <RowR>
-                <PBSelect options={chartLocations} w={188} value={patient.officeLocation ?? ''} onChange={() => {}} />
+                <PBSelect options={[...new Set([...chartLocations, patient.officeLocation ?? ''])]} w={188} value={patient.officeLocation ?? ''} onChange={e => change({ officeLocation: e.target.value as Patient['officeLocation'] })} />
                 <span className="pb-row__spacer" />
-                <PBInput w={85} align="center" value={patient.lastContact ?? ''} readOnly />
+                <PBInput aria-label="Demographics lastContact" w={85} align="center" value={patient.lastContact ?? ''} readOnly />
               </RowR>
 
               <span className="pb-form__label">Service:</span>
               <RowR>
-                <PBSelect options={chartServices} w={188} value={patient.service ?? ''} onChange={() => {}} />
+                <PBDropDownDataWindow w={188} listW={420} tutorialId="host.mois.field.demographic-service" value={patient.service ?? ''} display="code"
+                  rows={demographicServiceCenters} onSelect={r => change({ service: r.code })}
+                  columns={[{ key: 'code', header: 'Service Center', width: 135, render: r => <span style={{ color: r.inactive ? 'red' : undefined }}>{r.code}</span> },
+                    { key: 'description', header: 'Description', render: r => <span style={{ color: r.inactive ? 'red' : undefined }}>{r.description}</span> }]} />
                 <span className="pb-row__spacer" />
                 <span className="pb-demog__stacked">Invoice Balance</span>
               </RowR>
 
               <span className="pb-form__label">Service Provider:</span>
               <RowR>
-                <PBSelect options={serviceProviders} w={188} value={patient.provider ?? ''} onChange={() => {}} />
+                <PBSelect options={[...new Set([...serviceProviders, patient.provider ?? ''])]} w={188} value={patient.provider ?? ''} onChange={e => change({ provider: e.target.value as Patient['provider'] })} />
                 <span className="pb-row__spacer" />
                 {/* a balance MOIS has nothing to print reads as a dash */}
-                <PBInput w={85} align="right" value={patient.invoiceBalance ?? '-'} readOnly />
+                <PBInput aria-label="Demographics invoiceBalance" w={85} align="right" value={patient.invoiceBalance ?? '-'} readOnly />
               </RowR>
 
               <span className="pb-form__label">Chart Loc.:</span>
-              <RowR><PBInput w={188} value={patient.location ?? ''} readOnly /></RowR>
+              <RowR><PBInput aria-label="Demographics location" w={188} value={patient.location ?? ''} onChange={e => change({ location: e.target.value })} /></RowR>
             </div>
           </PBGroup>
 
@@ -1091,19 +904,19 @@ function DemographicsPage() {
             <div className="pb-form pb-demog__form pb-demog__form--right">
               <span className="pb-form__label">Insurance by:</span>
               <RowR>
-                <PBSelect options={insuranceCarriers} w={67} value={patient.insuranceBy ?? ''} onChange={() => {}} />
+                <PBSelect options={[...new Set([...insuranceCarriers, patient.insuranceBy ?? ''])]} w={67} value={patient.insuranceBy ?? ''} onChange={e => change({ insuranceBy: e.target.value as Patient['insuranceBy'] })} />
               </RowR>
 
               <span className="pb-form__label">Insurance No.:</span>
               <RowR>
-                <PBInput w={110} value={patient.insurance ?? ''} readOnly />
-                <PBButton style={{ width: 43 }}>Check</PBButton>
+                <PBInput aria-label="Demographics insurance" w={110} value={patient.insurance ?? ''} onChange={e => change({ insurance: e.target.value })} />
+                <PBButton style={{ width: 43 }} onClick={() => setDialog('msp')}>Check</PBButton>
                 <span style={{ paddingLeft: 8 }}>Dep. No.:</span>
-                <PBInput w={46} value={patient.dep ?? ''} readOnly />
+                <PBInput aria-label="Demographics dep" w={46} value={patient.dep ?? ''} onChange={e => change({ dep: e.target.value })} />
               </RowR>
 
               <span className="pb-form__label">Benefit Source:</span>
-              <RowR><PBInput w={110} value={patient.benefitSource ?? ''} readOnly /></RowR>
+              <RowR><PBInput aria-label="Demographics benefitSource" w={110} value={patient.benefitSource ?? ''} onChange={e => change({ benefitSource: e.target.value })} /></RowR>
             </div>
           </PBGroup>
 
@@ -1113,19 +926,19 @@ function DemographicsPage() {
             <div className="pb-form pb-demog__form pb-demog__form--right">
               <span className="pb-form__label pb-form__label--dim">Pharmacy:</span>
               <RowR>
-                <PBInput w={227} value={pharmacy.name ?? ''} disabled readOnly />
+                <PBInput aria-label="Pharmacy name" title={pharmacy.name} w={227} value={pharmacy.name ?? ''} disabled readOnly />
                 <span className="pb-row__spacer" />
-                <button className="pb-link">Change...</button>
+                <button className="pb-link" onClick={() => setDialog('pharmacy')}>Change...</button>
               </RowR>
 
               <span className="pb-form__label pb-form__label--dim">Address:</span>
-              <RowR><PBInput w={284} value={pharmacy.address ?? ''} disabled readOnly /></RowR>
+              <RowR><PBInput aria-label="Pharmacy address" w={284} value={pharmacy.address ?? ''} disabled readOnly /></RowR>
 
               <span className="pb-form__label pb-form__label--dim">Phone:</span>
               <RowR>
-                <PBInput w={124} align="center" value={pharmacy.phone ?? ''} disabled readOnly />
+                <PBInput aria-label="Pharmacy phone" w={124} align="center" value={pharmacy.phone ?? ''} disabled readOnly />
                 <span style={{ paddingLeft: 8 }}>Fax:</span>
-                <PBInput w={130} align="center" value={pharmacy.fax ?? ''} disabled readOnly />
+                <PBInput aria-label="Pharmacy fax" w={130} align="center" value={pharmacy.fax ?? ''} disabled readOnly />
               </RowR>
             </div>
           </PBGroup>
@@ -1157,6 +970,15 @@ function DemographicsPage() {
         </span>
       </div>
 
+      {dialog === 'photo' && <PatientPhotoDialog onClose={() => setDialog(null)} />}
+      {dialog === 'msp' && <MspEligibilityDialog onClose={() => setDialog(null)} />}
+      {dialog === 'wizard' && <AddressWizardDialog onClose={() => setDialog(null)} />}
+      {dialog === 'archive' && <AddressExpiryDialog onClose={() => setDialog(null)} />}
+      {dialog === 'status' && <DemographicStatusDialog onClose={() => setDialog(null)} />}
+      {dialog === 'pharmacy' && <DemographicPharmacyDialog onClose={() => setDialog(null)} />}
+      {cityOpen && <DemographicLookupDialog title="City" value={patient.city ?? ''} city
+        rows={[...geographicTerms, ...(patient.city && !geographicTerms.some(r => r.term === patient.city) ? [{ term: patient.city, category: 'CITY', code: '', system: `PP-${patient.province ?? 'BC'}` }] : [])]}
+        onPick={r => { change({ city: r.term, province: r.system.replace('PP-', '') }); setCityOpen(false) }} onClose={() => setCityOpen(false)} />}
       {genderOpen && <AdvancedGenderDialog onClose={() => setGenderOpen(false)} />}
     </div>
   )
@@ -1175,4 +997,33 @@ const RowR = ({ children }: { children: ReactNode }) => (
 function PhoneLabel({ label, preferred }: { label: string; preferred?: string }) {
   const linked = !!preferred && label.toLowerCase().startsWith(preferred.trim().toLowerCase())
   return <span className={linked ? 'pb-form__label pb-form__label--linked' : 'pb-form__label'}>{label}</span>
+}
+
+function DemographicStatusDialog({ onClose }: { onClose: () => void }) {
+  const patient = usePatient()
+  const [status, setStatus] = useState(patient.status)
+  const [effective, setEffective] = useState(today)
+  const [note, setNote] = useState('')
+  return <DemographicModal title="Update Status" width={400} onClose={onClose}>
+    <div className="pb-form" style={{ padding: 20, gridTemplateColumns: '100px 1fr' }}>
+      <span>Status:</span><PBSelect aria-label="New patient status" options={[...new Set(['A', 'LU', patient.status])]} value={status} onChange={e => setStatus(e.target.value as Patient['status'])} />
+      <span>Effective:</span><PBInput aria-label="Status effective date" value={effective} onChange={e => setEffective(e.target.value)} />
+      <span>Note:</span><PBTextArea aria-label="Status note" value={note} onChange={e => setNote(e.target.value)} />
+    </div>
+    <DialogButtons><PBButton onClick={() => { updatePatient(patient.chart, { status, registered: effective,
+      statusHistory: [{ code: status, effective, note }, ...(patient.statusHistory ?? [])] }); onClose() }}>Ok</PBButton><PBButton onClick={onClose}>Cancel</PBButton></DialogButtons>
+  </DemographicModal>
+}
+
+function DemographicPharmacyDialog({ onClose }: { onClose: () => void }) {
+  const patient = usePatient()
+  const connections = useChartRecords('connection').filter(r => r.str_connection_type === 'PHARMACY' && r.str_provider)
+  const [cur, setCur] = useState(0)
+  return <DemographicModal title="Select Pharmacy" width={700} height={400} onClose={onClose}>
+    <PBBand>Pharmacy Connections</PBBand>
+    <PBDataWindow columns={[{ key: 'str_provider', header: 'Pharmacy' }, { key: 'dtm_end', header: 'End Date', width: 90 }]}
+      rows={connections} current={cur} onCurrentChange={setCur} empty="No pharmacy connections in this chart export." />
+    <DialogButtons><PBButton disabled={!connections[cur]} onClick={() => { updatePatient(patient.chart, { pharmacy: { name: connections[cur].str_provider } }); onClose() }}>Select</PBButton>
+      <PBButton onClick={() => { updatePatient(patient.chart, { pharmacy: {} }); onClose() }}>Clear Pharmacy</PBButton><PBButton onClick={onClose}>Cancel</PBButton></DialogButtons>
+  </DemographicModal>
 }

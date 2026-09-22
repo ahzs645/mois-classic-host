@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { useChartRows, useNodeRecords } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts'
+import { stamp } from '../data/charts/detail'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput,
   PBLookup, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import { useChartRows } from '../data/chart-records'
-import { longTermMedRows, prescriptionRows } from '../data/mois'
 
 /* ============================================================================
    Rx - Prescription and Long Term Medications are one window family: same
@@ -56,7 +57,9 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
      prescriptions and long-term meds in one export table, so both folders read
      it and the LT list is the subset still running */
   const exported = useChartRows(rx ? 'rx' : 'ltm')
-  const rows = (exported ?? (rx ? prescriptionRows : longTermMedRows)) as typeof prescriptionRows
+  const records = useNodeRecords(rx ? 'rx' : 'ltm')
+  const record = records[cur]
+  const rows = exported
 
   return (
     <>
@@ -94,13 +97,6 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         <span>Search For:</span><PBLookup w="100%" />
       </div>
 
-      {/* the long-term list carries a review banner above the grid */}
-      {!rx && (
-        <div style={{ padding: '2px 8px 3px', flex: 'none' }}>
-          Long Term Medications have not been reviewed for this patient
-        </div>
-      )}
-
       <div style={{ padding: '0 3px', height: rx ? 256 : 232, flex: 'none', display: 'flex' }}>
         <PBDataWindow
           columns={rx ? RX_COLUMNS : LTM_COLUMNS}
@@ -112,30 +108,30 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 0' }}>
         <PBTabs tabs={['Detail', 'CPP']} active={tab} onChange={setTab} compact face>
-          {tab === 'Detail' && <DetailPage rx={rx} row={rows[cur]} />}
+          {tab === 'Detail' && <DetailPage key={cur} rx={rx} row={rows[cur]} record={record} />}
         </PBTabs>
       </div>
 
       <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-        <span>Created:&nbsp;&nbsp;&nbsp;2026.07.06&nbsp; 09:29&nbsp;&nbsp; (RN) MACDONALD, TERESA</span>
+        <span>Created: {stamp(record)}</span>
         <span style={{ width: 24 }} />
-        <span>Last Modified: 2026.07.06&nbsp; 09:30&nbsp; (RN) MACDONALD, TERESA</span>
+        <span>Last Modified: {stamp(record, 'modify')}</span>
         <span className="pb-row__spacer" />
-        <button className="pb-link">ENC# EMPTY</button>
+        {record?.id_encounter && <button className="pb-link">ENC# {record.id_encounter}</button>}
       </div>
     </>
   )
 }
 
-function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
+function DetailPage({ rx, row, record }: { rx: boolean; row?: Med; record?: MoisRecord }) {
   return (
     <div className="pb-medication-detail" style={{ display: 'flex', gap: 8, padding: '6px 8px', alignItems: 'flex-start', minWidth: 0 }}>
       <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '78px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>ATC Code:</span>
         <div className="pb-row">
-          <PBInput w={84} defaultValue={rx ? 'J01DD04' : 'A10AE04'} />
+          <PBInput w={84} defaultValue={record?.str_atc_code ?? ''} />
           <span style={{ marginLeft: 8 }}>{rx ? 'Ordered By:' : 'Started By:'}</span>
-          <PBLookup w={206} defaultValue={rx ? 'PH PHRN 3 PRG' : 'ROSS, ADRIENNE (NHVC)'} />
+          <PBLookup w={206} defaultValue={record?.str_order_by ?? ''} />
         </div>
 
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Generic Name:</span>
@@ -147,10 +143,10 @@ function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
         <span className="pb-form__label" style={{ lineHeight: '14px' }}>
           {rx ? <>Comment:<br /><br />Printed on<br />Prescription</> : <>Instructions:<br /><br />(copied to<br />prescriptions)</>}
         </span>
-        <PBTextArea rows={6} w="100%" />
+        <PBTextArea rows={6} w="100%" defaultValue={record?.str_comment ?? ''} />
 
         <span className="pb-form__label" style={{ lineHeight: '14px' }}>Office Note<br />(not Printed):</span>
-        <PBTextArea rows={2} w="100%" defaultValue={rx ? '' : 'SEE ORDER ATTACHED'} />
+        <PBTextArea rows={2} w="100%" defaultValue={record?.str_office_note ?? ''} />
 
         {rx && <><span className="pb-form__label">Last Printed:</span><span /></>}
       </div>
@@ -160,11 +156,11 @@ function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
         <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '68px 1fr', gap: '0px 6px' }}>
           <span className="pb-form__label">Instructions:</span>
           <div className="pb-row" style={{ gap: 12 }}>
-            <PBCheckbox label="Do Not Substitute" checked={rx} />
-            <PBCheckbox label="Do Not Adapt" />
+            <PBCheckbox label="Do Not Substitute" checked={record?.str_no_substitute === 'Y'} />
+            <PBCheckbox label="Do Not Adapt" checked={record?.str_do_not_adapt === 'Y'} />
           </div>
           <span className="pb-form__label">PRN:</span>
-          <PBCheckbox label="(when necessary)" />
+          <PBCheckbox label="(when necessary)" checked={record?.str_prn === 'Y'} />
           {rx && (
             <>
               <span className="pb-form__label">Repeat:</span>
@@ -197,18 +193,6 @@ function DetailPage({ rx, row }: { rx: boolean; row?: Med }) {
    A reprint appends a row with Version = Copy; the original reads Original.
    ========================================================================= */
 
-const PRINT_HX_ROWS = [
-  { by: 'MACDONALD, TERESA', created: '2026.07.06  09:31', signed: '\u2713',
-    method: 'PRINT', mby: 'MACDONALD, TERESA', mwhen: '2026.07.06  09:31', version: 'Original' },
-  { by: 'MACDONALD, TERESA', created: '2026.07.06  09:31', signed: '\u2713',
-    method: 'FAX', mby: 'MACDONALD, TERESA', mwhen: '2026.07.06  09:34', version: 'Copy' },
-]
-
-const PRINT_HX_ITEMS = [
-  { code: '02245428', med: 'CEFTRIAXONE FOR INJECTION USP 250 mg Powder For Solution',
-    dose: '1 DOSE Intramuscular DAILY', amount: '1 DAY' },
-]
-
 export function PrintHistoryView() {
   /* an exported chart has no print history in the export, so it is empty
      rather than showing another patient's reprints */
@@ -229,7 +213,7 @@ export function PrintHistoryView() {
       />
       <div style={{ padding: '0 3px', height: 150, display: 'flex' }}>
         <PBDataWindow
-          rows={exportedPrintHx ?? PRINT_HX_ROWS}
+          rows={exportedPrintHx}
           current={cur}
           onCurrentChange={setCur}
           columns={[
@@ -256,7 +240,7 @@ export function PrintHistoryView() {
               <PBDataWindow
                 /* the Distribution tab exists in the capture but is never the
                    active tab anywhere in the corpus, so its columns are unknown */
-                rows={tab === 'Prescription Items' ? PRINT_HX_ITEMS : []}
+                rows={[]}
                 columns={[
                   { key: 'code', header: 'Code', width: 90 },
                   { key: 'med', header: 'Medication' },
