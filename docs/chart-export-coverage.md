@@ -47,7 +47,7 @@ are shown during loading.
 | Conditions / Risks / Needs / Planned Actions | Export rows and selected detail; linked goals joined through `goal_link` |
 | Goals | Two exported goals; quantitative settings and actual linked health issues/actions |
 | Preferences / Alerts | Export records and known detail fields; preference summary links select the exact exported ID, with the captured Subject/Other/Instruction/Reason detail layout |
-| Dynamic Forms | Eight exported headers are listed with titles and groups from the older Dynamic Form definition dump. Open Form shows the matching `dform_data` fields and saved values in a read-only MOIS-style window. New Record offers the 19 complete form presets when embedded by Webforms; these drafts stay local to the stage. |
+| Dynamic Forms | Eight exported headers are listed with titles and groups from the older Dynamic Form definition dump. Open Form shows the matching `dform_data` fields and saved values in a read-only MOIS-style window. New Record offers all 44 extracted definitions: 19 complete forms and 25 standalone calculators, questionnaires, and archetypes. The stage applies their section modules and layout setup; drafts stay local to the stage. |
 | Encounter Forms | Exported headers; unresolved form/provider IDs remain IDs |
 | Print previews | Patient-specific record summaries; no static patient report body |
 | Letter Writer | Fresh letter has no invented diagnosis or body; measurement picker reads chart results and inserts only checked rows; document picker shows metadata |
