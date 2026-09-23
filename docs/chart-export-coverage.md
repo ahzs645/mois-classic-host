@@ -9,6 +9,15 @@ MOIS DEV 02.31.23 b250508. The supplied `0001.xml` was checked against the impor
 record groups. This is a snapshot, not a live database connection or a watcher
 of the Downloads folder. Register additional parsed exports in `src/data/charts/index.ts`.
 
+The older `Dynamic Form dump.csv` supplied separately has 148 section rows for
+42 distinct MOIS window IDs. `scripts/extract-dynamic-form-catalog.py` retains
+their names, groups and section captions in `legacy-dynamic-form-catalog.json`.
+The folder's parsed output has 19 complete forms and 25 subforms; the 19
+complete forms are already present in the Webforms preset library, with newer
+field mapping enrichment, so this import does not replace those payloads.
+The older `Form Field Dump.csv` contains only 1,000 rows and is not used as
+ground truth for chart writes or missing field definitions.
+
 Patient screens read the active chart through `useChartExport`, `useChartRows`,
 and `useNodeRecords`. Missing exports/groups return empty arrays, never the
 transcribed screen examples. Missing detail fields remain blank. Patient Summary
@@ -38,7 +47,8 @@ are shown during loading.
 | Conditions / Risks / Needs / Planned Actions | Export rows and selected detail; linked goals joined through `goal_link` |
 | Goals | Two exported goals; quantitative settings and actual linked health issues/actions |
 | Preferences / Alerts | Export records and known detail fields; preference summary links select the exact exported ID, with the captured Subject/Other/Instruction/Reason detail layout |
-| Dynamic / Encounter Forms | Exported headers; unresolved form/provider IDs remain IDs |
+| Dynamic Forms | Eight exported headers are listed with titles and groups from the older Dynamic Form definition dump. Open Form shows the matching `dform_data` fields and saved values in a read-only MOIS-style window. New Record offers the 19 complete form presets when embedded by Webforms; these drafts stay local to the stage. |
+| Encounter Forms | Exported headers; unresolved form/provider IDs remain IDs |
 | Print previews | Patient-specific record summaries; no static patient report body |
 | Letter Writer | Fresh letter has no invented diagnosis or body; measurement picker reads chart results and inserts only checked rows; document picker shows metadata |
 | Review / New Goal / New Attachment / New Service dialogs | Empty starting state; no preselected patient content or fabricated historical rows |
@@ -89,8 +99,12 @@ mapping so we can bind it without guessing.
 5. **Notifications, Determinants, Admissions, Interventions, Social History,
    Barriers, Resources, Benefits, and Incentives.** These need both populated
    captures and source groups/field mappings before they can display chart data.
-6. **Dynamic and Encounter Form definitions.** Supply the definition catalog for
-   exported form IDs and the relevant body layouts. Headers do not define the form.
+6. **Dynamic and Encounter Form fidelity.** The older definition dump gives
+   dynamic form titles, groups and section captions. It does not reliably
+   recover every PowerBuilder layout, field option, formula or registration
+   version. In particular, section IDs can differ between a filled form and
+   the older definition, so unmatched sections display their numeric ID.
+   Encounter Form definitions still need their matching catalog and body layouts.
 7. **Service event editing and letter/report workflow.** Source-order handoff,
    episode selection to saved event, document attachment insertion, template
    population, advanced selection filters, and print parameter filtering need

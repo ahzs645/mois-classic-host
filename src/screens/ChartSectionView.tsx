@@ -1,6 +1,12 @@
-import { useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import type { ChartScreen } from '../data/chartScreens'
+import type { FormListRow } from '../data/encounterForms'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { useChartRecords, useNodeRecords } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts/types'
+import type { HostShellProps } from '../host/types'
+import { EncounterWebformWindow, SelectFormDialog } from './EncounterWindow'
+import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
 import {
   PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn, type PBCommand,
@@ -9,14 +15,36 @@ import {
 
 /* The window most Patient Chart and Scheduler nodes open into. Everything
    that varies between them lives in chartScreens / schedulerScreens. */
-export function ChartSectionView({ screen, content }: {
+export function ChartSectionView({ screen, content, loadEncounterForms, encounterFormSlot }: {
   screen: ChartScreen
   /** replaces the DataWindow with host content — a live form under Dynamic Forms */
   content?: ReactNode
+  loadEncounterForms?: HostShellProps['loadEncounterForms']
+  encounterFormSlot?: HostShellProps['encounterFormSlot']
 }) {
   const patient = usePatient()
   const [current, setCurrent] = useState(0)
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
+  const [openedDynamicForm, setOpenedDynamicForm] = useState<MoisRecord | null>(null)
+  const [createdDynamicForms, setCreatedDynamicForms] = useState<{ formId: string; presetKey: string; name: string }[]>([])
+  const [openedCreatedForm, setOpenedCreatedForm] = useState<string | null>(null)
+  const [pickingDynamicForm, setPickingDynamicForm] = useState(false)
+  const formData = useRef<Record<string, Record<string, unknown>>>({})
+  const isDynamic = screen.title === 'Dynamic Forms'
+  const dynamicForms = useNodeRecords('dynamic')
+  const dynamicFields = useChartRecords('dform_data')
+  const exportedCount = screen.rows?.length ?? 0
+  const selectedCreatedForm = createdDynamicForms[current - exportedCount]
+  const openedCreatedRow = createdDynamicForms.find((form) => form.formId === openedCreatedForm)
+  const loadDynamicForms = useCallback(async () => {
+    const forms = await loadEncounterForms?.() ?? []
+    return forms.filter((form) => form.presetKey?.startsWith('dynamic-'))
+      .map((form) => ({ ...form, type: 'DYNAMIC FORM' }))
+  }, [loadEncounterForms])
+  const openSelectedDynamicForm = () => {
+    if (selectedCreatedForm) setOpenedCreatedForm(selectedCreatedForm.formId)
+    else setOpenedDynamicForm(dynamicForms[current] ?? null)
+  }
 
   /* MOIS lights Save and Undo the moment a record is started and puts them
      back out when it is saved or thrown away — the same New Record / Save
@@ -26,6 +54,18 @@ export function ChartSectionView({ screen, content }: {
   const commands: PBCommand[] = screen.commands.map((c) => {
     if (c === null) return null
     const gated = screen.disabled?.includes(c) ?? false
+    if (isDynamic && c === 'New Record') {
+      return { label: c, disabled: !loadEncounterForms || !encounterFormSlot, onClick: () => setPickingDynamicForm(true) }
+    }
+    if (isDynamic && c === 'Open Form') {
+      return { label: c, disabled: !dynamicForms[current] && !selectedCreatedForm, onClick: openSelectedDynamicForm }
+    }
+    if (isDynamic && c === 'Delete Record') {
+      return { label: c, disabled: !selectedCreatedForm, onClick: () => {
+        setCreatedDynamicForms((forms) => forms.filter((form) => form.formId !== selectedCreatedForm?.formId))
+        setCurrent(0)
+      } }
+    }
     if (c === 'New Record' || c === 'Quick Entry') {
       return { label: c, onClick: () => setDirty(true) }
     }
@@ -43,12 +83,20 @@ export function ChartSectionView({ screen, content }: {
     dots: c.dots,
   }))
 
+  const rows = isDynamic ? [
+    ...(screen.rows ?? []),
+    ...createdDynamicForms.map((form) => ({ date: '', group: 'DYNAMIC FORM', title: form.name, attending: '', user: '', state: 'DRAFT' })),
+  ] : screen.rows ?? []
   const grid = (
     <PBDataWindow
       columns={columns}
-      rows={screen.rows ?? []}
+      rows={rows}
       current={current}
       onCurrentChange={setCurrent}
+      onActivate={isDynamic ? (_, index) => {
+        if (index >= exportedCount) setOpenedCreatedForm(createdDynamicForms[index - exportedCount]?.formId ?? null)
+        else setOpenedDynamicForm(dynamicForms[index] ?? null)
+      } : undefined}
       empty={`No ${screen.title.toLowerCase()} on file.`}
     />
   )
@@ -99,6 +147,39 @@ export function ChartSectionView({ screen, content }: {
         </>
       ) : (
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>{grid}</div>
+      )}
+      {openedDynamicForm && (
+        <LegacyDynamicFormWindow
+          header={openedDynamicForm}
+          records={dynamicFields}
+          onClose={() => setOpenedDynamicForm(null)}
+        />
+      )}
+      {openedCreatedRow && encounterFormSlot && (
+        <EncounterWebformWindow title={openedCreatedRow.name.toUpperCase()} onClose={() => setOpenedCreatedForm(null)}>
+          {encounterFormSlot({
+            presetKey: openedCreatedRow.presetKey,
+            encounterId: '',
+            formId: openedCreatedRow.formId,
+            initialData: formData.current[openedCreatedRow.formId],
+            onFormDataChange: (data) => { formData.current[openedCreatedRow.formId] = data },
+            onClose: () => setOpenedCreatedForm(null),
+          })}
+        </EncounterWebformWindow>
+      )}
+      {pickingDynamicForm && (
+        <SelectFormDialog
+          loadEncounterForms={loadDynamicForms}
+          onCreate={(form: FormListRow) => {
+            if (!form.presetKey) return
+            const created = { formId: crypto.randomUUID(), presetKey: form.presetKey, name: form.name }
+            setCreatedDynamicForms((forms) => [...forms, created])
+            setCurrent(exportedCount + createdDynamicForms.length)
+            setPickingDynamicForm(false)
+            setOpenedCreatedForm(created.formId)
+          }}
+          onClose={() => setPickingDynamicForm(false)}
+        />
       )}
     </>
   )

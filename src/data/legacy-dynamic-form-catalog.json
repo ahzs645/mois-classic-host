@@ -1,0 +1,402 @@
+{
+  "100": {
+    "title": "BLOOD PRESSURE MEASUREMENT",
+    "group": "MEASUREMENT - EXTENDED INFORMATION",
+    "sections": {
+      "100": "GENERAL"
+    }
+  },
+  "101": {
+    "title": "HOMUNCULUS - JOIN SELECTION",
+    "group": "MEASUREMENT - HOMUNCULUS",
+    "sections": {
+      "101": "GENERAL"
+    }
+  },
+  "102": {
+    "title": "SDAI",
+    "group": "MEASUREMENT",
+    "sections": {
+      "102": "SIMPLIFIED DISEASE ACTIVITY INDEX"
+    }
+  },
+  "103": {
+    "title": "CDAI",
+    "group": "MEASUREMENT",
+    "sections": {
+      "103": "CLINICAL DISEASE ACTIVITY INDEX"
+    }
+  },
+  "104": {
+    "title": "PATIENT HEALTH QUESTIONNAIRE",
+    "group": "QUESTIONAIRE",
+    "sections": {
+      "104": "PATIENT HEALTH QUESTIONNAIRE"
+    }
+  },
+  "105": {
+    "title": "EPDS",
+    "group": "Public Health",
+    "sections": {
+      "105": "EDINBURGH POSTNATAL DEPRESSION SCALE"
+    }
+  },
+  "106": {
+    "title": "Parkyn",
+    "group": "Public Health",
+    "sections": {
+      "106": "PARKYN SCORE"
+    }
+  },
+  "107": {
+    "title": "DIRE RISK ASSESSMENT",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "107": "DIRE SCORE: PATIENT SELECTION FOR CHRONIC OPIOD ANALGESIA"
+    }
+  },
+  "108": {
+    "title": "BRIEF PAIN INVENTORY - SEVERITY",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "108": "BPI - SEVERITY SCORE"
+    }
+  },
+  "109": {
+    "title": "BRIEF PAIN INVENTORY - INTERFERENCE",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "109": "BPI - INTERFERENCE SCORE"
+    }
+  },
+  "110": {
+    "title": "BRIEF PAIN INVENTORY - RELIEF",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "110": "BPI - RELIEF SCORE"
+    }
+  },
+  "111": {
+    "title": "PAIN DISABILITY SCORE",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "111": "PAIN DISABILITY INDEX"
+    }
+  },
+  "112": {
+    "title": "DN4 NEUROPATHIC INDEX",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "112": "DIAGNOSING NEUROPATHIC PAIN"
+    }
+  },
+  "113": {
+    "title": "OPIOID RISK TOOL",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "113": "OPIOID RISK ASSESSMENT TOOL"
+    }
+  },
+  "114": {
+    "title": "CAGE AID QUESTIONNAIRE",
+    "group": "GENERAL QUESTIONNIARE",
+    "sections": {
+      "114": "CAGE-AID QUESTIONNAIRE"
+    }
+  },
+  "115": {
+    "title": "MORPHINE EQUIVALENCE",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "115": "MORPHINE EQUIVALENCE CALCULATOR"
+    }
+  },
+  "116": {
+    "title": "GENERAL ANXIETY DISORDER 7",
+    "group": "GENERAL QUESTIONNIARE",
+    "sections": {
+      "116": "MAIN"
+    }
+  },
+  "118": {
+    "title": "UNIVERSAL PAIN ASSESSMENT TOOL",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "118": "UPAT"
+    }
+  },
+  "119": {
+    "title": "PEG MEAN SCORE",
+    "group": "PEG MEAN SCORE",
+    "sections": {
+      "119": "PEG MEAN SCORE"
+    }
+  },
+  "120": {
+    "title": "DERMATOLOGY LIFE QUALITY INDEX",
+    "group": "DERMATOLOGY LIFE QUALITY INDEX",
+    "sections": {
+      "120": "DERMATOLOGY LIFE QUALITY INDEX"
+    }
+  },
+  "121": {
+    "title": "CAT Assessment",
+    "group": "CALCULATOR",
+    "sections": {
+      "121": "CAT Assessment"
+    }
+  },
+  "122": {
+    "title": "Clinical Opiate Withdrawal Scale",
+    "group": "CALCULATOR",
+    "sections": {
+      "122": "Clinical Opiate Withdrawal Scale"
+    }
+  },
+  "200": {
+    "title": "First Assessment",
+    "group": "Musculoskeletal",
+    "sections": {
+      "200": "MEASURES",
+      "201": "RED FLAGS",
+      "202": "INFLAMMATORY ARTHRITIS - RA",
+      "203": "INFLAMMATORY ARTHRITIS - NON RA",
+      "204": "OSTEOARTHRITIS",
+      "205": "CONDITIONS THAT MAY MIMIC INFLAMMATORY OR NON-INFLAMMATORY ARTHRITIS",
+      "206": "RESOURCES"
+    }
+  },
+  "306": {
+    "title": "Osteoarthritis Follow-up",
+    "group": "Musculoskeletal",
+    "sections": {
+      "306": "PAIN",
+      "307": "SATISFACTION WITH FUNCTION",
+      "308": "USING MEDICAL DEVICES",
+      "309": "REHABILITATION AND EXERCISE",
+      "310": "OTHER",
+      "311": "EXAMINATION",
+      "301": "RESOURCES"
+    }
+  },
+  "406": {
+    "title": "Rheumatoid Arthritis Followup",
+    "group": "Musculoskeletal",
+    "sections": {
+      "406": "PAIN",
+      "307": "SATISFACTION WITH FUNCTION",
+      "308": "USING MEDICAL DEVICES",
+      "309": "REHABILITATION AND EXERCISE",
+      "310": "OTHER",
+      "401": "MEASURES",
+      "402": "RESOURCES"
+    }
+  },
+  "1100": {
+    "title": "Dental",
+    "group": "Public Health",
+    "sections": {
+      "1101": "SCREENING GENERAL HEALTH",
+      "1102": "GENERAL COMMENTS"
+    }
+  },
+  "1400": {
+    "title": "Tuberculin Skin Test Administer",
+    "group": "Public Health",
+    "sections": {
+      "1401": "GENERAL"
+    }
+  },
+  "1500": {
+    "title": "Tuberculin Skin Test Read",
+    "group": "Public Health",
+    "sections": {
+      "1501": "GENERAL"
+    }
+  },
+  "1600": {
+    "title": "Maternal Birth Event",
+    "group": "Public Health",
+    "sections": {
+      "1601": "OBSTETRICAL HISTORY",
+      "1602": "CURRENT BIRTH EVENT"
+    }
+  },
+  "1700": {
+    "title": "Baby Birth Event",
+    "group": "Public Health",
+    "sections": {
+      "1701": "BIRTH EVENT"
+    }
+  },
+  "1800": {
+    "title": "Hearing",
+    "group": "Public Health",
+    "sections": {
+      "1801": "GENERAL HEALTH",
+      "1802": "GENERAL COMMENTS"
+    }
+  },
+  "1900": {
+    "title": "Vision",
+    "group": "Public Health",
+    "sections": {
+      "1901": "SCREENING GENERAL HEALTH",
+      "1902": "GENERAL COMMENTS"
+    }
+  },
+  "2100": {
+    "title": "Adult Assessment (19 and older not prenatal or postpardum)",
+    "group": "Public Health",
+    "sections": {
+      "2101": "ASSESSMENT OCCURRENCE",
+      "2102": "PHYSIOLOGICAL",
+      "2103": "GENERAL",
+      "2104": "NUTRITION",
+      "2105": "PSYCHOSOCIAL",
+      "2106": "BEHAVIOR",
+      "2107": "LIFESTYLE",
+      "2108": "SUPPORT",
+      "2109": "SAFETY/INJURY PREVENTION",
+      "2110": "GENERAL COMMENTS"
+    }
+  },
+  "3500": {
+    "title": "Pain Assessment",
+    "group": "Pain Management",
+    "sections": {
+      "3501": "PAIN ASSESSMENT TOOLS",
+      "3502": "RED FLAGS",
+      "3503": "YELLOW FLAGS",
+      "3505": "OPIOID THERAPY - INITIATION CHECKLIST",
+      "3507": "OPIOID THERAPY - ADVERSE EFFECT",
+      "3508": "OPIOID THERAPY - ABERRANT BEHAVIOR",
+      "3504": "MANAGEMENT - NON PHARMACOLOGIC",
+      "3511": "MANAGEMENT - PHARMACOLOGIC AND SURGICAL TREATMENTS",
+      "3509": "RESOURCES - PATIENT HANDOUTS",
+      "3510": "RESOURCES - PROVIDER"
+    }
+  },
+  "3600": {
+    "title": "Substance Use History",
+    "group": "Mental Health & Substance Use",
+    "sections": {
+      "3601": "ASSESSMENT",
+      "3602": "ALCOHOL",
+      "3604": "BENZODIAZEPINE",
+      "3605": "COCAINE",
+      "3606": "CRACK COCAINE",
+      "3607": "ECSTASY",
+      "3619": "FENTANYL",
+      "3608": "HALLUCINOGENS",
+      "3609": "HEROIN",
+      "3610": "INHALANTS",
+      "3611": "KETAMINE",
+      "3612": "CANNABIS",
+      "3613": "METHADONE",
+      "3614": "METHAMPHETAMINE/CRYSTAL METH/OTHER STIMULANTS",
+      "3615": "OTHER OPIATES (MORPHINE, DILAUDID, CODEINE, OPIUM)",
+      "3616": "OTHER PRESCRIPTION DRUGS",
+      "3617": "OTHER SUBSTANCES",
+      "3618": "OVER-THE-COUNTER DRUGS",
+      "3603": "TOBACCO"
+    }
+  },
+  "3700": {
+    "title": "Communicable Disease",
+    "group": "Public Health",
+    "sections": {
+      "3701": "ASSESSMENT",
+      "3702": "PREVIOUSLY DIAGNOSED",
+      "3703": "FOLLOW UP"
+    }
+  },
+  "3800": {
+    "title": "Postpartum Assessment: Birth to 12 Months Postpartum",
+    "group": "Public Health",
+    "sections": {
+      "3801": "ASSESSMENT OCCURRENCE",
+      "3802": "GENERAL HEALTH",
+      "3803": "BREASTFEEDING/INFANT FEEDING",
+      "3804": "PHYSIOLOGICAL",
+      "3805": "NUTRITION",
+      "3806": "PSYCHOSOCIAL",
+      "6000": "TOBACCO AND SUBSTANCE USE",
+      "3807": "SAFETY/INJURY PREVENTION",
+      "3808": "SUPPORT/RESOURCES",
+      "3809": "DISPOSITION/GENERAL COMMENTS"
+    }
+  },
+  "3900": {
+    "title": "Prenatal Assessment",
+    "group": "Public Health",
+    "sections": {
+      "3901": "ASSESSMENT OCCURRENCE",
+      "3902": "OBSTETRICAL HISTORY",
+      "3903": "GENERAL HEALTH",
+      "3904": "PHYSIOLOGICAL",
+      "3905": "NUTRITION",
+      "3906": "PSYCHOSOCIAL",
+      "6000": "TOBACCO AND SUBSTANCE USE",
+      "3907": "SAFETY/INJURY PREVENTION",
+      "3908": "PRENATAL EDUCATION",
+      "3909": "SUPPORT/RESOURCES",
+      "3910": "GENERAL COMMENTS"
+    }
+  },
+  "4000": {
+    "title": "Newborn Assessment: Birth to 7 Weeks 6 Days Old",
+    "group": "Public Health",
+    "sections": {
+      "4001": "ASSESSMENT OCCURRENCE",
+      "4002": "GENERAL HEALTH",
+      "4003": "GROWTH",
+      "4004": "PHYSIOLOGICAL",
+      "4005": "NUTRITION",
+      "4006": "BEHAVIOR/PSYCHOSOCIAL",
+      "4007": "SAFETY/INJURY PREVENTION",
+      "4008": "SUPPORT/RESOURCES",
+      "4009": "DISPOSITION/GENERAL COMMENTS"
+    }
+  },
+  "4100": {
+    "title": "Early Childhood Assessment (Two Months to Six Years 11 Months)",
+    "group": "Public Health",
+    "sections": {
+      "4101": "ASSESSMENT OCCURRENCE",
+      "4102": "GENERAL HEALTH",
+      "4103": "GROWTH",
+      "4104": "DEVELOPMENT",
+      "4105": "PHYSIOLOGICAL",
+      "4106": "NUTRITION",
+      "4107": "BEHAVIOUR/PSYCHOSOCIAL",
+      "4108": "SAFETY/INJURY PREVENTION",
+      "4109": "SUPPORT/RESOURCES",
+      "4110": "DISPOSITION/GENERAL COMMENTS"
+    }
+  },
+  "4200": {
+    "title": "Child and Youth Assessment (7 Years to 18 Years)",
+    "group": "Public Health",
+    "sections": {
+      "4201": "ASSESSMENT",
+      "4202": "GENERAL",
+      "4203": "DEVELOPMENT",
+      "4204": "NUTRITION",
+      "4205": "PHYSIOLOGICAL",
+      "4206": "GENERAL HEALTH",
+      "4207": "BEHAVIOR",
+      "4208": "PSYCHOSOCIAL",
+      "4209": "LIFESTYLE",
+      "4210": "SAFETY/INJURY PREVENTION",
+      "4211": "GENERAL COMMENTS"
+    }
+  },
+  "117001": {
+    "title": "PCS - CATASTROPHIZING SCALE",
+    "group": "PAIN MANAGEMENT",
+    "sections": {
+      "117001": "MAIN"
+    }
+  }
+}

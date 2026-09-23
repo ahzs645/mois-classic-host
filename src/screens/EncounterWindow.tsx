@@ -357,12 +357,12 @@ function EncounterFormsPage({ encounterId, loadEncounterForms, encounterFormSlot
 
 /** The `Select Form` picker: a filterable list of every registered form. */
 /** MOIS hosts the modern webform renderer in a separate File / View window. */
-function EncounterWebformWindow({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+export function EncounterWebformWindow({ children, onClose, title = 'MOIS' }: { children: ReactNode; onClose: () => void; title?: string }) {
   const [maximized, setMaximized] = useState(false)
   const toggleMaximized = () => setMaximized((value) => !value)
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: maximized ? 0 : 8, zIndex: 91 }}>
-      <PBWindow title="MOIS" child onClose={onClose} onMinimize={onClose}
+      <PBWindow title={title} child onClose={onClose} onMinimize={onClose}
         tutorialId="host.mois.window.webform"
         maximized={maximized} onMaximize={toggleMaximized}
         style={{ width: maximized ? '100%' : 'min(1020px, 100%)', height: maximized ? '100%' : 'min(830px, 100%)' }}>
@@ -378,7 +378,7 @@ function EncounterWebformWindow({ children, onClose }: { children: ReactNode; on
   )
 }
 
-function SelectFormDialog({ onCreate, onClose, loadEncounterForms }: {
+export function SelectFormDialog({ onCreate, onClose, loadEncounterForms }: {
   onCreate: (form: FormListRow) => void
   onClose: () => void
   loadEncounterForms?: () => Promise<FormListRow[]>

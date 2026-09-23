@@ -1211,8 +1211,11 @@ function Frame({
               {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) }} />}
               {view === 'section' && section.title !== 'Care Plan' && (
                 <ChartSectionView
+                  key={`${chart}:${selected}`}
                   screen={module === 'chart' ? { ...section, rows: exportRows } : section}
                   content={sectionContent}
+                  loadEncounterForms={loadEncounterForms}
+                  encounterFormSlot={encounterFormSlot}
                 />
               )}
               {view === 'daygrid' && (

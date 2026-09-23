@@ -16,6 +16,7 @@
    from the running application with Ctrl+Shift+A.
    ========================================================================= */
 import type { MoisChartGroup, MoisRecord } from './types'
+import { legacyDynamicFormDefinition, legacyDynamicFormTitle } from '../legacy-dynamic-forms'
 
 const d = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
 /** the paperclip column: a count, or the dash MOIS prints for none */
@@ -351,20 +352,14 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
   },
 
   /* ---- Forms -----------------------------------------------------------
-     A dynamic form is a header plus its answers; the header is what the list
-     shows. `id_dform_window` is the form definition it was filled from — the
-     export carries the id, not the title, so the list prints the id the way
-     MOIS does when a definition is not on this system. */
+     The chart export carries the dform window ID; the separate legacy window
+     dump supplies the title and group where it has a matching definition. */
   dynamic: {
     group: 'dform_header', sort: 'dtm_form',
     row: (r) => ({
       date: d(r.dtm_form),
-      /* Group and Title name the form definition. The export stores only
-         `id_dform_window`, and the definitions live on the MOIS server, so
-         there is nothing here to resolve them against — the audit marks every
-         Dynamic Forms row "not auditable" for the same reason. */
-      group: '',
-      title: r.id_dform_window ?? '',
+      group: legacyDynamicFormDefinition(r.id_dform_window)?.group ?? '',
+      title: legacyDynamicFormTitle(r.id_dform_window),
       attending: r.id_provider && r.id_provider !== '-1' ? r.id_provider : '',
       user: r.stp_user_create ?? '',
       state: r.stp_record_state ?? '',
