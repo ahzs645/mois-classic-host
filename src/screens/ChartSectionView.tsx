@@ -5,7 +5,7 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { useChartRecords, useNodeRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts/types'
 import type { HostShellProps } from '../host/types'
-import { EncounterWebformWindow, SelectFormDialog } from './EncounterWindow'
+import { SelectFormDialog } from './EncounterWindow'
 import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
 import {
   PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
@@ -156,16 +156,14 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
         />
       )}
       {openedCreatedRow && encounterFormSlot && (
-        <EncounterWebformWindow title={openedCreatedRow.name.toUpperCase()} onClose={() => setOpenedCreatedForm(null)}>
-          {encounterFormSlot({
-            presetKey: openedCreatedRow.presetKey,
-            encounterId: '',
-            formId: openedCreatedRow.formId,
-            initialData: formData.current[openedCreatedRow.formId],
-            onFormDataChange: (data) => { formData.current[openedCreatedRow.formId] = data },
-            onClose: () => setOpenedCreatedForm(null),
-          })}
-        </EncounterWebformWindow>
+        encounterFormSlot({
+          presetKey: openedCreatedRow.presetKey,
+          encounterId: '',
+          formId: openedCreatedRow.formId,
+          initialData: formData.current[openedCreatedRow.formId],
+          onFormDataChange: (data) => { formData.current[openedCreatedRow.formId] = data },
+          onClose: () => setOpenedCreatedForm(null),
+        })
       )}
       {pickingDynamicForm && (
         <SelectFormDialog
