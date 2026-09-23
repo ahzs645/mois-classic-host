@@ -31,7 +31,7 @@ function initialState(id: MoisClassicFixtureId) {
     module: start.module, node: start.node, view: start.view,
     tab: null, dialog: null, patient: DEFAULT_CHART, windows: 0, draft: false,
     daybook: '2026.08.11', provider: 'technical-support', theme: 'hybrid',
-    invoice: 'open', appt: '', booked: 0, basket: 0, billed: 0,
+    invoice: 'open', appt: '', booked: 0, basket: 0, billed: 0, reminderStopped: false,
   }
 }
 
@@ -78,7 +78,7 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
   snapshotPaths: [
     'host.module', 'host.node', 'host.view', 'host.tab', 'host.dialog',
     'host.patient', 'host.windows', 'host.draft', 'host.daybook', 'host.provider',
-    'host.theme', 'host.invoice', 'host.appt', 'host.booked', 'host.basket', 'host.billed',
+    'host.theme', 'host.invoice', 'host.appt', 'host.booked', 'host.basket', 'host.billed', 'host.reminderStopped',
   ],
   actions: {
     'host.mois.selectModule': {
@@ -139,6 +139,12 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.mois.closeDialog': {
       label: 'Close the open dialog',
     },
+    'host.mois.stopReminder': {
+      label: 'Stop an opening-chart reminder',
+      description: 'Tick Stop Reminder on a due reminder row in the opening-chart notification.',
+      anchor: 'host.mois.reminder.stop.{index}',
+      outcome: { path: 'host.reminderStopped', arg: 'stopped' },
+    },
     'host.mois.openUtility': {
       label: 'Open a chart utility window',
       description:
@@ -198,6 +204,8 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.mois.row.{row}',
     'host.mois.field.{field}',
     'host.mois.dialog.{dialog}',
+    'host.mois.reminder.stop.{index}',
+    'host.mois.reminder.close',
     /* one day-book appointment's AS cell */
     'host.mois.as.{appointment}',
     /* one basket row's Check box */

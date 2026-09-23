@@ -86,6 +86,8 @@ export type ChartAddressEntry = {
 export type Patient = {
   /** tdt_chart.chart_no — the identifier MOIS puts on every window */
   chart: string
+  /** Opening-chart reminders; a stopped or future reminder does not pop up. */
+  reminders?: { code: string; reminder: string; level: string; note: string; due: string; stopped?: boolean }[]
   /** A = active, LU = look-up only */
   status: string
   first: string
@@ -275,6 +277,10 @@ export const patients: Patient[] = [
     alias: 'WEBFORMS TEST', dob: '1986.12.19', gender: 'M', home: '250.765.3212',
     insurance: 'WFvx0zyo', note: 'WEBFORMS TEST mtvx0y',
     encounter: '10065087',
+    reminders: [{
+      code: 'FNE HSST', reminder: 'HS Fort Nelson Short Term', level: 'PATIENT',
+      note: 'Short Term Home Support 1 Month End Date', due: '2026.03.02',
+    }],
   },
   { chart: '2429', status: 'A', registered: '2019.06.11',  last: 'AARONSON', first: 'FLO',    middle: '',           alias: 'MICKEY', dob: '1970.03.04', gender: 'F', home: '555.555.5678', insurance: '987836902', bchn: '987836902' },
   { chart: '746',  status: 'A', registered: '2016.09.02',  last: 'AARONSON', first: 'FRANK',  middle: 'WOLTER',     dob: '2000.06.14', gender: 'M', home: '250.983.4566', insurance: '9086756685', insuranceBy: 'BC', bchn: '9086756685' },

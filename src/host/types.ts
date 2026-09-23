@@ -17,6 +17,7 @@ import type { ReactNode } from 'react'
  */
 export interface HostPatient {
   chart: string
+  reminders?: { code: string; reminder: string; level: string; note: string; due: string; stopped?: boolean }[]
   status?: string
   first: string
   middle?: string

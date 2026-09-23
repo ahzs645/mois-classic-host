@@ -127,9 +127,17 @@ textarea.pb-field {
 .pb-inputgroup__btn:disabled { color: #b4b4b4; background: #f2f2f2; border-color: #d4d4d4; }
 /* the ellipsis lookup button is a touch wider and sits flush */
 .pb-inputgroup__btn--dots { width: 18px; font-size: var(--pb-fs); letter-spacing: -1px; }
-.pb-inputgroup__btn--drop { width: 18px; }
+.pb-inputgroup__btn--drop { width: var(--pb-dropdown-button-width, 18px); }
 
 /* --- select ------------------------------------------------------------- */
+/* PBSelect, PBDropField and PBDropDownDataWindow share the closed-field
+   chrome. Their opened lists still use their respective MOIS control types. */
+.pb-select,
+.pb-inputgroup > .pb-field,
+.pb-dddw > .pb-field {
+  height: var(--pb-row-h);
+  background-color: var(--pb-field-bg);
+}
 .pb-select {
   height: var(--pb-row-h);
   padding: 0 18px 0 3px;
@@ -142,7 +150,7 @@ textarea.pb-field {
     linear-gradient(90deg, var(--pb-border) 0 1px, var(--pb-btn-face) 1px);
   background-repeat: no-repeat, no-repeat;
   background-position: right 5px center, right 0 center;
-  background-size: 7px 5px, 18px 100%;
+  background-size: 7px 5px, var(--pb-dropdown-button-width, 18px) 100%;
   font-family: var(--pb-font);
   font-size: var(--pb-fs);
   color: var(--pb-text);
@@ -151,7 +159,10 @@ textarea.pb-field {
   cursor: default;
   min-width: 0;
 }
-.pb-select:disabled { background-color: var(--pb-field-ro); color: var(--pb-text-dim); border-color: #cfcfcf; }
+.pb-select:focus { outline: none; border-color: var(--pb-border-strong); }
+.pb-select:disabled { background-color: #fdfdfd; color: var(--pb-text-dim); border-color: #cfcfcf; }
+.pb-inputgroup > .pb-field:disabled,
+.pb-dddw > .pb-field:disabled { background-color: #fdfdfd; }
 
 /* --- checkbox / radio ----------------------------------------------------
    These are the clearest evidence that MOIS is NOT a Windows 10 application

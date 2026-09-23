@@ -14,8 +14,9 @@ import {
   type CarePlanKey, type PBTextMode, type PBTheme
 } from '../data/mois'
 import { PatientProvider } from '../data/patient-context'
+import { dueOpeningReminders } from '../data/opening-reminders'
 import {
-  DEFAULT_CHART, findPatient, normalizePatient,
+  DEFAULT_CHART, MOIS_TODAY, findPatient, normalizePatient,
   stepChart,
   patients as trainingRoster,
   type Patient,
@@ -63,6 +64,7 @@ import { ProviderWorkloadView, UserManagementLanding } from '../screens/ModuleLa
 import { NewAppointmentDialog } from '../screens/NewAppointmentDialog'
 import { NotificationView } from '../screens/NotificationView'
 import { OrderLinkingServiceDialog } from '../screens/OrderLinkingServiceDialog'
+import { OpeningChartReminderDialog } from '../screens/OpeningChartReminderDialog'
 import { EncounterListView, OrderView } from '../screens/OrderView'
 import { PatientSummaryView } from '../screens/PatientSummaryView'
 import { RichtextReportWindow, SelectionParameterDialog } from '../screens/PrintFlow'
@@ -585,6 +587,10 @@ function Frame({
      case chartProp leads and onChartChange reports every change. */
   const [ownChart, setOwnChart] = useState(DEFAULT_CHART)
   const chart = chartProp ?? (findPatient(ownChart, roster) ? ownChart : roster[0]?.chart ?? ownChart)
+  const [stoppedReminders, setStoppedReminders] = useState<Set<string>>(() => new Set())
+  const [reminderChart, setReminderChart] = useState<string | null>(() =>
+    dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY).length ? chart : null,
+  )
   const [lookupOpen, setLookupOpen] = useState(false)
   /* the Patient Chart's taskbar and toolbar utility windows */
   const [findPatientOpen, setFindPatientOpen] = useState(false)
@@ -706,6 +712,7 @@ function Frame({
   }, [chart, mdi, report_, loadEncounterForms, encounterFormSlot])
 
   const closeDialogs = useCallback(() => {
+    setReminderChart(null)
     setServiceEventOpen(false)
     setGoalOpen(false)
     setLoginOpen(false)
@@ -733,8 +740,10 @@ function Frame({
     previousChart.current = chart
     mdi.closeAll()
     closeDialogs()
+    const reminders = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)
+    setReminderChart(reminders.some((reminder) => !stoppedReminders.has(`${chart}:${reminder.code}`)) ? chart : null)
     setEncounterDraft(false)
-  }, [chart, mdi.closeAll, closeDialogs])
+  }, [chart, mdi.closeAll, closeDialogs, roster, stoppedReminders])
 
   /* picking a row in the Advanced Lookup Service is what changes the chart */
   const selectPatient = useCallback((next: string) => {
@@ -742,8 +751,10 @@ function Frame({
     setOwnChart(next)
     onChartChange?.(next)
     setLookupOpen(false)
+    const reminders = dueOpeningReminders(findPatient(next, roster), MOIS_TODAY)
+    setReminderChart(reminders.some((reminder) => !stoppedReminders.has(`${next}:${reminder.code}`)) ? next : null)
     report_('host.mois.selectPatient', { chart: next })
-  }, [onChartChange, report_, roster])
+  }, [onChartChange, report_, roster, stoppedReminders])
 
   const openLookup = useCallback(() => setLookupOpen(true), [])
 
@@ -803,7 +814,8 @@ function Frame({
 
   /* topmost first: the Chart Navigator is opened from the Find Patient window
      and paints over it, so it has to win the chain. */
-  const dialog = cdxNavigator ? 'record-navigator'
+  const dialog = reminderChart === chart ? 'opening-chart-reminder'
+    : cdxNavigator ? 'record-navigator'
     : cdxDetail ? 'patient-message-detail'
     : letterStep === 'template' ? 'select-letter-template'
     : letterStep === 'setup' ? 'letter-setup'
@@ -829,6 +841,10 @@ function Frame({
     view,
     tab,
     dialog,
+    reminderStopped: (() => {
+      const due = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)
+      return due.length > 0 && due.every((reminder) => stoppedReminders.has(`${chart}:${reminder.code}`))
+    })(),
     patient: chart,
     windows: mdi.instances.length,
     draft: encounterDraft,
@@ -840,7 +856,7 @@ function Frame({
     daybook: daybookStamp(daybook),
     provider: pbSlug(daybookProvider),
     theme: theme === '' ? 'hybrid' : theme === 'pb-theme--flat' ? 'flat' : 'classic',
-  }), [apptRow, apptStatuses, basketAck, billedRows.size, booked.length, chart, claimPrompt, printOutput, printParams, daybook, daybookProvider, dialog, encounterDraft, invoicePaid, mdi.instances.length, module, selected, tab, theme, view])
+  }), [apptRow, apptStatuses, basketAck, billedRows.size, booked.length, chart, claimPrompt, printOutput, printParams, daybook, daybookProvider, dialog, encounterDraft, invoicePaid, mdi.instances.length, module, roster, selected, stoppedReminders, tab, theme, view])
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -957,6 +973,18 @@ function Frame({
         case 'host.mois.selectPatient': selectPatient(slug('chart')); return undefined
         case 'host.mois.status': clickAnchor(`host.mois.status.${slug('link')}`); return undefined
         case 'host.mois.closeDialog': closeDialogs(); return undefined
+        case 'host.mois.stopReminder': {
+          const index = typeof args.index === 'number' ? args.index : 0
+          const reminder = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)[index]
+          if (!reminder) throw new Error(`${actionId}: no reminder row ${index}`)
+          const stopped = args.stopped !== false
+          setStoppedReminders((previous) => {
+            const next = new Set(previous)
+            stopped ? next.add(`${chart}:${reminder.code}`) : next.delete(`${chart}:${reminder.code}`)
+            return next
+          })
+          return undefined
+        }
         case 'host.mois.openUtility': {
           const which = slug('window')
           /* each utility window is invoked from a folder and takes its variant
@@ -998,7 +1026,7 @@ function Frame({
         default: throw new Error(`This MOIS action is not available: ${actionId}`)
       }
     },
-  }), [apptRow, clickAnchor, closeDialogs, moveDaybook, openEncounter, openNode, pickModule, selectPatient, toggle])
+  }), [apptRow, chart, clickAnchor, closeDialogs, moveDaybook, openEncounter, openNode, pickModule, roster, selectPatient, toggle])
 
   useEffect(() => { onReady?.(api) }, [api, onReady])
 
@@ -1202,6 +1230,24 @@ function Frame({
         <PBMdiHost classes={WINDOW_CLASSES} />
 
         {/* modal child window — layered above the MDI frame and any child */}
+        {reminderChart === chart && findPatient(chart, roster) && (
+          <OpeningChartReminderDialog
+            patient={findPatient(chart, roster)!}
+            reminders={dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)}
+            stopped={stoppedReminders}
+            onStop={(index, value) => {
+              const reminder = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)[index]
+              if (!reminder) return
+              setStoppedReminders((previous) => {
+                const next = new Set(previous)
+                value ? next.add(`${chart}:${reminder.code}`) : next.delete(`${chart}:${reminder.code}`)
+                return next
+              })
+              report_('host.mois.stopReminder', { index, stopped: value })
+            }}
+            onClose={closeDialogs}
+          />
+        )}
         {serviceEventOpen && <ServiceEventDialog onClose={closeDialogs} />}
         {loginOpen && <LoginDialog onClose={closeDialogs} />}
         {printOutput && (

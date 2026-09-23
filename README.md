@@ -163,7 +163,7 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
 - **`<MoisClassicShell fixture patients chart onChartChange onAction onStateChange onReady formSlot />`**
   - `patients` is the chart roster — `{ chart, first, last }` plus whatever of
     `middle / alias / dob / gender / home / insurance / insuranceBy / dep /
-    bchn / note / location / registered / provider` the host has. Missing
+    bchn / note / location / registered / provider / reminders` the host has. Missing
     fields render blank rather than borrowing another chart's. Omit the prop
     and the emulator uses its own training roster.
   - `chart` + `onChartChange` make the open chart controlled, so the host and
@@ -174,11 +174,11 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
     `host.mois.lookup { field, dialog }`, `host.mois.selectPatient { chart }`,
     `host.mois.status { link }`, `host.mois.daybook { move }`,
     `host.mois.daybookFor { provider }`, `host.mois.toggleNode`,
-    `host.mois.openWindow`, `host.mois.closeDialog` — slugs only. The one
+    `host.mois.openWindow`, `host.mois.closeDialog`, `host.mois.stopReminder { index, stopped }` — slugs only. The one
     patient-derived value is the chart number, which a lesson about finding a
     chart has to be able to grade; the roster it names is fictional.
   - `onStateChange(state)` reports
-    `{ module, node, view, tab, dialog, patient, windows, draft, daybook, provider, theme }`.
+    `{ module, node, view, tab, dialog, patient, windows, draft, daybook, provider, theme, reminderStopped }`.
     `patient` is the open chart's number, `draft` says whether a New Record is
     open and unsaved, `daybook` is the day the Scheduler is showing
     (`YYYY.MM.DD`) and `provider` is whose day book that is — the three a
@@ -186,6 +186,9 @@ import { moisClassicHostManifest } from '@webforms/mois-classic-host/manifest' /
   - `onReady(api)` hands over `api.perform(actionId, args)`, which replays any
     action natively (opening a nested tree node expands its branch first), and
     `api.getState()`.
+  - A chart with a due, unstopped `reminders` row opens Automated Notification
+    Service. The bundled training chart 3924 includes the captured `FNE HSST`
+    example. `Stop Reminder` suppresses that row for the current session.
   - `formSlot` renders inside the Dynamic Forms window in place of the sample grid.
 - **Anchors**: `data-tutorial-id` on the desktop (`host.mois.desktop`), the
   navigator and work area, every tree node (`host.mois.tree.<id>`), module
