@@ -4,6 +4,7 @@ import { updatePatient } from '../data/patient-edits'
 import type { ChartAddressEntry, ChartNameEntry, Patient } from '../data/patients'
 import { PBBand, PBButton, PBInput, PBLookup, PBSelect, PBTextArea, PBCheckbox, PBDataWindow } from '../pb'
 import { DemographicLookupDialog, type DemographicTerm } from './DemographicDialogs'
+import { CmdButton } from './CmdButton'
 import './patient-detail.css'
 
 export function PatientDetailPage() {
@@ -30,7 +31,9 @@ export function PatientDetailPage() {
     <div className="pb-patient-detail__upper">
       <div className="pb-groupbox pb-patient-detail__background"><PBBand>Background Information</PBBand>
         <div style={{ padding: 6 }}>
-          {(['mother', 'father', 'self'] as const).map(who => {
+          {/* self, father, mother — the order art. 301177 (`13d38c58…png`,
+              `e3b55814…png`) and the header comment in DemographicsView give */}
+          {(['self', 'father', 'mother'] as const).map(who => {
             const ethnicity = patient.ethnicity?.[who] ?? {}
             const set = (patch: Partial<typeof ethnicity>) => change({ ethnicity: { ...patient.ethnicity, [who]: { ...ethnicity, ...patch } } })
             return <div className="pb-row" key={who} style={{ marginBottom: 4 }}><span>Ethnicity:</span>
@@ -59,13 +62,13 @@ export function PatientDetailPage() {
         </div>
       </div>
       <div className="pb-patient-detail__histories">
-        <div className="pb-groupbox" style={{ flex: '0 0 34%', minHeight: 100, display: 'flex', flexDirection: 'column' }}>
+        <div className="pb-groupbox" data-tutorial-id="host.mois.field.status-history" style={{ flex: '0 0 34%', minHeight: 100, display: 'flex', flexDirection: 'column' }}>
           <PBBand>Status History</PBBand><PBDataWindow style={{ flex: 1 }} gutter={false} rows={patient.statusHistory ?? []}
             columns={[{ key: 'code', header: 'Status Code', width: 100 }, { key: 'effective', header: 'Effective', width: 100 }, { key: 'note', header: 'Note' }]} empty=" " />
         </div>
-        <div className="pb-groupbox" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <PBBand right={<><PBButton size="sm" aria-label="New name history" onClick={() => { change({ nameHistory: [{}, ...names] }); setNameIndex(0) }}>New</PBButton>
-            <PBButton size="sm" aria-label="Delete name history" disabled={!names.length} onClick={() => change({ nameHistory: names.filter((_, i) => i !== ni) })}>Delete</PBButton></>}>Name History</PBBand>
+        <div className="pb-groupbox" data-tutorial-id="host.mois.field.name-history" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <PBBand right={<><CmdButton command="new-name-history" size="sm" aria-label="New name history" onClick={() => { change({ nameHistory: [{}, ...names] }); setNameIndex(0) }}>New</CmdButton>
+            <CmdButton command="delete-name-history" size="sm" aria-label="Delete name history" disabled={!names.length} onClick={() => change({ nameHistory: names.filter((_, i) => i !== ni) })}>Delete</CmdButton></>}>Name History</PBBand>
           {names.map((n, i) => <div key={i} className={`pb-patient-detail__name ${i === ni ? 'is-current' : ''}`} onFocus={() => setNameIndex(i)} onMouseDown={() => setNameIndex(i)}>
             {(['first', 'middle', 'last'] as const).map(field => <label className={`pb-patient-detail__name-${field}`} key={field}><span>{field}:</span><PBInput aria-label={`Name history ${i + 1} ${field}`} value={n[field] ?? ''} onChange={e => changeName(i, field, e.target.value)} /></label>)}
             <label className="pb-patient-detail__name-expiry"><span>Expiry:</span><PBInput aria-label={`Name history ${i + 1} expiry`} value={n.expiry ?? ''} onChange={e => changeName(i, 'expiry', e.target.value)} /></label>
@@ -75,7 +78,7 @@ export function PatientDetailPage() {
         </div>
       </div>
     </div>
-    <div className="pb-groupbox pb-patient-detail__addresses">
+    <div className="pb-groupbox pb-patient-detail__addresses" data-tutorial-id="host.mois.field.address-history">
       <PBBand right={<><PBButton size="sm" aria-label="New historical address" onClick={() => { change({ addressHistory: [{}, ...addresses] }); setAddressIndex(0) }}>New</PBButton>
         <PBButton size="sm" aria-label="Delete historical address" disabled={!addresses.length} onClick={() => change({ addressHistory: addresses.filter((_, i) => i !== ai) })}>Delete</PBButton></>}>Historical Contact Information</PBBand>
       <div className="pb-row" style={{ padding: '3px 8px', background: 'var(--pb-dw-header)' }}><strong>Expiry Date:</strong>

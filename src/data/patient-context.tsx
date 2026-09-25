@@ -3,7 +3,7 @@ import { useLoadedChart } from './charts'
 import { patientFromExport } from './charts/to-patient'
 import { usePatientEdits } from './patient-edits'
 import {
-  DEFAULT_CHART, ageOf, findPatient, fullName, patients, shortName, type Patient,
+  DEFAULT_CHART, TRAINING_CHART_ROWS, ageOf, findPatient, fullName, patients, shortName, type Patient,
 } from './patients'
 
 /* ============================================================================
@@ -42,6 +42,9 @@ export function toChartPatient(p: Patient): ChartPatient {
 
 export const defaultPatient = toChartPatient(findPatient(DEFAULT_CHART) ?? patients[0])
 
+/** The record the frame reads while no chart is loaded (chart ''). */
+const NO_CHART: Patient = { chart: '', first: '', middle: '', last: '', dob: '', gender: '', status: '', dep: '00' }
+
 const PatientContext = createContext<ChartPatient | null>(null)
 const PatientRosterContext = createContext<Patient[]>(patients)
 export const usePatientRoster = () => useContext(PatientRosterContext)
@@ -56,10 +59,25 @@ export function PatientProvider({ chart, roster, children }: {
   const edits = usePatientEdits(chart)
   const value = useMemo(() => {
     const list = roster ?? patients
+    /* no chart loaded — MOIS as it opens: every field blank but Dep, which
+       reads 00 (`reference/patient-summary-empty.png`) */
+    if (!chart) return toChartPatient(NO_CHART)
     const found = data ? patientFromExport(data) : findPatient(chart, list)
-    return toChartPatient({ ...(found ?? { chart, first: '', middle: '', last: '', dob: '', gender: '', status: 'A' }), ...edits })
+    /* the export first, then the training rows its list tabs lack, then the
+       session's unsaved and saved edits */
+    return toChartPatient({ ...(found ?? { chart, first: '', middle: '', last: '', dob: '', gender: '', status: 'A' }), ...TRAINING_CHART_ROWS[chart], ...edits })
   }, [chart, roster, data, edits])
   return <PatientRosterContext.Provider value={roster ?? patients}><PatientContext.Provider value={value}>{children}</PatientContext.Provider></PatientRosterContext.Provider>
+}
+
+/**
+ * A chart that is not the frame's open chart — the blank record Demographics'
+ * New Record starts, before Save gives it a number. Every window inside reads
+ * it through `usePatient()` exactly as it reads the open chart.
+ */
+export function PatientOverride({ patient, children }: { patient: Patient; children: ReactNode }) {
+  const value = useMemo(() => toChartPatient(patient), [patient])
+  return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>
 }
 
 /** The chart the surrounding window is showing. */
@@ -75,6 +93,8 @@ export function usePatient(): ChartPatient {
  */
 export function ChartHeaderIdentity() {
   const p = usePatient()
+  /* no chart loaded: the header carries its title alone */
+  if (!p.chart) return null
   return (
     <span className="pb-viewhead__chart">
       {[p.short, p.age, p.sex].filter(Boolean).join(' ')}

@@ -1,0 +1,93 @@
+/* The Medication Administration Record list (303427 `96b03747…png`,
+   `f3bae7f6…png`; 1741600 `169730ee…png`, `e3a35fc4…png`; 1664605
+   `9f2fc2ac…png`). Colours measured off those captures: the filter band is
+   the pale sky #bee4f7 with a #9fcbe6 rule, the column heads sit on a white
+   band, an order is a grey #e2e2e2 → #cfcfcf gradient row with a dashed rule
+   under it, a SCHEDULED dose is blue and an overdue one red, and a cancelled
+   order and its doses are struck through in grey. */
+.pb-mar-filter {
+  flex: none;
+  background: #bee4f7;
+  border-top: 1px solid #9fcbe6;
+  border-bottom: 1px solid #9fcbe6;
+  padding: 3px 8px;
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 3px 6px;
+  align-items: center;
+}
+.pb-mar-viewband {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding: 4px 8px;
+  background: #bee4f7;
+  border-bottom: 1px solid #9fcbe6;
+}
+.pb-mar-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+  margin: 0 3px 3px;
+  border: 1px solid var(--pb-border);
+  position: relative;
+}
+.pb-mar-head,
+.pb-mar-order,
+.pb-mar-event {
+  display: grid;
+  grid-template-columns: 18px 76px 1fr 116px 150px 100px;
+  align-items: center;
+  column-gap: 4px;
+  padding: 0 6px 0 2px;
+  white-space: nowrap;
+}
+.pb-mar-head > span,
+.pb-mar-order > span,
+.pb-mar-event > span { overflow: hidden; text-overflow: ellipsis; }
+.pb-mar-head {
+  height: 26px;
+  background: linear-gradient(#fff, #f3f3f3);
+  border-bottom: 1px solid #d8d8d8;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.pb-mar-head .pb-mar__count { color: #8a8a8a; text-align: right; }
+.pb-mar-order {
+  height: 34px;
+  background: linear-gradient(#ececec, #d2d2d2);
+  border-bottom: 1px dashed #b5b5b5;
+  cursor: default;
+}
+.pb-mar-order .pb-mar__count { color: #8a8a8a; text-align: right; }
+.pb-mar-order.is-current { background: linear-gradient(#f9d3c6, #ecb6a6); }
+.pb-mar-event {
+  grid-template-columns: 18px 110px 116px 1fr 150px;
+  height: 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: default;
+}
+.pb-mar-event.is-current { background: var(--pb-dw-select, #f3a88f); }
+.pb-mar-event--scheduled { color: #0060c0; }
+.pb-mar-event--overdue { color: #d00000; }
+.pb-mar-struck,
+.pb-mar-struck > span {
+  color: #868686;
+  text-decoration: line-through;
+  text-decoration-color: #868686;
+}
+.pb-mar-struck > span:first-child { text-decoration: none; }
+.pb-mar__box {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #8a8a8a;
+  background: #fff;
+  font-size: 9px;
+  line-height: 7px;
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+}

@@ -1,25 +1,49 @@
 import { useMemo, useState } from 'react'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBWindow, type PBColumn } from '../pb'
-import { sentClaims, unsentClaims, type UnsentClaim } from '../data/claims'
+import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBWindow, usePBInstrumentation, type PBColumn } from '../pb'
+import {
+  claimFromRow, sentClaims, unsentClaims, SENT_CLAIM_KEY, UNSENT_ADDED_KEY, UNSENT_CLAIM_KEY,
+  type ClaimForm, type SentClaim, type UnsentClaim,
+} from '../data/claims'
+import { useSessionState } from '../host/screen-windows'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    The four claim lookups behind Billing's "Prompt -" buttons.
 
-   Unsent MSP offers Prompt - Patient and Prompt - Doctor; the Action menu adds
-   a service-date ordering of the same list. Sent To MSP offers Prompt - Chart
-   (a per-patient summary) and Prompt - Recon (the full Advanced Lookup
-   Service over sent claims).
+   Unsent MSP offers Prompt - Patient and Prompt - Doctor; its Action menu
+   adds a service-date ordering of the same list and Prompt Sent to MSP (the
+   per-chart summary). Sent To MSP offers Prompt - Chart (that summary) and
+   Prompt - Recon (the full Advanced Lookup Service over sent claims).
 
-   Transcribed from `prompt patient.PNG`, `prompt provider.PNG`,
-   `prompt service date.PNG`, `prompt sent to msp.PNG` and
-   `prompt sent by recon.PNG`. Column widths are the captures' own, measured
-   1:1; the filter row sits over only the columns that had a box in the
-   capture, which is why `Ins`, `Billed` and the explanatory codes have none.
+   Transcribed from `prompt patient.PNG` (303601 `0dc50190`), `prompt
+   provider.PNG` (`28562098`), `prompt service date.PNG` (`41ab0bf4`, and the
+   cloud build's `ca83fd70`, which adds the Fee Code filter and "Service Date
+   from … to"), `prompt sent to msp.PNG` (`1f433175`) and `prompt sent by
+   recon.PNG` (303602 `f2fa600c`, `cc1d8b11`). Column widths are the
+   captures' own, measured 1:1; the filter row sits over only the columns that
+   had a box in the capture, which is why `Ins`, `Billed` and the explanatory
+   codes have none.
+
+   · The unsent lists carry one button, Select, bottom centre — no Cancel in
+     any capture; the title-bar × closes them.
+   · Compl and Hold are checkboxes, Sub a code (303601).
+   · The Advanced Lookup Service's unlabelled checkbox sits in the filter
+     row's gutter, left of the R1 box: ticked, R1 is part of the filter (a
+     blank R1 box then means "R1 is blank"); unticked, every R1 value
+     matches (303602 "Hint", `cc1d8b11` / `a00e4760`). It pages with Home /
+     PgUp / Ok / Cancel / PgDwn / End.
+   · "Click on the blue column headers to re-sort" is 303601/303602's note on
+     the per-chart summary, so only that list sorts.
    ========================================================================= */
 
 export type ClaimPrompt = 'patient' | 'doctor' | 'service' | 'chart' | 'recon'
 
-type Col = PBColumn<Record<string, string>> & { filter?: boolean }
+type Row = Record<string, unknown>
+type Col = PBColumn<Row> & { filter?: boolean }
+
+const tick = (key: 'compl' | 'hold') => (r: Row) => (
+  <span style={{ display: 'inline-flex', pointerEvents: 'none' }}><PBCheckbox checked={!!r[key]} /></span>
+)
 
 /* --- Unsent: one column set, three orderings ------------------------------ */
 
@@ -28,13 +52,13 @@ const U: Record<string, Col> = {
   first: { key: 'first', header: 'First Name', width: 94, filter: true },
   service: { key: 'service', header: 'Service', width: 71, align: 'center' },
   doctor: { key: 'doctor', header: 'Doctor', width: 111, filter: true },
-  fee: { key: 'fee', header: 'Fee Code', width: 63 },
+  fee: { key: 'fee', header: 'Fee Code', width: 63, filter: true },
   dob: { key: 'dob', header: 'DoB', width: 71, align: 'center' },
   insrBy: { key: 'insrBy', header: 'Insr By', width: 70, align: 'center' },
   insrNbr: { key: 'insrNbr', header: 'Insr Nbr', width: 81, align: 'center' },
   billed: { key: 'billed', header: 'Billed', width: 83, align: 'right' },
-  compl: { key: 'compl', header: 'Compl', width: 40, align: 'center' },
-  hold: { key: 'hold', header: 'Hold', width: 36, align: 'center' },
+  compl: { key: 'compl', header: 'Compl', width: 40, align: 'center', render: tick('compl') },
+  hold: { key: 'hold', header: 'Hold', width: 36, align: 'center', render: tick('hold') },
   sub: { key: 'sub', header: 'Sub', width: 31, align: 'center' },
 }
 
@@ -48,7 +72,8 @@ const UNSENT_ORDER: Record<'patient' | 'doctor' | 'service', (keyof typeof U)[]>
 const SORT: Record<'patient' | 'doctor' | 'service', (a: UnsentClaim, b: UnsentClaim) => number> = {
   patient: (a, b) => a.last.localeCompare(b.last),
   doctor: (a, b) => a.doctor.localeCompare(b.doctor),
-  service: (a, b) => b.service.localeCompare(a.service),
+  /* "sorted chronologically by service date (oldest to newest)" — 303601 */
+  service: (a, b) => a.service.localeCompare(b.service),
 }
 
 /* --- Sent: the per-chart summary ----------------------------------------- */
@@ -100,14 +125,33 @@ NOTE: The Check Box in the FILTER section is used to include (if checked) or exc
 const TITLES: Record<ClaimPrompt, string> = {
   patient: 'MSP Unsent Claims - Ordered by Patient',
   doctor: 'MSP Unsent Claims - Ordered by Doctor',
-  /* the application's own bug: the service-date ordering keeps the
-     "Ordered by Patient" caption. Kept so the window matches the capture. */
+  /* the v02.20 build's own bug: the service-date ordering keeps the
+     "Ordered by Patient" caption (`41ab0bf4`); the cloud build fixed it
+     (`ca83fd70`). Kept so the window matches the older capture. */
   service: 'MSP Unsent Claims - Ordered by Patient',
   chart: 'Claim Summary: Sent to MSP',
   recon: 'Advanced Lookup Service',
 }
 
 const PAGE = 12
+
+/** A dialog push button that reports itself as `host.mois.command.{id}`. */
+function CmdButton({ id, children, onClick, disabled, isDefault }: {
+  id: string; children: string; onClick?: () => void; disabled?: boolean; isDefault?: boolean
+}) {
+  const host = usePBInstrumentation()
+  return (
+    <PBButton
+      wide
+      className={isDefault ? 'pb-btn--default' : undefined}
+      disabled={disabled}
+      data-tutorial-id={host?.anchor('command', id)}
+      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
+    >
+      {children}
+    </PBButton>
+  )
+}
 
 export function ClaimPromptDialog({
   prompt, onPick, onClose,
@@ -116,9 +160,19 @@ export function ClaimPromptDialog({
   onPick?: () => void
   onClose?: () => void
 }) {
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  /* what is typed in the filter boxes, and what the list is filtered by.
+     303602 says "Enter R or F in the filter above the R2 column. Press
+     Enter"; the stage filters as you type as well, so a box never looks
+     applied when it is not. Once any box is used, the Advanced Lookup
+     Service's R1 rule applies (blank R1 box + ticked checkbox = blank R1). */
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const [filters, setFilters] = useState<Record<string, string> | null>(null)
   const [current, setCurrent] = useState(0)
   const [includeR1, setIncludeR1] = useState(true)
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [, setClaim] = useSessionState<ClaimForm | null>(UNSENT_CLAIM_KEY, null)
+  const [, setSentClaim] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)
+  const [added] = useSessionState<UnsentClaim[]>(UNSENT_ADDED_KEY, [])
 
   const unsent = prompt === 'patient' || prompt === 'doctor' || prompt === 'service'
   const columns: Col[] = unsent
@@ -126,28 +180,64 @@ export function ClaimPromptDialog({
     : prompt === 'chart' ? CHART_COLUMNS : RECON_COLUMNS
 
   const rows = useMemo(() => {
-    const source: Record<string, string>[] = unsent
-      ? [...unsentClaims].sort(SORT[prompt as 'patient' | 'doctor' | 'service'])
-      : (sentClaims as unknown as Record<string, string>[])
-    const active = Object.entries(filters).filter(([, v]) => v.trim())
-    if (!active.length) return source
-    return source.filter((r) => active.every(([k, v]) => (r[k] ?? '').toLowerCase().includes(v.trim().toLowerCase())))
-  }, [filters, prompt, unsent])
+    let source: Row[] = unsent
+      ? [...unsentClaims, ...added].sort(SORT[prompt as 'patient' | 'doctor' | 'service'])
+      : (sentClaims as unknown as Row[])
+    if (sortKey) source = [...source].sort((a, b) => String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? '')))
+    if (!filters) return source
+    const active = Object.entries(filters).filter(([k, v]) => v.trim() || (k === 'r1' && prompt === 'recon'))
+    return source.filter((r) => active.every(([k, v]) => {
+      const want = v.trim().toLowerCase()
+      if (k === 'date-from') return String(r.service ?? '') >= v.trim()
+      if (k === 'date-to') return String(r.service ?? '') <= v.trim()
+      /* the recon lookup's R1 box: with the gutter checkbox ticked it is
+         part of the filter, blank included; unticked, it matches anything */
+      if (k === 'r1' && prompt === 'recon') return includeR1 ? String(r.r1 ?? '').toLowerCase() === want : true
+      return String(r[k] ?? '').toLowerCase().includes(want)
+    }))
+  }, [added, filters, includeR1, prompt, sortKey, unsent])
+
+  useScreenReport({ rows: rows.length, row: `claim-${String(rows[Math.min(current, Math.max(0, rows.length - 1))]?.last ?? '').toLowerCase()}` })
+
+  const type = (key: string, value: string) => {
+    const next = { ...draft, [key]: value }
+    setDraft(next)
+    setFilters(prompt === 'recon' ? { r1: '', ...next } : next)
+  }
+  const commit = () => setFilters(prompt === 'recon' ? { r1: '', ...draft } : draft)
 
   const filterRow = columns.some((c) => c.filter)
     ? columns.map((c) => (c.filter
       ? (
         <PBInput
           key={c.key}
-          value={filters[c.key] ?? ''}
-          onChange={(e) => setFilters((f) => ({ ...f, [c.key]: e.target.value }))}
+          value={draft[c.key] ?? ''}
+          onChange={(e) => type(c.key, e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') commit() }}
+          data-tutorial-id={`host.mois.field.claim-filter-${c.key.toLowerCase()}`}
         />
       )
       : null))
     : undefined
 
   const step = (delta: number) => setCurrent((i) => Math.max(0, Math.min(rows.length - 1, i + delta)))
-  const picked = rows[current]
+  const cur = Math.min(current, Math.max(0, rows.length - 1))
+  const picked = rows[cur]
+
+  const pick = () => {
+    if (!picked) return
+    /* an unsent claim is loaded into the window behind */
+    if (unsent) setClaim(claimFromRow(picked as unknown as UnsentClaim))
+    /* …and a sent one into Sent To MSP (303501: "Scroll down to select the
+       person/claim … then press Enter or press the OK button"), where its
+       Expl Code(s) and Ctrl+E's Sent Claim Detail read it */
+    else setSentClaim(picked as unknown as SentClaim)
+    onPick?.()
+  }
+
+  const bandCaption = unsent ? 'Unsent MSP Claims'
+    : prompt === 'chart' ? 'Claims Sent to MSP for the following Chart'
+      : 'MSP Sent Claim List'
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -172,17 +262,20 @@ export function ClaimPromptDialog({
           )}
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
             <div className="pb-band--ruled">
-              <PBBand>
-                {unsent ? 'Unsent MSP Claims'
-                  : prompt === 'chart' ? 'Claims Sent to MSP for the following Chart'
-                    : 'MSP Sent Claim List'}
+              <PBBand
+                right={prompt === 'service' ? (
+                  /* ca83fd70: "Service Date from [ ] to [ ]" at the band's right */
+                  <span className="pb-row" style={{ gap: 6, fontWeight: 400 }}>
+                    <span>Service Date from</span>
+                    <PBInput w={100} value={draft['date-from'] ?? ''} onChange={(e) => type('date-from', e.target.value)} />
+                    <span>to</span>
+                    <PBInput w={100} value={draft['date-to'] ?? ''} onChange={(e) => type('date-to', e.target.value)} />
+                  </span>
+                ) : undefined}
+              >
+                {bandCaption}
               </PBBand>
             </div>
-            {prompt === 'recon' && (
-              <div className="pb-row" style={{ gap: 6, padding: '2px 5px', flex: 'none' }}>
-                <PBCheckbox label="Include RECON CODE 1 in the filter" checked={includeR1} onChange={setIncludeR1} />
-              </div>
-            )}
             <PBDataWindow
               flush
               rules="white"
@@ -190,10 +283,16 @@ export function ClaimPromptDialog({
               columns={columns}
               rows={rows}
               filters={filterRow}
-              current={Math.min(current, Math.max(0, rows.length - 1))}
+              filterGutter={prompt === 'recon' ? (
+                <span style={{ display: 'inline-flex', transform: 'translateX(-1px)' }}>
+                  <PBCheckbox checked={includeR1} onChange={setIncludeR1} tutorialId="host.mois.check.claim-include-r1" />
+                </span>
+              ) : undefined}
+              onSort={prompt === 'chart' ? (key) => setSortKey(key) : undefined}
+              current={cur}
               onCurrentChange={setCurrent}
-              onActivate={() => onPick?.()}
-              rowTutorialId={(r) => `host.mois.row.claim-${(r.last ?? '').toLowerCase() || 'row'}`}
+              onActivate={pick}
+              rowTutorialId={(r) => `host.mois.row.claim-${String(r.last ?? '').toLowerCase() || 'row'}`}
               empty="No claim matches those filters."
             />
           </div>
@@ -215,16 +314,16 @@ export function ClaimPromptDialog({
               <PBButton wide onClick={() => setCurrent(0)}>Home</PBButton>
               <PBButton wide onClick={() => step(-PAGE)}>PgUp</PBButton>
               <span style={{ flex: '1 1 auto' }} />
-              <PBButton wide className="pb-btn--default" disabled={!picked} onClick={() => onPick?.()}>Ok</PBButton>
+              <CmdButton id="claim-ok" isDefault disabled={!picked} onClick={pick}>Ok</CmdButton>
               <span style={{ width: 14 }} />
-              <PBButton wide onClick={onClose}>Cancel</PBButton>
+              <CmdButton id="claim-cancel" onClick={onClose}>Cancel</CmdButton>
               <span style={{ flex: '1 1 auto' }} />
               <PBButton wide onClick={() => step(PAGE)}>PgDwn</PBButton>
               <PBButton wide onClick={() => setCurrent(rows.length - 1)}>End</PBButton>
             </div>
           ) : (
             <div style={{ display: 'flex', justifyContent: 'center', flex: 'none' }}>
-              <PBButton wide className="pb-btn--default" disabled={!picked} onClick={() => onPick?.()}>Select</PBButton>
+              <CmdButton id="claim-select" isDefault disabled={!picked} onClick={pick}>Select</CmdButton>
             </div>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { useScreenReport } from '../host/screen-state'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { PBBand, PBCheckbox, PBDataWindow, PBRadio, pbSlug } from '../pb'
@@ -36,6 +37,14 @@ import {
 
 export function ModuleWindowAccessTab({ override = false }: { override?: boolean }) {
   const [modRow, setModRow] = useState(0)
+  /* the Override / Access ticks, per module, as the learner leaves them;
+     the last one toggled is reported as host.screen.cell / .checked */
+  const [ticks, setTicks] = useState<Record<string, boolean>>(() => Object.fromEntries(
+    MODULE_ACCESS_ROWS.flatMap((r) => [[`override-${pbSlug(r.module)}`, Boolean(r.override)], [`access-${pbSlug(r.module)}`, Boolean(r.access)]]),
+  ))
+  const [last, setLast] = useState<string | null>(null)
+  useScreenReport(last ? { cell: last, checked: Boolean(ticks[last]) } : {})
+  const tick = (cell: string) => (v: boolean) => { setTicks((t) => ({ ...t, [cell]: v })); setLast(cell) }
   const [winRow, setWinRow] = useState(0)
   const [level, setLevel] = useState<Record<number, string>>(
     Object.fromEntries(WINDOW_ACCESS_ROWS.map((r, i) => [i, r.level ?? ACCESS_LEVELS[1]!])),
@@ -66,7 +75,8 @@ export function ModuleWindowAccessTab({ override = false }: { override?: boolean
                        anchor rides the input, not a wrapping cell. */
                     render: (r: ModuleAccessRow) => (
                       <PBCheckbox
-                        checked={Boolean(r.override)}
+                        checked={Boolean(ticks[`override-${pbSlug(r.module)}`])}
+                        onChange={tick(`override-${pbSlug(r.module)}`)}
                         tutorialId={`host.mois.cell.override-${pbSlug(r.module)}`}
                       />
                     ),
@@ -79,7 +89,8 @@ export function ModuleWindowAccessTab({ override = false }: { override?: boolean
                   align: 'center',
                   render: (r: ModuleAccessRow) => (
                     <PBCheckbox
-                      checked={Boolean(r.access)}
+                      checked={Boolean(ticks[`access-${pbSlug(r.module)}`])}
+                      onChange={tick(`access-${pbSlug(r.module)}`)}
                       tutorialId={`host.mois.cell.access-${pbSlug(r.module)}`}
                     />
                   ),

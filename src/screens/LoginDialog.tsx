@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { PBButton, PBInput, PBWindow } from '../pb'
+import { useOpenWindow } from './areaWindowRegistry'
+import { LOCKOUT_WINDOW_ID, useActiveLockout } from './LockoutWindows'
+import { DialogButton } from './WorkspaceDialogFrame'
 
 /* ============================================================================
    MOIS sign-in — a branded splash panel above the credential fields.
@@ -36,11 +39,25 @@ function SplashArt() {
 
 export function LoginDialog({ onClose }: { onClose: () => void }) {
   const [user, setUser] = useState('JALA2')
+  /* 303352: "After you set the lock, any user who tries to login to MOIS
+     will then see your custom message and the time in which it will end" —
+     Ok meets the Clinic-wide MOIS Lockout window while a lock is set
+     (screens/LockoutWindows.tsx) */
+  const lock = useActiveLockout()
+  const openWindow = useOpenWindow()
+  const ok = () => {
+    onClose()
+    if (lock) openWindow(LOCKOUT_WINDOW_ID)
+  }
 
   return (
     <div className="pb-modal-layer" style={{ zIndex: 80, background: 'rgba(0,0,0,.18)' }}>
       <PBWindow
-        tutorialId="host.mois.dialog.login" child controls={false} title="MOIS: TRAINING" onClose={onClose} style={{ width: 752 }}>
+        /* The capture this panel was transcribed from was taken on the
+           TRAINING site; the frame it locks is the MOIS DEV capture's
+           ("MOIS: MOIS DEV"), and MOIS titles the sign-in panel after the
+           site you are on, so it follows the frame here. */
+        tutorialId="host.mois.dialog.login" child controls={false} title="MOIS: MOIS DEV" onClose={onClose} style={{ width: 752 }}>
         <div className="pb-login__splash">
           <SplashArt />
 
@@ -83,8 +100,8 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="pb-footer" style={{ justifyContent: 'center', gap: 14, paddingBottom: 12 }}>
-          <PBButton wide onClick={onClose}>Ok</PBButton>
-          <PBButton wide onClick={onClose}>Cancel</PBButton>
+          <DialogButton id="login-ok" isDefault width={96} onClick={ok}>Ok</DialogButton>
+          <DialogButton id="login-cancel" width={96} onClick={onClose}>Cancel</DialogButton>
         </div>
       </PBWindow>
     </div>

@@ -17,12 +17,15 @@ import {
   UM_FOCUS, USER_ACCOUNT_FOOTER, USER_ACCOUNT_HEADER, USER_ACCOUNT_SIZE, USER_ACCOUNT_TABS,
   USER_ALIAS_COLUMNS, USER_ALIAS_ROWS, USER_EXPERTISE, USER_ROLES,
   WORKSPACE_ACK_ITEMS,
+  userListSpec,
   type NewUserField, type OtherField, type OtherSetting, type UserRow,
 } from '../data/userManagement'
 import type { PBColumn } from '../pb'
 import { BandButtons, UMField as Field, UM_CSS, umColumns, umField as anchorField } from './UserManagementKit'
 import { ModuleWindowAccessTab } from './UserAccessTabs'
 import { SecurityProfilePickerDialog } from './SecurityProfileWindow'
+import { useScreenReport } from '../host/screen-state'
+import { MOIS_TODAY as MOIS_TODAY_STAMP } from '../data/patients'
 
 /* ============================================================================
    Administration ▸ User Management ▸ User Accounts — the two editors.
@@ -120,6 +123,7 @@ export function NewUserDialog({ onCreate, onClose }: {
   const [picker, setPicker] = useState(false)
   const [profiles, setProfiles] = useState<string[]>([])
   const [draft, setDraft] = useState<NewUserDraft>({ user: '', first: '', last: '' })
+  useScreenReport({ dialog: pbSlug(NEW_USER_TITLE) })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -309,6 +313,7 @@ function NewUserControl({ field, draft, onDraft, profiles, onChangeProfiles }: {
 export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () => void }) {
   const host = usePBInstrumentation()
   const [tab, setTab] = useState(USER_ACCOUNT_TABS[0]!)
+  useScreenReport({ dialog: 'user-account' })
 
   const display = String(row.display ?? '')
   const [last = '', first = ''] = display.split(',').map((s) => s.trim())
@@ -362,7 +367,7 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
 
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <PBTabs tabs={USER_ACCOUNT_TABS} active={tab} onChange={setTab} compact>
-              <UserAccountPage key={tab} tab={tab} />
+              <UserAccountPage key={tab} tab={tab} row={row} />
             </PBTabs>
           </div>
 
@@ -389,9 +394,9 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
   )
 }
 
-function UserAccountPage({ tab }: { tab: string }) {
+function UserAccountPage({ tab, row }: { tab: string; row: UserRow }) {
   switch (tab) {
-    case 'User Account': return <UserAccountTab />
+    case 'User Account': return <UserAccountTab row={row} />
     case 'Module / Window Access': return <ModuleWindowAccessTab override />
     /* Tabs 3 and 4 are real — they are in the capture's strip — but only the
        SECURITY PROFILE versions of them were ever captured (`e361c4e01d11`,
@@ -403,7 +408,7 @@ function UserAccountPage({ tab }: { tab: string }) {
     case 'Special Functions': return <UncapturedPage />
     case 'Report Access': return <UncapturedPage />
     case 'User Alias': return <UserAliasTab />
-    case 'Workspace Mgt': return <WorkspaceMgtTab />
+    case 'Workspace Mgt': return <WorkspaceMgtTab row={row} />
     case 'Memberships': return <MembershipsTab />
     case 'Service Group': return <ServiceGroupTab />
     case 'Subscription': return <SubscriptionTab />
@@ -418,11 +423,16 @@ const UncapturedPage = () => <div style={{ flex: '1 1 auto' }} />
    `42be29fdd885`. The spec's prose says "four group boxes" and then names
    six; six are captured and six are drawn.                                 */
 
-function UserAccountTab() {
+function UserAccountTab({ row }: { row: UserRow }) {
   const host = usePBInstrumentation()
   const [changePw, setChangePw] = useState(false)
   const [picker, setPicker] = useState(false)
-  const [profiles, setProfiles] = useState<string[]>(['MOA'])
+  /* the account's own profile (its Role on the grid), and its own status:
+     an inactive (I) account opens with Active unticked (303186) */
+  const [profiles, setProfiles] = useState<string[]>([String(row.role || 'MOA')])
+  const [active, setActive] = useState(row.status !== 'I')
+  const [toggledActive, setToggledActive] = useState(false)
+  useScreenReport(toggledActive ? { cell: 'active', checked: active } : {})
 
   return (
     <>
@@ -433,7 +443,8 @@ function UserAccountTab() {
             <PBGroup title="Account Settings">
               <div className="pb-row" style={{ gap: 6 }}>
                 <span className="pb-form__label" style={{ minWidth: 118 }}>User Name:</span>
-                <PBInput w={150} data-tutorial-id={anchorField('User Name')} />
+                {/* greyed and filled in `42be29fdd885`: changed only through Change */}
+                <PBInput w={150} value={String(row.user ?? '')} readOnly style={{ background: '#e8e8e8' }} data-tutorial-id={anchorField('User Name')} />
                 <PBButton size="sm" data-tutorial-id={host?.anchor('command', 'user-name-change')}>Change</PBButton>
                 {/* `302650` names this link; its target is never captured */}
                 <button type="button" className="pb-link">Change History</button>
@@ -442,12 +453,12 @@ function UserAccountTab() {
               <Field label="Email:"><PBInput w={220} data-tutorial-id={anchorField('Email')} /></Field>
               <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
                 <span className="pb-form__label" style={{ minWidth: 118 }}>Effective Date:</span>
-                <PBInput w={92} align="center" data-tutorial-id={anchorField('Effective Date')} />
+                <PBInput w={92} align="center" defaultValue={String(row.effective ?? '')} data-tutorial-id={anchorField('Effective Date')} />
                 <span className="pb-form__label">Expiry Date:</span>
-                <PBInput w={92} align="center" data-tutorial-id={anchorField('Expiry Date')} />
+                <PBInput w={92} align="center" defaultValue={String(row.expiry ?? '')} data-tutorial-id={anchorField('Expiry Date')} />
                 {/* `303186`: unticking this is what deactivates the account */}
                 <span className="pb-form__label">Active:</span>
-                <PBCheckbox checked tutorialId={anchorField('Active')} />
+                <PBCheckbox checked={active} onChange={(v) => { setActive(v); setToggledActive(true) }} tutorialId={anchorField('Active')} />
               </div>
               <Field label="Role:"><PBSelect w={180} options={USER_ROLES} data-tutorial-id={anchorField('Role')} /></Field>
               <Field label="Expertise:"><PBSelect w={180} options={USER_EXPERTISE} data-tutorial-id={anchorField('Expertise')} /></Field>
@@ -547,19 +558,41 @@ function UserAccountTab() {
 /* --- tab 5: `User Alias` ------------------------------------------------- */
 
 function UserAliasTab() {
+  /* New adds a row dated today for the learner to fill in (303351: Code NHA,
+     Value the MSP number, Note NHA CIX Labs); Delete removes the last one */
+  const [rows, setRows] = useState<UserRow[]>(USER_ALIAS_ROWS)
+  useScreenReport({ rows: rows.length })
   return (
     <>
-      <PBBand right={<BandButtons scope="user-alias" labels={['New', 'Delete']} />}>User Alias List</PBBand>
+      <PBBand
+        right={(
+          <BandButtons
+            scope="user-alias"
+            labels={['New', 'Delete']}
+            onPress={(b) => setRows((r) => (b === 'New'
+              ? [...r, { start: MOIS_TODAY_STAMP, end: '', source: '', value: '', note: '' }]
+              : r.slice(0, -1)))}
+          />
+        )}
+      >
+        User Alias List
+      </PBBand>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
-        <TabGrid columns={umColumns(USER_ALIAS_COLUMNS)} rows={USER_ALIAS_ROWS} />
+        <TabGrid columns={umColumns(USER_ALIAS_COLUMNS)} rows={rows} />
       </div>
     </>
   )
 }
 
-/* --- tab 6: `Workspace Mgt` ---------------------------------------------- */
+/* --- tab 6: `Workspace Mgt` ----------------------------------------------
+   `c4c90b65d9f8`, `7e01f802a938`: a tall Inbox Forwarding pane across the
+   top, and under it `Sharing Workspace With` (left) beside the read-only
+   `Workspaces Shared With Me` panel (right).
+   Acknowledge Backlog raises `Acknowledge Backlog` (`eb5ed396f17d`, 303356);
+   Reassign Backlog raises `Select Users` (`d1654b0c032c`, 303358).        */
 
-function WorkspaceMgtTab() {
+function WorkspaceMgtTab({ row }: { row: UserRow }) {
+  const [backlog, setBacklog] = useState<null | 'acknowledge' | 'reassign'>(null)
   const forwarding = umColumns(INBOX_FORWARDING_COLUMNS)
   const ruleCol = forwarding.find((c) => c.key === 'rule')
   if (ruleCol) {
@@ -574,29 +607,158 @@ function WorkspaceMgtTab() {
   }
 
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-      <PBBand right={<BandButtons scope="inbox-forwarding" labels={INBOX_FORWARDING_BUTTONS} />}>
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <PBBand
+        right={(
+          <BandButtons
+            scope="inbox-forwarding"
+            labels={INBOX_FORWARDING_BUTTONS}
+            onPress={(b) => {
+              if (b === 'Acknowledge Backlog') setBacklog('acknowledge')
+              if (b === 'Reassign Backlog') setBacklog('reassign')
+            }}
+          />
+        )}
+      >
         Inbox Forwarding
       </PBBand>
-      <div style={{ flex: 'none', height: 92, display: 'flex', padding: 3 }}>
+      <div style={{ flex: '1 1 55%', minHeight: 60, display: 'flex', padding: 3 }}>
         <TabGrid columns={forwarding} rows={INBOX_FORWARDING_ROWS} />
       </div>
 
-      <PBBand right={<BandButtons scope="sharing-workspace" labels={['New', 'Delete']} />}>
-        Sharing Workspace With
-      </PBBand>
-      <div style={{ flex: 'none', height: 92, display: 'flex', padding: 3 }}>
-        <TabGrid columns={umColumns(SHARING_WORKSPACE_COLUMNS)} rows={SHARING_WORKSPACE_ROWS} />
-      </div>
-
-      {/* read-only panel, 368px wide, with a #C8DCFA caption bar of its own;
-          an empty stop date renders as `--` */}
-      <div style={{ width: SHARED_WITH_ME_W, flex: 'none', display: 'flex', flexDirection: 'column', padding: 3 }}>
-        <div className="pb-band" style={{ background: '#c8dcfa' }}>Workspaces Shared With Me</div>
-        <div style={{ height: 72, display: 'flex' }}>
-          <TabGrid columns={umColumns(SHARED_WITH_ME_COLUMNS)} rows={SHARED_WITH_ME_ROWS} />
+      <div className="pb-row" style={{ flex: '1 1 45%', minHeight: 0, alignItems: 'stretch', gap: 8, padding: 3 }}>
+        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <PBBand right={<BandButtons scope="sharing-workspace" labels={['New', 'Delete']} />}>
+            Sharing Workspace With
+          </PBBand>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            <TabGrid columns={umColumns(SHARING_WORKSPACE_COLUMNS)} rows={SHARING_WORKSPACE_ROWS} />
+          </div>
+        </div>
+        {/* read-only panel, 368px wide, with a #C8DCFA caption bar of its
+            own; an empty stop date renders as `--` */}
+        <div style={{ width: SHARED_WITH_ME_W, flex: 'none', display: 'flex', flexDirection: 'column' }}>
+          <div className="pb-band" style={{ background: '#c8dcfa' }}>Workspaces Shared With Me</div>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            <TabGrid columns={umColumns(SHARED_WITH_ME_COLUMNS)} rows={SHARED_WITH_ME_ROWS} />
+          </div>
         </div>
       </div>
+
+      {backlog === 'acknowledge' && <AcknowledgeBacklogDialog who={String(row.display ?? '')} onClose={() => setBacklog(null)} />}
+      {backlog === 'reassign' && <SelectUsersDialog onClose={() => setBacklog(null)} />}
+    </div>
+  )
+}
+
+/* `Acknowledge Backlog`, `eb5ed396f17d` (303356): a Date Range from
+   0000.00.00 (the focused, washed edit) to today "(inclusive)", a Reason
+   memo, then a `Basket Summary <user>` band over Include / Item / To
+   Acknowledge with every basket ticked, the total under them, and Ok /
+   Cancel. The counts are the capture's. */
+const BACKLOG_ITEMS: [string, number][] = [
+  ['Measures', 20], ['Imaging', 10], ['Consults', 10], ['Procedures', 10],
+  ['Documents', 10], ['Facility Admissions', 6], ['Progress Notes', 10], ['Orders', 10],
+]
+
+function AcknowledgeBacklogDialog({ who, onClose }: { who: string; onClose: () => void }) {
+  const host = usePBInstrumentation()
+  const [include, setInclude] = useState(() => BACKLOG_ITEMS.map(() => true))
+  useScreenReport({ dialog: 'acknowledge-backlog' })
+  const total = BACKLOG_ITEMS.reduce((sum, [, n], i) => sum + (include[i] ? n : 0), 0)
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
+      <PBWindow child controls={false} className="pb-um-dialog" title="Acknowledge Backlog" onClose={onClose} tutorialId="host.mois.dialog.acknowledge-backlog" style={{ width: 690 }}>
+        <div style={{ background: 'var(--pb-face)', padding: '8px 18px' }}>
+          <div style={{ border: '1px solid #a0a0a0', background: '#fff' }}>
+            <div style={{ padding: '8px 10px' }}>
+              <div className="pb-row" style={{ gap: 8 }}>
+                <span style={{ width: 80 }}>Date Range:</span>
+                <PBInput w={90} defaultValue="0000.00.00" style={{ background: UM_FOCUS }} />
+                <span>to</span>
+                <PBInput w={90} defaultValue={MOIS_TODAY_STAMP} />
+                <span>(inclusive)</span>
+              </div>
+              <div className="pb-row" style={{ gap: 8, paddingTop: 4, alignItems: 'flex-start' }}>
+                <span style={{ width: 80 }}>Reason:</span>
+                <PBTextArea rows={3} w={540} data-tutorial-id="host.mois.field.reason" />
+              </div>
+            </div>
+            <div style={{ background: '#c8dcfa', fontWeight: 700, padding: '8px 12px' }}>Basket Summary {who}</div>
+            <div className="pb-row" style={{ gap: 0, padding: '6px 6px 2px', alignItems: 'flex-end', fontWeight: 700 }}>
+              <span style={{ width: 70 }}>Include</span><span style={{ width: 240 }}>Item</span>
+              <span style={{ width: 96, textAlign: 'right' }}>To<br />Acknowledge</span>
+            </div>
+            {BACKLOG_ITEMS.map(([item, n], i) => (
+              <div key={item} className="pb-row" style={{ gap: 0, padding: '3px 6px', background: i % 2 ? '#fff' : '#f0f0f0' }}>
+                <span style={{ width: 70, paddingLeft: 24 }}>
+                  <PBCheckbox checked={include[i]} onChange={(v) => setInclude((c) => c.map((x, j) => (j === i ? v : x)))} />
+                </span>
+                <span style={{ width: 240 }}>{item}</span>
+                <span style={{ width: 96, textAlign: 'right' }}>{n}</span>
+              </div>
+            ))}
+            <div className="pb-row" style={{ gap: 0, padding: '6px 6px', borderTop: '1px solid #404040', fontWeight: 700 }}>
+              <span style={{ width: 310 }} /><span style={{ width: 96, textAlign: 'right' }}>{total}</span>
+            </div>
+          </div>
+        </div>
+        <div className="pb-footer">
+          <span className="pb-footer__spacer" />
+          {['Ok', 'Cancel'].map((b) => (
+            <PBButton key={b} wide data-tutorial-id={host?.anchor('command', `backlog-${pbSlug(b)}`)} onClick={() => { host?.report('command', { command: `backlog-${pbSlug(b)}` }); onClose() }}>{b}</PBButton>
+          ))}
+          <span className="pb-footer__spacer" />
+        </div>
+      </PBWindow>
+    </div>
+  )
+}
+
+/* `Select Users`, `d1654b0c032c` (303358): a `User Accounts` band over
+   Select / Full Name / User Name, and Ok / Cancel. 303358: tick the user the
+   backlog goes to, press Ok, and confirm — the confirmation is not captured,
+   so Ok closes the window. */
+function SelectUsersDialog({ onClose }: { onClose: () => void }) {
+  const host = usePBInstrumentation()
+  const users = userListSpec('ad-users')?.rows.filter((r) => r.status !== 'I') ?? []
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  useScreenReport({ dialog: 'select-users', rows: picked.size })
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
+      <PBWindow child controls={false} className="pb-um-dialog" title="Select Users" onClose={onClose} tutorialId="host.mois.dialog.select-users" style={{ width: 430 }}>
+        <div style={{ background: 'var(--pb-face)', padding: '8px 20px' }}>
+          <div className="pb-band" style={{ background: '#dcd7d2', fontWeight: 700 }}>User Accounts</div>
+          <div style={{ height: 300, display: 'flex', background: '#fff' }}>
+            <PBDataWindow<UserRow>
+              rows={users}
+              gutter={false}
+              rowTutorialId={(r) => `host.mois.row.select-user-${pbSlug(String(r.user ?? ''))}`}
+              columns={[
+                {
+                  key: 'select', header: 'Select', width: 52, align: 'center',
+                  render: (r) => (
+                    <PBCheckbox
+                      checked={picked.has(String(r.user))}
+                      onChange={(v) => setPicked((p) => { const n = new Set(p); v ? n.add(String(r.user)) : n.delete(String(r.user)); return n })}
+                      tutorialId={`host.mois.cell.select-${pbSlug(String(r.user ?? ''))}`}
+                    />
+                  ),
+                },
+                { key: 'display', header: 'Full Name', width: 190 },
+                { key: 'user', header: 'User Name', width: 110 },
+              ]}
+            />
+          </div>
+        </div>
+        <div className="pb-footer">
+          <span className="pb-footer__spacer" />
+          {['Ok', 'Cancel'].map((b) => (
+            <PBButton key={b} wide data-tutorial-id={host?.anchor('command', `select-users-${pbSlug(b)}`)} onClick={() => { host?.report('command', { command: `select-users-${pbSlug(b)}` }); onClose() }}>{b}</PBButton>
+          ))}
+          <span className="pb-footer__spacer" />
+        </div>
+      </PBWindow>
     </div>
   )
 }
@@ -736,6 +898,7 @@ function EventSubjectSelectionDialog({ onClose }: { onClose: () => void }) {
   const host = usePBInstrumentation()
   const [cur, setCur] = useState(0)
   const d = EVENT_SUBJECT_DIALOG
+  useScreenReport({ dialog: pbSlug(d.title) })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
@@ -850,6 +1013,7 @@ function OtherControl({ field }: { field: OtherField }) {
 
 export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const host = usePBInstrumentation()
+  useScreenReport({ dialog: pbSlug(CHANGE_PASSWORD.title) })
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
       <div data-tutorial-id={host?.anchor('dialog', pbSlug(CHANGE_PASSWORD.title))}>

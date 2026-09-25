@@ -1,9 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { pbSlug, usePBInstrumentation } from '../instrumentation'
 import { PBPopup, pbInPopup, usePBPopupOwner } from '../popup'
-import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, KeyboardEvent, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 const cx = (...v: (string | false | undefined | null)[]) => v.filter(Boolean).join(' ')
+
+/* --- PBDropGlyph ---------------------------------------------------------
+   The one arrow every drop-down button draws (PBSelect, PBDropField,
+   PBDropDownDataWindow, PreferenceChoice). MOIS's combos are Windows 10's: a
+   thin grey chevron in a light box (reference/demographics-full.png —
+   Facility, Gender, Insurance by; the Dynamic Form captures' Provider and
+   "created by"). The classic theme swaps in Windows 98's filled triangle. */
+export function PBDropGlyph() {
+  return (
+    <svg className="pb-drop-glyph" width="9" height="5" viewBox="0 0 9 5" aria-hidden="true">
+      <path className="pb-drop-glyph__chevron" d="M.5.5 4.5 4.3 8.5.5" fill="none" stroke="currentColor" strokeWidth="1.1" />
+      <path className="pb-drop-glyph__triangle" d="M1 0h7L4.5 4.5z" fill="currentColor" />
+    </svg>
+  )
+}
 
 /* --- PBButton ------------------------------------------------------------ */
 export function PBButton({
@@ -23,7 +38,13 @@ export function PBButton({
 /* --- PBCommandRow --------------------------------------------------------
    The hard-bordered button strip PowerBuilder puts under a view header.
    Pass `null` in the list to insert a group gap.                           */
-export type PBCommand = { label: string; disabled?: boolean; active?: boolean; onClick?: () => void; width?: number } | null
+export type PBCommand = {
+  label: string; disabled?: boolean; active?: boolean; onClick?: () => void; width?: number
+  /** an exact width, narrower than the uniform 80.5 if need be — the older
+      text-sized Task Bars (Message Inbox, v02.21) whose twelve buttons have
+      to fit the window */
+  exactWidth?: number
+} | null
 
 export function PBCommandRow({ commands, right }: { commands: PBCommand[]; right?: ReactNode }) {
   const host = usePBInstrumentation()
@@ -45,7 +66,7 @@ export function PBCommandRow({ commands, right }: { commands: PBCommand[]; right
               host?.report('command', { command: pbSlug(c.label) })
               c.onClick?.()
             }}
-            style={c.width ? { minWidth: c.width } : undefined}
+            style={c.exactWidth ? { width: c.exactWidth, minWidth: 0 } : c.width ? { minWidth: c.width } : undefined}
           >
             {c.label}
           </button>
@@ -76,20 +97,147 @@ export function PBTextArea({
   return <textarea rows={rows} className={cx('pb-field', className)} style={{ width: w, ...style }} {...rest} />
 }
 
-/* --- PBSelect ------------------------------------------------------------- */
+/* --- PBSelect -------------------------------------------------------------
+   A drop-down list: the same closed field, drop button and dropped list as
+   PBDropDownDataWindow (one column, no header), so Facility and Service in
+   Demographics ▸ Office Information are the same control. They were a
+   styled native <select> beside a PB-drawn DDDW: another face, another
+   button, and the browser's own menu when opened.
+
+   The native <select> is still here, transparent over the face: it sets the
+   control's width from its longest option, takes focus and keyboard input,
+   carries `value`, `onChange`, `name` and the tutorial anchor, and is what
+   replay (host/field-input.ts) and tests set a value on. It never opens its
+   own menu; the list is a PBPopup like every other drop-down here.         */
+const setSelectValue = (el: HTMLSelectElement, value: string) => {
+  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(el, value)
+  dispatchLearnerChange(el)
+}
+
+/**
+ * A `change` the learner made through a PB-drawn list rather than the native
+ * control, marked as theirs. The browser flags its own events `isTrusted`; a
+ * pick in a PBPopup list is dispatched here and would read as a replay, so
+ * the frame, which reports a learner's edits to the tutorial layer
+ * (host/MoisClassicShell.tsx), takes the mark in its place.
+ */
+export function dispatchLearnerChange(el: HTMLElement) {
+  el.setAttribute('data-pb-learner', '')
+  try { el.dispatchEvent(new Event('change', { bubbles: true })) } finally { el.removeAttribute('data-pb-learner') }
+}
+
+/** An entry whose shown text is not its value — `<No Selection>` for ''. */
+export type PBSelectOption = string | { value: string; label: string }
+
 export function PBSelect({
-  options, w, className, style, ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: string[]; w?: number | string }) {
+  options: entries, w, className, style, value, defaultValue, onChange, onKeyDown, onClick, onMouseDown, onBlur, disabled, ...rest
+}: SelectHTMLAttributes<HTMLSelectElement> & { options: readonly PBSelectOption[]; w?: number | string }) {
+  const items = entries.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
+  const options = items.map((o) => o.value)
+  const labelOf = (v: string) => items.find((o) => o.value === v)?.label ?? v
+  const [open, setOpen] = useState(false)
+  const [own, setOwn] = useState(() => String(defaultValue ?? options[0] ?? ''))
+  const current = value !== undefined ? String(value) : own
+  const ref = useRef<HTMLSpanElement>(null)
+  const selectRef = useRef<HTMLSelectElement>(null)
+  const owner = usePBPopupOwner()
+  const listId = useId()
+  /* a caller's fill (Billing's yellow required fields) belongs on the face */
+  const { background, backgroundColor, color, ...box } = style ?? {}
+
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent) => {
+      if (ref.current?.contains(e.target as Node) || pbInPopup(e.target, owner)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', away)
+    return () => document.removeEventListener('mousedown', away)
+  }, [open, owner])
+
+  const pick = (next: string) => {
+    const el = selectRef.current
+    setOpen(false)
+    if (!el || el.value === next) return
+    setSelectValue(el, next)
+  }
+  /* the keys a closed combo box answers: the arrows step through the list,
+     F4 / Alt+Down / Space drop it, Enter / Escape / Tab put it away. The
+     native keys are all taken, since some of them open the browser's menu. */
+  const key = (e: KeyboardEvent<HTMLSelectElement>) => {
+    onKeyDown?.(e)
+    if (e.defaultPrevented || disabled) return
+    const drop = e.key === 'F4' || e.key === ' ' || (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp'))
+    if (drop) { e.preventDefault(); setOpen((o) => !o); return }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      const i = options.indexOf(current)
+      const next = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1
+        : Math.min(options.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))
+      const el = selectRef.current
+      if (el && options[next] !== undefined && options[next] !== current) setSelectValue(el, options[next])
+      return
+    }
+    if (open && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); setOpen(false) }
+  }
+
   return (
-    <select className={cx('pb-select', className)} style={{ width: w, ...style }} {...rest}>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
+    <span
+      ref={ref}
+      className={cx('pb-select', open && 'is-open', disabled && 'is-disabled', className)}
+      style={{ width: w, ...box }}
+    >
+      <select
+        ref={selectRef}
+        className="pb-select__native"
+        /* how a tutorial's ring and spotlight find the open list */
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        {...(value !== undefined ? { value } : { defaultValue })}
+        disabled={disabled}
+        onChange={(e) => { if (value === undefined) setOwn(e.target.value); onChange?.(e) }}
+        /* no browser menu: the mouse drops the PB list instead */
+        onMouseDown={(e) => { onMouseDown?.(e); if (e.button === 0) { e.preventDefault(); e.currentTarget.focus() } }}
+        onClick={(e) => { onClick?.(e); if (!disabled) setOpen((o) => !o) }}
+        onKeyDown={key}
+        onBlur={(e) => { onBlur?.(e); setOpen(false) }}
+        {...rest}
+      >
+        {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <span className="pb-select__face" style={{ background, backgroundColor, color }} aria-hidden="true">{labelOf(current)}</span>
+      <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--drop" disabled={disabled} tabIndex={-1} aria-hidden="true">
+        <PBDropGlyph />
+      </button>
+
+      {open && (
+        <PBPopup id={listId} anchorRef={ref} owner={owner} className="pb-dddw__list" minWidth="anchor">
+          <table className="pb-dddw__table" role="listbox">
+            <tbody>
+              {items.map((o) => (
+                <tr
+                  key={o.value}
+                  role="option"
+                  aria-selected={o.value === current}
+                  className={o.value === current ? 'is-current' : undefined}
+                  /* mousedown, and default prevented, so focus stays on the field */
+                  onMouseDown={(e) => { e.preventDefault(); pick(o.value) }}
+                >
+                  <td>{o.label || '\u00a0'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </PBPopup>
+      )}
+    </span>
   )
 }
 
 /* --- PBLookup — field with the "..." button PowerBuilder uses everywhere -- */
 export function PBLookup({
-  value, defaultValue, placeholder, w, disabled, readOnly, name, onDots, onChange, onEnter,
+  value, defaultValue, placeholder, w, disabled, readOnly, name, onDots, onChange, onEnter, fieldId, onKeyDown,
 }: {
   value?: string
   defaultValue?: string
@@ -103,6 +251,11 @@ export function PBLookup({
   onChange?: (v: string) => void
   /** Enter in the field — PowerBuilder commits an edit field on Enter */
   onEnter?: (v: string) => void
+  /** opt-in: a tutorial anchor on the edit field itself (host.mois.field.*),
+      so a lesson can type into it; the "…" keeps the `lookup` anchor */
+  fieldId?: string
+  /** opt-in: any other key in the field — F4 opens a prompt in PowerBuilder */
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
 }) {
   const host = usePBInstrumentation()
   const bind = value !== undefined ? { value } : { defaultValue }
@@ -115,8 +268,9 @@ export function PBLookup({
         placeholder={placeholder}
         disabled={disabled}
         readOnly={readOnly}
+        data-tutorial-id={fieldId}
         onChange={(e) => onChange?.(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(e.currentTarget.value) }}
+        onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(e.currentTarget.value); onKeyDown?.(e) }}
       />
       <button
         type="button"
@@ -154,7 +308,7 @@ export function PBDropField({
         onChange={(e) => onChange?.(e.target.value)}
       />
       <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--drop" disabled={disabled} onClick={onDrop}>
-        <svg width="7" height="5" viewBox="0 0 7 5"><path d="M0 0h7L3.5 5z" fill="currentColor" /></svg>
+        <PBDropGlyph />
       </button>
     </span>
   )
@@ -234,11 +388,15 @@ export function PBCheckbox({
 }
 
 export function PBRadio({
-  label, name, checked, disabled, onChange,
-}: { label?: ReactNode; name: string; checked?: boolean; disabled?: boolean; onChange?: () => void }) {
+  label, name, checked, disabled, onChange, tutorialId,
+}: {
+  label?: ReactNode; name: string; checked?: boolean; disabled?: boolean; onChange?: () => void
+  /* optional; stamped on the `input` for the same reason as PBCheckbox's */
+  tutorialId?: string
+}) {
   return (
     <label className="pb-check pb-check--radio">
-      <input type="radio" name={name} checked={!!checked} disabled={disabled} onChange={() => onChange?.()} />
+      <input type="radio" name={name} data-tutorial-id={tutorialId} checked={!!checked} disabled={disabled} onChange={() => onChange?.()} />
       <span className="pb-check__box"><span className="pb-check__dot" /></span>
       {label != null && <span className="pb-check__label">{label}</span>}
     </label>
@@ -310,6 +468,7 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
   const [text, setText] = useState(value ?? '')
   const ref = useRef<HTMLSpanElement>(null)
   const owner = usePBPopupOwner()
+  const listId = useId()
   const key = display ?? columns[0]?.key
 
   /* the field follows an externally set value — the frame owns "Daybook For",
@@ -335,6 +494,9 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
         data-tutorial-id={tutorialId}
         value={text}
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
         onChange={(e) => setText(e.target.value)}
         onFocus={() => setOpen(true)}
       />
@@ -345,12 +507,13 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
       >
-        <svg width="7" height="5" viewBox="0 0 7 5"><path d="M0 0h7L3.5 5z" fill="currentColor" /></svg>
+        <PBDropGlyph />
       </button>
 
       {open && (
-        <PBPopup anchorRef={ref} owner={owner} className="pb-dddw__list" minWidth={listW ?? 'anchor'}>
-          <table className="pb-dddw__table">
+        <PBPopup id={listId} anchorRef={ref} owner={owner} className="pb-dddw__list" minWidth={listW ?? 'anchor'}>
+          {/* a listbox, so a guided tutorial step lets a click on a row through */}
+          <table className="pb-dddw__table" role="listbox">
             <thead>
               <tr>{columns.map((c) => (
                 <th key={c.key} style={{ width: c.width }}>{c.header}</th>
@@ -361,7 +524,12 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
                 <tr
                   key={i}
                   className={r[key] === text ? 'is-current' : undefined}
-                  onMouseDown={() => { setText(String(r[key] ?? '')); onSelect?.(r); setOpen(false) }}
+                  onMouseDown={() => {
+                    setText(String(r[key] ?? '')); onSelect?.(r); setOpen(false)
+                    /* the pick changes React state, not the input: say so, as a learner's edit */
+                    const input = ref.current?.querySelector('input')
+                    if (input) dispatchLearnerChange(input)
+                  }}
                 >
                   {columns.map((c) => <td key={c.key}>{c.render ? c.render(r) : r[c.key]}</td>)}
                 </tr>

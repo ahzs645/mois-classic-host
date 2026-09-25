@@ -217,14 +217,21 @@ const PROVIDER_LIST: ClinicListSpec = {
     /* the crop is clipped mid-column, so 94 is a lower bound, not a measurement */
     { key: 'serviceEnd', header: 'Service End', width: 94, headAlign: 'center' },
   ],
+  /* Payment Type carries the codes both captures print — MSP, AP (alternate
+     payment), PP (patient pay) — and Pract. No / Payee No. are the plain
+     numbers the captures show (`963852`, `00003`), not prefixed ones.
+     `UHNBC ER` is 2090817's own example of an outside clinic kept as a
+     "Provider" for tracking encounters, the record the Provider Type
+     Conversion Utility exists for. */
   rows: [
-    { name: 'BEARDWOOD, WALTER', pract: 'J40881', payee: '40881', payment: 'Normal', ptype: 'MD', active: 'Y', serviceEnd: '' },
-    { name: 'SHEWCHUK, LEAH', pract: 'J33120', payee: '33120', payment: 'Normal', ptype: 'MD', active: 'Y', serviceEnd: '' },
-    { name: 'OKUDA, TIKA', pract: 'J21044', payee: '21044', payment: 'Alternate', ptype: 'MD', active: 'Y', serviceEnd: '' },
+    { name: 'BEARDWOOD, WALTER', pract: '40881', payee: '40881', payment: 'MSP', ptype: 'MD', active: 'Y', serviceEnd: '' },
+    { name: 'SHEWCHUK, LEAH', pract: '33120', payee: '33120', payment: 'MSP', ptype: 'MD', active: 'Y', serviceEnd: '' },
+    { name: 'OKUDA, TIKA', pract: '21044', payee: '21044', payment: 'AP', ptype: 'MD', active: 'Y', serviceEnd: '' },
     { name: 'GRUBB, HELENA (LPN)', pract: '', payee: '', payment: '', ptype: 'LPN', active: 'Y', serviceEnd: '' },
     { name: 'DHALIWAL, RUPINDER (RN)', pract: '', payee: '', payment: '', ptype: 'RN', active: 'Y', serviceEnd: '' },
     { name: 'ROSS, ADRIENNE (NHVC)', pract: '', payee: '', payment: '', ptype: 'RN', active: 'Y', serviceEnd: '' },
-    { name: 'HALLIWELL, ALYSSA', pract: 'J12345', payee: '12345', payment: 'Normal', ptype: 'MD', active: 'N', serviceEnd: '2025.06.30' },
+    { name: 'UHNBC ER', pract: '', payee: '', payment: '', ptype: '', active: 'Y', serviceEnd: '' },
+    { name: 'HALLIWELL, ALYSSA', pract: '00003', payee: '54321', payment: 'PP', ptype: 'MD', active: 'N', serviceEnd: '2025.06.30' },
   ],
   anchorPrefix: 'provider',
   anchorKey: 'name',
@@ -512,7 +519,10 @@ const FAVOURITE_MEDS: ClinicListSpec = {
         right: [
           { kind: 'checks', label: 'Instructions:', items: [{ label: 'Do Not Substitute' }, { label: 'Do Not Adapt' }] },
           { kind: 'checks', label: 'PRN:', items: [{ label: '(when necessary)' }] },
-          { kind: 'tree', caption: 'Dose Detail', lines: ['⊟ DISPENSE: 3.0 MONTH', '   └ 1.0 TAB ORAL TID'] },
+          /* the tree's shape is `c063471a…`'s; its values are the current
+             row's (ATORVASTATIN 20: 1 TAB ORAL DAILY, 90 TAB), so it reads as
+             what that row resolves to */
+          { kind: 'tree', caption: 'Dose Detail', lines: ['⊟ DISPENSE: 90 TAB', '   └ 1.0 TAB ORAL DAILY'] },
         ],
         footer: 'Created:  2016.01.13 09:43 ADMINISTRATOR      Last Modified: 2016.01.13 09:43 ADMINISTRATOR',
       },
@@ -734,10 +744,161 @@ const ORGANIZATIONS: ClinicListSpec = {
 }
 
 /* ===========================================================================
+   C.12  Clinic Management ▸ Org Role List / Organization List  (MOIS 2.22+)
+
+   `e8cb6689…` (2069798, v02.30.11 b230504) shows the Org Role List window
+   behind its New Org Role Profile dialog: the navy `Org Role List` header,
+   New Record / Delete Record / Edit Record / Close Window, and a filter strip
+   of two boxes (≈306 and ≈272px) over a two-column grid. The dialog covers
+   the grid's captions. The two columns are drawn as Name and Category — the
+   two identifying fields New Org Role Profile asks for, and the two lines of
+   the Org Role / Organization window header (`c8213c6f…`) — which is an
+   inference, stated here, not a reading.
+
+   The Organization List is the same window over organizations (2069411:
+   "Organizations and Org Roles are found under Clinic Management"). The
+   records are 2069798's and `c8213c6f…`'s own examples (NURSE, HOME CARE)
+   and the org roles and organizations the MOIS Search Window lists.
+   ======================================================================== */
+const ORG_ROLE_LIST: ClinicListSpec = {
+  node: 'ad-org-role-list',
+  label: 'Org Role List',
+  header: 'Org Role List',
+  dialect: 'edit-record',
+  source: '2069798 / e8cb6689 (header, command row, filter strip); columns inferred',
+  filter: { kind: 'columns', boxes: [{ col: 0, w: 306 }, { col: 1, w: 272 }] },
+  columns: [
+    { key: 'name', header: 'Name', width: 308 },
+    { key: 'category', header: 'Category', width: 274 },
+  ],
+  rows: [
+    { name: 'ACUTE 1 PLN 1 PRG', category: '' },
+    { name: 'NURSE', category: '' },
+    { name: 'TECHNICAL SUPPORT', category: '' },
+  ],
+  anchorPrefix: 'org-role',
+  anchorKey: 'name',
+}
+
+const ORGANIZATION_LIST: ClinicListSpec = {
+  node: 'ad-org-list',
+  label: 'Organization List',
+  header: 'Organization List',
+  dialect: 'edit-record',
+  source: '2069798 / e8cb6689 (the Org Role List window it mirrors); columns inferred',
+  filter: { kind: 'columns', boxes: [{ col: 0, w: 306 }, { col: 1, w: 272 }] },
+  columns: [
+    { key: 'name', header: 'Name', width: 308 },
+    { key: 'category', header: 'Category', width: 274 },
+  ],
+  rows: [
+    { name: 'ADULT PSYCH 1 PRG', category: '' },
+    { name: 'CT1PRG', category: '' },
+    { name: 'GIM CLINIC', category: '' },
+    { name: 'HOME CARE', category: '' },
+  ],
+  anchorPrefix: 'organization',
+  anchorKey: 'name',
+}
+
+/* --- a stage session's edits to these lists (host/screen-windows.tsx
+   `useSessionState`), so a converted provider stays converted when the
+   learner moves to the Org Role List ------------------------------------ */
+
+/** the Provider List's current row, which the conversion utility acts on */
+export const CURRENT_PROVIDER_KEY = 'admin:provider-list:current'
+/** provider name → what it was converted to */
+export const CONVERTED_PROVIDERS_KEY = 'admin:provider-list:converted'
+export type ConvertedProviders = Record<string, 'org-role' | 'organization'>
+
+/* ===========================================================================
+   D.  The editor windows the lists raise (screens/ClinicEditorWindows.tsx)
+
+   A list's rows are session state once anything edits them: New Record adds
+   one, a detail window's Save writes its fields back. The whole list is kept
+   under one key per node (host/screen-windows.tsx `useSessionState`), so a
+   provider added under Administration is in the Master Provider List lookup
+   the Letter Writer opens later in the same stage run.
+   ======================================================================== */
+
+/** a list's rows for this stage session, by tree node */
+export const clinicRowsKey = (node: string) => `admin:clinic:rows:${node}`
+/** Facility Detail's nested Locations grid, per facility code */
+export const FACILITY_LOCATIONS_KEY = 'admin:clinic:facility-locations'
+
+/**
+ * The locations each facility holds — the codes the Resource List's
+ * `Location Code` column already names (HMC-MAIN, HMC-ANNEX), gathered under
+ * their facility so New Resource and Resource Detail can drop them. Facility
+ * Detail (`303057` / `dfb5b6008f0b…`) edits the same grid.
+ */
+export const FACILITY_LOCATIONS: Record<string, ClinicRow[]> = {
+  HMC: [
+    { code: 'HMC-MAIN', desc: 'Halliwell Medical Clinic - main floor', default: true, active: true },
+    { code: 'HMC-ANNEX', desc: 'Halliwell Medical Clinic - annex', default: false, active: true },
+  ],
+}
+
+/**
+ * Visit Mode — "a standard government code list", not editable by the user.
+ * `303360` prints the whole list; `89ac41815efb…` shows it dropped, one
+ * upper-case description per line in this order, which is what is drawn.
+ */
+export const VISIT_MODES: string[] = [
+  'Client Portal', 'Direct Encounter', 'Email', 'Help Line', 'Mobile Messaging',
+  'Online Call', 'Online Call with Video', 'Online Chat', 'Other Computer Link',
+  'Provider Portal', 'Telephone', 'Telemedicine',
+].flatMap((mode) => (
+  mode === 'Online Call with Video'
+    ? ['CLIENT ALONE', 'CLIENT AND THIRD PARTY', 'CLIENT IN GROUP', 'THIRD PARTY'].map((who) => `${mode.toUpperCase()} WITH ${who}`)
+    : ['CLIENT ALONE', 'CLIENT AND THIRD PARTY', 'CLIENT IN GROUP', 'THIRD PARTY ALONE'].map((who) => `${mode.toUpperCase()} WITH ${who}`)
+))
+
+/** Alias ID ▸ Source, as `9889ab2692c4…` (303184) drops it. */
+export const ALIAS_SOURCES: { code: string; desc: string }[] = [
+  { code: 'BCMSP', desc: 'BC MSP Provider License Number' },
+  { code: 'EXC', desc: 'Excelleris Lab Interface ID' },
+  { code: 'IHA', desc: 'Interior Health POI ID' },
+  { code: 'IHMEDITECH', desc: 'Interior Health Meditech ID' },
+  { code: 'NHA', desc: 'Northern Health CIX ID' },
+  { code: 'NHCERNER', desc: 'Northern Health Cerner ID' },
+  { code: 'PROVIDERGROUP', desc: 'CDX Provider Group' },
+]
+
+/** Billing ▸ Payment Mode: blank (normal), AP or PP — `303054`'s field list. */
+export const PAYMENT_MODES = ['', 'AP', 'PP']
+
+/**
+ * Billing ▸ MSP Location. The codes are the claim window's Location list
+ * (screens/BillingViews.tsx); `6e1c13abe6e8…` prints the description beside
+ * the drop-down, and only G's is captured.
+ */
+export const MSP_LOCATIONS = ['', 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'T', 'U', 'V', 'W']
+export const MSP_LOCATION_TEXT: Record<string, string> = { G: 'Hospital - Day Care (surgery)' }
+
+/**
+ * The Master Provider List LOOKUP — the modal the Letter Writer's "…" and
+ * Utilities ▸ Provider Address to Clipboard open (`304741` / `6127fb5936f2…`,
+ * 729x615, 1:1). Not the Administration screen of the same name: its columns
+ * are Provider / Provider Ref / City / Spec. Code / Phone / Fax, measured off
+ * the capture's separators, over four filter boxes under the first four.
+ */
+export const MASTER_LOOKUP_COLUMNS: ClinicColumn[] = [
+  { key: 'name', header: 'Provider', width: 196 },
+  { key: 'pract', header: 'Provider Ref', width: 84 },
+  { key: 'city', header: 'City', width: 116 },
+  { key: 'spec', header: 'Spec. Code', width: 76 },
+  { key: 'primary', header: 'Phone', width: 110, align: 'center' },
+  { key: 'fax', header: 'Fax', width: 110, align: 'center' },
+]
+
+/* ===========================================================================
    The table the screen is driven from.
    ======================================================================== */
 export const clinicListSpecs: ClinicListSpec[] = [
   PROVIDER_LIST,
+  ORG_ROLE_LIST,
+  ORGANIZATION_LIST,
   RESOURCE_LIST,
   FACILITY_LIST,
   SERVICE_CENTERS,

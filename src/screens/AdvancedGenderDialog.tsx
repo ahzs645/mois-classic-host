@@ -9,6 +9,7 @@ import {
 import { usePatient } from '../data/patient-context'
 import { updatePatient } from '../data/patient-edits'
 import type { Patient } from '../data/patients'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    Advanced Gender Designations — the window the `.*.` beside Gender opens.
@@ -67,6 +68,7 @@ const DESIGNATIONS: Designation[] = [
 ]
 
 export function AdvancedGenderDialog({ onClose }: { onClose: () => void }) {
+  useScreenReport({ dialog: 'advanced-gender' })
   const patient = usePatient()
   const held = patient.genderDesignations
 
@@ -141,9 +143,11 @@ export function AdvancedGenderDialog({ onClose }: { onClose: () => void }) {
                           display="description"
                           value={genderDescription(d.rows, codes[d.key])}
                           onSelect={(row) => setCodes((c) => ({ ...c, [d.key]: row.gender }))}
+                          tutorialId={`host.mois.field.${d.key}-gender`}
                         />
                         <PBCheckbox
                           label="Include on Demographics"
+                          tutorialId={`host.mois.field.include-${d.key}-gender`}
                           checked={shown[d.key]}
                           onChange={(v) => setShown((s) => ({ ...s, [d.key]: v }))}
                         />

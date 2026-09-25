@@ -13,6 +13,7 @@ import {
 import { BandButtons, UM_CSS, umColumns } from './UserManagementKit'
 import { NewUserDialog, UserAccountWindow, newUserDisplayName, type NewUserDraft } from './UserAccountWindow'
 import { SecurityProfileWindow } from './SecurityProfileWindow'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    Administration ▸ User Management — the three list nodes — plus
@@ -59,11 +60,11 @@ import { SecurityProfileWindow } from './SecurityProfileWindow'
        positions were.
    ========================================================================= */
 
-export function UserManagementView({ node }: { node: string }) {
-  if (node === PASSWORD_POLICY_SPEC.node) return <PasswordPolicyView />
+export function UserManagementView({ node, onClose }: { node: string; onClose?: () => void }) {
+  if (node === PASSWORD_POLICY_SPEC.node) return <PasswordPolicyView onClose={onClose} />
   const spec = userListSpec(node)
   if (!spec) return null
-  return <UserListView key={spec.node} spec={spec} />
+  return <UserListView key={spec.node} spec={spec} onClose={onClose} />
 }
 
 /* --------------------------------------------------------------------------
@@ -109,7 +110,7 @@ function BandedHead({ column }: { column: UserColumn }) {
    The list screen
    ------------------------------------------------------------------------ */
 
-function UserListView({ spec }: { spec: UserListSpec }) {
+function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => void }) {
   const [cur, setCur] = useState(0)
   const [filter, setFilter] = useState<Record<string, string>>({})
   const [newOpen, setNewOpen] = useState(false)
@@ -188,7 +189,8 @@ function UserListView({ spec }: { spec: UserListSpec }) {
               ? (spec.newDialog ? () => setNewOpen(true) : undefined)
               : label === 'Edit Record'
                 ? () => { const r = rows[current]; if (r) openEditor(r) }
-                : undefined,
+                : label === 'Close Window' ? () => onClose?.()
+                  : undefined,
         }))}
       />
 
@@ -292,10 +294,14 @@ function headCss(spec: UserListSpec): string {
 function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => void }) {
   const host = usePBInstrumentation()
   const [cur, setCur] = useState(0)
+  /* an existing group opens on its members; a new one opens empty */
+  const isNew = !row.name
+  const [members, setMembers] = useState<UserRow[]>(isNew ? [] : USER_GROUP_MEMBERS)
   const d = USER_GROUP_DIALOG
+  useScreenReport({ dialog: pbSlug(d.title), rows: members.length })
 
-  const members = umColumns(d.membersColumns)
-  const nameCol = members.find((c) => c.key === 'user')
+  const memberColumns = umColumns(d.membersColumns)
+  const nameCol = memberColumns.find((c) => c.key === 'user')
   if (nameCol) {
     /* a member who is an inactive user renders in #FF0000, with the trailing
        `*` already part of the name as the capture prints it */
@@ -323,11 +329,14 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
             <PBGroup title={d.group}>
               <div className="pb-row" style={{ gap: 10, padding: '1px 0' }}>
                 <span className="pb-form__label">Name:</span>
+                {/* `db78e3c7…`: an existing group's Name is a grey read-only
+                    field in bold. A new group has no captured name prompt in
+                    front of it here, so its Name is typed in place. */}
                 <PBInput
                   w={260}
                   defaultValue={String(row.name ?? '')}
-                  /* focused in the capture — the #FFC09C wash */
-                  style={{ background: UM_FOCUS }}
+                  readOnly={!isNew}
+                  style={isNew ? { background: UM_FOCUS } : { background: '#e8e8e8', fontWeight: 700 }}
                   data-tutorial-id="host.mois.field.name"
                 />
                 <span className="pb-form__label">Status:</span>
@@ -335,7 +344,13 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
               </div>
               <div className="pb-row" style={{ gap: 10, padding: '1px 0' }}>
                 <span className="pb-form__label">Description:</span>
-                <PBInput w={380} defaultValue={String(row.desc ?? '')} data-tutorial-id="host.mois.field.description" />
+                {/* focused in the capture — the #FFC09C wash */}
+                <PBInput
+                  w={380}
+                  defaultValue={String(row.desc ?? '')}
+                  style={isNew ? undefined : { background: UM_FOCUS }}
+                  data-tutorial-id="host.mois.field.description"
+                />
               </div>
               <div className="pb-row" style={{ gap: 10, padding: '1px 0', alignItems: 'flex-start' }}>
                 <span className="pb-form__label" style={{ lineHeight: '19px' }}>Note:</span>
@@ -344,15 +359,26 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
             </PBGroup>
           </div>
 
-          <PBBand right={<BandButtons scope="user-group-members" labels={d.membersButtons} />}>
+          <PBBand
+            right={(
+              <BandButtons
+                scope="user-group-members"
+                labels={d.membersButtons}
+                onPress={(b) => {
+                  if (b === 'New') { setMembers((m) => [...m, { user: '', note: '' }]); setCur(members.length) }
+                  if (b === 'Delete') { setMembers((m) => m.filter((_, i) => i !== cur)); setCur(0) }
+                }}
+              />
+            )}
+          >
             {d.membersBand}
           </PBBand>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3, height: 140 }}>
             <PBDataWindow<UserRow>
-              rows={USER_GROUP_MEMBERS}
+              rows={members}
               current={cur}
               onCurrentChange={setCur}
-              columns={members}
+              columns={memberColumns}
               rowTutorialId={(r) => `host.mois.row.member-${pbSlug(String(r.user ?? ''))}`}
               empty=" "
             />
@@ -385,11 +411,17 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
    Password Policy                      `3ce40b48cff3`, `4eaa5ed0bf3f`
    ======================================================================== */
 
-function PasswordPolicyView() {
+function PasswordPolicyView({ onClose }: { onClose?: () => void }) {
+  const [editing, setEditing] = useState(false)
   return (
     <>
       <PBViewHeader title={PASSWORD_POLICY_SPEC.header} />
-      <PBCommandRow commands={USER_COMMANDS.policy.map((label) => ({ label }))} />
+      <PBCommandRow
+        commands={USER_COMMANDS.policy.map((label) => ({
+          label,
+          onClick: label === 'Edit Policy' ? () => setEditing(true) : label === 'Close Window' ? () => onClose?.() : undefined,
+        }))}
+      />
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '6px 10px' }}>
         {PASSWORD_POLICY.map((section) => (
           <div key={section.caption} style={{ paddingBottom: 10 }}>
@@ -398,7 +430,54 @@ function PasswordPolicyView() {
           </div>
         ))}
       </div>
+      {editing && <PasswordPolicyDialog onClose={() => setEditing(false)} />}
     </>
+  )
+}
+
+/* `Password Policy` — the edit dialog Edit Policy raises (`4eaa5ed0bf3f`,
+   the right-hand window). Its labels differ from the read-only form's:
+   "Require at least one number" (spelt right here), "Allow a password to be
+   reused every: N times", "Force passwords to expire", "Days before password
+   expires"; footer Apply Changes / Cancel. */
+function PasswordPolicyDialog({ onClose }: { onClose: () => void }) {
+  const host = usePBInstrumentation()
+  useScreenReport({ dialog: 'password-policy' })
+  const head = (text: string) => <div style={{ color: '#000080', fontWeight: 700, padding: '6px 6px 4px', borderBottom: '1px solid #b0b0b0' }}>{text}</div>
+  const tick = (label: string) => <div style={{ padding: '2px 0 2px 118px' }}><PBCheckbox label={label} /></div>
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 70 }}>
+      <PBWindow child controls={false} className="pb-um-dialog" title="Password Policy" onClose={onClose} tutorialId="host.mois.dialog.password-policy" style={{ width: 450 }}>
+        <div style={{ background: 'var(--pb-face)', padding: 6 }}>
+          <div style={{ border: '1px solid #a0a0a0' }}>
+            {head('Structure:')}
+            <div style={{ padding: '4px 10px' }}>
+              <div className="pb-row" style={{ gap: 10 }}><span style={{ width: 108, textAlign: 'right' }}>Minimum Length:</span><PBInput w={40} align="center" defaultValue="1" /></div>
+              {tick('Require at least one capitalized character')}
+              {tick('Require at least one number')}
+              {tick('Require at least one special character')}
+              <div style={{ padding: '2px 0 0 124px' }}>Special Character List:</div>
+              <div style={{ paddingLeft: 124 }}><PBInput w={204} defaultValue="!@#$%^&*()" /></div>
+            </div>
+            {head('Life Cycle:')}
+            <div style={{ padding: '4px 10px 10px' }}>
+              <div style={{ paddingLeft: 108 }}>Allow a password to be reused every:</div>
+              <div className="pb-row" style={{ gap: 6, paddingLeft: 124 }}><PBInput w={40} align="center" defaultValue="1" data-tutorial-id="host.mois.field.reused-every" />times</div>
+              <div className="pb-row" style={{ gap: 10, paddingTop: 4 }}><span style={{ width: 108, textAlign: 'right' }}>Expires:</span><PBCheckbox label="Force passwords to expire" tutorialId="host.mois.field.force-passwords-to-expire" /></div>
+              <div style={{ paddingLeft: 124 }}>Days before password expires:</div>
+              <div style={{ paddingLeft: 124 }}><PBInput w={40} align="center" defaultValue="90" data-tutorial-id="host.mois.field.days-before-password-expires" /></div>
+            </div>
+          </div>
+        </div>
+        <div className="pb-footer">
+          <span className="pb-footer__spacer" />
+          {['Apply Changes', 'Cancel'].map((b) => (
+            <PBButton key={b} wide data-tutorial-id={host?.anchor('command', pbSlug(b))} onClick={() => { host?.report('command', { command: pbSlug(b) }); onClose() }}>{b}</PBButton>
+          ))}
+          <span className="pb-footer__spacer" />
+        </div>
+      </PBWindow>
+    </div>
   )
 }
 

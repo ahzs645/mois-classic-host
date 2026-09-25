@@ -10,6 +10,7 @@ import {
 } from '../data/userManagement'
 import { UM_CSS, umColumns } from './UserManagementKit'
 import { ModuleWindowAccessTab, ReportAccessTab, SpecialFunctionsTab } from './UserAccessTabs'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    Administration ▸ User Management ▸ Security Profiles — the editor, plus the
@@ -34,6 +35,7 @@ import { ModuleWindowAccessTab, ReportAccessTab, SpecialFunctionsTab } from './U
 export function SecurityProfileWindow({ row, onClose }: { row: UserRow; onClose: () => void }) {
   const host = usePBInstrumentation()
   const [tab, setTab] = useState(SECURITY_PROFILE_TABS[0]!)
+  useScreenReport({ dialog: pbSlug(SECURITY_PROFILE_TITLE) })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60 }}>
@@ -160,6 +162,7 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
   const [cur, setCur] = useState(0)
   const [picked, setPicked] = useState<Set<string>>(new Set(selected))
   const rows = userListSpec('ad-security-profiles')?.rows ?? []
+  useScreenReport({ dialog: pbSlug(PROFILE_PICKER.title) })
 
   const toggle = (name: string) => {
     const next = new Set(picked)

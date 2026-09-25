@@ -11,7 +11,13 @@ import {
 } from '../pb'
 import { PreferencesDetail } from './PreferencesDetail'
 import { PreferenceEncounterDialog } from './PreferenceEncounterDialog'
-import { MeasureReportPane } from './MeasureReportPane'
+import { MeasurePanelPane, MeasureReportPane } from './MeasureReportPane'
+import { useMeasuresFolder } from './measuresFolder'
+import { SignatureLink, recordKeyOf, useReportRecordEdits } from './reportRecordEdits'
+import { RECORD_FOLDERS, useReportRecords } from './reportRecords'
+import { useFolderReviews } from '../data/folder-reviews'
+import { AdverseEventTab, ALLERGY_WINDOWS, AllergyFolderWindows } from './AllergyWindows'
+import { useRecordOptionList } from './RecordOptionList'
 
 
 /* One component for Imaging Reports, Consult Reports, Procedure and Paper
@@ -65,17 +71,36 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
   const [drafts, setDrafts] = useState<Record<string, MoisRecord>>({})
   const [saved, setSaved] = useState<Record<string, MoisRecord>>({})
   const [encounterOpen, setEncounterOpen] = useState(false)
-  const screen = { ...layout, banner: undefined }
+  /* "… have not been reviewed for this patient" stands until a review is
+     filed; then the title carries its date and a Last Reviewed line takes the
+     banner's place (303791 `7d42bca7…png`, data/folder-reviews.ts) */
+  const [nodeReviews] = useFolderReviews(node)
+  const reviewed = layout.banner ? nodeReviews[0] : undefined
+  const screen = { ...layout, banner: reviewed ? undefined : layout.banner, title: reviewed ? `${layout.title} - (${reviewed.date})` : layout.title }
 
   const patient = usePatient()
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
   const [cur, setCur] = useState(() => initialRecordId && node === 'prefs' ? Math.max(0, records.findIndex(r => r.id_chart_preference === initialRecordId)) : 0)
+  /* Measures' own taskbar, flag painting, filter and Panel tab (measuresFolder.tsx) */
+  const measures = useMeasuresFolder(node, screen.rows, cur)
+  /* New Record / Delete Record on the other report folders (reportRecordEdits.tsx) */
+  /* New Record / Delete Record / Save / Undo, with Reaction Risks' New
+     Reaction Risk window, on the allergy, adverse-event, condition and
+     intervention folders (reportRecords.tsx). Where it is active it owns the
+     rows, and the generic handler below passes straight through. */
+  const own = useReportRecords({
+    node: RECORD_FOLDERS.has(node) ? node : '', rows: measures.rows, records, columns: layout.columns, cur, setCur,
+    newWindow: node === 'reaction' || node === 'allergy' ? ALLERGY_WINDOWS.newRisk : undefined,
+  })
+  const edits = useReportRecordEdits(own.active ? 'measures' : node, measures.rows, records, cur, setCur)
+  const tabs = measures.active ? screen.tabs?.map((t) => (t.startsWith('Panel (') ? measures.panel.caption : t)) : screen.tabs
+  const activeTab = measures.active && tab.startsWith('Panel (') ? measures.panel.caption : tab
   const preferenceGrid = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     if (node !== 'prefs') return
     preferenceGrid.current?.querySelectorAll('tbody tr')[cur]?.scrollIntoView?.({ block: 'nearest' })
   }, [cur, node, records.length])
-  const sourceRecord = records[cur]
+  const sourceRecord = own.active ? own.recordAt(cur) : edits.records[cur]
   const recordId = sourceRecord?.id_chart_preference ?? ''
   const record = node === 'prefs' && sourceRecord ? { ...sourceRecord, ...drafts[recordId] } : sourceRecord
   const changePreference = (field: string, value: string) => {
@@ -85,13 +110,15 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
   const form = screen.forms?.[tab] ?? screen
   const reactions = record ? (node === 'events' ? data?.reaction_event.filter(r => r.id_adverse_event === record.id_adverse_event) : data?.reaction_risk.filter(r => r.id_allergy === record.id_allergy)) ?? [] : []
 
-  const commands: PBCommand[] = screen.commands.map((c) =>
+  const commands: PBCommand[] = own.commands(edits.commands(measures.commands(screen.commands.map((c) =>
     c === null ? null : { label: c, disabled: screen.disabled?.includes(c), onClick: node !== 'prefs' ? undefined
       : c === 'Save' ? () => setSaved(drafts)
       : c === 'Undo' ? () => setDrafts(previous => ({ ...previous, [recordId]: saved[recordId] ?? {} }))
       : c === 'Refresh' ? () => { setDrafts({}); setSaved({}) } : undefined },
-  )
-  const columns: PBColumn<Record<string, string>>[] = screen.columns.map((c) => ({
+  ))))
+  /* the record's right-click Option List (RecordOptionList.tsx) */
+  const options = useRecordOptionList({ node, record, commands, setCur })
+  const columns: PBColumn<Record<string, string>>[] = measures.columns(screen.columns.map((c) => ({
     key: c.key,
     auditId: c.auditId,
     header: c.header,
@@ -99,7 +126,7 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
     align: c.align,
     dots: c.dots,
     render: c.check ? (r) => <PBCheckbox checked={r[c.key] === '✓' || r[c.key] === 'Y'} /> : undefined,
-  }))
+  })))
 
   const detail = (
     <div style={{ display: 'flex', gap: 10, padding: '6px 8px', alignItems: 'flex-start', minWidth: 0 }}>
@@ -129,7 +156,7 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
 
       <div className="pb-row" style={{ padding: '2px 8px' }}>
         <span>Search For:</span><PBLookup w="100%" />
-        {screen.viewSelect && <PBSelect options={screen.viewSelect} w={104} />}
+        {screen.viewSelect && <PBSelect options={screen.viewSelect} w={120} />}
       </div>
 
       {screen.filters && (
@@ -141,25 +168,31 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
         </div>
       )}
 
-      {screen.banner && <div style={{ padding: '2px 8px 3px', flex: 'none' }}>{screen.banner}</div>}
+      {screen.banner && <div style={{ padding: '2px 8px 3px', flex: 'none' }} data-tutorial-id="host.mois.field.review-banner">{screen.banner}</div>}
+      {reviewed && (
+        <div className="pb-row" style={{ padding: '0 8px 3px', gap: 18, flex: 'none' }} data-tutorial-id="host.mois.field.last-reviewed">
+          <span>Last Reviewed</span><span>{reviewed.date}</span><span>{reviewed.name}</span>
+        </div>
+      )}
 
-      <div ref={preferenceGrid} style={{ padding: '0 3px', height: node === 'prefs' ? 278 : 220, flex: 'none', display: 'flex' }}>
+      <div ref={preferenceGrid} onContextMenu={options.active ? options.onContextMenu : undefined} style={{ padding: '0 3px', height: node === 'prefs' ? 278 : 220, flex: 'none', display: 'flex', position: 'relative' }}>
         <PBDataWindow
           columns={columns}
-          rows={node === 'prefs' ? rowsFromExport('prefs', records.map(r => ({ ...r, ...drafts[r.id_chart_preference ?? ''] }))) : screen.rows}
+          rows={node === 'prefs' ? rowsFromExport('prefs', records.map(r => ({ ...r, ...drafts[r.id_chart_preference ?? ''] }))) : own.active ? own.rows : edits.rows}
           current={cur}
-          rowTutorialId={node === 'prefs' ? (_r, i) => `host.mois.row.preference-${records[i]?.id_chart_preference}` : undefined}
+          rowTutorialId={node === 'prefs' ? (_r, i) => `host.mois.row.preference-${records[i]?.id_chart_preference}` : measures.rowTutorialId ?? options.rowTutorialId}
           onCurrentChange={i => { setCur(i); setEncounterOpen(false) }}
-          rowStatus={(r) => (screen.flagKey && r[screen.flagKey] === 'H' ? 'flag' : 'normal')}
+          rowStatus={(r) => (!measures.active && screen.flagKey && r[screen.flagKey] === 'H' ? 'flag' : 'normal')}
           empty={`No ${screen.title.toLowerCase()} on file.`}
         />
+        {options.menu}
       </div>
 
       {/* detail body, with the acknowledgement rail alongside where present */}
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4, padding: '4px 3px 0' }}>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex' }}>
           {screen.tabs ? (
-            <PBTabs tabs={screen.tabs} active={tab} onChange={setTab} compact>
+            <PBTabs tabs={tabs ?? screen.tabs} active={activeTab} onChange={setTab} compact>
               {tab === 'Office Notes (0)' ? (
                 <>
                   <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
@@ -177,6 +210,8 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
                     />
                   </div>
                 </>
+              ) : node === 'events' && tab !== 'Reactions' ? (
+                <AdverseEventTab tab={tab} record={record} />
               ) : tab === 'Reactions' ? (
                 <>
                   <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
@@ -211,9 +246,11 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
                     />
                   </div>
                 </>
+              ) : measures.active && activeTab === measures.panel.caption ? (
+                <MeasurePanelPane panel={measures.panel} />
               ) : tab === 'Panel (0)' ? (
                 <div className="pb-dw__empty" style={{ padding: 24 }}>No panel detail available.</div>
-              ) : node === 'prefs' ? <PreferencesDetail key={recordId} record={record} records={records} onChange={changePreference} /> : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={screen.rows[cur]} /> : detail}
+              ) : node === 'prefs' ? <PreferencesDetail key={recordId} record={record} records={records} onChange={changePreference} /> : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={measures.rows[cur]} /> : detail}
             </PBTabs>
           ) : (
             <div style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-window)', border: '1px solid var(--pb-border)', overflow: 'auto' }}>
@@ -237,7 +274,8 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
                   </div>
                 ))}
                 <div style={{ textAlign: 'center', marginTop: 2 }}>
-                  <button className="pb-link">View Detail…</button>
+                  {/* 303741: the rail's View Detail opens the record's Workflow Summary */}
+                  <button className="pb-link" data-tutorial-id="host.mois.command.view-detail" onClick={options.active && record ? options.openWorkflowSummary : undefined}>View Detail…</button>
                 </div>
               </div>
             </div>
@@ -253,7 +291,7 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
           <span>Sent Date:&nbsp;</span><span style={{ width: 100 }}>{record?.dtm_sent ?? ''}</span>
           <span>Code:&nbsp;&nbsp;{record?.str_code ?? ''}</span>
           <span className="pb-row__spacer" />
-          <button className="pb-link">{record?.str_signature ?? ''}</button>
+          <SignatureLink key={recordKeyOf(patient.chart, node, record)} recordKey={recordKeyOf(patient.chart, node, record)} source={record?.str_source} hidden={!record} />
         </div>
       )}
       <div className="pb-row" style={{ padding: '0 8px 4px', gap: 0 }}>
@@ -265,6 +303,8 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
       </div>
       {node === 'prefs' && record && encounterOpen && <PreferenceEncounterDialog key={recordId} encounterId={encounterId}
         encounters={encounters} onChange={id => changePreference('id_encounter', id)} onClose={() => setEncounterOpen(false)} />}
+      {own.active && <AllergyFolderWindows record={record} onFile={own.file} />}
+      {options.windows}
     </>
   )
 }

@@ -165,10 +165,12 @@ export const TRANSMISSION_LOG_COLUMNS: CdxColumn[] = [
   { key: 'detail', header: 'Detail', width: 403 },
 ]
 
-/** Three rows, newest first — note that only SENT_OK and CREATED carry a
-    User; RENDERED is the server's own step and its User cell is empty. */
+/** Three rows, newest first. Only CREATED carries a User — "the person who
+    clicked the distribute button" (304753 glossary); RENDERED and SENT_OK are
+    the system's own steps and their User cells are blank (304753
+    `daebea8b…`). */
 export const TRANSMISSION_LOG = [
-  { when: '2013.11.21 09:14', user: 'ADMINISTRATOR', status: 'SENT_OK', detail: 'Message sent successfully.' },
+  { when: '2013.11.21 09:14', user: '', status: 'SENT_OK', detail: 'Message sent successfully.' },
   { when: '2013.11.21 09:14', user: '', status: 'RENDERED', detail: 'Message rendered to CDA for transmission.' },
   { when: '2013.11.21 09:13', user: 'ADMINISTRATOR', status: 'CREATED', detail: 'Message created by MOIS.' },
 ]
@@ -191,11 +193,16 @@ export const QUALITY_REVIEW_COLUMNS: CdxColumn[] = [
 
 export type QualityReviewRow = { item: string; errors: string; warnings: string; total?: boolean }
 
+/* The Measures row is 333106's (image 8780d505: Measures, 1 error): the pap
+   result that arrived with "See Attachment" for a value. 303384 says the
+   list "is the same for both folders", so Lab Results and Inbound Messages
+   both draw this one list. */
 export const QUALITY_REVIEW_ROWS: QualityReviewRow[] = [
+  { item: 'Measures', errors: '1', warnings: '-' },
   { item: 'Imaging', errors: '-', warnings: '3' },
   { item: 'Consults', errors: '14', warnings: '15' },
   { item: 'Facility Admissions', errors: '4', warnings: '5' },
-  { item: '', errors: '18', warnings: '23', total: true },
+  { item: '', errors: '19', warnings: '23', total: true },
 ]
 
 /** Verbatim from 304754. Errors must be fixed before the record is placed in
@@ -284,6 +291,19 @@ export const RECORD_NAVIGATOR_ROWS: NavigatorRecord[] = [
   { patient: 'SMITH, MAGGIE', type: 'CONSULT', date: '2013.11.18', description: 'CARDIOLOGY CONSULT', detail: 'Reason for Consult is required.' },
   { patient: 'SMITH, MAGGIE', type: 'CONSULT', date: '2013.11.12', description: 'RESPIROLOGY CONSULT', detail: 'Code should not be blank.' },
 ]
+
+/** The Measures tear-off: 333106 image ed8af8c2. One MEASURE row, a red
+    error (not a warning) in Messages, and the report text the lab sent.
+    The patient is whoever's chart the stage has open, since pressing the
+    record takes you into that chart (`data/charts/overlays.ts` puts the
+    same record in chart 87288's Measures). */
+export const PAP_NAVIGATOR = {
+  type: 'MEASURE',
+  date: '2026.09.15',
+  description: 'BCCA GYNECOLOGICAL CYTOLOGY REPORT',
+  message: 'Value should state positive or negative.',
+  report: 'NOTE: SEE ATTACHED REPORT',
+}
 
 /** The `Messages` group under the tree: a warning triangle and the message
     text for the selected record. */

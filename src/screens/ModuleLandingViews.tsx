@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBViewHeader } from '../pb'
 import { daybookProviders } from '../data/mois'
-import { daybookAppointments } from '../data/daybook'
+import { dayRows, schedulerStore } from '../data/schedulerStore'
 import { daybookDate, daybookStamp } from './SchedulerView'
 
 /** Live TRAINING landing pages, inspected 2026-09-21. */
@@ -27,7 +27,8 @@ export function ProviderWorkloadView({ offset, onMove, onOpen }: {
   const [hideEmpty, setHideEmpty] = useState(false)
   // Only the existing Technical Support fixture establishes appointment counts.
   const rows = daybookProviders.map(({ provider }) => ({ provider,
-    appointments: provider === 'TECHNICAL SUPPORT' && offset === 0 ? daybookAppointments.length : 0,
+    /* every provider's own day (data/daybook.ts, data/schedulerStore.ts) */
+    appointments: dayRows(schedulerStore.get(), provider, offset).length,
   })).filter((row) => row.provider.toLowerCase().includes(find.toLowerCase()) && (!hideEmpty || row.appointments > 0))
   return <><PBViewHeader title="Provider Work Load" />
     <div className="pb-row" style={{ padding: '4px 10px', background: 'white' }}>

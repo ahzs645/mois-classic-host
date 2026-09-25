@@ -5,7 +5,10 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { useChartRecords, useNodeRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts/types'
 import type { HostShellProps } from '../host/types'
-import { SelectFormDialog } from './EncounterWindow'
+import { DynamicFormSelectionDialog, type DynamicFormChoice } from './DynamicFormSelectionDialog'
+import { useScreenReport } from '../host/screen-state'
+import { DESKTOP_USER } from '../host/encounterArea'
+import { MOIS_TODAY } from '../data/patients'
 import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
 import {
   PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
@@ -26,7 +29,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   const [current, setCurrent] = useState(0)
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
   const [openedDynamicForm, setOpenedDynamicForm] = useState<MoisRecord | null>(null)
-  const [createdDynamicForms, setCreatedDynamicForms] = useState<{ formId: string; presetKey: string; name: string }[]>([])
+  const [createdDynamicForms, setCreatedDynamicForms] = useState<{ formId: string; presetKey: string; name: string; group?: string }[]>([])
   const [openedCreatedForm, setOpenedCreatedForm] = useState<string | null>(null)
   const [pickingDynamicForm, setPickingDynamicForm] = useState(false)
   const formData = useRef<Record<string, Record<string, unknown>>>({})
@@ -36,11 +39,14 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   const exportedCount = screen.rows?.length ?? 0
   const selectedCreatedForm = createdDynamicForms[current - exportedCount]
   const openedCreatedRow = createdDynamicForms.find((form) => form.formId === openedCreatedForm)
-  const loadDynamicForms = useCallback(async () => {
-    const forms = await loadEncounterForms?.() ?? []
-    return forms.filter((form) => form.presetKey?.startsWith('dynamic-'))
-      .map((form) => ({ ...form, type: 'DYNAMIC FORM' }))
+  /* the webform preset behind a picked dynamic form, when the host has one
+     (the stage's MOIS form library) — matched on the form's name */
+  const presetFor = useCallback(async (choice: DynamicFormChoice) => {
+    const forms = (await loadEncounterForms?.() ?? []).filter((form) => form.presetKey?.startsWith('dynamic-'))
+    const want = choice.title.toUpperCase()
+    return forms.find((form) => want.includes(form.name.toUpperCase()) || form.name.toUpperCase().includes(want))
   }, [loadEncounterForms])
+  useScreenReport(isDynamic && pickingDynamicForm ? { dialog: 'dynamic-form-selection' } : openedDynamicForm ? { dialog: 'dynamic-form' } : {})
   const openSelectedDynamicForm = () => {
     if (selectedCreatedForm) setOpenedCreatedForm(selectedCreatedForm.formId)
     else setOpenedDynamicForm(dynamicForms[current] ?? null)
@@ -54,8 +60,10 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   const commands: PBCommand[] = screen.commands.map((c) => {
     if (c === null) return null
     const gated = screen.disabled?.includes(c) ?? false
+    /* New Record opens the Dynamic Form Selection Window (303105 `7518af69…`)
+       whether or not the host can render the form itself */
     if (isDynamic && c === 'New Record') {
-      return { label: c, disabled: !loadEncounterForms || !encounterFormSlot, onClick: () => setPickingDynamicForm(true) }
+      return { label: c, onClick: () => setPickingDynamicForm(true) }
     }
     if (isDynamic && c === 'Open Form') {
       return { label: c, disabled: !dynamicForms[current] && !selectedCreatedForm, onClick: openSelectedDynamicForm }
@@ -85,7 +93,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
 
   const rows = isDynamic ? [
     ...(screen.rows ?? []),
-    ...createdDynamicForms.map((form) => ({ date: '', group: 'DYNAMIC FORM', title: form.name, attending: '', user: '', state: 'DRAFT' })),
+    ...createdDynamicForms.map((form) => ({ date: MOIS_TODAY, group: form.group ?? 'DYNAMIC FORM', title: form.name, attending: '', user: DESKTOP_USER, state: 'DRAFT' })),
   ] : screen.rows ?? []
   const grid = (
     <PBDataWindow
@@ -101,12 +109,24 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
     />
   )
 
+  if (screen.placeholder) {
+    return (
+      <>
+        <PBViewHeader title={screen.title} />
+        <PBCommandRow commands={commands} />
+        <div className="pb-dw__empty" data-tutorial-id="host.mois.placeholder" style={{ margin: 'auto', maxWidth: 420, textAlign: 'center' }}>
+          {screen.title} is not built on this practice stage yet.
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
-      <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
+      <PBViewHeader title={screen.title} right={screen.noPatient ? undefined : <ChartHeaderIdentity />} />
       <PBCommandRow commands={commands} />
 
-      <PBIdentityStrip
+      {!screen.noPatient && <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
           { label: 'MIDDLE:', value: patient.middle },
@@ -114,11 +134,12 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
           { label: 'DoB:', value: patient.dob },
         ]}
         encounter={screen.noEncounter ? undefined : 'NO ENCOUNTER'}
-      />
+      />}
 
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
+      {/* a screen with per-column filters has no Search For band (chartScreens `noSearch`) */}
+      {!screen.noPatient && !screen.noSearch && <div className="pb-row" style={{ padding: '2px 8px' }}>
         <span>Search For:</span><PBLookup w="100%" />
-      </div>
+      </div>}
 
       {content ? (
         <div className="pb-host-slot">{content}</div>
@@ -166,15 +187,15 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
         })
       )}
       {pickingDynamicForm && (
-        <SelectFormDialog
-          loadEncounterForms={loadDynamicForms}
-          onCreate={(form: FormListRow) => {
-            if (!form.presetKey) return
-            const created = { formId: crypto.randomUUID(), presetKey: form.presetKey, name: form.name }
-            setCreatedDynamicForms((forms) => [...forms, created])
-            setCurrent(exportedCount + createdDynamicForms.length)
+        <DynamicFormSelectionDialog
+          onOk={(choice: DynamicFormChoice) => {
             setPickingDynamicForm(false)
-            setOpenedCreatedForm(created.formId)
+            void presetFor(choice).then((form: FormListRow | undefined) => {
+              const created = { formId: crypto.randomUUID(), presetKey: form?.presetKey ?? '', name: choice.title, group: choice.group }
+              setCreatedDynamicForms((forms) => [...forms, created])
+              setCurrent(exportedCount + createdDynamicForms.length)
+              if (created.presetKey && encounterFormSlot) setOpenedCreatedForm(created.formId)
+            })
           }}
           onClose={() => setPickingDynamicForm(false)}
         />

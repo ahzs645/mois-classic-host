@@ -1,0 +1,14 @@
+/* MOIS - Search Window (DirectorySearchWindow.tsx), off the 2026-09-25 capture */
+.pb-directory-search { display: flex; flex-direction: column; background: #fff; }
+.pb-directory-search__filters { display: grid; grid-template-columns: 44% 35% 1fr; margin: 6px 6px 0; border: 1px solid #b9c7d8; background: #fff; flex: none; }
+.pb-directory-search__group { display: flex; flex-direction: column; gap: 3px; padding: 0 0 8px; }
+.pb-directory-search__caption { margin-bottom: 6px; padding: 4px 6px; background: linear-gradient(180deg, #e9f1fb, #cfe0f5); }
+.pb-directory-search__group label { display: flex; align-items: center; gap: 6px; padding-left: 12px; }
+.pb-directory-search__group label .pb-field { margin-left: auto; margin-right: auto; }
+.pb-directory-search__group .pb-check { padding-left: 12px; }
+.pb-directory-search__grid { flex: 1 1 auto; min-height: 0; display: flex; margin: 0 6px; }
+.pb-directory-search__members { color: var(--pb-link, #0000ee); text-decoration: underline; cursor: pointer; }
+.pb-directory-search__footer { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; flex: none; }
+.pb-directory-search__footer > .pb-check { position: absolute; left: 12px; }
+.pb-directory-search__buttons { display: flex; gap: 10px; }
+.pb-directory-search__buttons .pb-btn { min-width: 86px; }

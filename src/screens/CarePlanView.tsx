@@ -41,7 +41,7 @@ export function CarePlanView({ screen, onNew }: { screen: CarePlanKey; onNew?: (
   const records = useNodeRecords(screen)
   const [cur, setCur] = useState(0)
   const record = records[cur]
-  const linked = linkedGoals(data, { conditions: 'health_issue', risks: 'risk', needs: 'need', actions: 'action', barriers: 'barrier' }[screen], record)
+  const linked = linkedGoals(data, { conditions: 'health_issue', risks: 'risk', needs: 'need', actions: 'action', barriers: 'chart_barrier' }[screen], record)
 
   /* each screen carries its own DataWindow, not a shared one */
   const columns: PBColumn<Row>[] = cfg.columns.map((c) => ({

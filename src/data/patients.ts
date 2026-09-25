@@ -216,6 +216,81 @@ export type Patient = {
   nameHistory?: ChartNameEntry[]
   /** tdt_chart_address */
   addressHistory?: ChartAddressEntry[]
+
+  /* --- Demographics' list tabs -------------------------------------------
+     Kept on the chart (and so in `patient-edits`) rather than in the tab's
+     own state, so New adds a row that Save keeps and Undo takes back, and so
+     Print Demographics and Selected Items read the same rows the tab shows. */
+  /** ID Alias ▸ Alias Identification List */
+  aliasIds?: AliasIdEntry[]
+  /** Associated Parties ▸ Associated Party List */
+  associatedParties?: AssociatedPartyEntry[]
+  /** WCB Claims ▸ WCB Claim List */
+  wcbClaims?: WcbClaimEntry[]
+  /** Benefits — one row per benefit source / service */
+  benefits?: BenefitEntry[]
+  /** Settings ▸ Patient Contact Preferences (art. 303800): who the clinic's
+      automated notifications reach, in what order, by what method */
+  contactPreferences?: ContactPreferenceEntry[]
+}
+
+/** One Patient Contact Preferences row. `contact` is PATIENT or the name of
+    an associated party picked through Select Secondary Contact. */
+export type ContactPreferenceEntry = { reason?: string; order?: string; method?: string; source?: string; contact?: string }
+
+/** One ID Alias row: Code / Description / Value / Effective / Note / Show On Demo. */
+export type AliasIdEntry = { code?: string; desc?: string; value?: string; effective?: string; note?: string; demo?: boolean }
+
+/** One Associated Party. `type` is the Detail pane's Type — art. 301554
+    (`4eeb5e4f…png`) and art. 301149 (`0e1c7555…png`) list exactly two:
+    Emergency Contact and Next of Kin. The grid prints it as Role. */
+export type AssociatedPartyEntry = {
+  name?: string; type?: string; relationship?: string; notes?: string
+  address?: string; address2?: string; city?: string; province?: string; postal?: string; country?: string
+  home?: string; work?: string; ext?: string; cell?: string; pager?: string; preferredPhone?: string
+  emailHome?: string; emailWork?: string; homeMessage?: boolean; workMessage?: boolean
+  demo?: boolean; carePlan?: boolean
+}
+
+/** One WCB claim (art. 301555 `1a4ec3cf…png`, art. 301149). */
+export type WcbClaimEntry = {
+  doi?: string; claim?: string; area?: string; position?: string; nature?: string; icd9?: string
+  employer?: string; isDefault?: boolean
+  company?: string; address?: string; city?: string; postal?: string; province?: string; country?: string
+  phone?: string; note?: string
+}
+
+/** One Benefits row (art. 2951102 / 2257761): source, service, dates, and the
+    PBF status a change request moves it through. */
+export type BenefitEntry = {
+  source: string; service: string; description?: string
+  start?: string; stop?: string; stopReason?: string
+  status?: 'Requested' | 'Approved' | 'Submitted' | 'Registered' | 'Rejected' | 'Unenrollment Requested'
+  deductible?: string; coverage?: string; demo?: boolean; carePlan?: boolean
+}
+
+/* --- Training rows on the reference chart ------------------------------------
+   The 87288 export carries no ID Alias, Associated Party or Benefits rows
+   (see its header), but the lessons that print or edit those tabs need a
+   chart that has some, and the v02.31 Patient Summary capture
+   (`reference/patient-summary-loaded.png`: ALIAS IDS [16], ASSOCIATED
+   PARTIES [8]) shows a working chart carries them. These are synthetic
+   training rows, modelled on art. 319687's print sample (`efa54f10…png`:
+   NORTHERN HEALTH NUMB, an Emergency Contact mother) and on art. 2951102's
+   BC-PBF record; they are marked here so nobody mistakes them for export
+   data. */
+export const TRAINING_CHART_ROWS: Record<string, Partial<Patient>> = {
+  '87288': {
+    aliasIds: [
+      { code: 'NHN', desc: 'NORTHERN HEALTH NUMB', value: '10-666-6554', effective: '2025.09.17', note: '', demo: true },
+    ],
+    associatedParties: [
+      { name: 'AARONSON, FLO', type: 'Emergency Contact', relationship: 'MOTHER', home: '250.765.3212', city: 'TERRACE', province: 'BC', country: 'CANADA', preferredPhone: 'Home', demo: true },
+    ],
+    benefits: [
+      { source: 'MSP', service: 'BC-PBF', description: 'BC Population Based Funding', start: '2025.10.01', status: 'Registered', demo: false },
+    ],
+  },
 }
 
 /** The date the training environment was captured; ages are figured from it. */
@@ -338,9 +413,13 @@ export function findPatient(chart: string, roster: Patient[] = patients): Patien
 }
 
 /**
- * The age caption MOIS puts on a window: whole years, or whole months while
- * the patient is under two — `21 MTH OLD`, `39 YR OLD`. Empty for a chart
- * with no birth date.
+ * The age caption MOIS puts on a window. art. 303741 ("Information Bar"):
+ * days up to 28, weeks from 29 days to four months minus a day, then months
+ * until two years, then years and months until 18, then years —
+ * `21 MTH OLD`, `39 YR OLD`. The day, week and years-and-months captions are
+ * not in any capture; `DAY OLD` / `WK OLD` / `5 YR 3 MTH OLD` follow the
+ * `MTH OLD` / `YR OLD` pattern the captures do show and are inferred. Empty
+ * for a chart with no birth date.
  */
 export function ageOf(dob: string, today = MOIS_TODAY): string {
   if (!dob) return ''
@@ -350,7 +429,13 @@ export function ageOf(dob: string, today = MOIS_TODAY): string {
   let months = (ty - by) * 12 + (tm - bm)
   if (td < bd) months -= 1
   if (months < 0) return ''
-  return months < 24 ? `${months} MTH OLD` : `${Math.floor(months / 12)} YR OLD`
+  const days = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(by, bm - 1, bd)) / 86_400_000)
+  if (days <= 28) return `${days} DAY OLD`
+  if (months < 4) return `${Math.floor(days / 7)} WK OLD`
+  if (months < 24) return `${months} MTH OLD`
+  const years = Math.floor(months / 12)
+  if (years < 18) return months % 12 ? `${years} YR ${months % 12} MTH OLD` : `${years} YR OLD`
+  return `${years} YR OLD`
 }
 
 export const fullName = (p: Patient) => [p.first, p.middle, p.last].filter(Boolean).join(' ')

@@ -1,33 +1,24 @@
-import { PBBand, PBCommandRow, PBDataWindow, PBViewHeader } from '../pb'
+import { PBBand, PBCommandRow, PBDataWindow } from '../pb'
+import { workspaceSummary } from '../data/workspaceLists'
+import { useWorkspaceStore } from '../data/workspaceStore'
+import { useOpenWindow } from './areaWindowRegistry'
+import { WorkspaceBanner } from './WorkspaceBanner'
 
 /* ============================================================================
    Workspace Summary — what the Workspace module opens on.
 
-   Transcribed from `workspace_summary.PNG`: a Refresh / Change W/S command
-   row, then three banded panels. The manual's "Workspace Summary" article
+   Transcribed from `workspace_summary.PNG` and the manual's 303599 image
+   `74b97af2` / 301166 image `e3ec97d1`: a Refresh / Change W/S command row,
+   then three banded panels. The manual's "Workspace Summary" article
    describes them: the Basket Summary counts what is waiting in each of the
-   eight basket folders, split into acknowledgements and reviews; the Task
-   List and Message Board summaries count by priority. A folder with nothing
+   eight basket folders, split into acknowledgements (To Acknowledge) and
+   reviews (To Review) — the A and R of the folders' T column; the Task List
+   and Message Board summaries count by priority. A folder with nothing
    waiting still shows, with a dash.
+
+   The counts are derived from the folders themselves (data/workspaceLists),
+   so following a number into its folder finds that many rows.
    ========================================================================= */
-
-type BasketRow = { item: string; ack: string; review: string }
-
-const BASKET: BasketRow[] = [
-  { item: 'Measures', ack: '20', review: '-' },
-  { item: 'Imaging', ack: '18', review: '-' },
-  { item: 'Consults', ack: '10', review: '-' },
-  { item: 'Procedures', ack: '10', review: '-' },
-  { item: 'Documents', ack: '10', review: '-' },
-  { item: 'Facility Admissions', ack: '6', review: '-' },
-  { item: 'Progress Notes', ack: '12', review: '-' },
-  { item: 'Orders', ack: '10', review: '-' },
-  { item: '', ack: '96', review: '-' },
-]
-
-const TASKS = [{ list: 'ADMINISTRATOR (USER)', vhigh: '-', high: '1', med: '2', low: '-' }]
-const INCOMPLETE = [{ who: 'ADMINISTRATOR', vhigh: '-', high: '-', med: '-', low: '-' }]
-const NEW_MESSAGES = [{ who: 'ADMINISTRATOR', vhigh: '-', high: '-', med: '1', low: '-' }]
 
 const PRIORITY = [
   { key: 'vhigh', header: 'V. High', width: 62, align: 'center' as const },
@@ -37,21 +28,29 @@ const PRIORITY = [
 ]
 
 export function WorkspaceSummaryView() {
+  const ws = useWorkspaceStore()
+  const openWindow = useOpenWindow()
+  const summary = workspaceSummary(ws)
   return (
     <>
-      <PBViewHeader title="Workspace Summary" right={<span>Your Workspace</span>} />
-      <PBCommandRow commands={[{ label: 'Refresh' }, { label: 'Change W/S' }]} />
+      <WorkspaceBanner title="Workspace Summary" />
+      <PBCommandRow commands={[
+        { label: 'Refresh' },
+        { label: 'Change W/S', onClick: () => { openWindow('change-workspace') } },
+      ]} />
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: 3, gap: 6 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto' }} data-tutorial-id="host.mois.field.basket-summary">
           <PBBand>Basket Summary</PBBand>
-          <div style={{ display: 'flex', height: 190 }}>
+          {/* nine rows — eight folders and the total — at the grid's pitch */}
+          <div style={{ display: 'flex', height: 222 }}>
             <PBDataWindow
-              rows={BASKET}
+              rows={summary.basket}
               gutter={false}
               current={-1}
+              rowTutorialId={(r) => (r.item ? `host.mois.row.summary-${r.item.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : 'host.mois.row.summary-total')}
               columns={[
                 { key: 'item', header: 'Item', width: 240 },
-                { key: 'ack', header: 'To Acknowledge', width: 150, align: 'right' },
+                { key: 'ack', header: 'To Acknowledge', width: 150, align: 'right', render: (r) => (r.item ? r.ack : <b>{r.ack}</b>) },
                 { key: 'review', header: 'To Review', width: 150, align: 'right' },
                 { key: 'pad', header: '' },
               ]}
@@ -59,31 +58,31 @@ export function WorkspaceSummaryView() {
           </div>
         </div>
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0 }} data-tutorial-id="host.mois.field.task-summary">
             <PBBand>Task List Summary</PBBand>
             <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
               <PBDataWindow
-                rows={TASKS}
+                rows={summary.tasks}
                 gutter={false}
                 current={-1}
-                columns={[{ key: 'list', header: 'Task List', width: 200 }, ...PRIORITY]}
+                columns={[{ key: 'list', header: 'Task List', width: 168 }, ...PRIORITY]}
               />
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0 }} data-tutorial-id="host.mois.field.message-summary">
             <PBBand>Message Board Summary</PBBand>
             <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, flexDirection: 'column' }}>
               <PBDataWindow
-                rows={INCOMPLETE}
+                rows={summary.incomplete}
                 gutter={false}
                 current={-1}
-                columns={[{ key: 'who', header: 'Incomplete Messages', width: 200 }, ...PRIORITY]}
+                columns={[{ key: 'who', header: 'Incomplete Messages', width: 168 }, ...PRIORITY]}
               />
               <PBDataWindow
-                rows={NEW_MESSAGES}
+                rows={summary.fresh}
                 gutter={false}
                 current={-1}
-                columns={[{ key: 'who', header: 'New Messages', width: 200 }, ...PRIORITY]}
+                columns={[{ key: 'who', header: 'New Messages', width: 168 }, ...PRIORITY]}
               />
             </div>
           </div>

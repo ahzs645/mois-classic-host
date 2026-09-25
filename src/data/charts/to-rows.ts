@@ -15,7 +15,7 @@
    looked obvious but the audit disagreed, the audit wins — it was captured
    from the running application with Ctrl+Shift+A.
    ========================================================================= */
-import type { MoisChartGroup, MoisRecord } from './types'
+import type { MoisChartGroup, MoisOptionalGroup, MoisRecord } from './types'
 import { legacyDynamicFormDefinition, legacyDynamicFormTitle } from '../legacy-dynamic-forms'
 
 const d = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
@@ -25,7 +25,7 @@ const clip = (v?: string) => (v && v !== '0' ? v : '-')
 const tick = (v?: string) => (v === 'Y' ? '✓' : '')
 
 export type RowMap = {
-  group: MoisChartGroup
+  group: MoisChartGroup | MoisOptionalGroup
   /** newest first, by this export field */
   sort?: string
   /** keep only the records a screen shows — Orders splits by order type */
@@ -177,8 +177,26 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
     }),
   },
 
-  // The chart export has prescriptions, but no tdt_medication_lt records.
-  // Long Term Medications remains unmapped until that data source is available.
+  /* Long Term Medication: the export's own tdt_medication_lt records, and
+     nothing else. A chart whose export has none (`<medication_lts/>`) lists
+     none — renewals write Prescriptions (art. 303132, 303217), but a
+     prescription is not a long-term med and is never read back as one. The
+     tutorial chart's rows are training records (charts/overlays.ts). Field
+     names are MOIS's (MOIS_REF_10000074). */
+  ltm: {
+    group: 'medication_lt',
+    sort: 'dtm_start',
+    row: (r) => ({
+      start: d(r.dtm_start),
+      end: d(r.dtm_end),
+      med: r.str_medication ?? '',
+      dose: r.str_dose_freq ?? '',
+      indic: r.str_indication ?? '',
+      type: r.str_type ?? '',
+      m: '',
+      generic: r.str_generic_name ?? '',
+    }),
+  },
 
   /* ---- Orders, split the way the chart tree splits them ----------------
      MOIS keeps consults, lab requisitions and the rest in one order table and
@@ -228,12 +246,13 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
   /* ---- Allergy / Intolerances ------------------------------------------ */
   events: {
     group: 'adverse_event', sort: 'dtm_administered',
+    /* Adverse Events: Onset / Agents / Reactions (303212 `268301a3…png`) */
     row: (r) => ({
-      date: d(r.dtm_administered),
-      code: r.str_substance_code ?? '',
-      agent: r.str_agents ?? '',
-      event: r.str_reactions ?? r.str_report_type ?? '',
+      onset: d(r.dtm_administered),
+      agents: r.str_agents ?? '',
+      reactions: r.str_reactions ?? '',
       m: '',
+      clip: clip(r.num_attachments),
     }),
   },
 
@@ -369,12 +388,16 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
   paper: {
     group: 'document', sort: 'dtm_date',
     where: (r) => r.str_doc_type === 'PAPER FORM',
+    /* the Paper Forms window's own columns (reportScreens.paper): Date,
+       Author, Document Type, Form Name, S, M and the paper clip */
     row: (r) => ({
+      date: d(r.dtm_date),
+      author: r.str_author ?? '',
+      type: r.str_doc_type ?? '',
       form: r.str_note ?? '',
-      category: r.str_doc_type ?? '',
-      revised: d(r.dtm_date),
-      version: '',
-      status: '',
+      s: tick(r.str_sensitive),
+      m: r.str_link ? '\u21e9' : '',
+      clip: clip(r.num_attachments ?? (r.str_link ? '1' : '')),
     }),
   },
   encforms: {
@@ -384,9 +407,75 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       /* both of these are ids the export never resolves — `id_form_type` 1001
          is ENCOUNTER FORMS, `str_form_window` WP_FORM_HEADER_WCB is WCB REPORT,
          and the lookup tables are not in a chart export */
-      type: r.id_form_type ?? '',
-      form: r.str_form_window ?? '',
+      type: r.id_form_type === '1001' ? 'ENCOUNTER FORMS' : r.id_form_type ?? '',
+      form: r.str_form_window === 'WP_FORM_HEADER_WCB' ? 'WCB REPORT' : r.str_form_window ?? '',
       attending: r.id_author && r.id_author !== '-1' ? r.id_author : '',
+    }),
+  },
+
+  /* ---- Folders chart 87288's export has no records for ----------------
+     `<admissions>`, `<interventions>`, `<social_hxs>` and `<chart_barriers>`
+     are empty in that export, so these lists are empty for it — which is
+     what MOIS shows for that patient. The mappings are here so an export
+     that does carry them lists them. Every field below is one the field
+     audit verified against the running client (MATRIX row in brackets) and
+     that MOIS_REF_10000074 carries; the row keys are the report windows'
+     own (reportScreens.admissions / interventions / socialhx / barriers). */
+
+  /* Facility Admissions (art. 303527): Admitted / Discharged / Admit By /
+     Facility / Description / M / paper clip [R1135..R1141] */
+  admissions: {
+    group: 'admission', sort: 'dtm_admit',
+    row: (r) => ({
+      admitted: d(r.dtm_admit),
+      discharged: d(r.dtm_discharge),
+      by: r.str_admit_by ?? '',
+      facility: r.str_facility ?? '',
+      desc: r.str_description ?? '',
+      m: '',
+      clip: clip(r.num_attachments),
+    }),
+  },
+  /* Interventions (art. 303129): Date / Performed By / Description /
+     Declined / Not Indicated [R0634..R0638]. `str_not_inclined` is MOIS's
+     own spelling of the Not Indicated column. */
+  interventions: {
+    group: 'intervention', sort: 'dtm_date',
+    row: (r) => ({
+      date: d(r.dtm_date),
+      by: r.str_performed_by ?? '',
+      desc: r.str_description ?? '',
+      declined: tick(r.str_decline),
+      notind: tick(r.str_not_inclined),
+      m: '',
+      clip: clip(r.num_attachments),
+    }),
+  },
+  /* Social History (art. 303438): Start / End / Description / S [R0784..R0787] */
+  socialhx: {
+    group: 'social_hx', sort: 'dtm_start',
+    row: (r) => ({
+      start: d(r.dtm_start),
+      end: d(r.dtm_end),
+      desc: r.str_description ?? '',
+      s: tick(r.str_sensitive),
+      m: '',
+      clip: clip(r.num_attachments),
+    }),
+  },
+  /* Barrier to Care (art. 303512): Start / End / Barrier to Care / S
+     [R0991..R0994]. The report window keys the text `barrier`, the Care
+     Plan window (data/mois.tsx carePlanScreens) `desc`; both are filled. */
+  barriers: {
+    group: 'chart_barrier', sort: 'dtm_start',
+    row: (r) => ({
+      start: d(r.dtm_start),
+      end: d(r.dtm_end),
+      barrier: r.str_barrier ?? '',
+      desc: r.str_barrier ?? '',
+      s: tick(r.str_sensitive),
+      m: '',
+      clip: clip(r.num_attachments),
     }),
   },
 

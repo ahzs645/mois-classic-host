@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
 import {
@@ -7,17 +7,19 @@ import {
   genders, incentiveRows, insuranceCarriers,
   preferredPhones, serviceProviders
 } from '../data/mois'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
-import type { Patient } from '../data/patients'
+import { ChartHeaderIdentity, PatientOverride, usePatient, usePatientRoster } from '../data/patient-context'
+import type { AliasIdEntry, AssociatedPartyEntry, BenefitEntry, Patient, WcbClaimEntry } from '../data/patients'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup,
-  PBIdentityStrip,
+  PBIdentityStrip, PBMessageBox,
   PBInput, PBLookup, PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
+import { useScreenReport } from '../host/screen-state'
+import { BenefitSourceServiceWindow, SelectBenefitSourceDialog } from './BenefitDialogs'
+import { CmdButton } from './CmdButton'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
-import { BenefitEditor } from './BenefitEditor'
 import { PatientDetailPage } from './PatientDetailPage'
-import { savePatient, undoPatient, refreshPatient, updatePatient } from '../data/patient-edits'
+import { patientEdits, renamePatientEdits, savePatient, undoPatient, refreshPatient, updatePatient, usePatientEdits, usePatientSaved } from '../data/patient-edits'
 import { demographicServiceCenters } from '../data/demographic-lookups'
 import { PBDropDownDataWindow } from '../pb'
 import { AddressExpiryDialog, AddressWizardDialog, PatientPhotoDialog, MspEligibilityDialog, DemographicLookupDialog,
@@ -43,38 +45,142 @@ const incentiveCols: PBColumn<Incentive>[] = [
 /** Live TRAINING client: about 800px of content inside the 1000px frame. */
 const DESIGN_W = 800
 
-export function DemographicsView() {
-  const patient = usePatient()
-  const [tab, setTab] = useState('Demographics')
-  const [editBenefit, setEditBenefit] = useState(false)
+/* --- the record the command row acts on ----------------------------------
+   New Record and Delete Record act on the tab in front: on Demographics and
+   Patient Detail the record is the chart itself (art. 301171: New Record
+   empties the window for a chart that has no number yet), and on a list tab
+   it is a row of that list (art. 301554 / 301555: New Record adds a party /
+   a claim). The list tabs keep their current row here so the command row
+   can add to and delete from the right list. */
+type ListKey = 'aliasIds' | 'associatedParties' | 'wcbClaims'
+const LIST_TABS: Record<string, ListKey> = {
+  'ID Alias': 'aliasIds',
+  'Associated Parties': 'associatedParties',
+  'WCB Claims': 'wcbClaims',
+}
+type Cursors = { current: Partial<Record<ListKey, number>>; set: (key: ListKey, i: number) => void }
+const CursorContext = createContext<Cursors>({ current: {}, set: () => {} })
 
-  return (
+/** A chart number MOIS has not used yet: the next one after the highest on file. */
+function nextChartNumber(roster: Patient[]) {
+  const top = roster.reduce((m, p) => Math.max(m, /^\d+$/.test(p.chart) ? Number(p.chart) : 0), 0)
+  return String(top + 1)
+}
+
+/** A registration in progress. `chart` is blank until Save assigns it; the
+    blank chart's edits are keyed '' so every window that writes
+    `updatePatient(patient.chart, …)` writes to the new record, and Save moves
+    them to the number it assigns. */
+type NewChart = { chart: string }
+
+const BLANK: Patient = { chart: '', status: 'A', first: '', middle: '', last: '', dob: '', gender: '' }
+
+export function DemographicsView({ onLookup, onStepChart }: {
+  /** the "…" beside Chart No. and F4: the Patient Chart List */
+  onLookup?: () => void
+  /** Previous Chart / Next Chart */
+  onStepChart?: (delta: 1 | -1) => void
+} = {}) {
+  const open = usePatient()
+  const roster = usePatientRoster()
+  const [tab, setTab] = useState('Demographics')
+  const [cursor, setCursor] = useState<Partial<Record<ListKey, number>>>({})
+  const [fresh, setFresh] = useState<NewChart | null>(null)
+  const [duplicate, setDuplicate] = useState<Patient | null>(null)
+  const freshEdits = usePatientEdits(fresh?.chart ?? '')
+  const patient = fresh ? { ...BLANK, ...freshEdits, chart: fresh.chart } : null
+  const cursors: Cursors = { current: cursor, set: (key, i) => setCursor((c) => ({ ...c, [key]: i })) }
+  const listKey = LIST_TABS[tab]
+  const target = fresh ? fresh.chart : open.chart
+  const current = fresh ? { ...BLANK, ...freshEdits } : open
+  const saved = usePatientSaved(target)
+
+  /* host.screen.draft while a new chart has no number yet, record 'saved'
+     once Save has given it one; saved = no unsaved edits on the chart */
+  useScreenReport({
+    ...(fresh && !fresh.chart ? { draft: true } : {}),
+    ...(fresh?.chart ? { record: 'saved' } : {}),
+    saved,
+    chartStatus: current.status ?? '',
+    ...(listKey ? { rows: (current[listKey] ?? []).length }
+      : tab === 'Benefits' ? { rows: (current.benefits ?? []).length }
+      : tab === 'Settings' ? { rows: (current.contactPreferences ?? []).length } : {}),
+    designation: current.genderDesignations?.preferred || current.genderDesignations?.genotypic ? 'set' : 'none',
+  })
+
+  const newRecord = () => {
+    if (listKey) {
+      const list = (current[listKey] ?? []) as object[]
+      updatePatient(target, { [listKey]: [{}, ...list] } as Partial<Patient>)
+      cursors.set(listKey, 0)
+      return
+    }
+    /* a new chart: the window empties, and Chart No. stays blank until Save */
+    refreshPatient('')
+    setFresh({ chart: '' })
+    setTab('Demographics')
+  }
+  const deleteRecord = () => {
+    if (listKey) {
+      const list = (current[listKey] ?? []) as object[]
+      const i = Math.min(cursor[listKey] ?? 0, list.length - 1)
+      if (i < 0) return
+      updatePatient(target, { [listKey]: list.filter((_, n) => n !== i) } as Partial<Patient>)
+      cursors.set(listKey, Math.max(0, i - 1))
+      return
+    }
+    /* an unsaved registration is simply thrown away */
+    if (fresh && !fresh.chart) { refreshPatient(''); setFresh(null) }
+  }
+  const commitNew = () => {
+    if (!fresh) return
+    const chart = fresh.chart || nextChartNumber(roster)
+    savePatient('')
+    renamePatientEdits('', chart)
+    setFresh({ chart })
+    setDuplicate(null)
+  }
+  const save = () => {
+    if (!fresh) { savePatient(open.chart); return }
+    if (fresh.chart) { savePatient(fresh.chart); return }
+    /* art. 301149 (v2.10): first, middle and last name plus DOB are checked
+       against the charts on file before a new chart is saved */
+    const d = patientEdits('')
+    const same = (a?: string, b?: string) => (a ?? '').trim().toUpperCase() === (b ?? '').trim().toUpperCase()
+    const match = roster.find((p) => d.last && same(p.first, d.first) && same(p.middle, d.middle) && same(p.last, d.last) && same(p.dob, d.dob))
+    if (match) { setDuplicate(match); return }
+    commitNew()
+  }
+  const undo = () => {
+    if (fresh && !fresh.chart) { refreshPatient(''); setFresh(null); return }
+    undoPatient(target)
+  }
+  const refresh = () => {
+    if (fresh) { setFresh(null); return }
+    refreshPatient(open.chart)
+  }
+
+  const body = (
     <div className="pb-screen pb-demographics-screen" style={{ ['--pb-design-w' as string]: `${DESIGN_W}px` }}>
       <PBViewHeader title="Demographics" right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={[
-          { label: 'New Record' }, { label: 'Delete Record' }, { label: 'Save', active: true, onClick: () => savePatient(patient.chart) },
-          { label: 'Undo', onClick: () => undoPatient(patient.chart) }, { label: 'Refresh', onClick: () => refreshPatient(patient.chart) }, { label: 'Search' },
+          { label: 'New Record', onClick: newRecord }, { label: 'Delete Record', onClick: deleteRecord },
+          { label: 'Save', onClick: save },
+          { label: 'Undo', onClick: undo }, { label: 'Refresh', onClick: refresh }, { label: 'Search' },
           /* no widths: the row is uniform at the kit's 80.5, and the 94/82
              these carried were a 1.5x reading of a 2x capture (4/3 too wide) */
-          { label: 'Previous Chart' }, { label: 'Next Chart' },
+          { label: 'Previous Chart', onClick: () => { setFresh(null); onStepChart?.(-1) } },
+          { label: 'Next Chart', onClick: () => { setFresh(null); onStepChart?.(1) } },
         ]}
       />
 
       {/* the painter's tab stops, measured off reference/demographics-full.png */}
-      <PBIdentityStrip
-        fields={[
-          { label: 'CHART:', value: patient.chart, w: 129 },
-          { label: 'FIRST:', value: patient.first, w: 145 },
-          { label: 'MIDDLE:', value: patient.middle, w: 163 },
-          { label: 'LAST:', value: patient.last, w: 173 },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-      />
+      <IdentityStrip />
 
       <PBFixed style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '3px 3px 3px' }}>
         <PBTabs tabs={TABS} active={tab} onChange={setTab} compact face boldSelected={false}>
-          {tab === 'Demographics' && <DemographicsPage />}
+          {tab === 'Demographics' && <DemographicsPage onLookup={onLookup} />}
           {tab === 'Patient Detail' && <PatientDetailPage />}
           {tab === 'ID Alias' && <IdAliasPage />}
           {tab === 'Connections' && <ConnectionsPage />}
@@ -84,13 +190,63 @@ export function DemographicsView() {
           {tab === 'Other Claims' && <OtherClaimsPage />}
           {tab === 'Incentives' && <IncentivesPage />}
           {tab === 'Settings' && <SettingsPage />}
-          {tab === 'Benefits' && <BenefitsPage onEdit={() => setEditBenefit(true)} />}
+          {tab === 'Benefits' && <BenefitsPage />}
         </PBTabs>
       </PBFixed>
 
-      {editBenefit && <BenefitEditor onClose={() => setEditBenefit(false)} />}
+      {duplicate && (
+        /* the duplicate check's window is described (art. 301171, 301149) but
+           never captured, so its title and wording are this emulator's */
+        <PBMessageBox
+          title="Possible Duplicate Chart"
+          icon="warn"
+          buttons={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no', default: true }]}
+          onClose={(v) => { if (v === 'yes') commitNew(); else setDuplicate(null) }}
+        >
+          Chart {duplicate.chart} ({duplicate.last}, {duplicate.first}, born {duplicate.dob}) has the same name and birth date.
+          <br />Save this chart anyway?
+        </PBMessageBox>
+      )}
     </div>
   )
+  return (
+    <CursorContext.Provider value={cursors}>
+      {patient ? <PatientOverride patient={patient}>{body}</PatientOverride> : body}
+    </CursorContext.Provider>
+  )
+}
+
+/** The IA / DE rule: art. 301149 (`79c69da3…png`) — a chart whose status is
+    IA or DE shows the patient's name in red on Demographics and Patient
+    Summary. */
+export const nameInRed = (status?: string) => status === 'IA' || status === 'DE'
+
+function IdentityStrip() {
+  const patient = usePatient()
+  const red = nameInRed(patient.status) ? { color: '#d00000' } : undefined
+  return (
+    <PBIdentityStrip
+      fields={[
+        { label: 'CHART:', value: patient.chart, w: 129 },
+        { label: 'FIRST:', value: <span style={red}>{patient.first}</span>, w: 145 },
+        { label: 'MIDDLE:', value: <span style={red}>{patient.middle}</span>, w: 163 },
+        { label: 'LAST:', value: <span style={red}>{patient.last}</span>, w: 173 },
+        { label: 'DoB:', value: patient.dob },
+      ]}
+    />
+  )
+}
+
+/** A list tab's rows and current row, kept on the chart (see Patient). */
+function useListTab<K extends ListKey>(key: K) {
+  const patient = usePatient()
+  const cursors = useContext(CursorContext)
+  const rows = (patient[key] ?? []) as NonNullable<Patient[K]>
+  const cur = Math.min(cursors.current[key] ?? 0, Math.max(0, rows.length - 1))
+  const target = patient.chart || ''
+  const setRows = (next: NonNullable<Patient[K]>) => updatePatient(target, { [key]: next } as Partial<Patient>)
+  const change = (patch: object) => setRows(rows.map((r, i) => (i === cur ? { ...r, ...patch } : r)) as NonNullable<Patient[K]>)
+  return { rows, cur, setCur: (i: number) => cursors.set(key, i), setRows, change, add: () => { setRows([{}, ...rows] as NonNullable<Patient[K]>); cursors.set(key, 0) } }
 }
 
 /* --- Patient Detail ------------------------------------------------------
@@ -143,7 +299,7 @@ const Gap = ({ w }: { w: number }) => <span style={{ width: w, flex: 'none' }} /
 const FlexFilter = () => <PBInput style={{ flex: '1 1 auto', minWidth: 0 }} />
 
 function ListShell({
-  band, filters, columns, rows = [], empty, detail, detailHeight, current, onCurrentChange,
+  band, filters, columns, rows = [], empty, detail, detailHeight, current, onCurrentChange, onNew, onDelete, slug,
 }: {
   band: string
   filters?: ReactNode
@@ -154,15 +310,24 @@ function ListShell({
   detailHeight?: number
   current?: number
   onCurrentChange?: (index: number) => void
+  /** the band's own New / Delete: the same row the command row adds */
+  onNew?: () => void
+  onDelete?: () => void
+  /** anchors the band buttons `host.mois.command.new-{slug}` / `delete-{slug}` */
+  slug?: string
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
-      <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
+      <PBBand right={<>
+        {slug ? <CmdButton command={`new-${slug}`} size="sm" onClick={onNew}>New</CmdButton> : <PBButton size="sm">New</PBButton>}
+        {slug ? <CmdButton command={`delete-${slug}`} size="sm" disabled={!rows.length} onClick={onDelete}>Delete</CmdButton> : <PBButton size="sm">Delete</PBButton>}
+      </>}>
         {band}
       </PBBand>
       <FilterStrip>{filters}</FilterStrip>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={columns} rows={rows} current={current} onCurrentChange={onCurrentChange} empty={empty} />
+        <PBDataWindow columns={columns} rows={rows} current={current} onCurrentChange={onCurrentChange} empty={empty}
+          rowTutorialId={slug ? (_r, i) => `host.mois.row.${slug}-${i + 1}` : undefined} />
       </div>
       {detail && (
         <div style={{ flex: 'none', height: detailHeight, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -173,11 +338,26 @@ function ListShell({
   )
 }
 
+/** A grid cell typed into in place, the way a DataWindow edit column is. */
+const cellEdit = (value: string, label: string, onChange: (v: string) => void, align?: 'center') => (
+  <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}
+    style={{ border: 0, background: 'transparent', width: '100%', padding: 0, font: 'inherit', color: 'inherit', textAlign: align }} />
+)
+
+/** A tick column cell that edits its row: Show On Demo., Default. */
+const tick = (checked: boolean | undefined, onChange: (v: boolean) => void) => <PBCheckbox checked={!!checked} onChange={onChange} />
+
 /* --- ID Alias ------------------------------------------------------------ */
 function IdAliasPage() {
+  const list = useListTab('aliasIds')
+  const row: AliasIdEntry = list.rows[list.cur] ?? {}
   return (
     <ListShell
       band="Alias Identification List"
+      slug="alias"
+      rows={list.rows.map((r, i) => ({ code: r.code ?? '', desc: r.desc ?? '', value: r.value ?? '', effective: r.effective ?? '', note: r.note ?? '', demo: r.demo ? 'Y' : '', m: '', clip: '-', _i: String(i) }))}
+      current={list.cur} onCurrentChange={list.setCur} onNew={list.add}
+      onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
       filters={<><Gap w={91} /><PBInput w={190} /><FlexFilter /></>}
       columns={[
         { key: 'code', header: 'Code', width: 91 },
@@ -185,7 +365,7 @@ function IdAliasPage() {
         { key: 'value', header: 'Value' },
         { key: 'effective', header: 'Effective', width: 72, align: 'center' },
         { key: 'note', header: 'Note', width: 156 },
-        { key: 'demo', header: 'Show On Demo.', width: 82, align: 'center' },
+        { key: 'demo', header: 'Show On Demo.', width: 82, align: 'center', render: (r) => tick(r.demo === 'Y', (v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, demo: v } : x)))) },
         { key: 'm', header: 'M', width: 25, align: 'center' },
         { key: 'clip', header: '\u{1F4CE}', width: 17, align: 'center' },
       ]}
@@ -199,7 +379,7 @@ function IdAliasPage() {
             style={{ gridTemplateColumns: '108px 1fr', padding: '5px 8px', alignItems: 'start', flex: '1 1 auto', minHeight: 0 }}
           >
             <span className="pb-form__label">Comment:</span>
-            <PBTextArea rows={4} w="100%" style={{ height: '100%' }} />
+            <PBTextArea rows={4} w="100%" style={{ height: '100%' }} value={row.note ?? ''} disabled={!list.rows.length} onChange={(e) => list.change({ note: e.target.value })} />
           </div>
         </>
       }
@@ -365,11 +545,31 @@ function ServicesPage() {
   )
 }
 
-/* --- Associated Parties -------------------------------------------------- */
+/* --- Associated Parties --------------------------------------------------
+   The Detail pane is the current row, edited in place. Its Type list is the
+   v02.31 one — Emergency Contact, Lawyer (e.g. Guardian of Will), Next of
+   Kin, Power of Attorney, Substitute Decision Maker (field audit
+   evidence/MATRIX-R0186-type, chart 87297); the v02.20 manual shows the
+   first and third only (art. 301554 `4eeb5e4f…png`). The grid prints Type as
+   Role, and a relationship (MOTHER, SON) is picked from its own "…" list. */
+const PARTY_TYPES = ['', 'Emergency Contact', 'Lawyer (e.g. Guardian of Will)', 'Next of Kin', 'Power of Attorney', 'Substitute Decision Maker']
+const RELATIONSHIPS = ['BROTHER', 'DAUGHTER', 'FATHER', 'FRIEND', 'GUARDIAN', 'MOTHER', 'OTHER', 'SISTER', 'SON', 'SPOUSE', 'STEP FATHER']
+
 function AssociatedPartiesPage() {
+  const list = useListTab('associatedParties')
+  const row: AssociatedPartyEntry = list.rows[list.cur] ?? {}
+  const off = !list.rows.length
+  const set = (patch: Partial<AssociatedPartyEntry>) => list.change(patch)
+  const [relLookup, setRelLookup] = useState(false)
+  const input = (key: keyof AssociatedPartyEntry, w: number | string, label: string) =>
+    <PBInput aria-label={`Associated party ${label}`} w={w} disabled={off} value={String(row[key] ?? '')} onChange={(e) => set({ [key]: e.target.value })} />
   return (
     <ListShell
       band="Associated Party List"
+      slug="associated-party"
+      rows={list.rows.map((r, i) => ({ name: r.name ?? '', relationship: r.relationship ?? '', role: r.type ?? '', home: r.home ?? '', work: r.work ?? '', ext: r.ext ?? '', demo: r.demo ? 'Y' : '', careplan: r.carePlan ? 'Y' : '', clip: '-', _i: String(i) }))}
+      current={list.cur} onCurrentChange={list.setCur} onNew={list.add}
+      onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
       filters={<><PBInput w={133} /><PBInput w={116} /><Gap w={19} /><FlexFilter /></>}
       columns={[
         { key: 'name', header: 'Name', width: 133 },
@@ -381,63 +581,87 @@ function AssociatedPartiesPage() {
         { key: 'home', header: 'Home', width: 87 },
         { key: 'work', header: 'Work', width: 87 },
         { key: 'ext', header: 'Ext.', width: 40, align: 'center' },
-        { key: 'demo', header: <>Show On<br />Demo.</>, width: 66, align: 'center' },
-        { key: 'careplan', header: <>Show on<br />Care Plan</>, width: 67, align: 'center' },
+        { key: 'demo', header: <>Show On<br />Demo.</>, width: 66, align: 'center', render: (r) => tick(r.demo === 'Y', (v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, demo: v } : x)))) },
+        { key: 'careplan', header: <>Show on<br />Care Plan</>, width: 67, align: 'center', render: (r) => tick(r.careplan === 'Y', (v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, carePlan: v } : x)))) },
         { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
       ]}
       empty="No associated parties on file."
       detailHeight={280}
       detail={
-        <>
+        <div data-tutorial-id="host.mois.field.associated-party-detail" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <PBBand>Associated Party Detail</PBBand>
           <PBGroup title="Contact Information" fill>
             <div style={{ display: 'flex', gap: 14, flex: '1 1 auto', minHeight: 0 }}>
               <div className="pb-form" style={{ gridTemplateColumns: '92px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
-                <span className="pb-form__label">Name:</span><PBInput w="100%" />
+                <span className="pb-form__label">Name:</span>{input('name', '100%', 'name')}
                 <span className="pb-form__label">Type:</span>
-                <PBSelect options={['', 'STEP FATHER', 'BROTHER', 'FATHER', 'OTHER']} w={172} />
-                <span className="pb-form__label">Relationship:</span><PBLookup w="100%" />
+                <span data-tutorial-id="host.mois.field.associated-party-type" style={{ display: 'inline-flex' }}>
+                  <PBSelect aria-label="Associated party type" disabled={off} options={[...new Set([...PARTY_TYPES, row.type ?? ''])]} w={172} value={row.type ?? ''} onChange={(e) => set({ type: e.target.value })} />
+                </span>
+                <span className="pb-form__label">Relationship:</span>
+                <PBLookup w="100%" name="associated-party-relationship" disabled={off} value={row.relationship ?? ''} onChange={(v) => set({ relationship: v })} onDots={() => setRelLookup(true)} />
                 <span className="pb-form__label">General Notes:</span>
-                <PBTextArea rows={6} w="100%" />
+                <PBTextArea rows={6} w="100%" disabled={off} value={row.notes ?? ''} onChange={(e) => set({ notes: e.target.value })} />
               </div>
               <div className="pb-form" style={{ gridTemplateColumns: '80px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0 }}>
-                <span className="pb-form__label">Address:</span><PBInput w="100%" />
-                <span /><PBInput w="100%" />
+                <span className="pb-form__label">Address:</span>{input('address', '100%', 'address')}
+                <span />{input('address2', '100%', 'address 2')}
                 <span className="pb-form__label">City:</span>
-                <div className="pb-row"><PBInput w={128} /><span className="pb-row__spacer" /><span>Province:</span><PBInput w={104} /></div>
+                <div className="pb-row">{input('city', 128, 'city')}<span className="pb-row__spacer" /><span>Province:</span>{input('province', 104, 'province')}</div>
                 <span className="pb-form__label">Postal Code:</span>
-                <div className="pb-row"><PBInput w={96} /><span className="pb-row__spacer" /><span>Country:</span><PBInput w={104} /></div>
+                <div className="pb-row">{input('postal', 96, 'postal code')}<span className="pb-row__spacer" /><span>Country:</span>{input('country', 104, 'country')}</div>
                 {/* MOIS underlines whichever number the party prefers */}
-                <span className="pb-form__label pb-form__label--linked">Home:</span>
+                <PhoneLabel label="Home:" preferred={row.preferredPhone} />
                 <div className="pb-row">
-                  <PBInput w={96} /><span className="pb-row__spacer" /><PBCheckbox label="Leave Message" />
+                  {input('home', 96, 'home')}<span className="pb-row__spacer" /><PBCheckbox label="Leave Message" disabled={off} checked={!!row.homeMessage} onChange={(v) => set({ homeMessage: v })} />
                 </div>
-                <span className="pb-form__label">Work:</span>
+                <PhoneLabel label="Work:" preferred={row.preferredPhone} />
                 <div className="pb-row">
-                  <PBInput w={96} /><span>Ext.:</span><PBInput w={56} />
-                  <span className="pb-row__spacer" /><PBCheckbox label="Leave Message" />
+                  {input('work', 96, 'work')}<span>Ext.:</span>{input('ext', 56, 'ext')}
+                  <span className="pb-row__spacer" /><PBCheckbox label="Leave Message" disabled={off} checked={!!row.workMessage} onChange={(v) => set({ workMessage: v })} />
                 </div>
-                <span className="pb-form__label">Cell:</span>
+                <PhoneLabel label="Cell:" preferred={row.preferredPhone} />
                 {/* the audit and the screen both call it "Page", not Pager */}
-                <div className="pb-row"><PBInput w={96} /><span className="pb-row__spacer" /><span>Page:</span><PBInput w={104} /></div>
+                <div className="pb-row">{input('cell', 96, 'cell')}<span className="pb-row__spacer" /><span>Page:</span>{input('pager', 104, 'page')}</div>
                 <span className="pb-form__label">Pref'd Phone:</span>
-                <PBSelect options={preferredPhones} w={96} />
-                <span className="pb-form__label">eMail (Home):</span><PBInput w="100%" />
-                <span className="pb-form__label">eMail (Work):</span><PBInput w="100%" />
+                <span data-tutorial-id="host.mois.field.associated-party-preferred-phone" style={{ display: 'inline-flex' }}>
+                  <PBSelect aria-label="Associated party preferred phone" disabled={off} options={preferredPhones} w={96} value={row.preferredPhone ?? ''} onChange={(e) => set({ preferredPhone: e.target.value })} />
+                </span>
+                <span className="pb-form__label">eMail (Home):</span>{input('emailHome', '100%', 'email home')}
+                <span className="pb-form__label">eMail (Work):</span>{input('emailWork', '100%', 'email work')}
               </div>
             </div>
           </PBGroup>
-        </>
+          {relLookup && <DemographicLookupDialog title="Relationship" value={row.relationship ?? ''}
+            rows={RELATIONSHIPS.map((term) => ({ term, category: 'RELATIONSHIP', code: '', system: 'MOIS' }))}
+            onPick={(r) => { set({ relationship: r.term }); setRelLookup(false) }} onClose={() => setRelLookup(false)} />}
+        </div>
       }
     />
   )
 }
 
-/* --- WCB Claims ---------------------------------------------------------- */
+/* --- WCB Claims ------------------------------------------------------------
+   The v02.31 grid (field audit evidence/MATRIX-R0209-diagnosis, chart 87297)
+   captions the code column Diagnosis; the v02.20 manual (art. 301555
+   `1a4ec3cf…png`) and art. 301149 call it ICD9. Position is a plain drop-down
+   (L / R in the captures); Area of Injury, Nature of Injury and Diagnosis
+   carry an ellipsis. The Detail pane is the current claim. */
 function WcbClaimsPage() {
+  const list = useListTab('wcbClaims')
+  const row: WcbClaimEntry = list.rows[list.cur] ?? {}
+  const off = !list.rows.length
+  const set = (patch: Partial<WcbClaimEntry>) => list.change(patch)
+  const edit = (i: string, patch: Partial<WcbClaimEntry>) => list.setRows(list.rows.map((x, n) => (String(n) === i ? { ...x, ...patch } : x)))
+  const input = (key: keyof WcbClaimEntry, w: number | string, label: string, align?: 'center') =>
+    <PBInput aria-label={`WCB ${label}`} w={w} align={align} disabled={off} value={String(row[key] ?? '')} onChange={(e) => set({ [key]: e.target.value })} />
   return (
     <ListShell
       band="WCB Claim List"
+      slug="wcb-claim"
+      rows={list.rows.map((r, i) => ({ doi: r.doi ?? '', claim: r.claim ?? '', area: r.area ?? '', position: r.position ?? '', nature: r.nature ?? '', diagnosis: r.icd9 ?? '', employer: r.employer ?? r.company ?? '', default: r.isDefault ? 'Y' : '', clip: '-', _i: String(i) }))}
+      current={list.cur} onCurrentChange={list.setCur} onNew={list.add}
+      onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
       filters={
         <>
           <Gap w={83} /><PBInput w={95} /><PBInput w={89} />
@@ -446,40 +670,45 @@ function WcbClaimsPage() {
         </>
       }
       columns={[
-        { key: 'doi', header: 'DOI', width: 83, align: 'center' },
-        { key: 'claim', header: 'Claim No.', width: 95 },
-        { key: 'area', header: 'Area of Injury', width: 89 },
+        { key: 'doi', header: 'DOI', width: 83, align: 'center', render: (r) => cellEdit(r.doi, 'WCB date of injury', (v) => edit(r._i, { doi: v }), 'center') },
+        { key: 'claim', header: 'Claim No.', width: 95, render: (r) => cellEdit(r.claim, 'WCB claim number', (v) => edit(r._i, { claim: v })) },
+        { key: 'area', header: 'Area of Injury', width: 89, render: (r) => cellEdit(r.area, 'WCB area of injury', (v) => edit(r._i, { area: v })) },
         { key: 'd1', header: '', dots: true, width: 15 },
-        { key: 'position', header: 'Position', width: 51 },
-        { key: 'nature', header: 'Nature of Injury', width: 94 },
+        { key: 'position', header: 'Position', width: 51, render: (r) => (
+          <PBSelect aria-label="WCB position" options={['', 'L', 'R']} w="100%" value={r.position} onChange={(e) => edit(r._i, { position: e.target.value })} />
+        ) },
+        { key: 'nature', header: 'Nature of Injury', width: 94, render: (r) => cellEdit(r.nature, 'WCB nature of injury', (v) => edit(r._i, { nature: v })) },
         { key: 'd2', header: '', dots: true, width: 15 },
-        { key: 'diagnosis', header: 'Diagnosis', width: 66 },
+        { key: 'diagnosis', header: 'Diagnosis', width: 66, render: (r) => cellEdit(r.diagnosis, 'WCB diagnosis', (v) => edit(r._i, { icd9: v })) },
         { key: 'd3', header: '', dots: true, width: 15 },
-        { key: 'employer', header: 'Employer' },
-        { key: 'default', header: 'Default', width: 47, align: 'center' },
+        { key: 'employer', header: 'Employer', render: (r) => cellEdit(r.employer, 'WCB employer', (v) => edit(r._i, { employer: v })) },
+        { key: 'default', header: 'Default', width: 47, align: 'center', render: (r) => (
+          <PBCheckbox tutorialId={`host.mois.field.wcb-default-${Number(r._i) + 1}`} checked={r.default === 'Y'}
+            onChange={(v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, isDefault: v } : x)))} />
+        ) },
         { key: 'clip', header: '\u{1F4CE}', width: 19, align: 'center' },
       ]}
       empty="No WCB claims on file."
       detailHeight={160}
       detail={
-        <>
+        <div data-tutorial-id="host.mois.field.wcb-claim-detail" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <PBBand>WCB Claim Detail</PBBand>
           <div style={{ display: 'flex', gap: 14, padding: '5px 8px', flex: '1 1 auto', minHeight: 0 }}>
             <div className="pb-form" style={{ gridTemplateColumns: '76px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0 }}>
-              <span className="pb-form__label">Company:</span><PBInput w="100%" />
-              <span className="pb-form__label">Address:</span><PBInput w="100%" />
+              <span className="pb-form__label">Company:</span>{input('company', '100%', 'company')}
+              <span className="pb-form__label">Address:</span>{input('address', '100%', 'address')}
               <span className="pb-form__label">City:</span>
-              <div className="pb-row"><PBInput w={128} /><span className="pb-row__spacer" /><span>Postal Code:</span><PBInput w={116} /></div>
+              <div className="pb-row">{input('city', 128, 'city')}<span className="pb-row__spacer" /><span>Postal Code:</span>{input('postal', 116, 'postal code')}</div>
               <span className="pb-form__label">Province:</span>
-              <div className="pb-row"><PBInput w={128} /><span className="pb-row__spacer" /><span>Country:</span><PBInput w={116} /></div>
-              <span className="pb-form__label">Phone:</span><PBInput w={128} align="center" />
+              <div className="pb-row">{input('province', 128, 'province')}<span className="pb-row__spacer" /><span>Country:</span>{input('country', 116, 'country')}</div>
+              <span className="pb-form__label">Phone:</span>{input('phone', 128, 'phone', 'center')}
             </div>
             <div className="pb-form" style={{ gridTemplateColumns: '44px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
               <span className="pb-form__label">Note:</span>
-              <PBTextArea rows={5} w="100%" style={{ fontFamily: 'var(--pb-font-mono)' }} />
+              <PBTextArea rows={5} w="100%" disabled={off} style={{ fontFamily: 'var(--pb-font-mono)' }} value={row.note ?? ''} onChange={(e) => set({ note: e.target.value })} />
             </div>
           </div>
-        </>
+        </div>
       }
     />
   )
@@ -504,15 +733,27 @@ function OtherClaimsPage() {
 /* --- Settings: contact information and the two preference grids ----------
    The contact block is a group box, not a band: four label columns, with the
    Leave Message ticks between the phone numbers and the two eMail fields. */
+/* Clinic Contact Preferences are the clinic's, not the chart's: the rows art.
+   303800 (`c29f4d83…png`) shows under the read-only band. Only the Reason
+   column is legible in that capture. */
+const CLINIC_CONTACT_PREFERENCES = [{ reason: 'OTHER' }, { reason: 'RECALL' }, { reason: 'SCHEDULER' }]
+
 function SettingsPage() {
   const patient = usePatient()
-  const prefCols: PBColumn<ListRow>[] = [
-    { key: 'reason', header: 'Reason', width: 138, align: 'center' },
-    { key: 'order', header: 'Order', width: 61, align: 'center' },
-    { key: 'method', header: 'Method', width: 137, align: 'center' },
-    { key: 'source', header: 'Source', width: 138, align: 'center' },
+  const prefs = patient.contactPreferences ?? []
+  const [cur, setCur] = useState(0)
+  const [picking, setPicking] = useState<number | null>(null)
+  const setPrefs = (next: typeof prefs) => updatePatient(patient.chart, { contactPreferences: next })
+  const edit = (i: number, patch: Partial<typeof prefs[number]>) => setPrefs(prefs.map((p, n) => (n === i ? { ...p, ...patch } : p)))
+  const prefCols = (editable: boolean): PBColumn<ListRow>[] => [
+    { key: 'reason', header: 'Reason', width: 138, align: 'center', render: editable ? (r, i) => cellEdit(r.reason, 'Contact preference reason', (v) => edit(i, { reason: v }), 'center') : undefined },
+    { key: 'order', header: 'Order', width: 61, align: 'center', render: editable ? (r, i) => cellEdit(r.order, 'Contact preference order', (v) => edit(i, { order: v }), 'center') : undefined },
+    { key: 'method', header: 'Method', width: 137, align: 'center', render: editable ? (r, i) => cellEdit(r.method, 'Contact preference method', (v) => edit(i, { method: v }), 'center') : undefined },
+    { key: 'source', header: 'Source', width: 138, align: 'center', render: editable ? (r, i) => cellEdit(r.source, 'Contact preference source', (v) => edit(i, { source: v }), 'center') : undefined },
     { key: 'contact', header: 'Contact' },
-    { key: 'd', header: '', dots: true, width: 21 },
+    { key: 'd', header: '', width: 21, align: 'center', render: editable ? (_r, i) => (
+      <CmdButton command={`contact-lookup-${i + 1}`} className="pb-dw__dots" style={{ border: 0, padding: 0, minWidth: 0, background: 'none' }} onClick={() => setPicking(i)}>…</CmdButton>
+    ) : () => <span className="pb-dw__dots">…</span> },
   ]
   return (
     <>
@@ -535,18 +776,58 @@ function SettingsPage() {
         </div>
       </PBGroup>
 
-      <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
+      <PBBand right={<>
+        <CmdButton command="new-contact-preference" size="sm" onClick={() => { setPrefs([...prefs, {}]); setCur(prefs.length) }}>New</CmdButton>
+        <CmdButton command="delete-contact-preference" size="sm" disabled={!prefs.length} onClick={() => { setPrefs(prefs.filter((_, i) => i !== cur)); setCur(0) }}>Delete</CmdButton>
+      </>}>
         Patient Contact Preferences
       </PBBand>
       <div style={{ height: 200, flex: 'none', display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={prefCols} rows={[]} />
+        <PBDataWindow columns={prefCols(true)} current={Math.min(cur, Math.max(0, prefs.length - 1))} onCurrentChange={setCur}
+          rowTutorialId={(_r, i) => `host.mois.row.contact-preference-${i + 1}`}
+          rows={prefs.map((p) => ({ reason: p.reason ?? '', order: p.order ?? '', method: p.method ?? '', source: p.source ?? '', contact: p.contact ?? '' }))} />
       </div>
 
       <PBBand>Clinic Contact Preferences (READ-ONLY)</PBBand>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={prefCols} rows={[]} />
+        <PBDataWindow columns={prefCols(false)} rows={CLINIC_CONTACT_PREFERENCES.map((r) => ({ order: '', method: '', source: '', contact: '', ...r }))} />
       </div>
+      {picking !== null && (
+        <SelectSecondaryContactDialog
+          parties={patient.associatedParties ?? []}
+          onPick={(name) => { edit(picking, { contact: name }); setPicking(null) }}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </>
+  )
+}
+
+/* Select Secondary Contact — art. 303800 `c29f4d83…png`: a Secondary
+   Contacts band over Type / Name / Relationship, one row per associated
+   party, then Ok / Cancel. */
+function SelectSecondaryContactDialog({ parties, onPick, onClose }: {
+  parties: AssociatedPartyEntry[]
+  onPick: (name: string) => void
+  onClose: () => void
+}) {
+  const [cur, setCur] = useState(0)
+  const rows = parties.filter((p) => p.name).map((p) => ({ type: p.type ?? '', name: p.name ?? '', relationship: p.relationship ?? '' }))
+  return (
+    <DemographicModal title="Select Secondary Contact" width={600} height={380} onClose={onClose} dialog="select-secondary-contact">
+      <div style={{ padding: 10, flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <PBBand>Secondary Contacts</PBBand>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+          <PBDataWindow gutter={false} rows={rows} current={cur} onCurrentChange={setCur} onActivate={(r) => onPick(r.name)}
+            columns={[{ key: 'type', header: 'Type', width: 140 }, { key: 'name', header: 'Name', width: 250 }, { key: 'relationship', header: 'Relationship' }]}
+            empty="No associated parties on file." />
+        </div>
+      </div>
+      <DialogButtons>
+        <CmdButton command="secondary-contact-ok" wide disabled={!rows[cur]} onClick={() => rows[cur] && onPick(rows[cur].name)}>Ok</CmdButton>
+        <CmdButton command="secondary-contact-cancel" wide onClick={onClose}>Cancel</CmdButton>
+      </DialogButtons>
+    </DemographicModal>
   )
 }
 
@@ -559,9 +840,20 @@ function SettingsPage() {
    The strip's fill is sampled off the capture; `--pb-band` is the grey the
    list tabs use and would be wrong here. The View list is transcribed from
    the one value the capture shows selected — what else it drops is unknown. */
-function BenefitsPage({ onEdit }: { onEdit: () => void }) {
+function BenefitsPage() {
+  const patient = usePatient()
+  const benefits = patient.benefits ?? []
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const sources: string[] = []
+  const [cur, setCur] = useState(0)
+  const [win, setWin] = useState<null | { mode: 'select' } | { mode: 'new'; entry: BenefitEntry } | { mode: 'edit'; index: number }>(null)
+  const sources = [...new Set(benefits.map((b) => b.source))]
+  /* grouped by source, as the grid bands them */
+  const ordered = benefits.map((b, i) => ({ b, i })).sort((x, y) => sources.indexOf(x.b.source) - sources.indexOf(y.b.source))
+  const rows = ordered.map(({ b, i }) => ({
+    group: b.source, benefit: `   ${b.service}`, start: b.start ?? '', stop: b.stop ?? '',
+    deductible: b.deductible ?? '', coverage: b.coverage ?? b.description ?? '', demo: b.demo ? 'X' : '', careplan: b.carePlan ? 'X' : '', _i: String(i),
+  }))
+  const current = rows[Math.min(cur, rows.length - 1)]
   return (
     <>
       <div className="pb-row" style={{ gap: 12, padding: '3px 6px', background: '#cde6f7', flex: 'none' }}>
@@ -570,13 +862,17 @@ function BenefitsPage({ onEdit }: { onEdit: () => void }) {
         <span style={{ paddingLeft: 12 }}>View:</span>
         <PBSelect options={['Active Records']} w={150} />
         <span className="pb-row__spacer" />
-        <PBButton size="sm" onClick={onEdit}>New</PBButton>
-        <PBButton size="sm" onClick={onEdit}>Edit</PBButton>
+        <CmdButton command="new-benefit" size="sm" onClick={() => setWin({ mode: 'select' })}>New</CmdButton>
+        <CmdButton command="edit-benefit" size="sm" disabled={!current} onClick={() => current && setWin({ mode: 'edit', index: Number(current._i) })}>Edit</CmdButton>
         <PBButton size="sm">Delete</PBButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
         <PBDataWindow
-          rows={[] as ListRow[]}
+          rows={rows as ListRow[]}
+          current={Math.min(cur, Math.max(0, rows.length - 1))}
+          onCurrentChange={setCur}
+          onActivate={(r) => setWin({ mode: 'edit', index: Number(r._i) })}
+          rowTutorialId={(r) => `host.mois.row.benefit-${(benefits[Number(r._i)]?.service ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
           groupBy={(r) => r.group}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
@@ -596,6 +892,16 @@ function BenefitsPage({ onEdit }: { onEdit: () => void }) {
           empty="No benefits on file."
         />
       </div>
+      {win?.mode === 'select' && (
+        <SelectBenefitSourceDialog
+          onContinue={(pick) => setWin({ mode: 'new', entry: { source: pick.source, service: pick.service, description: pick.description } })}
+          onClose={() => setWin(null)}
+        />
+      )}
+      {win?.mode === 'new' && <BenefitSourceServiceWindow mode="new" entry={win.entry} onClose={() => setWin(null)} />}
+      {win?.mode === 'edit' && benefits[win.index] && (
+        <BenefitSourceServiceWindow mode="edit" entry={benefits[win.index]} index={win.index} onClose={() => setWin(null)} />
+      )}
     </>
   )
 }
@@ -688,7 +994,7 @@ const FIELD_COL = 283
 /** …and the same for the narrower right-hand column (86px of label). */
 const FIELD_COL_R = 284
 
-function DemographicsPage() {
+function DemographicsPage({ onLookup }: { onLookup?: () => void }) {
   const patient = usePatient()
   const [genderOpen, setGenderOpen] = useState(false)
   const [dialog, setDialog] = useState<'photo' | 'msp' | 'wizard' | 'archive' | 'status' | 'pharmacy' | null>(null)
@@ -702,7 +1008,9 @@ function DemographicsPage() {
      empty fields there, and a fallback would print one patient's pharmacy or
      audit line on another's record. */
   const pharmacy = patient.pharmacy ?? {}
-  const items = patient.selectedItems ?? []
+  const items = selectedItemsOf(patient)
+  const red = nameInRed(patient.status) ? { color: '#d00000' } : undefined
+  const designated = !!(patient.genderDesignations?.preferred || patient.genderDesignations?.genotypic)
   return (
     <div className="pb-demog">
       <div className="pb-demog__cols">
@@ -711,16 +1019,17 @@ function DemographicsPage() {
             <div className="pb-form pb-demog__form">
               <span className="pb-form__label">Chart No.:</span>
               <Row>
-                <PBLookup w={110} value={patient.chart} readOnly />
+                {/* art. 301172 / 301149: the "…" (or F4) opens the list of patient charts */}
+                <PBLookup w={110} name="demographic-chart" value={patient.chart} readOnly onDots={onLookup} />
                 <span className="pb-row__spacer" />
-                <PBButton style={{ width: 92 }} onClick={() => setDialog('photo')}>Patient Photo</PBButton>
+                <CmdButton command="patient-photo" style={{ width: 92 }} onClick={() => setDialog('photo')}>Patient Photo</CmdButton>
               </Row>
 
               <span className="pb-form__label">Name (F/M/L):</span>
               <Row>
-                <PBInput aria-label="Demographics first" w={92} value={patient.first} data-mois-audit-id="MATRIX-R0009-first-name" onChange={e => change({ first: e.target.value })} />
-                <PBInput aria-label="Demographics middle" w={86} value={patient.middle} data-mois-audit-id="MATRIX-R0010-middle-name" onChange={e => change({ middle: e.target.value })} />
-                <PBInput aria-label="Demographics last" w={95} value={patient.last} data-mois-audit-id="MATRIX-R0011-last-name" onChange={e => change({ last: e.target.value })} />
+                <PBInput aria-label="Demographics first" w={92} style={red} value={patient.first} data-mois-audit-id="MATRIX-R0009-first-name" onChange={e => change({ first: e.target.value })} />
+                <PBInput aria-label="Demographics middle" w={86} style={red} value={patient.middle} data-mois-audit-id="MATRIX-R0010-middle-name" onChange={e => change({ middle: e.target.value })} />
+                <PBInput aria-label="Demographics last" w={95} style={red} value={patient.last} data-mois-audit-id="MATRIX-R0011-last-name" onChange={e => change({ last: e.target.value })} />
               </Row>
 
               <span className="pb-form__label">Alias (F/L):</span>
@@ -736,27 +1045,30 @@ function DemographicsPage() {
                 {patient.age && <span aria-label="Age">({patient.age.replace(' YR OLD', '').replace(' MTH OLD', ' mth')})</span>}
                 <span className="pb-row__spacer" />
                 {/* MOIS paints a label yellow once its value has been changed */}
-                <span className={patient.genderDesignations?.preferred || patient.genderDesignations?.genotypic ? 'pb-flag' : undefined}>Gender:</span>
+                <span className={designated ? 'pb-flag' : undefined}>Gender:</span>
                 <PBSelect options={genders} w={71} value={patient.gender} onChange={e => change({ gender: e.target.value as Patient['gender'] })} />
-                {/* the `.*.` opens Advanced Gender Designations, where the
-                    preferred and genotypic designations are maintained */}
+                {/* opens Advanced Gender Designations, where the preferred and
+                    genotypic designations are maintained. It reads "..." until
+                    a designation is saved and ".*." after (art. 332748:
+                    `1f91bde8…png` before, `c41bf639…png` after; the v02.31
+                    capture draws the asterisk between dots) */}
                 <PBButton
                   style={{ width: 19, padding: 0 }}
                   title="Advanced Gender Designations"
                   data-tutorial-id="host.mois.command.gender-designations"
                   onClick={() => setGenderOpen(true)}
                 >
-                  .*.
+                  {designated ? '.*.' : '...'}
                 </PBButton>
               </Row>
 
               <span className="pb-form__label">Current Status:</span>
               <Row>
-                <PBInput aria-label="Demographics status" w={56} align="center" value={patient.status} readOnly />
+                <PBInput aria-label="Demographics status" w={56} align="center" value={patient.status} readOnly data-tutorial-id="host.mois.field.current-status" />
                 <span style={{ paddingLeft: 18 }}>Date:</span>
                 <PBInput aria-label="Demographics registered" w={85} align="center" value={patient.registered ?? ''} readOnly />
                 <span className="pb-row__spacer" />
-                <PBButton style={{ width: 92 }} onClick={() => setDialog('status')}>Update Status</PBButton>
+                <CmdButton command="update-status" style={{ width: 92 }} onClick={() => setDialog('status')}>Update Status</CmdButton>
               </Row>
 
               <span className="pb-form__label">BC Health No.:</span>
@@ -833,11 +1145,13 @@ function DemographicsPage() {
             </div>
 
             <div className="pb-row" style={{ gap: 6, padding: '4px 0 1px' }}>
-              <PBButton style={{ width: 81 }} onClick={() => setCopied({ address: patient.address, address2: patient.address2, city: patient.city, province: patient.province, postal: patient.postal, country: patient.country })}>Copy Addr.</PBButton>
-              <PBButton style={{ width: 70 }} disabled={!copied} onClick={() => copied && change(copied)}>Paste Addr.</PBButton>
-              <PBButton style={{ width: 115 }} onClick={() => setDialog('wizard')}>Change Addr. Wizard</PBButton>
+              {/* art. 301149: Copy Addr. carries Address, City, Province,
+                  Country, the Home number and Preferred Phone */}
+              <CmdButton command="copy-addr" style={{ width: 81 }} onClick={() => setCopied({ address: patient.address, address2: patient.address2, city: patient.city, province: patient.province, postal: patient.postal, country: patient.country, home: patient.home, preferredPhone: patient.preferredPhone })}>Copy Addr.</CmdButton>
+              <CmdButton command="paste-addr" style={{ width: 70 }} disabled={!copied} onClick={() => copied && change(copied)}>Paste Addr.</CmdButton>
+              <CmdButton command="change-addr-wizard" style={{ width: 115 }} onClick={() => setDialog('wizard')}>Change Addr. Wizard</CmdButton>
               <span className="pb-row__spacer" />
-              <PBButton style={{ width: 94 }} onClick={() => setDialog('archive')}>Archive Addr.</PBButton>
+              <CmdButton command="archive-addr" style={{ width: 94 }} onClick={() => setDialog('archive')}>Archive Addr.</CmdButton>
             </div>
           </PBGroup>
 
@@ -909,10 +1223,10 @@ function DemographicsPage() {
 
               <span className="pb-form__label">Insurance No.:</span>
               <RowR>
-                <PBInput aria-label="Demographics insurance" w={110} value={patient.insurance ?? ''} onChange={e => change({ insurance: e.target.value })} />
-                <PBButton style={{ width: 43 }} onClick={() => setDialog('msp')}>Check</PBButton>
+                <PBInput aria-label="Demographics insurance" w={110} value={patient.insurance ?? ''} onChange={e => change({ insurance: e.target.value })} data-tutorial-id="host.mois.field.insurance-no" />
+                <CmdButton command="msp-check" style={{ width: 43 }} onClick={() => setDialog('msp')}>Check</CmdButton>
                 <span style={{ paddingLeft: 8 }}>Dep. No.:</span>
-                <PBInput aria-label="Demographics dep" w={46} value={patient.dep ?? ''} onChange={e => change({ dep: e.target.value })} />
+                <PBInput aria-label="Demographics dep" w={46} value={patient.dep ?? ''} onChange={e => change({ dep: e.target.value })} data-tutorial-id="host.mois.field.dep-no" />
               </RowR>
 
               <span className="pb-form__label">Benefit Source:</span>
@@ -999,27 +1313,80 @@ function PhoneLabel({ label, preferred }: { label: string; preferred?: string })
   return <span className={linked ? 'pb-form__label pb-form__label--linked' : 'pb-form__label'}>{label}</span>
 }
 
+/* Change Patient Status — art. 301173 `411705ba…png` (v02.20.18): a New
+   Status Information band, a Status Information group with Status Code (a
+   drop-down) and Effective Date (today), then Ok / Cancel. The codes are art.
+   301149's six: A, CD, DE, IA, MV, TR. Ok writes a Status History row, and
+   the Date beside Current Status follows the new effective date ("Updates
+   automatically every time the patient's status is updated", art. 301149). */
+const STATUS_CODES = [
+  { code: 'A', name: 'Active Patient' },
+  { code: 'CD', name: 'Changed Doctors' },
+  { code: 'DE', name: 'Deceased Patient' },
+  { code: 'IA', name: 'Inactive Patient' },
+  { code: 'MV', name: 'Moved Away' },
+  { code: 'TR', name: 'Transient Patient' },
+]
+
 function DemographicStatusDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
-  const [status, setStatus] = useState(patient.status)
+  const [status, setStatus] = useState('')
   const [effective, setEffective] = useState(today)
-  const [note, setNote] = useState('')
-  return <DemographicModal title="Update Status" width={400} onClose={onClose}>
-    <div className="pb-form" style={{ padding: 20, gridTemplateColumns: '100px 1fr' }}>
-      <span>Status:</span><PBSelect aria-label="New patient status" options={[...new Set(['A', 'LU', patient.status])]} value={status} onChange={e => setStatus(e.target.value as Patient['status'])} />
-      <span>Effective:</span><PBInput aria-label="Status effective date" value={effective} onChange={e => setEffective(e.target.value)} />
-      <span>Note:</span><PBTextArea aria-label="Status note" value={note} onChange={e => setNote(e.target.value)} />
+  const codes = [...new Set(['', ...STATUS_CODES.map((c) => c.code)])]
+  return <DemographicModal title="Change Patient Status" width={360} onClose={onClose} dialog="change-patient-status">
+    <div style={{ padding: 10 }}>
+      <div className="pb-groupbox">
+        <PBBand>New Status Information</PBBand>
+        <div style={{ padding: '8px 22px 12px' }}>
+          <PBGroup title="Status Information">
+            <div className="pb-form" style={{ padding: '4px 6px', gridTemplateColumns: '100px 1fr', alignItems: 'center' }}>
+              <span className="pb-form__label">Status Code:</span>
+              <span data-tutorial-id="host.mois.field.status-code" style={{ display: 'inline-flex' }}>
+                <PBSelect aria-label="Status Code" options={codes} w={120} value={status}
+                  title={STATUS_CODES.map((c) => `${c.code} ${c.name}`).join(', ')}
+                  onChange={e => setStatus(e.target.value)} />
+              </span>
+              <span className="pb-form__label">Effective Date:</span>
+              <PBInput aria-label="Effective Date" w={120} align="center" value={effective} onChange={e => setEffective(e.target.value)} />
+            </div>
+          </PBGroup>
+        </div>
+      </div>
     </div>
-    <DialogButtons><PBButton onClick={() => { updatePatient(patient.chart, { status, registered: effective,
-      statusHistory: [{ code: status, effective, note }, ...(patient.statusHistory ?? [])] }); onClose() }}>Ok</PBButton><PBButton onClick={onClose}>Cancel</PBButton></DialogButtons>
+    <DialogButtons>
+      <CmdButton command="status-ok" wide disabled={!status} onClick={() => {
+        updatePatient(patient.chart, { status, registered: effective,
+          statusHistory: [{ code: status, effective, note: '' }, ...(patient.statusHistory ?? [])] }); onClose()
+      }}>Ok</CmdButton>
+      <CmdButton command="status-cancel" wide onClick={onClose}>Cancel</CmdButton>
+    </DialogButtons>
   </DemographicModal>
+}
+
+/** Selected Items: the chart's own coded flags, then everything another tab
+    has ticked "Show On Demo." / "Include on Demographics" — an associated
+    party as EMERGENCY CONTACT / NEXT OF KIN with name and number (art.
+    301173 `411705ba…png`), an alias as its description and value, a
+    benefit as its source and service, a gender designation. The captions
+    for the designations are not in any capture and are inferred. */
+function selectedItemsOf(p: Patient): { code: string; value: string }[] {
+  const party = (p.associatedParties ?? []).filter((a) => a.demo && a.name)
+    .map((a) => ({ code: (a.type || 'ASSOCIATED PARTY').toUpperCase(), value: `${a.name}  ${a.home || a.cell || a.work || ''}`.trim() }))
+  const alias = (p.aliasIds ?? []).filter((a) => a.demo && a.value).map((a) => ({ code: (a.desc || a.code || '').toUpperCase(), value: a.value ?? '' }))
+  const benefit = (p.benefits ?? []).filter((b) => b.demo).map((b) => ({ code: b.source, value: b.service }))
+  const g = p.genderDesignations
+  const gender = [
+    ...(g?.preferred && g.onDemographics?.includes('preferred') ? [{ code: 'PREFERRED GENDER', value: g.preferred }] : []),
+    ...(g?.genotypic && g.onDemographics?.includes('genotypic') ? [{ code: 'GENOTYPIC GENDER', value: g.genotypic }] : []),
+  ]
+  return [...(p.selectedItems ?? []), ...party, ...alias, ...benefit, ...gender].sort((x, y) => x.code.localeCompare(y.code))
 }
 
 function DemographicPharmacyDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
   const connections = useChartRecords('connection').filter(r => r.str_connection_type === 'PHARMACY' && r.str_provider)
   const [cur, setCur] = useState(0)
-  return <DemographicModal title="Select Pharmacy" width={700} height={400} onClose={onClose}>
+  return <DemographicModal title="Select Pharmacy" width={700} height={400} onClose={onClose} dialog="select-pharmacy">
     <PBBand>Pharmacy Connections</PBBand>
     <PBDataWindow columns={[{ key: 'str_provider', header: 'Pharmacy' }, { key: 'dtm_end', header: 'End Date', width: 90 }]}
       rows={connections} current={cur} onCurrentChange={setCur} empty="No pharmacy connections in this chart export." />

@@ -15,6 +15,7 @@
    ========================================================================= */
 import { useSyncExternalStore } from 'react'
 import { chart87288Summary } from './chart-87288.summary'
+import { withTrainingRecords } from './overlays'
 import type { MoisChartExport, MoisRecord } from './types'
 
 /** demographics for every exported chart — always loaded, small */
@@ -24,7 +25,7 @@ export const chartSummaries: Record<string, MoisRecord> = {
 
 const loaders: Record<string, () => Promise<MoisChartExport>> = {
   [chart87288Summary.num_chart ?? '87288']: () =>
-    import('./chart-87288').then((m) => m.chart87288),
+    import('./chart-87288').then((m) => withTrainingRecords('87288', m.chart87288)),
 }
 
 /** resolved exports, so a chart is fetched once per session */

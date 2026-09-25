@@ -1,14 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useChartExport, useChartRows, useNodeRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
 import {
   encounterRows, orderPayors, orderPriorities, orderReferralSources,
-  orderStatuses,
   type OrderDetail, type OrderRecipient, type OrderRow
 } from '../data/mois'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { MOIS_TODAY } from '../data/patients'
+import { nextEncounterId, useEncounterSession } from '../host/encounterArea'
+import { useScreenReport } from '../host/screen-state'
+import { useChartSession } from '../data/chartSession'
+import { DESKTOP_PROVIDER } from '../data/letterFlow'
+import { VISIT_MODES } from './EncounterWindow'
 import {
-  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup, PBIdentityStrip, PBInput,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBFixed, PBGroup, PBIdentityStrip, PBInput,
   PBLookup, PBRadio, PBSelect, PBTabs, PBTextArea, PBViewHeader,
   type PBColumn,
 } from '../pb'
@@ -55,19 +60,55 @@ const columns: PBColumn<OrderRow>[] = [
   { key: 'attach', header: '\u{1F4CE}', width: 35, align: 'center' },
 ]
 
+/* 303588 `48e7423c…`: New Record's Order Type drop-down, a DDDW of type and
+   description */
+const ORDER_TYPES = [
+  { type: 'CONSULTATION', description: 'Medical Consultation Request' },
+  { type: 'IMAGE', description: 'Medical Imaging Requisition' },
+  { type: 'INTERVENTION', description: 'Medical Intervention Request' },
+  { type: 'LAB', description: 'Medical Laboratory Requisition' },
+  { type: 'PROCEDURE', description: 'Medical Procedure Request' },
+  { type: 'MISC', description: 'Miscellaneous' },
+]
+
+/* 2961349 `2d067ff2…`: Order Management's Status DDDW, Status and
+   Description. The ST column carries the HL7 order-status code behind each. */
+export const ORDER_STATUS_ROWS = [
+  { code: 'IP', status: 'IN PROCESS', description: 'In process, unspecified' },
+  { code: 'SC', status: 'SCHEDULED', description: 'In process, scheduled' },
+  { code: 'A', status: 'RESULTS AVAILABLE', description: 'Some, but not all, results available' },
+  { code: 'CA', status: 'CANCELLED', description: 'Order was cancelled' },
+  { code: 'CM', status: 'COMPLETED', description: 'Order is completed' },
+  { code: 'ER', status: 'ERROR', description: 'Error, order not found' },
+]
+const statusWord = (code?: string) => ORDER_STATUS_ROWS.find((s) => s.code === code)?.status ?? code ?? ''
+
 const TABS = ['Report', 'Distribution', 'Links', 'Office Notes', 'History'] as const
 type Tab = typeof TABS[number]
 
 export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   /* a chart with a real export behind it lists its own orders */
-  const exportedOrders = useChartRows('orders') as unknown as OrderRow[]
+  const exported = useChartRows('orders') as unknown as OrderRow[]
   const patient = usePatient()
+  const session = useChartSession(patient.chart)
   const [tab, setTab] = useState<Tab>('Report')
   const [cur, setCur] = useState(0)
+  /* New Record (303588): a row at the top dated today, Ordered By the Desktop
+     Provider, and an Order Type to pick — held until Save or Undo */
+  const [draft, setDraft] = useState<OrderRow | null>(null)
+  useScreenReport({ draft: !!draft })
+  const exportedOrders = draft ? [draft, ...exported] : exported
+  const offset = draft ? 1 : 0
 
   const records = useNodeRecords('orders')
-  const r = records[cur]
-  const order: OrderRow | undefined = exportedOrders?.[cur] ? { ...exportedOrders[cur], detail: {
+  const r = records[cur - offset]
+  /* a letter distributed from this order this session (screens/LetterWindows.tsx) */
+  const sent = session.distributions.filter((d) => d.orderId && d.orderId === r?.id_order)
+  const order: OrderRow | undefined = draft && cur === 0 ? { ...draft, detail: { orderedBy: DESKTOP_PROVIDER, status: 'IP', priority: 'ROUTINE' } }
+    : exportedOrders?.[cur] ? { ...exportedOrders[cur], distribution: sent.map((d) => ({
+      sentAt: d.date, document: d.title, by: 'JALIL, AHMAD',
+      recipients: d.rows.map((x) => ({ method: x.method, type: x.type, name: x.name, location: '', status: x.status })),
+    })), detail: {
     attending: r?.str_attending, orderedBy: r?.str_order_by, responsibleOrg: r?.str_responsible_org,
     referredTo: r?.str_performed_by, copiesTo: r?.str_copy_to, facility: r?.str_facility,
     facilityRef: r?.str_filler_ref_no, facilityLoc: r?.str_facility_loc,
@@ -92,16 +133,30 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   return (
     <div className="pb-screen" style={{ ['--pb-design-w' as string]: `${DESIGN_W}px` }}>
       <PBViewHeader title="Order" right={<ChartHeaderIdentity />} />
-      <PBCommandRow
-        commands={[
-          { label: 'New Record' }, { label: 'Quick Entry' }, { label: 'Delete Record' },
-          /* MOIS draws Save and Undo in full black here, not greyed — both
-             captures of this window show them enabled at rest. */
-          { label: 'Save' }, { label: 'Undo' }, { label: 'Refresh' },
-          { label: 'Mark for Review' }, { label: 'Attachment', onClick: onAttachment },
-          { label: 'Print' }, { label: 'Paste Provider Addr.', width: 118 }, { label: 'Respond' },
-        ]}
-      />
+      {/* Eleven buttons are wider than this window's painted 823px: the
+          captures show them on one row in a wider window, so on the stage
+          the run wraps rather than cutting Respond off the end. */}
+      <style href="mois-classic/order-cmds" precedence="medium">{'.pb-order-cmds > .pb-cmdrow { flex-wrap: wrap; }'}</style>
+      <div className="pb-order-cmds" style={{ flex: 'none' }}>
+        <PBCommandRow
+          commands={[
+            {
+              label: 'New Record',
+              onClick: () => {
+                setDraft({ date: MOIS_TODAY, type: '', by: DESKTOP_PROVIDER, to: '', for: '', st: 'IP', links: '-', attach: '-' })
+                setCur(0)
+                setTab('Report')
+              },
+            },
+            { label: 'Quick Entry' }, { label: 'Delete Record' },
+            /* MOIS draws Save and Undo in full black here, not greyed — both
+               captures of this window show them enabled at rest. */
+            { label: 'Save', onClick: () => setDraft(null) }, { label: 'Undo', onClick: () => { setDraft(null); setCur(0) } }, { label: 'Refresh' },
+            { label: 'Mark for Review' }, { label: 'Attachment', onClick: onAttachment },
+            { label: 'Print' }, { label: 'Paste Provider Addr.', width: 118 }, { label: 'Respond' },
+          ]}
+        />
+      </div>
 
       {/* patient identity strip — fields sit at the offsets they were painted at */}
       <PBIdentityStrip
@@ -125,12 +180,38 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
           At 342 the grid crowded the Report tab until Referral Note and Order
           Management had no room left and collided with the footer. */}
       <PBFixed style={{ padding: '0 3px', height: 207, display: 'flex' }}>
-        <PBDataWindow columns={columns} rows={exportedOrders} current={cur} onCurrentChange={setCur} />
+        <PBDataWindow
+          columns={columns.map((c) => (c.key === 'type'
+            ? {
+              ...c,
+              render: (row: OrderRow, i: number) => (draft && i === 0
+                ? (
+                  <PBDropDownDataWindow
+                    w="100%"
+                    listW={280}
+                    value={row.type}
+                    tutorialId="host.mois.field.order-type"
+                    columns={[{ key: 'type', header: 'Type', width: 100 }, { key: 'description', header: 'Description' }]}
+                    rows={ORDER_TYPES}
+                    onSelect={(pick) => setDraft((d) => (d ? { ...d, type: pick.type } : d))}
+                  />
+                )
+                : row.type),
+            }
+            : c))}
+          rows={exportedOrders}
+          current={cur}
+          onCurrentChange={setCur}
+          /* by order id, so a lesson can put the cursor on the one it means */
+          rowTutorialId={(_, i) => (draft && i === 0 ? 'host.mois.row.order-new'
+            : records[i - offset]?.id_order ? `host.mois.row.order-${records[i - offset]!.id_order}` : undefined)}
+        />
       </PBFixed>
 
       <PBFixed style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
         <PBTabs
-          key={cur}
+          /* a new row shifts every row down one, so the pages re-read */
+          key={`${cur}:${draft ? 'new' : ''}`}
           tabs={captions}
           active={caption}
           onChange={(next) => setTab(TABS.find((t) => next.startsWith(t)) ?? 'Report')}
@@ -155,8 +236,10 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
 function ReportPage({ order }: { order?: OrderRow }) {
   const d: OrderDetail = order?.detail ?? {}
   return (
-    <div className="pb-order-report">
-      <div className="pb-order-report__grid">
+    /* the page scrolls rather than letting the boxes run under the footer
+       when the tab is shorter than the window it was painted in */
+    <div className="pb-order-report" style={{ overflowY: 'auto' }}>
+      <div className="pb-order-report__grid" style={{ flex: '1 0 auto', minHeight: 262 }}>
         <PBGroup title="Detail Information" style={{ width: 553 }}>
           <div className="pb-form" style={{ gridTemplateColumns: '120px 1fr', padding: '2px 0 0' }}>
             <DetailRow label="Attending:" value={d.attending} right="Facility:" rightValue={d.facility} />
@@ -222,7 +305,15 @@ function ReportPage({ order }: { order?: OrderRow }) {
             <span className="pb-form__label">Priority:</span>
             <PBSelect options={orderPriorities} w={126} defaultValue={d.priority ?? ''} />
             <span className="pb-form__label">Status:</span>
-            <PBSelect options={orderStatuses} w={126} defaultValue={d.status ?? ''} />
+            <PBDropDownDataWindow
+              w={126}
+              listW={300}
+              display="status"
+              value={statusWord(d.status)}
+              tutorialId="host.mois.field.order-status"
+              columns={[{ key: 'status', header: 'Status', width: 120 }, { key: 'description', header: 'Description' }]}
+              rows={ORDER_STATUS_ROWS}
+            />
             <span className="pb-form__label">Finished:</span>
             <div className="pb-row">
               <PBInput w={98} defaultValue={d.finishedOn ?? ''} />
@@ -466,16 +557,12 @@ const encounterColumns: PBColumn<EncounterListRow>[] = [
  * the draft carries those three and leaves the rest blank.
  */
 const DRAFT_ENCOUNTER: EncounterListRow = {
-  id: 'draft', date: '2030.05.06', hr: '', mn: '', code: '', mode: '', nbr: '',
+  /* "The date and doctor fields will be automatically populated" (303061):
+     today, and the desktop provider */
+  id: 'draft', date: MOIS_TODAY, hr: '', mn: '', code: '', mode: '', nbr: '',
   provider: 'TECHNICAL SUPPORT', reason: '', loc: '', alert: false,
 }
 
-/** Today as MOIS stamps a date, so a row's date can be compared to it. */
-function moisToday(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
-}
 
 const ENCOUNTER_TABS = ['Report', 'Distribution'] as const
 type EncounterTab = typeof ENCOUNTER_TABS[number]
@@ -496,15 +583,44 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
   const [hideFuture, setHideFuture] = useState(false)
   /* a chart with a real export behind it lists its own encounters */
   const exported = useChartRows('encounters')
-  const listed = exported as unknown as EncounterListRow[]
+  /* a saved New Record, and any paper clips attached this session, come
+     from the frame's session copy (host/encounterArea) */
+  const { session, update } = useEncounterSession()
+  const listed = [...session.saved, ...exported].map((r) => ({
+    ...r,
+    /* Mode is stored as a SNOMED CT concept; the list prints its short name */
+    mode: VISIT_MODES[r.mode ?? '']?.short ?? r.mode ?? '',
+    attach: session.attachments[`encounter:${r.id}`]
+      ? String((Number((r as { attach?: string }).attach) || 0) + session.attachments[`encounter:${r.id}`]!)
+      : (r as { attach?: string }).attach,
+  })) as unknown as EncounterListRow[]
   const rows = draft ? [DRAFT_ENCOUNTER, ...listed] : listed
   const current = rows[cur] ?? rows[0]
+  /* Attachment acts on the row the cursor is on */
+  const target = current?.id && current.id !== 'draft' ? `encounter:${current.id}` : null
+  useEffect(() => {
+    update((s) => (s.attachTarget === target ? s : { ...s, attachTarget: target }))
+  }, [target, update])
+  useScreenReport({
+    savedEncounters: session.saved.length,
+    attached: Object.entries(session.attachments).filter(([k]) => k.startsWith('encounter:')).reduce((n, [, v]) => n + v, 0),
+  })
+  /* Save (F2) commits the draft: it becomes an encounter with a number */
+  const saveDraft = () => {
+    if (draft) {
+      update((s) => ({
+        ...s,
+        saved: [{ ...DRAFT_ENCOUNTER, id: nextEncounterId(patient.chart, s.saved), date: MOIS_TODAY, hr: '', mn: '', code: '', mode: '', nbr: '', reason: '', loc: '' }, ...s.saved],
+      }))
+    }
+    onDraft?.(false)
+  }
 
   /* MOIS paints an encounter that has not happened yet on a red band — every
      row in both captures is a 2030 appointment and every one of them is red.
      A fixture says so outright; a row that arrived from a chart export is
      judged by its date. */
-  const today = useMemo(() => moisToday(), [])
+  const today = MOIS_TODAY
   const future = (r: EncounterListRow) =>
     (typeof r.alert === 'boolean' ? r.alert : (r.date ?? '') > today)
 
@@ -520,7 +636,7 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
           { label: 'Delete Record' },
           /* enabled at rest, as the capture shows; the click still only means
              something while a draft row is open */
-          { label: 'Save', onClick: () => onDraft?.(false) },
+          { label: 'Save', onClick: saveDraft },
           { label: 'Undo', onClick: () => { onDraft?.(false); setCur(0) } },
           { label: 'Refresh' }, { label: 'Print' }, { label: 'Attachment' },
         ]}
@@ -576,13 +692,23 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
       </div>
 
       {/* the grid runs the full width; live TRAINING comparison gives a 240px list */}
-      <div style={{ height: 240, display: 'flex', flex: 'none' }}>
+      <div
+        style={{ height: 240, display: 'flex', flex: 'none' }}
+        onKeyDown={(event) => {
+          if (!event.ctrlKey || event.altKey || event.shiftKey || event.metaKey
+            || event.key.toLowerCase() !== 'z' || !current || current.id === 'draft') return
+          event.preventDefault()
+          event.stopPropagation()
+          onOpen?.(current)
+        }}
+      >
         <PBDataWindow
           rows={rows}
           current={cur}
           onCurrentChange={setCur}
-          onActivate={(r) => onOpen?.(r)}
+          onActivate={(r) => { if (r.id !== 'draft') onOpen?.(r) }}
           rowStatus={(r) => (future(r) ? 'alert' : 'normal')}
+          rowTutorialId={(r) => `host.mois.row.encounter-${r.id}`}
           columns={encounterColumns}
         />
       </div>

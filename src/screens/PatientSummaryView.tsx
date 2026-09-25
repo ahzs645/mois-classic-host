@@ -10,6 +10,7 @@ import {
   type PBColumn, type PBCommand,
 } from '../pb'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
+import { nameInRed } from './DemographicsView'
 
 /* ============================================================================
    Patient Summary — the window MOIS lands on when a chart is opened.
@@ -70,7 +71,9 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
     { label: 'Save' },
     { label: 'Undo' },
     { label: 'Refresh' },
-    { label: 'Search', onClick: onLookup },
+    /* Search opens Advance Chart Search (art. 301562) — the frame raises it
+       on the kit's `search` command, not the Patient Chart List */
+    { label: 'Search' },
     { label: 'Previous Chart', onClick: () => onStepChart(-1) },
     { label: 'Next Chart', onClick: () => onStepChart(1) },
     { label: 'Tear Off' },
@@ -126,12 +129,12 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
            gap before `Chart NNNN`; the screen used to inline its own span and
            lost both. Ink-to-ink the gap is 14px and the number ends 7px from
            the window edge. */
-        right={
+        right={patient.chart ? (
           <span className="pb-viewhead__chart">
             {headerIdentity(patient)}
             <span className="pb-viewhead__chartno">Chart {patient.chart}</span>
           </span>
-        }
+        ) : undefined}
       />
       <PBCommandRow commands={commands} />
 
@@ -152,14 +155,16 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
         <div className="pb-chartfilter__row">
           <span className="pb-chartfilter__label">Chart No.:</span>
           {/* typing a chart number and pressing Enter loads it, as MOIS does */}
-          <PBLookup
-            w={113}
-            value={typed}
-            name="chart"
-            onChange={setTyped}
-            onEnter={(v) => onOpenChart(v.trim())}
-            onDots={onLookup}
-          />
+          <span data-tutorial-id="host.mois.field.chart-no" style={{ display: 'inline-flex' }}>
+            <PBLookup
+              w={113}
+              value={typed}
+              name="chart"
+              onChange={setTyped}
+              onEnter={(v) => onOpenChart(v.trim())}
+              onDots={onLookup}
+            />
+          </span>
           <Gap to={231} from={192} label="Status:" />
           {/* the status letter sits in a plain outline on the window gradient,
               not in a white edit field — see the capture at x=317 */}
@@ -186,11 +191,12 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
 
         <div className="pb-chartfilter__row">
           <span className="pb-chartfilter__label">Name (F/M/L):</span>
-          <PBInput w={95} value={patient.first} readOnly />
+          {/* art. 301149: an IA or DE chart's name is red here too */}
+          <PBInput w={95} value={patient.first} readOnly style={nameInRed(patient.status) ? { color: '#d00000' } : undefined} />
           <span style={{ width: 2 }} />
-          <PBInput w={88} value={patient.middle} readOnly />
+          <PBInput w={88} value={patient.middle} readOnly style={nameInRed(patient.status) ? { color: '#d00000' } : undefined} />
           <span style={{ width: 2 }} />
-          <PBInput w={95} value={patient.last} readOnly />
+          <PBInput w={95} value={patient.last} readOnly style={nameInRed(patient.status) ? { color: '#d00000' } : undefined} />
           <Gap to={457} from={361} label="Insurance No.:" />
           <PBInput w={88} value={patient.insurance ?? ''} readOnly />
           <Gap to={579} from={545} label="Dep:" />
@@ -206,7 +212,10 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
               and 3924 alike — so it is the Data Audit Service's flag on a
               registered field (`reference/field-audit.md` lists Gender), not
               something one chart earns. */}
-          <Gap to={266} from={174} label="Gender:" flagged tip="This patient has multiple gender designations" />
+          {/* …though not with no chart loaded, where it is a plain caption */}
+          {patient.chart
+            ? <Gap to={266} from={174} label="Gender:" flagged tip="This patient has multiple gender designations" />
+            : <Gap to={266} from={174} label="Gender:" />}
           <PBDropDownDataWindow
             w={74}
             value={patient.gender}

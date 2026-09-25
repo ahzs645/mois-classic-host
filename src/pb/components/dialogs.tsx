@@ -36,7 +36,11 @@ const ICONS = {
   ),
 }
 
-export type PBMessageButton = { label: string; value: string; default?: boolean }
+export type PBMessageButton = {
+  label: string; value: string; default?: boolean
+  /** opt-in tutorial anchor on the button (host.mois.command.*) */
+  tutorialId?: string
+}
 
 /* --- PBMessageBox -------------------------------------------------------- */
 export function PBMessageBox({
@@ -60,6 +64,7 @@ export function PBMessageBox({
             <PBButton
               key={b.value}
               className={b.default ? 'pb-btn--default' : undefined}
+              data-tutorial-id={b.tutorialId}
               onClick={() => onClose(b.value)}
             >
               {b.label}

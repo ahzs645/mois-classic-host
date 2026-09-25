@@ -9,12 +9,14 @@ import {
   INBOUND_FILTERS, INBOUND_ROWS, INBOUND_TABS, MESSAGE_DETAIL_ACTIONS,
   MESSAGE_DETAIL_COLUMNS, MESSAGE_DETAIL_MATCH_TEXT, MESSAGE_DETAIL_PATIENT,
   MESSAGE_DETAIL_PREVIEW, MESSAGE_DETAIL_ROWS, OUTBOUND_COLUMNS, OUTBOUND_COMMANDS,
-  OUTBOUND_FILTERS, OUTBOUND_ROWS, QUALITY_REVIEW_COLUMNS, QUALITY_REVIEW_FILTERS,
+  OUTBOUND_FILTERS, OUTBOUND_ROWS, PAP_NAVIGATOR, QUALITY_REVIEW_COLUMNS, QUALITY_REVIEW_FILTERS,
   QUALITY_REVIEW_ROWS, RECORD_NAVIGATOR_COLUMNS, RECORD_NAVIGATOR_MESSAGE,
   RECORD_NAVIGATOR_REPORT, RECORD_NAVIGATOR_ROWS, TRANSMISSION_LOG,
   TRANSMISSION_LOG_COLUMNS,
   type CdxColumn, type NavigatorRecord, type QualityReviewRow,
 } from '../data/cdxMessages'
+import { setTornOff, useTornOff } from '../data/exchangeStore'
+import { usePatient } from '../data/patient-context'
 
 /* ============================================================================
    CDX secure messaging: Inbound Messages, Outbound Messages, and the two
@@ -174,13 +176,17 @@ export function InboundMessagesView({
   )
 }
 
-/* --- the Quality Review tab ---------------------------------------------- */
-function QualityReviewTab({
+/* --- the Quality Review tab ----------------------------------------------
+   Shared by Inbound Messages and Data Exchange ▸ Lab Results: 303384 says
+   the Quality Review "is available from both the Lab Results and Inbound
+   Messages folders" and "the list of records is the same for both". */
+export function QualityReviewTab({
   includeWarnings, onIncludeWarnings, onTearOff,
 }: {
   includeWarnings: boolean
   onIncludeWarnings: (v: boolean) => void
-  onTearOff?: () => void
+  /** the row whose Tear Off was pressed, `''` for Tear Off All */
+  onTearOff?: (item: string) => void
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
@@ -223,7 +229,7 @@ function QualityReviewTab({
                     data-tutorial-id={
                       r.total ? 'host.mois.command.tear-off-all' : `host.mois.command.tear-off-${pbSlug(r.item)}`
                     }
-                    onClick={onTearOff}
+                    onClick={() => { setTornOff(r.item); onTearOff?.(r.item) }}
                   >
                     {r.total ? 'Tear Off All' : 'Tear Off'}
                   </PBButton>
@@ -472,19 +478,45 @@ export function PatientMessageDetailWindow({ onClose }: { onClose?: () => void }
    Its selected record row is (247,199,189), a distinctly LIGHTER salmon than
    the #e89c84 every other grid uses, and unique to this window.
    ======================================================================== */
-export function RecordNavigatorWindow({ onClose }: { onClose?: () => void }) {
+/* The Measures tear-off lists the pap result (333106, image ed8af8c2) on
+   the chart the stage has open; pressing it goes to that record in the
+   chart's Measurements folder, which is what 303507 means by "click on the
+   record you would like to adjust to navigate to that record". The other
+   rows are the CDX capture's own patients, who have no chart here, so
+   pressing one of those only selects it. */
+const RECORD_FOLDER: Record<string, string> = {
+  MEASURE: 'measures', IMAGING: 'imaging', CONSULT: 'consults', PROCEDURE: 'procedures',
+  DOCUMENT: 'documents', ORDER: 'orders', ADMISSION: 'admissions',
+}
+
+export function RecordNavigatorWindow({ onClose, onOpenRecord }: {
+  onClose?: () => void
+  /** go to a record on the open chart: the Patient Chart folder that holds it */
+  onOpenRecord?: (node: string) => void
+}) {
+  const torn = useTornOff()
+  const patient = usePatient()
+  const pap = torn === 'Measures'
+  const rows: NavigatorRecord[] = pap
+    ? [{
+      patient: `${patient.last}, ${patient.first}`.toUpperCase(),
+      type: PAP_NAVIGATOR.type, date: PAP_NAVIGATOR.date, description: PAP_NAVIGATOR.description, detail: '',
+    }]
+    : RECORD_NAVIGATOR_ROWS
   const [cur, setCur] = useState(0)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const patients = [...new Set(RECORD_NAVIGATOR_ROWS.map((r) => r.patient))]
+  const patients = [...new Set(rows.map((r) => r.patient))]
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
+    /* 303507: "Keeping the Record Navigator open beside the patient's chart"
+       — so it stands at the right of the desktop, not over the chart's grid */
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85, placeItems: 'center end', paddingRight: 8, pointerEvents: 'none' }}>
       <PBWindow
         child
         controls={false}
         title="Record Navigator"
         onClose={onClose}
-        style={{ width: 'min(753px, calc(100vw - 40px))', height: 'min(706px, calc(100vh - 60px))' }}
+        style={{ width: 'min(600px, calc(100vw - 40px))', height: 'min(706px, calc(100vh - 60px))', pointerEvents: 'auto' }}
       >
         <div
           data-tutorial-id="host.mois.dialog.record-navigator"
@@ -501,7 +533,7 @@ export function RecordNavigatorWindow({ onClose }: { onClose?: () => void }) {
 
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 5px' }}>
           <PBDataWindow
-            rows={RECORD_NAVIGATOR_ROWS}
+            rows={rows}
             current={cur}
             onCurrentChange={setCur}
             groupBy={(r: NavigatorRecord) => r.patient}
@@ -524,7 +556,10 @@ export function RecordNavigatorWindow({ onClose }: { onClose?: () => void }) {
               align: c.align,
               render: c.key === 'description'
                 ? (r: NavigatorRecord) => (
-                  <span data-tutorial-id={`host.mois.cell.description-${pbSlug(r.description)}`}>
+                  <span
+                    data-tutorial-id={`host.mois.cell.description-${pbSlug(r.description)}`}
+                    onClick={pap && RECORD_FOLDER[r.type] ? () => onOpenRecord?.(RECORD_FOLDER[r.type]!) : undefined}
+                  >
                     {r.description}
                   </span>
                 )
@@ -536,12 +571,20 @@ export function RecordNavigatorWindow({ onClose }: { onClose?: () => void }) {
         <div style={{ flex: 'none', padding: 5, display: 'flex', flexDirection: 'column', gap: 5 }}>
           <PBGroupBox title="Messages">
             <div className="pb-row" style={{ gap: 6 }} data-tutorial-id="host.mois.field.navigator-message">
-              <svg width="14" height="13" viewBox="0 0 16 15" aria-hidden="true">
-                <path d="M8 1l7 13H1z" fill="#f2c200" stroke="#b08c00" />
-                <path d="M7.2 5.5h1.6v5H7.2z" fill="#3a2f00" />
-                <circle cx="8" cy="12" r="1" fill="#3a2f00" />
-              </svg>
-              <span>{RECORD_NAVIGATOR_MESSAGE}</span>
+              {pap ? (
+                /* an error, not a warning: the red circle in ed8af8c2 */
+                <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                  <circle cx="8" cy="8" r="7" fill="#d33" />
+                  <path d="M5 5l6 6M11 5l-6 6" stroke="#fff" strokeWidth="1.8" />
+                </svg>
+              ) : (
+                <svg width="14" height="13" viewBox="0 0 16 15" aria-hidden="true">
+                  <path d="M8 1l7 13H1z" fill="#f2c200" stroke="#b08c00" />
+                  <path d="M7.2 5.5h1.6v5H7.2z" fill="#3a2f00" />
+                  <circle cx="8" cy="12" r="1" fill="#3a2f00" />
+                </svg>
+              )}
+              <span>{pap ? PAP_NAVIGATOR.message : RECORD_NAVIGATOR_MESSAGE}</span>
             </div>
           </PBGroupBox>
 
@@ -559,7 +602,7 @@ export function RecordNavigatorWindow({ onClose }: { onClose?: () => void }) {
                 whiteSpace: 'pre',
               }}
             >
-              {RECORD_NAVIGATOR_REPORT}
+              {pap ? PAP_NAVIGATOR.report : RECORD_NAVIGATOR_REPORT}
             </div>
           </div>
         </div>

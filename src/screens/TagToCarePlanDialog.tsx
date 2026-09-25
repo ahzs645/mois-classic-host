@@ -1,6 +1,11 @@
 import { useState, type CSSProperties } from 'react'
-import { type TagCarePlanRecord } from '../data/chartUtilities'
-import { PBButton, PBDropField, PBGroup, PBInput, PBWindow } from '../pb'
+import { recordsForNode, useChartExport } from '../data/chart-records'
+import { CARE_PLAN_SECTIONS } from '../data/carePlanRows'
+import { addCarePlanTag } from '../data/chartSession'
+import { tagCarePlanRecords, type TagCarePlanRecord } from '../data/chartUtilities'
+import type { MoisChartExport, MoisRecord } from '../data/charts'
+import { usePatient } from '../data/patient-context'
+import { PBButton, PBGroup, PBInput, PBSelect, PBWindow } from '../pb'
 
 /* ============================================================================
    Tag Information to Care Plan — the right-click option list's
@@ -19,10 +24,39 @@ import { PBButton, PBDropField, PBGroup, PBInput, PBWindow } from '../pb'
    caption and a boxed close glyph) — dialog x ≈379–814, y ≈393–667, title bar
    21 tall.
 
-   Gaps left deliberately (spec §13.10): the `Section` drop-down's list is not
-   in the corpus — only the prefilled `CONSULTS` is ever shown — so the arrow
-   drops nothing, and `Rank` has no documented semantics beyond "the rank".
+   The record is the one current in the folder behind (the first row, as the
+   folder opens): Category is the folder, Code and the description are the
+   record's own, and Section is prefilled from the folder — CONSULT / 25061 /
+   NEUROPATHY - DIABETIC / CONSULTS in the capture. OK files the tag, and the
+   record then shows in the Care Plan summary under that section.
+
+   The Section drop-down offers the summary's own section names (2070139
+   `3d93f580…`); `Rank` has no documented semantics beyond "the rank".
    ========================================================================= */
+
+/** Category and Section per folder; the capture shows only Consults. */
+const FOLDER_TAG: Record<string, { category: string; section: string; code: (r: MoisRecord) => string; description: (r: MoisRecord) => string }> = {
+  consults: { category: 'CONSULT', section: 'CONSULTS', code: (r) => r.str_code ?? '', description: (r) => r.str_description ?? r.str_code_term ?? '' },
+  imaging: { category: 'IMAGE', section: 'GENERAL', code: (r) => r.str_code ?? '', description: (r) => r.str_description ?? '' },
+  procedures: { category: 'PROCEDURE', section: 'GENERAL', code: (r) => r.str_code ?? '', description: (r) => r.str_description ?? '' },
+  measures: { category: 'MEASURE', section: 'MEASUREMENTS', code: (r) => r.str_loinic_num ?? r.str_code ?? '', description: (r) => r.str_description ?? r.str_order_name ?? '' },
+  conditions: { category: 'HEALTH ISSUE', section: 'HEALTH ISSUES', code: (r) => r.str_icd ?? '', description: (r) => r.str_problem_name ?? '' },
+  admissions: { category: 'FACILITY ADMISSION', section: 'GENERAL', code: (r) => r.str_code ?? '', description: (r) => r.str_description ?? '' },
+}
+
+/** What the window shows for a record of `node`: the one right-clicked
+    (`source`), or the folder's first as it opens. The right-click Option List
+    (screens/RecordOptionList.tsx) reuses it to name the record it acts on. */
+export function tagRecordFor(node: string | undefined, data: MoisChartExport | null, source?: MoisRecord): TagCarePlanRecord & { date: string } {
+  const spec = node ? FOLDER_TAG[node] : undefined
+  const r = spec ? (source ?? recordsForNode(data, node!)[0]) : undefined
+  if (spec && r) {
+    const date = (r.dtm_ord_date ?? r.dtm_start ?? r.dtm_collect_date ?? '').split(' ')[0]!.replace(/\//g, '.')
+    return { category: spec.category, code: spec.code(r), description: spec.description(r), section: spec.section, date }
+  }
+  const fallback = node ? tagCarePlanRecords[node] : undefined
+  return { ...(fallback ?? { category: '', code: '', description: '', section: '' }), date: '' }
+}
 
 const W = 436
 const H = 275
@@ -34,20 +68,30 @@ const y = (captureY: number) => captureY - 393 - TITLEBAR_H
 /** The greyed labels and read-only grey faces of the Record Information group. */
 const READONLY: CSSProperties = { background: 'var(--pb-field-ro)' }
 
-export function TagToCarePlanDialog({ record, onOk, onClose }: {
+export function TagToCarePlanDialog({ node, source, record, onOk, onClose }: {
   /** the folder the record was right-clicked in */
   node?: string
+  /** the record right-clicked, when it is not the folder's first */
+  source?: MoisRecord
   /** or the record itself, when the caller already has it */
   record?: TagCarePlanRecord
   onOk?: (section: string, rank: string) => void
   onClose: () => void
 }) {
-  /* Only the Consults record was captured. A caller tagging out of another
-     folder passes its own; nothing here derives one, because the Category and
-     Section vocabularies are not in the corpus. */
-  const rec = record ?? { category: '', code: '', description: '', section: '' }
+  const patient = usePatient()
+  const data = useChartExport()
+  const rec = record ? { ...record, date: '' } : tagRecordFor(node, data, source)
   const [section, setSection] = useState(rec.section)
   const [rank, setRank] = useState('0')
+  const ok = () => {
+    if (rec.description) {
+      addCarePlanTag(patient.chart, {
+        section: section || 'GENERAL', rank, date: rec.date, description: rec.description,
+        detail: '', category: rec.category, code: rec.code,
+      })
+    }
+    onOk?.(section, rank)
+  }
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -90,10 +134,12 @@ export function TagToCarePlanDialog({ record, onOk, onClose }: {
             <PBGroup title="Care Plan Location" fill style={{ height: '100%' }}>
               <div className="pb-row" style={{ gap: 6, padding: '4px 0' }}>
                 <span className="pb-form__label">Section:</span>
-                <PBDropField
+                <PBSelect
                   w={200}
                   value={section}
-                  onChange={setSection}
+                  options={['', ...CARE_PLAN_SECTIONS]}
+                  data-tutorial-id="host.mois.field.care-plan-section"
+                  onChange={(e) => setSection(e.target.value)}
                 />
               </div>
               <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
@@ -118,7 +164,7 @@ export function TagToCarePlanDialog({ record, onOk, onClose }: {
             <PBButton
               style={{ width: 75, minWidth: 0 }}
               data-tutorial-id="host.mois.command.tag-to-care-plan-ok"
-              onClick={() => onOk?.(section, rank)}
+              onClick={ok}
             >
               Ok
             </PBButton>

@@ -96,6 +96,10 @@ export interface HostActionSpec {
    * dynamic") and know when that outcome is already true.
    */
   outcome?: { path: string; arg: string }
+  /** A learner doing this by hand reports this same action with the same
+      args, so Practice can wait for it when the step's check already holds
+      (see the Webforms contract, lib/host-emulators/contract.ts). */
+  learner?: boolean
 }
 
 /** A starting point: which module and screen the shell opens on. */
@@ -105,6 +109,13 @@ export interface HostFixtureSpec {
   description?: string
   /** The `host.*` snapshot the shell reports before any action. */
   initialState: HostRecord
+  /**
+   * The chart a tutorial on this fixture needs open, as the emulator's chart
+   * number. The stage opens it for the run instead of the learner's active
+   * patient (which it leaves untouched), because a lesson written against a
+   * populated chart cannot be taught on one that has no records.
+   */
+  chart?: string
 }
 
 export interface HostEmulatorManifest {

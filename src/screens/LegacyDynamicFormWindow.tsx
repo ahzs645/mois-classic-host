@@ -60,7 +60,7 @@ export function LegacyDynamicFormWindow({ header, records, onClose }: {
         </div>
         <div className="pb-legacy-dform__footer">
           <PBButton disabled>Save Form</PBButton>
-          <PBButton onClick={onClose}>Close Form</PBButton>
+          <PBButton data-tutorial-id="host.mois.command.close-form" onClick={onClose}>Close Form</PBButton>
         </div>
       </PBWindow>
     </div>

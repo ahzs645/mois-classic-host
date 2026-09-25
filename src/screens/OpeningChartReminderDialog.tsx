@@ -50,7 +50,7 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
           <div className="pb-opening-reminder__content">
             <div className="pb-opening-reminder__heading">
               <strong>Reminder: Opening Chart</strong>
-              <strong>chart no.: {patient.chart} {patient.first} {patient.last} {ageOf(patient.dob)} {patient.gender}</strong>
+              <strong>chart no.: {patient.chart} {patient.first} {patient.last} {reminderAge(patient.dob)} {patient.gender}</strong>
             </div>
             <div className="pb-opening-reminder__identity">
               <span>CHART: <b>{patient.chart}</b></span>
@@ -84,3 +84,8 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
     </div>
   )
 }
+
+/* The reminder spells the unit out — `39 YEAR OLD M` in the 3924 capture —
+   where the view headers abbreviate it (`39 YR OLD`). Only the year form is
+   captured, so months keep the header's `MTH`. */
+const reminderAge = (dob: string) => ageOf(dob).replace(/\bYR\b/g, 'YEAR')

@@ -5,7 +5,11 @@ import { chartRowsFor } from '../data/chart-records'
 import { hasChartExport, loadChartExport } from '../data/charts'
 import { chartScreens, moduleScreens, schedulerScreens, type ChartScreen } from '../data/chartScreens'
 import { clinicListSpecs } from '../data/clinicManagement'
-import { bookedAppointment, type Appointment } from '../data/daybook'
+import {
+  apptStatusOf, billedCount, bookedCount, dayRows, encounterOf, offsetOfStamp, providerOfSlug,
+  resetSchedulerStore, schedulerKitAction, schedulerSnapshot, schedulerStore, useSchedulerStore,
+} from '../data/schedulerStore'
+import { SCHEDULER_EXTRA_NODES, SchedulerExtraView } from '../screens/scheduler/SchedulerExtraView'
 import { designerNodes } from '../data/designerSection'
 import {
   adminTree, billingTree, daybookProviders,
@@ -25,8 +29,10 @@ import { printReportByMenu, type PrintReport } from '../data/printReports'
 import { reportScreens } from '../data/reportScreens'
 import { taskScreens } from '../data/tasks'
 import { userManagementNodes } from '../data/userManagement'
+import { adminListNodes } from '../data/adminLists'
+import { AdminListsView } from '../screens/AdminListsView'
 import {
-  PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBModuleBar, PBStatusBar, PBTree, PBWindow,
+  PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBMessageBox, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
 } from '../pb'
 import '../pb/kit.css'
@@ -51,17 +57,21 @@ import { DemographicsView } from '../screens/DemographicsView'
 import { DesignerSectionView } from '../screens/DesignerSectionView'
 import { DeterminantsView } from '../screens/DeterminantsView'
 import { EncounterWindow, type EncounterRecord } from '../screens/EncounterWindow'
+import { EXCHANGE_NODES, ExchangeView } from '../screens/ExchangeView'
+import { encounterRowById, performEncounterAction } from './encounterArea'
 import { FindPatientDialog } from '../screens/FindPatientDialog'
 import { GoalDialog } from '../screens/GoalDialog'
 import { GoalsView } from '../screens/GoalsView'
 import { GroupVisitView } from '../screens/GroupVisitView'
-import { LetterSetupWindow, SelectLetterTemplateDialog } from '../screens/LetterFlow'
+import { LetterSetupWindow, SelectLetterTemplateDialog, startLetter } from '../screens/LetterFlow'
 import { LetterWriterWindow } from '../screens/LetterWriterWindow'
 import { LoginDialog } from '../screens/LoginDialog'
+import { LockoutStatusReporter, registerLockoutWindows } from '../screens/LockoutWindows'
+import { registerNotificationServiceWindows } from '../screens/NotificationServiceWindows'
 import { MarView } from '../screens/MarView'
 import { MedicationView, PrintHistoryView } from '../screens/MedicationView'
 import { ProviderWorkloadView, UserManagementLanding } from '../screens/ModuleLandingViews'
-import { NewAppointmentDialog } from '../screens/NewAppointmentDialog'
+import '../screens/NewAppointmentDialog'
 import { NotificationView } from '../screens/NotificationView'
 import { OrderLinkingServiceDialog } from '../screens/OrderLinkingServiceDialog'
 import { OpeningChartReminderDialog } from '../screens/OpeningChartReminderDialog'
@@ -78,8 +88,29 @@ import { TaskListView } from '../screens/TaskListView'
 import { UserManagementView } from '../screens/UserManagementView'
 import { WaitingListView } from '../screens/WaitingListView'
 import { WorkspaceSummaryView } from '../screens/WorkspaceSummaryView'
-import { resolveMoisClassicFixture } from './manifest'
+import { AreaWindowLayer, AreaWindowProvider, isAreaWindow } from '../screens/areaWindowRegistry'
+import '../screens/areaWindows.register'
+import { reportNavigatorRows } from '../data/reportParams'
+import { resetWorkspaceStore, useWorkspaceStore } from '../data/workspaceStore'
+import { workspaceItemCounts } from '../data/workspaceLists'
+import { resetWorkspaceSettings } from '../data/workspaceSettings'
+import { resetChartSession } from '../data/chartSession'
+import { WorkspaceSettingsView } from '../screens/WorkspaceSettingsView'
+import { FavouriteMedicationListView } from '../screens/FavouriteMedicationListView'
+import { MOIS_CLASSIC_NO_CHART_FIXTURE, resolveMoisClassicFixture } from './manifest'
+import { ScreenWindowProvider, isScreenWindow, type ScreenWindow } from './screen-windows'
+import '../screens/screen-windows-register'
+import { ScreenStateProvider, mergeScreenReports, type ScreenReport, type ScreenReporter } from './screen-state'
+import { promptCurrentField, useMoisHotkeys } from './hotkeys'
+import { setFieldValue } from './field-input'
+import { resetPatientEdits } from '../data/patient-edits'
+import { resetChartBasicsState } from '../data/chart-basics-state'
+import { DesktopProviderField } from '../screens/ChartBasicsWindows'
 import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './types'
+/* Registers each module's menu overrides. Imported last, from the frame
+   rather than from data/mois.tsx: the menu files import data that imports
+   data/mois.tsx, and loading them from inside it made an import cycle. */
+import '../data/menus/register'
 
 /* ============================================================================
    MoisClassicShell — the MOIS MDI frame as an embeddable, instrumented host.
@@ -98,14 +129,30 @@ import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './type
    ========================================================================= */
 
 type View =
+  /* 'closed': Close Window shut the sheet; the work area is empty until a
+     tree node is opened again */
+  | 'closed'
+  /* Administration's Prompt / Selection List, Chart Summary and Codeset
+     windows (screens/AdminListsView.tsx) */
+  | 'adminlist'
   | 'providerworkload' | 'userlanding' | 'summary' | 'order' | 'encounters' | 'scheduler' | 'demographics' | 'notifications'
   | 'groupvisit' | 'careplan' | 'goals' | 'imaging' | 'resourcebook' | 'section' | 'daygrid' | 'rx' | 'ltm' | 'printhx' | 'waitprov' | 'waitres' | 'report' | 'mar' | 'determinants' | 'settings' | 'wssummary' | 'reportlist' | 'unsentmsp' | 'sentmsp' | 'invoice' | 'basket' | 'billingadmin' | 'tasklist' | 'cliniclist' | 'designer' | 'cdxinbound' | 'cdxoutbound' | 'usermgt'
+  /* Scheduler ▸ Reservation Blocks and Shift Manager (screens/scheduler) */
+  | 'schedx'
+  /* Workspace ▸ My Settings: Workspace Settings, Favourite Medication List */
+  | 'wssettings' | 'favmeds'
+  /* every Data Exchange folder's own window (screens/ExchangeView.tsx) */
+  | 'exchange'
 
 /* The MDI window classes this frame can instantiate. Each is opened by key,
    so the same record never opens twice. */
 const WINDOW_CLASSES: Record<string, PBWindowClass> = {
   encounter: EncounterWindow,
 }
+
+/* the Administration / frame windows registered by id (see the files) */
+registerLockoutWindows()
+registerNotificationServiceWindows()
 
 const DEFAULT_EXPANDED = [
   'summary', 'allergy', 'rx', 'issues', 'careplan', 'forms',
@@ -137,6 +184,8 @@ const ROUTES: Record<string, View> = {
   'ad-user-mgt': 'userlanding',
   'ad-settings': 'settings',
   'ws-summary': 'wssummary',
+  'ws-set-workspace': 'wssettings',
+  'ws-set-meds': 'favmeds',
   'rp-list': 'reportlist',
   ...Object.fromEntries(basketFolders.map((f) => [f.id, 'basket' as View])),
   ...Object.fromEntries(billingAdminViews.map((v) => [v.node, 'billingadmin' as View])),
@@ -144,6 +193,8 @@ const ROUTES: Record<string, View> = {
   ...Object.fromEntries(clinicListSpecs.map((v) => [v.node, 'cliniclist' as View])),
   ...Object.fromEntries(designerNodes.map((n) => [n, 'designer' as View])),
   ...Object.fromEntries(userManagementNodes.map((n) => [n, 'usermgt' as View])),
+  ...Object.fromEntries(adminListNodes.map((n) => [n, 'adminlist' as View])),
+  ...Object.fromEntries(EXCHANGE_NODES.map((n) => [n, 'exchange' as View])),
   'dx-inbound-msg': 'cdxinbound',
   'dx-outbound-msg': 'cdxoutbound',
   'bl-unsent': 'unsentmsp',
@@ -185,6 +236,7 @@ const ROUTES: Record<string, View> = {
   'w-prov': 'waitprov',
   'w-res': 'waitres',
   'r-daybook': 'resourcebook',
+  ...Object.fromEntries(SCHEDULER_EXTRA_NODES.map((n) => [n, 'schedx' as View])),
 }
 
 /* the multi-column day and week views share one grid component */
@@ -245,16 +297,15 @@ function fallbackScreen(label: string): ChartScreen {
   return {
     title: label,
     noEncounter: true,
-    commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Print'],
-    disabled: ['Save', 'Undo'],
-    columns: [
-      { key: 'date', header: 'Date', width: 92, align: 'center' },
-      { key: 'description', header: 'Description', width: 260 },
-      { key: 'detail', header: 'Detail' },
-      { key: 'by', header: 'Entered By', width: 150 },
-    ],
+    noPatient: true,
+    placeholder: true,
+    commands: ['Close Window'],
+    columns: [],
   }
 }
+
+/** Other captions a Record-menu command goes by on some windows. */
+const COMMAND_CAPTIONS: Record<string, string[]> = { 'new-record': ['new'], 'delete-record': ['delete'] }
 
 /** Which module tree holds `id`. */
 function moduleOfNode(id: string): string | null {
@@ -312,14 +363,26 @@ function useFrameGeometry(
     if (!windowSize) return
     const desktop = desktopRef.current
     if (!desktop) return
-    const width = Math.min(windowSize.width, desktop.clientWidth)
-    const height = Math.min(windowSize.height, desktop.clientHeight)
-    setRect({
-      left: Math.max(0, Math.round((desktop.clientWidth - width) / 2)),
-      top: Math.max(0, Math.round((desktop.clientHeight - height) / 2)),
-      width,
-      height,
+    const place = () => {
+      const width = Math.min(windowSize.width, desktop.clientWidth)
+      const height = Math.min(windowSize.height, desktop.clientHeight)
+      setRect({
+        left: Math.max(0, Math.round((desktop.clientWidth - width) / 2)),
+        top: Math.max(0, Math.round((desktop.clientHeight - height) / 2)),
+        width,
+        height,
+      })
+    }
+    /* A desktop with no size yet — a hidden pane or background tab, a
+       collapsed container — would open the window at 0 x 0 and keep it
+       there, since the rect is only taken once. Wait for a real size. */
+    if (desktop.clientWidth > 0 && desktop.clientHeight > 0) { place(); return }
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      if (desktop.clientWidth > 0 && desktop.clientHeight > 0) { observer.disconnect(); place() }
     })
+    observer.observe(desktop)
+    return () => observer.disconnect()
     /* only where the window opens: a resize moves the desktop under it, the
        way it does under a real window, and `current()` keeps it on screen */
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -555,11 +618,8 @@ function Frame({
   const [daybookProvider, setDaybookProvider] = useState('TECHNICAL SUPPORT')
   /* the day book's current row, and the AS code set against each row */
   const [apptRow, setApptRow] = useState(0)
-  const [apptStatuses, setApptStatuses] = useState<Record<number, string>>({})
-  /* appointments booked from the New Appointment window this session */
-  const [booked, setBooked] = useState<Appointment[]>([])
-  /* day-book rows billed to MSP this session */
-  const [billedRows, setBilledRows] = useState<Set<number>>(new Set())
+  /* the AS codes, bookings and bills themselves live in data/schedulerStore.ts;
+     New Appointment is a registered window (screens/NewAppointmentDialog.tsx) */
   const [newApptOpen, setNewApptOpen] = useState(false)
   /* which of Billing's four "Prompt -" lookups is open, if any */
   const [claimPrompt, setClaimPrompt] = useState<ClaimPrompt | null>(null)
@@ -587,14 +647,24 @@ function Frame({
      case chartProp leads and onChartChange reports every change. */
   const [ownChart, setOwnChart] = useState(DEFAULT_CHART)
   const chart = chartProp ?? (findPatient(ownChart, roster) ? ownChart : roster[0]?.chart ?? ownChart)
+  /* …but MOIS opens with none loaded: Patient Summary blank and every other
+     chart window refused until a chart is looked up. The host's chart is only
+     which one the lookup would find; picking a chart is what loads it. */
+  const [chartLoaded, setChartLoaded] = useState(start.id !== MOIS_CLASSIC_NO_CHART_FIXTURE)
+  const openChart = chartLoaded ? chart : ''
+  /* "Warning: No Chart Available", raised by a chart window asked for while
+     no chart is loaded */
+  const [noChartOpen, setNoChartOpen] = useState(false)
   const [stoppedReminders, setStoppedReminders] = useState<Set<string>>(() => new Set())
   const [reminderChart, setReminderChart] = useState<string | null>(() =>
-    dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY).length ? chart : null,
+    openChart && dueOpeningReminders(findPatient(openChart, roster), MOIS_TODAY).length ? openChart : null,
   )
   const [lookupOpen, setLookupOpen] = useState(false)
   /* the Patient Chart's taskbar and toolbar utility windows */
   const [findPatientOpen, setFindPatientOpen] = useState(false)
   const [chartNavOpen, setChartNavOpen] = useState(false)
+  /* the patients a Superfind found, which its Chart Navigator button loads */
+  const [superfindRows, setSuperfindRows] = useState<{ chart: string; name: string; description: string }[] | undefined>()
   const [chartSearchOpen, setChartSearchOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [orderLinkOpen, setOrderLinkOpen] = useState(false)
@@ -602,6 +672,27 @@ function Frame({
   const [attachmentOpen, setAttachmentOpen] = useState(false)
   const [cdxDetail, setCdxDetail] = useState(false)
   const [cdxNavigator, setCdxNavigator] = useState(false)
+  /* a window a screen owns (Drug Lookup, Renew, the MAR chooser…), opened
+     by name — see host/screen-windows.tsx */
+  const [screenWindow, setScreenWindow] = useState<ScreenWindow | null>(null)
+  const closeScreenWindow = useCallback(() => setScreenWindow(null), [])
+  const openScreenWindow = useCallback((w: ScreenWindow) => setScreenWindow(w), [])
+  /* a window the Workspace / Billing / Reports areas register by id (Create
+     New Task, Create New Message, …) — see screens/areaWindowRegistry.ts —
+     and the Workspace's session edits, fresh for every frame */
+  const [areaWindow, setAreaWindow] = useState<{ id: string; args?: Record<string, unknown> } | null>(null)
+  useState(() => resetWorkspaceStore())
+  /* …and the chart edits, merge log, signatures and Desktop Provider the
+     chart basics windows keep (data/patient-edits.ts, data/chart-basics-state.ts) */
+  useState(() => { resetPatientEdits(); resetChartBasicsState() })
+  /* the Scheduler's session edits (data/schedulerStore.ts), fresh per frame */
+  useState(() => resetSchedulerStore())
+  const sched = useSchedulerStore()
+  useState(() => resetWorkspaceSettings())
+  /* the Care Plan tags, snapshots, folder reviews and sent letters a lesson
+     writes (data/chartSession.ts), fresh for every frame too */
+  useState(() => resetChartSession())
+  const workspace = useWorkspaceStore()
   /* the Letter Writer is reached through a two-dialog run-up, so one state
      holds where in it we are rather than three booleans that can disagree */
   const [letterStep, setLetterStep] = useState<null | 'template' | 'setup' | 'writer' | 'design'>(null)
@@ -612,6 +703,17 @@ function Frame({
   /* the last tab a screen reported; screens own their tab state, so this is
      cleared whenever the navigator moves on */
   const [tab, setTab] = useState<string | null>(null)
+  /* what the work area's own windows report (host/screen-state.tsx) */
+  const [screenReports, setScreenReports] = useState<Map<object, ScreenReport>>(() => new Map())
+  const reportScreen = useCallback<ScreenReporter>((token, next) => {
+    setScreenReports((prev) => {
+      const map = new Map(prev)
+      if (next) map.set(token, next)
+      else map.delete(token)
+      return map
+    })
+  }, [])
+  const screen = useMemo(() => mergeScreenReports(screenReports), [screenReports])
   const rootRef = useRef<HTMLDivElement>(null)
   const desktopRef = useRef<HTMLDivElement>(null)
   const frame = useFrameGeometry(desktopRef, windowSize)
@@ -657,33 +759,51 @@ function Frame({
     setView('order')
   }, [])
 
+  /* a Patient Chart window other than the summary needs a chart open */
+  const needsChart = useCallback(
+    (id: string) => !chartLoaded && id !== 'summary' && moduleOfNode(id) === 'chart',
+    [chartLoaded],
+  )
+  const refuseNoChart = useCallback(() => {
+    setNoChartOpen(true)
+    report_('host.mois.noChart')
+  }, [report_])
+
   const selectNode = useCallback((id: string) => {
+    if (needsChart(id)) { refuseNoChart(); return }
     setRecordSelection(null)
+    if (id !== selectedRef.current) setScreenWindow(null)
     setSelected(id)
     setTab(null)
     routeNode(id, isScheduler)
     report_('host.mois.selectNode', { node: id })
-  }, [isScheduler, report_, routeNode])
+  }, [isScheduler, needsChart, refuseNoChart, report_, routeNode])
 
   const pickModule = useCallback((id: string) => {
     const m = MODULE_TREES[id]
     if (!m) throw new Error(`Unknown MOIS module: ${id}`)
+    setScreenWindow(null)
     setModule(id)
-    setSelected(m.first)
+    /* with no chart loaded the Patient Chart can only show its summary */
+    const first = needsChart(m.first) ? 'summary' : m.first
+    setSelected(first)
     setTab(null)
     if (id === 'scheduler') setView('scheduler')
+    else if (first === 'summary') setView('summary')
     else if (id === 'chart') setView('order')
     /* route the module's first node the way a click on it would: some of them
        (Administration ▸ System Settings) have a window of their own rather
        than a generic section screen */
     else routeNode(m.first, false)
     report_('host.mois.selectModule', { module: id })
-  }, [report_, routeNode])
+  }, [needsChart, report_, routeNode])
 
   /* autoplay opens a nested node the learner never expanded: switch to its
      module, open every ancestor, then select it exactly as a click would */
   const openNode = useCallback((id: string, recordId?: string) => {
+    if (needsChart(id)) { refuseNoChart(); return }
     setRecordSelection(recordId ? { chart, node: id, id: recordId } : null)
+    if (id !== selectedRef.current) setScreenWindow(null)
     const owner = moduleOfNode(id)
     if (!owner) throw new Error(`Unknown MOIS tree node: ${id}`)
     const ancestors = ancestorsOf(MODULE_TREES[owner].tree, id) ?? []
@@ -699,7 +819,7 @@ function Frame({
     setTab(null)
     routeNode(id, owner === 'scheduler')
     report_('host.mois.selectNode', { node: id })
-  }, [chart, module, report_, routeNode])
+  }, [chart, module, needsChart, refuseNoChart, report_, routeNode])
 
   const openEncounter = useCallback((row: EncounterRecord) => {
     mdi.open({
@@ -713,6 +833,7 @@ function Frame({
 
   const closeDialogs = useCallback(() => {
     setReminderChart(null)
+    setNoChartOpen(false)
     setServiceEventOpen(false)
     setGoalOpen(false)
     setLoginOpen(false)
@@ -731,24 +852,29 @@ function Frame({
     setCdxDetail(false)
     setCdxNavigator(false)
     setLetterStep(null)
+    setAreaWindow(null)
+    setScreenWindow(null)
     report_('host.mois.closeDialog')
   }, [report_])
 
-  const previousChart = useRef(chart)
+  /* the loaded chart, not the host's pick: with none loaded, a new pick in
+     the host is only where the lookup would land */
+  const previousChart = useRef(openChart)
   useLayoutEffect(() => {
-    if (previousChart.current === chart) return
-    previousChart.current = chart
+    if (previousChart.current === openChart) return
+    previousChart.current = openChart
     mdi.closeAll()
     closeDialogs()
-    const reminders = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)
-    setReminderChart(reminders.some((reminder) => !stoppedReminders.has(`${chart}:${reminder.code}`)) ? chart : null)
+    const reminders = openChart ? dueOpeningReminders(findPatient(openChart, roster), MOIS_TODAY) : []
+    setReminderChart(reminders.some((reminder) => !stoppedReminders.has(`${openChart}:${reminder.code}`)) ? openChart : null)
     setEncounterDraft(false)
-  }, [chart, mdi.closeAll, closeDialogs, roster, stoppedReminders])
+  }, [openChart, mdi.closeAll, closeDialogs, roster, stoppedReminders])
 
   /* picking a row in the Advanced Lookup Service is what changes the chart */
   const selectPatient = useCallback((next: string) => {
     if (!findPatient(next, roster)) throw new Error(`No MOIS chart ${next} is on file.`)
     setOwnChart(next)
+    setChartLoaded(true)
     onChartChange?.(next)
     setLookupOpen(false)
     const reminders = dueOpeningReminders(findPatient(next, roster), MOIS_TODAY)
@@ -763,6 +889,67 @@ function Frame({
   const moveDaybook = useCallback((move: DaybookMove) => {
     setDaybook((prev) => daybookOffsetAfter(prev, move))
   }, [])
+
+  /* A learner's own edit to an anchored field or tick box, reported the way
+     the replay reports it, so a Practice step that waits for the learner (a
+     check that already held) sees it done by hand. Replays dispatch untrusted
+     events and report for themselves; a pick in a PB-drawn list carries
+     `data-pb-learner` (pb/components/controls.tsx). Only which field, never
+     what was entered. */
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const onChange = (event: Event) => {
+      const el = event.target
+      if (!(el instanceof HTMLElement)) return
+      if (!event.isTrusted && !el.hasAttribute('data-pb-learner')) return
+      const cell = el.closest('[data-tutorial-id^="host.mois.cell."]')?.getAttribute('data-tutorial-id')
+      if (cell && el instanceof HTMLInputElement && el.type === 'checkbox') {
+        report_('host.mois.tickCell', { cell: cell.slice('host.mois.cell.'.length) })
+        return
+      }
+      const field = el.closest('[data-tutorial-id^="host.mois.field."]')?.getAttribute('data-tutorial-id')
+      if (!field) return
+      const name = field.slice('host.mois.field.'.length)
+      const typed = (el instanceof HTMLInputElement && !['checkbox', 'radio'].includes(el.type) && !el.closest('.pb-dddw'))
+        || el instanceof HTMLTextAreaElement
+      report_(typed ? 'host.mois.fill' : 'host.mois.setField', { field: name })
+    }
+    /* …and the clicks a replay makes for itself: a banded folder's +/- box,
+       an Acknowledge tick, a top-level menu dropped, a row right-clicked.
+       Focus in a field is left out on purpose: the studio records every
+       report, and a step per click into a box is noise. */
+    const slugAfter = (el: Element, prefix: string) => {
+      const id = el.closest(`[data-tutorial-id^="${prefix}"]`)?.getAttribute('data-tutorial-id')
+      return id ? id.slice(prefix.length) : null
+    }
+    const onClick = (event: MouseEvent) => {
+      const el = event.target
+      if (!(el instanceof Element) || !event.isTrusted) return
+      const group = slugAfter(el, 'host.mois.group.')
+      if (group) { report_('host.mois.openFolder', { group }); return }
+      const patient = slugAfter(el, 'host.mois.check.')
+      if (patient) { report_('host.mois.acknowledge', { patient }); return }
+      const launcher = el.closest('.pb-menubar__item')?.getAttribute('data-tutorial-id')
+      if (launcher && /^host\.mois\.menu\.[a-z0-9-]+$/.test(launcher)) {
+        report_('host.mois.openMenu', { menu: launcher.slice('host.mois.menu.'.length) })
+      }
+    }
+    const onContextMenu = (event: MouseEvent) => {
+      const el = event.target
+      if (!(el instanceof Element) || !event.isTrusted) return
+      const row = slugAfter(el, 'host.mois.row.')
+      if (row) report_('host.mois.rightClickRow', { row })
+    }
+    root.addEventListener('change', onChange, true)
+    root.addEventListener('click', onClick, true)
+    root.addEventListener('contextmenu', onContextMenu, true)
+    return () => {
+      root.removeEventListener('change', onChange, true)
+      root.removeEventListener('click', onClick, true)
+      root.removeEventListener('contextmenu', onContextMenu, true)
+    }
+  }, [report_])
 
   /* instrumented kit controls (command rows, tabs, menus) report through here */
   /* the callback is created once; read the current node through a ref */
@@ -790,6 +977,9 @@ function Frame({
        chart lookup, so it is the frame that reports the dialog that follows */
     const opensLookup = action === 'host.mois.lookup'
       || (action === 'host.mois.status' && payload?.link === 'go-to-chart')
+    /* an encounter the day book opened: its Save completes the note, so the
+       day book's DS reads C (data/schedulerStore.ts) */
+    schedulerKitAction(action, payload)
     report_(action, { ...(payload as HostRecord | undefined), ...(opensLookup ? { dialog: 'chart-lookup' } : {}) })
   }, [report_])
 
@@ -814,7 +1004,9 @@ function Frame({
 
   /* topmost first: the Chart Navigator is opened from the Find Patient window
      and paints over it, so it has to win the chain. */
-  const dialog = reminderChart === chart ? 'opening-chart-reminder'
+  const dialog = noChartOpen ? 'no-chart-available'
+    : openChart && reminderChart === openChart ? 'opening-chart-reminder'
+    : areaWindow ? areaWindow.id
     : cdxNavigator ? 'record-navigator'
     : cdxDetail ? 'patient-message-detail'
     : letterStep === 'template' ? 'select-letter-template'
@@ -834,7 +1026,8 @@ function Frame({
     : lookupOpen ? 'chart-lookup'
     : serviceEventOpen ? 'service-event'
       : goalOpen ? 'new-goal'
-        : loginOpen ? 'login' : null
+        : loginOpen ? 'login'
+          : typeof screen.dialog === 'string' ? screen.dialog : null
   const state = useMemo<HostRecord>(() => ({
     module,
     node: selected,
@@ -842,21 +1035,33 @@ function Frame({
     tab,
     dialog,
     reminderStopped: (() => {
-      const due = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)
-      return due.length > 0 && due.every((reminder) => stoppedReminders.has(`${chart}:${reminder.code}`))
+      const due = openChart ? dueOpeningReminders(findPatient(openChart, roster), MOIS_TODAY) : []
+      return due.length > 0 && due.every((reminder) => stoppedReminders.has(`${openChart}:${reminder.code}`))
     })(),
-    patient: chart,
+    /* '' while no chart is loaded */
+    patient: openChart,
     windows: mdi.instances.length,
     draft: encounterDraft,
     invoice: invoicePaid ? 'paid' : 'open',
-    appt: apptStatuses[apptRow] ?? '',
-    booked: booked.length,
+    appt: apptStatusOf(sched, daybookProvider, daybook, apptRow),
+    booked: bookedCount(sched),
+    scheduler: schedulerSnapshot(sched, daybookProvider, daybook, apptRow),
     basket: basketAck,
-    billed: billedRows.size,
+    billed: billedCount(sched),
     daybook: daybookStamp(daybook),
     provider: pbSlug(daybookProvider),
     theme: theme === '' ? 'hybrid' : theme === 'pb-theme--flat' ? 'flat' : 'classic',
-  }), [apptRow, apptStatuses, basketAck, billedRows.size, booked.length, chart, claimPrompt, printOutput, printParams, daybook, daybookProvider, dialog, encounterDraft, invoicePaid, mdi.instances.length, module, roster, selected, stoppedReminders, tab, theme, view])
+    screen,
+    /* what the Workspace windows have done this session (data/workspaceStore) */
+    workspace: {
+      tasks: workspace.tasks.length,
+      messages: workspace.messages.length,
+      acked: workspace.ackedMessages.length,
+      reassigned: workspace.reassigned.length,
+      reviews: workspace.reviews.length,
+      blend: workspace.blend,
+    },
+  }), [workspace, screen, apptRow, sched, basketAck, chart, openChart, claimPrompt, printOutput, printParams, daybook, daybookProvider, dialog, encounterDraft, invoicePaid, mdi.instances.length, module, roster, selected, stoppedReminders, tab, theme, view])
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -878,6 +1083,36 @@ function Frame({
 
   const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 
+  /* Every window the frame can open by name: the `host.mois.openUtility`
+     action, menu items (`go.open`) and command buttons all come through here,
+     so a practice-mode click and an autoplay step open the same window. Add a
+     case when you add a window; return false for an id you do not know. */
+  const openWindowById = (which: string, _args?: Record<string, unknown>): boolean => {
+    /* the Workspace / Billing / Reports windows, by registered id */
+    if (isAreaWindow(which)) { setAreaWindow({ id: which, args: _args }); return true }
+    /* a window a folder's screen draws itself (host/screen-windows.tsx) */
+    if (isScreenWindow(which)) { setScreenWindow({ id: which, args: _args }); return true }
+    switch (which) {
+      case 'find-patient': setFindPatientOpen(true); return true
+      case 'chart-navigator': setChartNavOpen(true); return true
+      case 'advance-chart-search': setChartSearchOpen(true); return true
+      case 'reviewing': setReviewOpen(true); return true
+      case 'order-linking-service': setOrderLinkOpen(true); return true
+      case 'tag-to-care-plan': setTagCarePlanOpen(true); return true
+      case 'add-attachment': setAttachmentOpen(true); return true
+      /* the letter flow's own steps, reached from Order Detail, the Send
+         window and the Care Plan's Distribute... (screens/LetterWindows.tsx) */
+      case 'select-letter-template': setLetterStep('template'); return true
+      case 'letter-writer': setLetterStep('writer'); return true
+      /* a window a screen draws itself (host/screen-windows.tsx) */
+      default:
+        if (isScreenWindow(which)) { setScreenWindow({ id: which, args: _args }); return true }
+        return false
+    }
+  }
+  const openWindowRef = useRef(openWindowById)
+  openWindowRef.current = openWindowById
+
   const api = useMemo<HostShellApi>(() => ({
     getState: () => stateRef.current,
     perform: async (actionId, args = {}) => {
@@ -892,18 +1127,74 @@ function Frame({
         case 'host.mois.toggleNode': toggle(slug('node')); return undefined
         case 'host.mois.command': clickAnchor(`host.mois.command.${slug('command')}`); return undefined
         case 'host.mois.selectTab': clickAnchor(`host.mois.tab.${slug('tab')}`); return undefined
+        /* a column title on a list that sorts (PBDataWindow onSort) */
+        case 'host.mois.sort': clickAnchor(`host.mois.sort.${slug('column')}`); return undefined
+        case 'host.mois.selectRow': {
+          /* a click on a grid row: DataWindow rows take the current row on
+             mousedown, so that is the event replayed. The row must be on
+             screen — open its band first (host.mois.openFolder). */
+          const id = `host.mois.row.${slug('row')}`
+          const row = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((el) => el.getAttribute('data-tutorial-id') === id)
+          if (!row) throw new Error(`No MOIS row is on screen for ${id}.`)
+          row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+          report_('host.mois.selectRow', { row: slug('row') })
+          return undefined
+        }
         /* the AS cell on the day book's current row, or on args.row */
         case 'host.mois.apptStatus': {
           const row = typeof args.row === 'number' ? args.row : apptRow
           const code = String(args.status ?? '').toUpperCase()
           if (!code) throw new Error(`${actionId}: no status given`)
           setApptRow(row)
-          setApptStatuses((m) => ({ ...m, [row]: code }))
+          /* statuses live with the appointment (data/schedulerStore.ts) */
+          const at = stateRef.current
+          schedulerStore.setStatus(providerOfSlug(String(at.provider)), offsetOfStamp(String(at.daybook)), row, code)
           return undefined
         }
         /* tick one basket row's Check box, by the patient's surname slug */
         case 'host.mois.acknowledge': {
           clickAnchor(`host.mois.check.${slug('patient')}`)
+          return undefined
+        }
+        /* a checkbox cell (the Chart Navigator's Exclude column) */
+        case 'host.mois.tickCell': clickAnchor(`host.mois.cell.${slug('cell')}`); return undefined
+        /* a radio button or check box that is a form field rather than a
+           grid cell (Teleplan's options, Export Chart(s)' Format) */
+        case 'host.mois.choose': clickAnchor(`host.mois.field.${slug('field')}`); return undefined
+        /* drop a menu and leave it open, so the step shows what it holds;
+           a menu already dropped stays dropped */
+        case 'host.mois.openMenu': {
+          const id = `host.mois.menu.${slug('menu')}`
+          const launcher = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((el) => el.getAttribute('data-tutorial-id') === id)
+          if (!launcher) throw new Error(`No MOIS menu is on screen for ${id}.`)
+          if (launcher.getAttribute('aria-expanded') !== 'true') launcher.click()
+          return undefined
+        }
+        /* a double-click on a grid row: the row becomes current, then opens */
+        case 'host.mois.activateRow': {
+          const id = `host.mois.row.${slug('row')}`
+          const row = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((el) => el.getAttribute('data-tutorial-id') === id)
+          if (!row) throw new Error(`No MOIS row is on screen for ${id}.`)
+          row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+          await nextFrame()
+          row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+          report_('host.mois.activateRow', { row: slug('row') })
+          return undefined
+        }
+        /* a right-click on a grid row: the row's own popup menu drops at it */
+        case 'host.mois.rightClickRow': {
+          const id = `host.mois.row.${slug('row')}`
+          const row = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((el) => el.getAttribute('data-tutorial-id') === id)
+          if (!row) throw new Error(`No MOIS row is on screen for ${id}.`)
+          const box = row.getBoundingClientRect()
+          row.dispatchEvent(new MouseEvent('contextmenu', {
+            bubbles: true, cancelable: true, clientX: box.left + 40, clientY: box.top + box.height / 2,
+          }))
+          report_('host.mois.rightClickRow', { row: slug('row') })
           return undefined
         }
         case 'host.mois.print': {
@@ -943,7 +1234,11 @@ function Frame({
         }
         case 'host.mois.menu': {
           const menu = slug('menu')
-          clickAnchor(`host.mois.menu.${menu}`)
+          /* a menu a previous step dropped (host.mois.openMenu) is already
+             open: pressing its caption again would shut it */
+          const launcher = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((el) => el.getAttribute('data-tutorial-id') === `host.mois.menu.${menu}`)
+          if (launcher?.getAttribute('aria-expanded') !== 'true') clickAnchor(`host.mois.menu.${menu}`)
           await nextFrame()
           clickAnchor(`host.mois.menu.${menu}.${slug('item')}`)
           return undefined
@@ -952,27 +1247,118 @@ function Frame({
           /* replays a double-click on a grid row: the first encounter, or
              the one at args.index, opens in its own MDI window */
           if (args.kind !== undefined && args.kind !== 'encounter') throw new Error(`${actionId}: unknown window kind ${String(args.kind)}`)
+          /* args.appointment ('0830') double-clicks a day-book row instead:
+             its encounter opens over the day book, not over Encounters */
+          if (typeof args.appointment === 'string') {
+            const at = stateRef.current
+            const offset = offsetOfStamp(String(at.daybook))
+            const row = dayRows(schedulerStore.get(), providerOfSlug(String(at.provider)), offset)
+              .find((r) => `${r.hr}${r.mn}` === args.appointment)
+            const enc = encounterOf(row, offset, chart)
+            if (!row || !enc) throw new Error(`${actionId}: no encounter behind the ${String(args.appointment)} appointment`)
+            await loadChartExport(chart)
+            schedulerStore.openedEncounter(row.key)
+            openEncounter(enc)
+            return undefined
+          }
           const index = typeof args.index === 'number' ? args.index : 0
           await loadChartExport(chart)
-          if (previousChart.current !== chart) throw new Error(`${actionId}: chart changed while opening encounter`)
-          const row = chartRowsFor(chart, 'encounters')[index] as EncounterRecord | undefined
-          if (!row) throw new Error(`${actionId}: no encounter row ${index}`)
+          if (previousChart.current !== openChart) throw new Error(`${actionId}: chart changed while opening encounter`)
+          /* args.encounter picks the visit by its encounter number, so a lesson
+             does not depend on where the list happens to sort it */
+          const byId = args.encounter !== undefined
+          const row = (byId ? encounterRowById(chart, args.encounter) : chartRowsFor(chart, 'encounters')[index]) as EncounterRecord | undefined
           openNode('encounters')
           await nextFrame()
-          if (previousChart.current !== chart) throw new Error(`${actionId}: chart changed while opening encounter`)
+          if (previousChart.current !== openChart) throw new Error(`${actionId}: chart changed while opening encounter`)
+          if (!row && byId) {
+            /* one saved this session: double-click its row in the list */
+            clickAnchor(`host.mois.row.encounter-${String(args.encounter)}`)
+            const el = rootRef.current?.querySelector<HTMLElement>(`[data-tutorial-id="host.mois.row.encounter-${String(args.encounter)}"]`)
+            if (!el) throw new Error(`${actionId}: no encounter ${String(args.encounter)}`)
+            el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            return undefined
+          }
+          if (!row) throw new Error(`${actionId}: no encounter row ${index}`)
           openEncounter(row)
           return undefined
         }
         case 'host.mois.lookup': {
-          /* the "…" lives on Patient Summary, so open that first */
-          openNode('summary')
-          await nextFrame()
-          clickAnchor(`host.mois.lookup.${typeof args.field === 'string' ? args.field : 'chart'}`)
+          const lookupId = `host.mois.lookup.${typeof args.field === 'string' ? args.field : 'chart'}`
+          /* Chart No.'s "…" lives on Patient Summary, so open that first —
+             unless the "…" asked for is already on screen (Demographics' own
+             Chart No., a list tab's Relationship) */
+          const onScreen = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .some((node) => node.getAttribute('data-tutorial-id') === lookupId)
+          if (!onScreen) { openNode('summary'); await nextFrame() }
+          clickAnchor(lookupId)
           return undefined
         }
         case 'host.mois.selectPatient': selectPatient(slug('chart')); return undefined
-        case 'host.mois.status': clickAnchor(`host.mois.status.${slug('link')}`); return undefined
+        case 'host.mois.status': {
+          const id = `host.mois.status.${slug('link')}`
+          const cell = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((el) => el.getAttribute('data-tutorial-id') === id)
+          /* a Task Item / Msg Item cell is double-clicked; a link is clicked */
+          if (cell?.classList.contains('pb-statusbar__cell')) {
+            cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            return undefined
+          }
+          clickAnchor(id)
+          return undefined
+        }
+        case 'host.mois.fill': {
+          /* type into one field (`field` + `value`) or several in order
+             (`values: { field: value }`), the way a learner would: the
+             native value setter, then the input/change events React reads */
+          const entries: [string, unknown][] = args.values && typeof args.values === 'object' && !Array.isArray(args.values)
+            ? Object.entries(args.values as Record<string, unknown>)
+            : [[slug('field'), args.value]]
+          for (const [field, value] of entries) {
+            const id = `host.mois.field.${field}`
+            const el = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+              .find((node) => node.getAttribute('data-tutorial-id') === id)
+            if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+              throw new Error(`No MOIS field is on screen for ${id}.`)
+            }
+            Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set?.call(el, String(value ?? ''))
+            el.dispatchEvent(new Event('input', { bubbles: true }))
+            el.dispatchEvent(new Event('change', { bubbles: true }))
+            report_('host.mois.fill', { field })
+            await nextFrame()
+          }
+          return undefined
+        }
         case 'host.mois.closeDialog': closeDialogs(); return undefined
+        /* a reading step: the control has to be there, and nothing changes */
+        case 'host.mois.look': {
+          const id = `host.mois.${slug('kind')}.${slug('name')}`
+          const el = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((node) => node.getAttribute('data-tutorial-id') === id)
+          if (!el) throw new Error(`No MOIS control is on screen for ${id}.`)
+          el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+          return undefined
+        }
+        /* put the cursor in a field (`host.mois.field.{field}`), the way a
+           click into it does — what Record ▸ Prompt, F4 and Maintenance ▸
+           Default Value Setting then read */
+        case 'host.mois.focusField': {
+          const id = `host.mois.field.${slug('field')}`
+          const el = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+            .find((node) => node.getAttribute('data-tutorial-id') === id)
+          const input = el?.matches('input, textarea, select') ? el : el?.querySelector<HTMLElement>('input, textarea, select')
+          if (!input) throw new Error(`No MOIS field is on screen for ${id}.`)
+          input.focus()
+          return undefined
+        }
+        /* type into, pick from or tick a field (host/field-input.ts) */
+        case 'host.mois.setField': {
+          const root = rootRef.current
+          if (!root) throw new Error('The MOIS shell is not mounted.')
+          await setFieldValue(root, slug('field'), args.value)
+          report_('host.mois.setField', { field: slug('field') })
+          return undefined
+        }
         case 'host.mois.stopReminder': {
           const index = typeof args.index === 'number' ? args.index : 0
           const reminder = dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)[index]
@@ -999,16 +1385,8 @@ function Frame({
             : which === 'order-linking-service' ? 'measures'
             : which === 'add-attachment' ? 'encounters' : undefined
           if (folder) { openNode(folder); await nextFrame() }
-          switch (which) {
-            case 'find-patient': setFindPatientOpen(true); return undefined
-            case 'chart-navigator': setChartNavOpen(true); return undefined
-            case 'advance-chart-search': setChartSearchOpen(true); return undefined
-            case 'reviewing': setReviewOpen(true); return undefined
-            case 'order-linking-service': setOrderLinkOpen(true); return undefined
-            case 'tag-to-care-plan': setTagCarePlanOpen(true); return undefined
-            case 'add-attachment': setAttachmentOpen(true); return undefined
-            default: throw new Error(`${actionId}: unknown utility window "${which}"`)
-          }
+          if (!openWindowRef.current(which, args)) throw new Error(`${actionId}: unknown utility window "${which}"`)
+          return undefined
         }
         case 'host.mois.daybookFor': {
           const want = typeof args.provider === 'string' ? args.provider : ''
@@ -1023,7 +1401,10 @@ function Frame({
           moveDaybook(move as DaybookMove)
           return undefined
         }
-        default: throw new Error(`This MOIS action is not available: ${actionId}`)
+        default:
+          /* the Encounter Detail Window's own menu bar and note box */
+          if (await performEncounterAction(actionId, args, { root: rootRef.current, clickAnchor, nextFrame })) return undefined
+          throw new Error(`This MOIS action is not available: ${actionId}`)
       }
     },
   }), [apptRow, chart, clickAnchor, closeDialogs, moveDaybook, openEncounter, openNode, pickModule, roster, selectPatient, toggle])
@@ -1047,15 +1428,57 @@ function Frame({
       if (found.fields.length === 0) { setPrintParams(null); setPrintOutput(found) }
       else { setPrintOutput(null); setPrintParams(found) }
     },
-    letter: () => setLetterStep('template'),
+    letter: (type) => startLetter(type, () => setLetterStep('template'), (id, a) => openWindowRef.current(id, a)),
+    open: (id, args) => { openWindowRef.current(id, args) },
+    /* Record ▸ New / Delete / Save press the window's own button, if it has one */
+    /* the window's own button, under whichever caption it carries: Long Term
+       Medications' row reads New / Delete where the others read New Record /
+       Delete Record */
+    command: (slug) => {
+      for (const id of [slug, ...(COMMAND_CAPTIONS[slug] ?? [])]) {
+        try { clickAnchor(`host.mois.command.${id}`); return } catch { /* not this caption */ }
+      }
+    },
+    prompt: () => { promptCurrentField() },
+  }, { module, node: selected })
+  /* MOIS's hot keys (host/hotkeys.ts): the menus' accelerators, F2 / F4 / F5
+     / Shift+F2, Ctrl+1..9 tabs and Alt+letter menu access */
+  useMoisHotkeys(rootRef, menu, {
+    command: (slug) => {
+      for (const id of [slug, ...(COMMAND_CAPTIONS[slug] ?? [])]) {
+        try { clickAnchor(`host.mois.command.${id}`); return true } catch { /* not this caption */ }
+      }
+      return false
+    },
+    report: (action, payload) => report_(action, payload),
   })
-  const status = makeStatusCells(openLookup)
+  const itemCounts = workspaceItemCounts(workspace)
+  const status = makeStatusCells(
+    openLookup,
+    /* the NewAppointmentDialog fills the highlighted record's patient when it
+       is opened from the link */
+    () => { openWindowRef.current('new-appointment', { from: 'link' }) },
+    itemCounts,
+  ).map((cell) => (
+    /* double-clicking a flashing Task Item / Msg Item cell opens the
+       Automated Notification Service (screens/NotificationServiceWindows.tsx) */
+    'slug' in cell && cell.slug === 'task-item' && itemCounts.tasks
+      ? { ...cell, onOpen: () => { openWindowRef.current('task-reminder') } }
+      : 'slug' in cell && cell.slug === 'msg-item' && itemCounts.messages
+        ? { ...cell, onOpen: () => { openWindowRef.current('message-list') } }
+        : cell
+  ))
   const sectionContent: ReactNode = selected === 'dynamic' && formSlot ? formSlot : undefined
 
   return (
     <PBInstrumentationProvider namespace="host.mois" onAction={onKitAction}>
-    <PatientProvider key={chart} chart={chart} roster={roster}>
+    <PatientProvider key={openChart} chart={openChart} roster={roster}>
+    <ScreenStateProvider value={reportScreen}>
+    <AreaWindowProvider open={(id, args) => openWindowRef.current(id, args)}>
+    <ScreenWindowProvider window={screenWindow} onOpen={openScreenWindow} onClose={closeScreenWindow}>
     <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, textMode, className)}>
+      {/* host.screen.lockout: whether System Settings' LOCKOUT band has a lock set */}
+      <LockoutStatusReporter />
       <div
         className="pb-desktop"
         data-tutorial-id="host.mois.desktop"
@@ -1082,12 +1505,8 @@ function Frame({
           <div style={{ position: 'relative', height: 0 }}>
             <div className="pb-row" style={{ position: 'absolute', right: 8, top: -21, zIndex: 5 }}>
               <span>Desktop For:</span>
-              <span style={{
-                width: 210, height: 17, padding: '0 4px',
-                background: 'var(--pb-yellow)', border: '1px solid var(--pb-border)',
-              }}>
-                TECHNICAL SUPPORT
-              </span>
+              {/* clicking the field changes the Desktop Provider (art. 304393) */}
+              <DesktopProviderField onOpen={() => { openWindowRef.current('desktop-provider') }} />
             </div>
           </div>
 
@@ -1121,7 +1540,10 @@ function Frame({
             <div className="pb-split__gutter" />
 
             {/* ---- right work area ---- */}
-            <div key={`${chart}:${selected}:${loadedChart === chart}`} className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea">
+            {/* keyed on the chart and folder only: the export arriving must not
+                remount the work area, or a window open in it — an Administration
+                designer, a half-made record — vanishes when a lazy chunk lands */}
+            <div key={`${chart}:${selected}`} className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea">
               {view === 'summary' && (
                 <PatientSummaryView
                   key={chart}
@@ -1138,36 +1560,35 @@ function Frame({
                   provider={daybookProvider}
                   onProvider={setDaybookProvider}
                   apptRow={apptRow}
-                  apptStatuses={apptStatuses}
-                  booked={booked}
-                  billedRows={billedRows}
-                  onBill={(row) => setBilledRows((b) => new Set(b).add(row))}
-                  onNewAppt={() => setNewApptOpen(true)}
                   onApptRow={setApptRow}
-                  onApptStatus={(row, code) => {
-                    setApptRow(row)
-                    setApptStatuses((m) => ({ ...m, [row]: code }))
-                  }}
+                  /* New Appt, MSP Bill, AS and the row menus act through
+                     data/schedulerStore.ts and the registered windows */
+                  chart={chart}
+                  onOpenEncounter={openEncounter}
+                  onOpenNode={openNode}
                 />
               )}
               {view === 'resourcebook' && <SchedulerView mode="resource" offset={daybook} onMove={moveDaybook} />}
               {view === 'order' && <OrderView onAttachment={() => setServiceEventOpen(true)} />}
-              {view === 'settings' && <SystemSettingsView />}
+              {view === 'settings' && <SystemSettingsView onClose={() => setView('closed')} />}
               {view === 'userlanding' && <UserManagementLanding />}
               {view === 'providerworkload' && <ProviderWorkloadView offset={daybook} onMove={moveDaybook} onOpen={(provider) => { setDaybookProvider(provider); selectNode('p-daybook') }} />}
               {view === 'wssummary' && <WorkspaceSummaryView />}
+              {view === 'wssettings' && <WorkspaceSettingsView />}
+              {view === 'favmeds' && <FavouriteMedicationListView onClose={() => setView('closed')} />}
               {view === 'reportlist' && <ReportListView />}
               {view === 'basket' && (
                 <BasketFolderView
                   node={selected}
-                  onOpenChart={() => openNode('summary')}
+                  onOpenChart={(folder) => openNode(folder ?? 'summary')}
                   onAcknowledged={setBasketAck}
                 />
               )}
               {view === 'billingadmin' && <BillingAdminView node={selected} />}
-              {view === 'cliniclist' && <ClinicListView node={selected} />}
-              {view === 'designer' && <DesignerSectionView node={selected} />}
-              {view === 'usermgt' && <UserManagementView node={selected} />}
+              {view === 'cliniclist' && <ClinicListView node={selected} onClose={() => setView('closed')} />}
+              {view === 'designer' && <DesignerSectionView node={selected} onClose={() => setView('closed')} />}
+              {view === 'usermgt' && <UserManagementView node={selected} onClose={() => setView('closed')} />}
+              {view === 'adminlist' && <AdminListsView node={selected} onClose={() => setView('closed')} />}
               {view === 'cdxinbound' && (
                 <InboundMessagesView
                   onOpenDetail={() => setCdxDetail(true)}
@@ -1175,6 +1596,12 @@ function Frame({
                 />
               )}
               {view === 'cdxoutbound' && <OutboundMessagesView onOpenChart={() => openNode('summary')} />}
+              {view === 'exchange' && (
+                <ExchangeView
+                  node={selected}
+                  go={{ node: openNode, open: (id, args) => openWindowRef.current(id, args), tearOff: () => setCdxNavigator(true) }}
+                />
+              )}
               {view === 'tasklist' && (
                 <TaskListView node={selected} onOpenChart={() => openNode('summary')} />
               )}
@@ -1188,7 +1615,7 @@ function Frame({
                   onDraft={setEncounterDraft}
                 />
               )}
-              {view === 'demographics' && <DemographicsView />}
+              {view === 'demographics' && <DemographicsView onLookup={openLookup} onStepChart={(delta) => selectPatient(stepChart(chart, delta, roster))} />}
               {view === 'notifications' && <NotificationView />}
               {view === 'groupvisit' && <GroupVisitView />}
               {view === 'careplan' && <CarePlanView screen={carePlan} />}
@@ -1211,7 +1638,9 @@ function Frame({
               {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) }} />}
               {view === 'section' && section.title !== 'Care Plan' && (
                 <ChartSectionView
-                  key={`${chart}:${selected}`}
+                  /* the one screen that starts over when the export lands, so
+                     its current row is taken from the real rows */
+                  key={`${chart}:${selected}:${loadedChart === chart}`}
                   screen={module === 'chart' ? { ...section, rows: exportRows } : section}
                   content={sectionContent}
                   loadEncounterForms={loadEncounterForms}
@@ -1221,6 +1650,7 @@ function Frame({
               {view === 'daygrid' && (
                 <DayGridView columns={dayGrid.columns} mode={dayGrid.mode} title={dayGrid.title} />
               )}
+              {view === 'schedx' && <SchedulerExtraView node={selected} />}
 
               {goalOpen && <GoalDialog onClose={closeDialogs} />}
             </div>
@@ -1233,7 +1663,7 @@ function Frame({
         <PBMdiHost classes={WINDOW_CLASSES} />
 
         {/* modal child window — layered above the MDI frame and any child */}
-        {reminderChart === chart && findPatient(chart, roster) && (
+        {openChart && reminderChart === openChart && findPatient(chart, roster) && (
           <OpeningChartReminderDialog
             patient={findPatient(chart, roster)!}
             reminders={dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)}
@@ -1250,6 +1680,16 @@ function Frame({
             }}
             onClose={closeDialogs}
           />
+        )}
+        {noChartOpen && (
+          <PBMessageBox
+            title="Warning: No Chart Available"
+            icon="error"
+            buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.no-chart-ok' }]}
+            onClose={closeDialogs}
+          >
+            Please select a chart or create a new chart before opening these windows.
+          </PBMessageBox>
         )}
         {serviceEventOpen && <ServiceEventDialog onClose={closeDialogs} />}
         {loginOpen && <LoginDialog onClose={closeDialogs} />}
@@ -1270,14 +1710,6 @@ function Frame({
             onClose={() => setClaimPrompt(null)}
           />
         )}
-        {newApptOpen && (
-          <NewAppointmentDialog
-            provider={daybookProvider}
-            day={daybookStamp(daybook)}
-            onSave={(draft) => { setBooked((b) => [...b, bookedAppointment(draft)]); setNewApptOpen(false) }}
-            onClose={() => setNewApptOpen(false)}
-          />
-        )}
         {lookupOpen && (
           <AdvancedLookupDialog
             chart={chart}
@@ -1289,13 +1721,19 @@ function Frame({
         {findPatientOpen && (
           <FindPatientDialog
             node={selected}
-            onChartNavigator={() => setChartNavOpen(true)}
+            onChartNavigator={(found) => { setSuperfindRows(found); setChartNavOpen(true) }}
             onSelect={(next) => { selectPatient(next); setFindPatientOpen(false) }}
             onClose={() => setFindPatientOpen(false)}
           />
         )}
         {chartNavOpen && (
-          <ChartNavigatorWindow onOpenChart={selectPatient} onClose={() => setChartNavOpen(false)} />
+          <ChartNavigatorWindow
+            /* a report run from the Reports module loads its own list (data/reportParams) */
+            rows={module === 'reports' ? reportNavigatorRows() : findPatientOpen ? superfindRows : undefined}
+            onOpenChart={selectPatient}
+            onMailMerge={() => openWindowRef.current('patient-contact')}
+            onClose={() => setChartNavOpen(false)}
+          />
         )}
         {/* Ok opens a Search Results dialog that is nowhere in the corpus, so
             it only closes rather than showing an invented results window. */}
@@ -1326,7 +1764,7 @@ function Frame({
           />
         )}
         {cdxDetail && <PatientMessageDetailWindow onClose={() => setCdxDetail(false)} />}
-        {cdxNavigator && <RecordNavigatorWindow onClose={() => setCdxNavigator(false)} />}
+        {cdxNavigator && <RecordNavigatorWindow onClose={() => setCdxNavigator(false)} onOpenRecord={openNode} />}
         {letterStep === 'template' && (
           <SelectLetterTemplateDialog
             onSelect={() => setLetterStep('setup')}
@@ -1338,8 +1776,16 @@ function Frame({
         )}
         {letterStep === 'writer' && <LetterWriterWindow onClose={() => setLetterStep(null)} />}
         {letterStep === 'design' && <LetterWriterWindow mode="template" onClose={() => setLetterStep(null)} />}
+        <AreaWindowLayer
+          open={areaWindow}
+          onClose={() => setAreaWindow(null)}
+          onOpen={(id, args) => openWindowRef.current(id, args)}
+        />
       </div>
     </div>
+    </ScreenWindowProvider>
+    </AreaWindowProvider>
+    </ScreenStateProvider>
     </PatientProvider>
     </PBInstrumentationProvider>
   )

@@ -28,6 +28,9 @@ const GROUPS = [
   'mar', 'mar_action', 'mar_instruction',
   'service_event', 'service_event_diag', 'form_header', 'form_wcb',
   'dform_header', 'dform_data',
+  /* read since chart-87288 was generated, so optional in MoisChartExport
+     (src/data/charts/types.ts); that chart's export has all five empty */
+  'admission', 'intervention', 'social_hx', 'chart_barrier', 'medication_lt',
 ]
 
 const src = process.argv[2]

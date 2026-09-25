@@ -55,7 +55,12 @@ const REPORT_CMDS = [
   'New Record', 'Delete Record', 'Save', 'Undo', 'Refresh',
   'Mark for Review', 'Link to Order', 'Print', 'Attachment',
 ]
-const DIS = ['Save', 'Undo']
+/* Save and Undo are never greyed on a chart folder: every manual master shot
+   (303240 `8ab16dca…png` Measurements v02.20.04, `fc25957f…png` Condition,
+   304732 `a2e5c9af…png` Imaging v02.20.07) and every v02.31 reference capture
+   (`reference/order-report.png`, `goal-standard-populated.png`,
+   `patient-summary-loaded.png`) paints them enabled with nothing edited. */
+const DIS: string[] = []
 const clip = { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center' as const }
 const dots = (k: string) => ({ key: k, header: '', dots: true })
 
@@ -71,7 +76,8 @@ export const reportScreens: Record<string, ReportScreen> = {
       { label: 'Show All', checked: true }, { label: 'Laboratory', checked: true },
       { label: 'Pathology', checked: true }, { label: 'Direct Clinical Obs', checked: true },
     ],
-    viewSelect: ['List View', 'Panel View', 'Graph View'],
+    /* List View / Panel View only (302837 `d417fc8b…`) */
+    viewSelect: ['List View', 'Panel View'],
     flagKey: 'flag',
     columns: [
       { key: 'collected', auditId: 'MATRIX-R0480-collected', header: 'Collected', width: 82, align: 'center' },
@@ -80,6 +86,9 @@ export const reportScreens: Record<string, ReportScreen> = {
       dots('d'),
       { key: 'test', auditId: 'MATRIX-R0483-test-name', header: 'Test Name' },
       { key: 'value', auditId: 'MATRIX-R0484-value', header: 'Value', width: 92, align: 'center' },
+      /* 302837's "Unnamed Column", right of Value: an ellipsis where a
+         calculator produced the value, `.*.` for a dynamic form (`17afb92b…`) */
+      { key: 'marker', header: '', width: 18, align: 'center' },
       { key: 'flag', auditId: 'MATRIX-R0485-flag', header: 'Flag', width: 52, align: 'center' },
       { key: 'units', auditId: 'MATRIX-R0486-units', header: 'Units', width: 62, align: 'center' },
       { key: 'status', auditId: 'MATRIX-R0487-status', header: 'Status', width: 52, align: 'center' },
@@ -806,20 +815,37 @@ Object.assign(reportScreens, {
     created: '2026.08.12  09:00  JALIL, AHMAD',
   },
 
+  /* Adverse Events — 303212 `268301a3…png` (v02.20.04): the command row, the
+     Onset / Agents / Reactions / M / clip grid and the five tabs. Only the
+     Recommendations tab is captured open (ClinicalReportView draws it from
+     AllergyWindows' RecommendationsPane); Agents and Reactions list the
+     event's adverse_agent / reaction_event rows and Linked Reaction Risks its
+     adverse_link rows. The Detail tab's layout is not captured, so it carries
+     only the event's own dated fields. */
   events: {
-    title: 'Allergy Events',
-    commands: SIMPLE, disabled: DIS, plain: true,
+    title: 'Adverse Events',
+    commands: [
+      'New Record', 'New AEFI', 'Edit AEFI', 'Delete Record', 'Save', 'Undo',
+      'Refresh', 'Attachment', 'Elevate To Risk',
+    ],
+    disabled: DIS, plain: true,
     columns: [
-      { key: 'date', header: 'Date', width: 88, align: 'center' },
-      { key: 'code', header: 'Code', width: 78, align: 'center' },
-      dots('d'),
-      { key: 'agent', header: 'Agent', width: 230 },
-      { key: 'event', header: 'Event' },
+      { key: 'onset', header: 'Onset', width: 88, align: 'center' },
+      { key: 'agents', header: 'Agents', width: 340 },
+      { key: 'reactions', header: 'Reactions' },
       { key: 'm', header: 'M', width: 22, align: 'center' },
+      clip,
     ],
     rows: [],
-    left: [{ label: 'Comment:', kind: 'area', rows: 7, w: '100%' }],
-    right: [],
-    created: '2026.08.12  09:00  JALIL, AHMAD',
+    tabs: ['Detail', 'Agents', 'Reactions', 'Recommendations', 'Linked Reaction Risks'],
+    left: [
+      { label: 'Onset Date:', kind: 'date', w: 92, value: '' },
+      { label: 'Report Type:', kind: 'text', w: 160 },
+      { label: 'Severity:', kind: 'text', w: 220 },
+    ],
+    right: [
+      { label: 'Intolerance Type:', kind: 'text', w: 160 },
+    ],
+    created: '',
   },
 })

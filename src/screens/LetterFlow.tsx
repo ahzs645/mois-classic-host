@@ -6,12 +6,38 @@ import {
   LETTER_TEMPLATES, TEMPLATE_PICKER, TEMPLATE_PREVIEW, TEMPLATE_SEARCH_HELP,
   type LetterSetupRow, type LetterTemplate
 } from '../data/letterSetup'
+import {
+  DEFAULT_TEMPLATE, DESKTOP_PROVIDER, TEMPLATE_TYPE, beginLetter, consultOrders, letterOrder, setLetterFlow, useLetterFlow,
+  type LetterDocId,
+} from '../data/letterFlow'
 import { LW } from '../data/letterWriter'
 import { usePatient } from '../data/patient-context'
+import { useScreenReport } from '../host/screen-state'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBWindow,
   pbSlug,
 } from '../pb'
+import { LetterWriterWindow } from './LetterWriterWindow'
+import { MasterProviderListDialog } from './MasterProviderListDialog'
+import { OrderLinkingServiceDialog } from './OrderLinkingServiceDialog'
+
+/**
+ * How each Action item starts its letter. A referral opens Select
+ * Consultation Order first (303589 `4ac477c4…`), an information request the
+ * Send window (2961349 `dbab69f9…`); a consult note goes straight to the
+ * template picker (303099 `79174325…`). The frame passes its two ways in.
+ */
+export function startLetter(
+  doc: string | undefined,
+  showTemplates: () => void,
+  open: (id: string, args?: Record<string, unknown>) => boolean,
+) {
+  const kind = (['referral', 'consult', 'information-request', 'care-plan'].includes(doc ?? '') ? doc : 'referral') as LetterDocId
+  beginLetter(kind)
+  if (kind === 'referral' && open('select-consultation-order')) return
+  if (kind === 'information-request' && open('send-information-request')) return
+  showTemplates()
+}
 
 /* ============================================================================
    The two windows the Letter Writer opens behind.
@@ -44,6 +70,11 @@ const SETUP_CAPTION = `
 .pb-window--mois-lettersetup > .pb-titlebar { height: 30px; background: ${LW.titleBar}; }
 `
 
+/** the document type a template was authored with, as a letter kind */
+function docForTemplate(t: LetterTemplate): LetterDocId | undefined {
+  return (Object.keys(TEMPLATE_TYPE) as LetterDocId[]).find((doc) => TEMPLATE_TYPE[doc] === t.type)
+}
+
 /* ===========================================================================
    Select Letter Template
    ======================================================================== */
@@ -53,9 +84,26 @@ export function SelectLetterTemplateDialog({
   onSelect?: (template: LetterTemplate) => void
   onClose?: () => void
 }) {
+  const flow = useLetterFlow()
   const [search, setSearch] = useState('')
-  const [cur, setCur] = useState(0)
+  /* the Action item that opened the picker preselects a template of its own
+     document type — Create Consult Note lands on a consult template */
+  const [cur, setCur] = useState(() => Math.max(0, LETTER_TEMPLATES.findIndex((t) => t.name === (flow.template || DEFAULT_TEMPLATE[flow.doc]))))
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  /* 303099 / 304756: after the template, a consult note's Letter Writer asks
+     whether the letter fulfils an Order; Yes lists the chart's orders */
+  const [prompt, setPrompt] = useState<null | 'ask' | 'link'>(null)
+  /* Every template is authored with a document type (303101: "select the
+     document type"), and the type travels with the letter: the header's
+     Type, its LOINC and the title band are the template's type, whichever
+     Action item started the run. A consult template picked after Create
+     Referral Note makes a consult note, and gets the consult's Order prompt. */
+  const choose = (t: LetterTemplate) => {
+    const doc = docForTemplate(t) ?? flow.doc
+    setLetterFlow({ template: t.name, doc })
+    if (doc === 'consult') setPrompt('ask')
+    else onSelect?.(t)
+  }
 
   /* "begin typing the name that the letter starts with. If you want to search
      anywhere in the name, add a * to the beginning (wildcard search)" */
@@ -69,6 +117,9 @@ export function SelectLetterTemplateDialog({
     ))
 
   const picked = rows[cur] ?? rows[0]
+  /* the document type and the highlighted template, so a lesson can grade
+     "a consult template is picked" rather than just "the picker is open" */
+  useScreenReport({ letterDoc: flow.doc, letterTemplate: pbSlug(picked?.name ?? '') })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -108,7 +159,7 @@ export function SelectLetterTemplateDialog({
               rows={rows}
               current={cur}
               onCurrentChange={setCur}
-              onActivate={(t) => onSelect?.(t)}
+              onActivate={(t) => choose(t)}
               groupBy={(t: LetterTemplate) => t.group}
               groupLabel={(group) => group}
               groupTutorialId={(group) => `host.mois.group.${pbSlug(group)}`}
@@ -177,7 +228,7 @@ export function SelectLetterTemplateDialog({
             className="pb-btn--default"
             style={{ width: 92 }}
             data-tutorial-id="host.mois.command.select"
-            onClick={() => picked && onSelect?.(picked)}
+            onClick={() => picked && choose(picked)}
           >
             Select (F2)
           </PBButton>
@@ -187,6 +238,14 @@ export function SelectLetterTemplateDialog({
         </div>
         </div>
       </PBWindow>
+      {prompt && picked && (
+        <LinkToOrderPrompt
+          stage={prompt}
+          onAnswer={(yes) => (yes ? setPrompt('link') : onSelect?.(picked))}
+          onLinked={(orderId) => { setLetterFlow({ orderId }); onSelect?.(picked) }}
+          onCancel={() => setPrompt(null)}
+        />
+      )}
     </div>
   )
 }
@@ -202,15 +261,42 @@ export function LetterSetupWindow({
 }) {
   const patient = usePatient()
   const data = useChartExport()
-  const nodes: Record<string, string> = { CONSULT: 'consults', ENCOUNTERS: 'encounters', 'HEALTH ISSUES': 'conditions', IMAGES: 'imaging', 'LT MEDS': 'ltm', MEASURES: 'measures', PROCEDURE: 'procedures', ALLERGIES: 'allergy', DOCUMENTS: 'documents', 'FAMILY HX': 'famhx' }
+  const flow = useLetterFlow()
+  /* each section counts the open chart's own records. FACILITY ADMISSION and
+     LT MEDS have no export behind them on the reference chart, so they read
+     `-` like any other empty section. */
+  const nodes: Record<string, string> = { ENCOUNTERS: 'encounters', 'HEALTH ISSUES': 'conditions', IMAGES: 'imaging', 'LT MEDS': 'ltm', MEASURES: 'measures', PROCEDURE: 'procedures', ALLERGIES: 'allergy', DOCUMENTS: 'documents', 'FAMILY HX': 'famhx' }
+  const count = (section: string) => section === 'CONSULT' ? consultOrders(data).length : recordsForNode(data, nodes[section] ?? '').length
   const [rows, setRows] = useState<LetterSetupRow[]>(() => LETTER_SETUP_ROWS.map(row => {
-    const count = recordsForNode(data, nodes[row.section] ?? '').length
-    return { ...row, available: count, selected: 0, attachAvailable: 0, attachSelected: 0, tooltip: undefined }
+    const available = row.disabled ? 0 : count(row.section)
+    /* Select All takes every record (Selected = Available); Choose takes none
+       until Choose Records picks some — 304687 `08364fcebd64` */
+    return { ...row, available, selected: row.action === 'all' ? available : 0, attachAvailable: 0, attachSelected: 0, tooltip: undefined }
   }))
-  const p = { ...patient, phn: patient.bchn ?? '', phnSuffix: patient.dep ?? '' }
+  const order = letterOrder(data, flow.orderId)
+  const [author, setAuthor] = useState(flow.author || DESKTOP_PROVIDER)
+  const [recipient, setRecipient] = useState(flow.recipient || order?.str_performed_by || '')
+  /* which field's "…" has the Master Provider List open */
+  const [lookup, setLookup] = useState<null | 'author' | 'recipient'>(null)
+  /* the template chosen one window back is still the letter's: report it so
+     a lesson can grade the choice after the picker has closed; and the two
+     providers the letter is between, as slugs, so a lesson can grade a pick
+     from the Master Provider List */
+  useScreenReport({
+    letterDoc: flow.doc,
+    ...(flow.template ? { letterTemplate: pbSlug(flow.template) } : {}),
+    letterAuthor: pbSlug(author),
+    letterRecipient: pbSlug(recipient),
+  })
+  const p = { ...patient, phn: [patient.insuranceBy, patient.bchn ?? patient.insurance].filter(Boolean).join(' '), phnSuffix: patient.dep ?? '' }
+  const shown = (n: number) => (n ? String(n) : '-')
 
   const setAction = (section: string, action: 'all' | 'choose') =>
-    setRows((v) => v.map((r) => (r.section === section ? { ...r, action } : r)))
+    setRows((v) => v.map((r) => (r.section === section ? { ...r, action, selected: action === 'all' ? r.available : 0 } : r)))
+  const proceed = () => {
+    setLetterFlow({ author, recipient, selected: Object.fromEntries(rows.map((r) => [r.section, r.selected])) })
+    onContinue?.()
+  }
 
   const C = LETTER_SETUP_COLUMNS
 
@@ -268,13 +354,15 @@ export function LetterSetupWindow({
         <div style={{ padding: '5px 10px', flex: 'none' }}>
           <div className="pb-row" style={{ gap: 6, marginBottom: 3 }}>
             <span className="pb-form__label" style={{ width: 110 }}>Author:</span>
-            <PBLookup w={300} name="Author" defaultValue="" />
+            {/* both ellipses open the Master Provider List lookup (304687:
+                Paste Provider Data "Opens the Master Provider List to select
+                a provider"; the window is 304741 `6127fb5936f2…`), and Ok
+                puts the chosen provider in the field */}
+            <PBLookup w={300} name="Author" value={author} onChange={setAuthor} onDots={() => setLookup('author')} />
           </div>
           <div className="pb-row" style={{ gap: 6 }}>
             <span className="pb-form__label" style={{ width: 110 }}>Primary Recipient:</span>
-            {/* the ellipsis opens the Master Provider List, which is named in
-                prose but captured in NO article — so it is not built here */}
-            <PBLookup w={300} name="Primary Recipient" defaultValue="" />
+            <PBLookup w={300} name="Primary Recipient" value={recipient} onChange={setRecipient} onDots={() => setLookup('recipient')} />
           </div>
         </div>
 
@@ -336,8 +424,8 @@ export function LetterSetupWindow({
                       >
                         {r.section}
                       </td>
-                      <td className="pb-dw__c--center" style={dim}>{r.available || ''}</td>
-                      <td className="pb-dw__c--center" style={dim}>{r.selected || ''}</td>
+                      <td className="pb-dw__c--center" style={dim}>{shown(r.available)}</td>
+                      <td className="pb-dw__c--center" style={dim}>{shown(r.selected)}</td>
                       <td style={dim}>
                         {r.actionText ? r.actionText : (
                           <span className="pb-row" style={{ gap: 12 }}>
@@ -369,8 +457,8 @@ export function LetterSetupWindow({
                           </span>
                         )}
                       </td>
-                      <td className="pb-dw__c--center" style={dim}>{r.attachAvailable || ''}</td>
-                      <td className="pb-dw__c--center" style={dim}>{r.attachSelected || ''}</td>
+                      <td className="pb-dw__c--center" style={dim}>{shown(r.attachAvailable)}</td>
+                      <td className="pb-dw__c--center" style={dim}>{shown(r.attachSelected)}</td>
                     </tr>
                   )
                 })}
@@ -386,7 +474,7 @@ export function LetterSetupWindow({
             className="pb-btn--default"
             style={{ width: 92, height: 22 }}
             data-tutorial-id="host.mois.command.continue"
-            onClick={onContinue}
+            onClick={proceed}
           >
             Continue (F2)
           </PBButton>
@@ -400,6 +488,73 @@ export function LetterSetupWindow({
         </div>
         </div>
       </PBWindow>
+      {lookup && (
+        <MasterProviderListDialog
+          onClose={() => setLookup(null)}
+          onPick={(name) => {
+            if (lookup === 'author') setAuthor(name)
+            else setRecipient(name)
+            setLookup(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/* ===========================================================================
+   "Is this letter being created in fulfillment of an Order?"
+
+   303099 `4bb2668b…`: after the template, MOIS opens the Letter Writer on the
+   raw template (its yellow populators still unfilled) and asks, in a `Link
+   to Order` box with Yes / No. Yes lists the chart's orders in the Order
+   Linking Service (`bc06d7ac…`); Link fills the primary recipient and the
+   diagnostic code from the Order. Either answer then goes on to Letter Setup.
+   ======================================================================== */
+function LinkToOrderPrompt({
+  stage, onAnswer, onLinked, onCancel,
+}: {
+  stage: 'ask' | 'link'
+  onAnswer: (yes: boolean) => void
+  onLinked: (orderId: string | null) => void
+  onCancel: () => void
+}) {
+  const data = useChartExport()
+  useScreenReport({ letterPrompt: stage === 'ask' ? 'link-to-order' : 'order-linking-service' })
+  const dot = (v?: string) => (v ?? '').replace(/\//g, '.')
+  return (
+    <>
+      <LetterWriterWindow raw onClose={onCancel} />
+      {stage === 'ask' && (
+        <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
+          <PBWindow child controls={false} title="Link to Order" onClose={onCancel} style={{ width: 347, height: 132 }}>
+            <div data-tutorial-id="host.mois.dialog.link-to-order" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', background: '#fff' }}>
+              <div className="pb-row" style={{ gap: 14, padding: '16px 18px', flex: '1 1 auto', alignItems: 'center' }}>
+                <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+                  <circle cx="16" cy="16" r="14" fill="#1f5fbf" />
+                  <text x="16" y="23" textAnchor="middle" fontSize="20" fontWeight="700" fill="#fff">?</text>
+                </svg>
+                <span>Is this letter being created in fulfillment of an Order?</span>
+              </div>
+              <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 8, padding: '8px 10px', background: 'var(--pb-face)', flex: 'none' }}>
+                <PBButton style={{ width: 75 }} data-tutorial-id="host.mois.command.letter-order-yes" onClick={() => onAnswer(true)}>Yes</PBButton>
+                <PBButton style={{ width: 75 }} data-tutorial-id="host.mois.command.letter-order-no" onClick={() => onAnswer(false)}>No</PBButton>
+              </div>
+            </div>
+          </PBWindow>
+        </div>
+      )}
+      {stage === 'link' && (
+        <div style={{ position: 'relative', zIndex: 95 }}>
+          <OrderLinkingServiceDialog
+            onLink={(row) => {
+              const hit = consultOrders(data).find((r) => dot(r.dtm_ord_date) === row.date && (r.str_description ?? '') === row.description)
+              onLinked(hit?.id_order ?? null)
+            }}
+            onClose={onCancel}
+          />
+        </div>
+      )}
+    </>
   )
 }

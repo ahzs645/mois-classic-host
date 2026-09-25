@@ -43,3 +43,36 @@ export function MeasureReportPane({ detail, row }: { detail: boolean; row?: Reco
     </>}
   </div>
 }
+
+/* The Panel tab (302837 "Measures Panel Tab", `91cd8d02…`): the panel's name
+   and Ordered By, its Panel Notes box, then every result the panel brought —
+   Test Name, Value, Flag, Ref. Ranges, Units, Status. */
+export function MeasurePanelPane({ panel }: {
+  panel: { name: string; orderedBy: string; rows: Record<string, string>[] }
+}) {
+  if (!panel.rows.length) {
+    return <div className="pb-dw__empty" style={{ padding: 24 }}>This result was not reported as part of a panel.</div>
+  }
+  const cell = { padding: '1px 4px', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+  return <div data-tutorial-id="host.mois.field.panel-detail" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ border: '1px solid var(--pb-border)', background: '#fff', padding: '2px 6px' }}>
+      <div className="pb-row" style={{ gap: 0 }}>
+        <b style={{ width: 300 }}>{panel.name}</b>
+        <span>Ordered By: {panel.orderedBy}</span>
+      </div>
+      <PBTextArea value="" readOnly rows={3} w="100%" aria-label="Panel Notes" />
+    </div>
+    <div style={{ border: '1px solid var(--pb-border)', background: '#fff' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
+        <colgroup><col style={{ width: '38%' }} /><col style={{ width: '12%' }} /><col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} /></colgroup>
+        <thead><tr>{['Test Name', 'Value', 'Flag', 'Ref. Ranges', 'Units', 'Status'].map((h) => <th key={h} style={{ ...cell, textAlign: 'left', fontWeight: 400 }}>{h}</th>)}</tr></thead>
+        <tbody>
+          {panel.rows.map((r, i) => <tr key={i} style={{ background: i % 2 ? '#fff' : '#f0f0f0' }}>
+            <td style={cell}>{r.test}</td><td style={cell}>{r.value}</td><td style={cell}>{r.flag === '-' ? '' : r.flag}</td>
+            <td style={cell}>{r.lower || r.upper ? `${r.lower} - ${r.upper}` : ''}</td><td style={cell}>{r.units}</td><td style={cell}>{r.status}</td>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

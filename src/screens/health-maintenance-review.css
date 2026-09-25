@@ -1,0 +1,69 @@
+/* Health Maintenance Review (HealthMaintenanceReviewWindow.tsx).
+   Measured off art. 304722 `8117c454` (whole window) and `bc77da00`
+   (the 2022 header). */
+
+.pb-hmr { display: flex; flex-direction: column; }
+
+/* the sunken identity block with the four buttons at its right */
+.pb-hmr__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 8px 8px 6px;
+  padding: 6px 10px 8px;
+  background: var(--pb-window);
+  border: 1px solid #a0a0a0;
+}
+.pb-hmr__ident {
+  flex: 1 1 auto;
+  display: grid;
+  /* label / value × 3: Patient·Alias, DoB·Gender, BC Health No.·Chart */
+  grid-template-columns: auto 180px auto 90px auto auto;
+  column-gap: 6px;
+  row-gap: 3px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+.pb-hmr__lbl { text-align: right; }
+.pb-hmr__buttons {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, 76px);
+  gap: 10px 10px;
+}
+.pb-hmr__buttons .pb-btn { min-width: 0; width: 76px; height: 22px; }
+
+.pb-hmr__tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0 8px 8px;
+}
+.pb-hmr__tabs .pb-tabs { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.pb-hmr__tabs .pb-tabs__tab { min-width: 126px; }
+.pb-hmr__tabs .pb-tabs__page { flex: 1 1 auto; min-height: 0; display: flex; }
+
+/* the report: a scrolling monospace text pane */
+.pb-hmr__report {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 10px 16px;
+  background: var(--pb-window);
+  border: 1px solid #a0a0a0;
+  font-family: "Lucida Console", "Courier New", Courier, monospace;
+  font-size: 12px;
+  line-height: 12px;
+  white-space: pre;
+}
+.pb-hmr__age { font-weight: 700; font-size: 13px; margin: 0 0 22px 4px; }
+.pb-hmr__section { margin: 0 0 12px 12px; }
+.pb-hmr__heading { font-weight: 700; color: #000; margin-bottom: 2px; }
+.pb-hmr__found,
+.pb-hmr__missing { padding-left: 4px; }
+.pb-hmr__found { color: #00008b; }
+.pb-hmr__missing { color: #ff0000; }
+.pb-hmr__normal { color: #00008b; }
+.pb-hmr__abnormal { color: #8b0000; }
+.pb-hmr__range { color: #a0a0a0; }

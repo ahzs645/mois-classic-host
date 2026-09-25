@@ -205,9 +205,11 @@ export const LW_HEADER_GRID = {
 
 export type LetterHeaderField = { label: string; value: string }
 
-/* Row 3 of the right column is document-type dependent and must not be
-   hard-coded: `Diagnosis:` for a referral, `Service Event:` on a service
-   event, `Note:` on a Shared Care Plan. Prose only ever says "Diagnosis".  */
+/* The right column varies with the document type: `Diagnosis:` third on a
+   referral, `Service Event:` third on an information request (2961349/
+   24dd02c9c347), and on a Shared Care Plan `Note:` takes Code's second row
+   while Diagnosis stays third (2070139/5dc6ad4fc232). The live header is
+   built per letter in data/letterFlow.ts; this table is the reference.   */
 export type LetterDocumentType = {
   id: string
   /** what the bold document-title band prints */
@@ -238,23 +240,27 @@ export const LETTER_DOCUMENT_TYPES: LetterDocumentType[] = [
     citation: '304687/fe7ad734ae59, 304755/c59d6282a6c8',
   },
   {
-    id: 'service-event',
-    title: 'SERVICE EVENT NOTE - COMPLEX CARE PLANNING',
-    type: 'MISC',
+    id: 'information-request',
+    title: 'INFORMATION REQUEST',
+    type: 'INFORMATION REQUEST',
     row3Label: 'Service Event:',
-    row3Value: 'COMPLEX CARE PLANNING',
-    code: 'SNOMED-CT: 386053000',
+    row3Value: '',
+    code: '<Not Coded>',
     loinc: 'LOINC X10916',
     loincName: '- Information Request',
-    citation: '304687/db26eadc539f, 2961349/24dd02c9c347',
+    /* the Create Distribution capture of an information request: the third
+       right-hand label is Service Event, the code <Not Coded> */
+    citation: '2961349/24dd02c9c347',
   },
   {
     id: 'care-plan',
-    title: 'SHARED CARE PLAN - PLAN OF CARE SNAPSHOT',
+    title: 'SHARED CARE PLAN',
     type: 'SHARED CARE PLAN',
-    row3Label: 'Note:',
-    row3Value: 'PLAN OF CARE SNAPSHOT 2026.03.18',
-    code: 'SNOMED-CT: 773130005',
+    /* 2070139/5dc6ad4fc232: the right column reads Type (+ Date), Note,
+       Diagnosis, Copies To — Note takes Code's row and Diagnosis stays */
+    row3Label: 'Diagnosis:',
+    row3Value: '',
+    code: '',
     loinc: 'LOINC 80777-6',
     loincName: '- Shared Care Plan',
     citation: '2070139/5dc6ad4fc232',

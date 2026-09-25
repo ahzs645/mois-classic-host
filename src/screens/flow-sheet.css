@@ -1,0 +1,137 @@
+/* Flow Sheet Parameters + the <TYPE> Flowsheet window (FlowSheetWindows.tsx).
+   Measured off art. 303225 `5be0ba8b` and art. 303789 `570bfeac`. */
+
+/* --- Flow Sheet Parameters ---------------------------------------------- */
+.pb-fsparams__body {
+  padding: 9px 10px 12px;
+  background: var(--pb-face);
+}
+.pb-fsparams__group {
+  border: 1px solid #8f8f8f;
+  background: var(--pb-face);
+}
+/* the grey caption band, bold, ruled off from the fields */
+.pb-fsparams__band {
+  height: 20px;
+  line-height: 20px;
+  padding: 0 6px;
+  background: var(--pb-band);
+  border-bottom: 1px solid #8f8f8f;
+  font-weight: 700;
+}
+.pb-fsparams__inner { padding: 6px 8px 10px; }
+.pb-fsparams__caption {
+  margin: 2px 0 4px;
+  color: var(--pb-text-head);
+  font-weight: 700;
+}
+.pb-fsparams__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px 6px;
+}
+.pb-fsparams__lbl { min-width: 33px; }
+.pb-fsparams__lbl--to { min-width: 0; margin-left: 20px; }
+.pb-fsparams__buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+/* --- the flow sheet ------------------------------------------------------ */
+.pb-flowsheet { display: flex; flex-direction: column; }
+.pb-flowsheet__toolbar {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 4px;
+  background: linear-gradient(#fdfdfd, #e7ebf1);
+  border-bottom: 1px solid #b7bfca;
+}
+.pb-flowsheet__tool {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  color: var(--pb-text);
+}
+.pb-flowsheet__tool:hover { border-color: var(--pb-btn-hover-brd); background: var(--pb-btn-hover); }
+.pb-flowsheet__toolsep { width: 1px; height: 14px; margin: 0 2px; background: #a9b1bc; }
+
+.pb-flowsheet__ident,
+.pb-flowsheet__asof {
+  display: flex;
+  gap: 34px;
+  padding: 3px 10px;
+  background: var(--pb-window);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.pb-flowsheet__ident { border-bottom: 1px solid #000; }
+.pb-flowsheet__ident span b { margin-left: 8px; }
+.pb-flowsheet__asof { gap: 110px; border-bottom: 1px solid #9a9a9a; }
+
+.pb-flowsheet__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--pb-window);
+}
+.pb-flowsheet__grid {
+  flex: 1 0 auto;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 100%;
+}
+.pb-flowsheet__grid th,
+.pb-flowsheet__grid td {
+  height: 16px;
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  text-align: center;
+  border-left: 1px solid #c9c9c9;
+}
+.pb-flowsheet__grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 18px;
+  font-weight: 400;
+  background: var(--pb-dw-header);
+  border-bottom: 1px solid #9fb3d1;
+}
+.pb-flowsheet__grid .pb-flowsheet__el { text-align: left; border-left: 0; }
+.pb-flowsheet__grid .pb-flowsheet__rest { border-left: 1px solid #c9c9c9; }
+/* the heavier rule where the year turns over, as both captures draw it */
+.pb-flowsheet__grid .is-year { border-left: 2px solid #3d3d3d; }
+.pb-flowsheet__grid tbody tr:nth-child(even):not(.pb-flowsheet__filler) { background: #f4f4f4; }
+.pb-flowsheet__grid tbody tr.is-current { background: var(--pb-dw-select-soft); }
+.pb-flowsheet__grid tbody tr.is-current td:first-child { background: var(--pb-dw-select); }
+.pb-flowsheet__filler td { height: auto; }
+.pb-flowsheet__grid tbody tr:not(.pb-flowsheet__filler) td { border-bottom: 1px solid #ececec; }
+
+.pb-flowsheet__ltm {
+  flex: none;
+  padding: 4px 4px 8px;
+  border-top: 1px solid #9a9a9a;
+  background: var(--pb-window);
+}
+.pb-flowsheet__ltm-head { font-weight: 700; padding: 2px 0 3px; }
+.pb-flowsheet__ltm-row {
+  height: 16px;
+  line-height: 16px;
+  padding-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+}
+.pb-flowsheet__ltm-row:hover { background: var(--pb-select); }

@@ -3,6 +3,7 @@ import {
   PBBand, PBButton, PBDataWindow, PBDropDownDataWindow, PBInput, PBWindow, type PBColumn,
 } from '../pb'
 import { chartStatusRows } from '../data/mois'
+import { CmdButton } from './CmdButton'
 import { patients as fallbackRoster, type Patient } from '../data/patients'
 
 /* ============================================================================
@@ -25,12 +26,13 @@ type Key = 'status' | 'last' | 'first' | 'middle' | 'dob' | 'home' | 'chart' | '
    486, 550, 655, 736, 776, 857, 990, 1107). Chart Loc. is left unsized so the
    13 columns always add up to the dialog's width instead of scrolling — the
    measured 117 is what the slack comes to. */
-/* Every column filters — the capture has 13 boxes above 13 columns. */
+/* Every column filters but Middle Name: the capture's strip has 12 boxes
+   and a grey gap over Middle Name (art. 301170 `38edd7be…png` agrees). */
 const COLUMNS: { key: Key; header: string; width?: number; filter: boolean }[] = [
   { key: 'status', header: 'Status', width: 46, filter: true },
   { key: 'last', header: 'Last Name', width: 95, filter: true },
   { key: 'first', header: 'First Name', width: 95, filter: true },
-  { key: 'middle', header: 'Middle Name', width: 71, filter: true },
+  { key: 'middle', header: 'Middle Name', width: 71, filter: false },
   { key: 'dob', header: 'DoB', width: 67, filter: true },
   { key: 'home', header: 'Home', width: 86, filter: true },
   { key: 'chart', header: 'Chart No', width: 64, filter: true },
@@ -44,13 +46,16 @@ const COLUMNS: { key: Key; header: string; width?: number; filter: boolean }[] =
 
 const PAGE = 12
 
-export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, onClose }: {
+export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, onClose, zIndex = 80 }: {
   /** the chart that is open, so the list lands on it */
   chart: string
   /** the charts on file; omitted = the transcribed training roster */
   roster?: Patient[]
   onPick: (chart: string) => void
   onClose: () => void
+  /** stacking order; a window opened over another modal (the address
+      wizard's Find / Add) passes one above it */
+  zIndex?: number
 }) {
   const [filters, setFilters] = useState<Partial<Record<Key, string>>>({})
 
@@ -94,7 +99,7 @@ export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, o
   })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
       <PBWindow
         tutorialId="host.mois.dialog.chart-lookup"
         child
@@ -137,16 +142,17 @@ export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, o
             <PBButton wide onClick={() => setCurrent(0)}>Home</PBButton>
             <PBButton wide onClick={() => step(-PAGE)}>PgUp</PBButton>
             <span style={{ flex: '1 1 auto' }} />
-            <PBButton
+            <CmdButton
+              command="lookup-ok"
               wide
               className="pb-btn--default"
               disabled={!row}
               onClick={() => row && onPick(row.chart)}
             >
               Ok
-            </PBButton>
+            </CmdButton>
             <span style={{ width: 14 }} />
-            <PBButton wide onClick={onClose}>Cancel</PBButton>
+            <CmdButton command="lookup-cancel" wide onClick={onClose}>Cancel</CmdButton>
             <span style={{ flex: '1 1 auto' }} />
             <PBButton wide onClick={() => step(PAGE)}>PgDwn</PBButton>
             <PBButton wide onClick={() => setCurrent(rows.length - 1)}>End</PBButton>

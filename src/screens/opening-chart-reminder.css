@@ -1,16 +1,21 @@
 .pb-opening-reminder-layer { z-index: 90; }
+/* Measured off the MOIS: TRAINING capture, where the reminder is 794 x 592
+   inside a 910 x 655 frame: 87% x 90% of the frame, centred on it. The frame
+   here paints at the manifest's 1000 x 736, so the window is 873 x 664. It
+   was once sized to the browser (1340 x 1000), which made it cover the whole
+   stage. */
 .pb-opening-reminder {
-  width: min(1340px, calc(100vw - 36px));
-  height: min(1000px, calc(100vh - 46px));
+  width: min(873px, calc(100vw - 36px));
+  height: min(664px, calc(100vh - 46px));
 }
 .pb-opening-reminder__red {
   background: #870900;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 24px 22px 16px;
+  padding: 18px 16px 12px 15px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 .pb-opening-reminder__content {
   background: #fff;
@@ -21,7 +26,7 @@
   flex-direction: column;
 }
 .pb-opening-reminder__heading {
-  min-height: 38px;
+  min-height: 24px;
   background: #808080;
   color: #fff;
   border-bottom: 2px solid #333;
@@ -29,28 +34,28 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 2px 7px;
-  font-size: 20px;
+  padding: 2px 6px;
+  font-size: 15px;
   white-space: nowrap;
 }
 .pb-opening-reminder__identity {
-  min-height: 43px;
+  min-height: 25px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 9px;
+  padding: 0 6px;
   border-bottom: 1px solid #777;
-  font-size: 15px;
+  font-size: var(--pb-fs);
   white-space: nowrap;
 }
 .pb-opening-reminder__identity b { margin-left: 4px; }
 .pb-opening-reminder__list-label {
   background: #e5e0dd;
   border-bottom: 1px solid #999;
-  padding: 5px 12px;
+  padding: 4px 8px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--pb-fs);
 }
 .pb-opening-reminder__row { color: #ed2716; font-weight: 700; }
 .pb-opening-reminder__row .pb-check { justify-content: center; }
@@ -60,19 +65,19 @@
   background: #f4f4f4;
   display: flex;
   justify-content: space-between;
-  padding: 4px 12px;
-  font-size: 14px;
+  padding: 3px 8px;
+  font-size: var(--pb-fs);
 }
 .pb-opening-reminder__detail-head strong { color: #101064; }
 .pb-opening-reminder__detail {
-  height: 30%;
-  margin: 0 12px 12px;
+  height: 42%;
+  margin: 0 8px 8px;
   border: 1px solid #aaa;
-  padding: 4px;
+  padding: 3px 4px;
   background: #fff;
   white-space: pre-wrap;
-  font-family: monospace;
-  font-size: 13px;
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-fs);
 }
 .pb-opening-reminder__footer { display: flex; justify-content: center; }
-.pb-opening-reminder__footer .pb-btn { min-width: 140px; }
+.pb-opening-reminder__footer .pb-btn { min-width: 94px; }

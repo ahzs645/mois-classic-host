@@ -183,13 +183,14 @@
 .pb-theme--classic .pb-btn:active:not(:disabled),
 .pb-theme--classic .pb-cmdrow__btn:active:not(:disabled),
 .pb-theme--classic .pb-inputgroup__btn:active:not(:disabled),
+.pb-theme--classic .pb-select.is-open > .pb-inputgroup__btn,
 .pb-theme--classic .pb-spin__btn:active:not(:disabled) {
   background: var(--pb-btn-face);
   box-shadow: inset 1px 1px #0a0a0a, inset 2px 2px #808080;
 }
 /* sunken bevel for anything that receives input */
 .pb-theme--classic .pb-field,
-.pb-theme--classic .pb-select,
+.pb-theme--classic .pb-select__face,
 .pb-theme--classic .pb-tree,
 .pb-theme--classic .pb-dw,
 .pb-theme--classic .pb-groupbox {
@@ -255,6 +256,11 @@
 /* bands revert to plain silver with a raised edge */
 .pb-theme--classic .pb-band { background: var(--pb-band); box-shadow: inset 0 1px #ffffff; }
 .pb-theme--classic .pb-summaryband { background: #808080; color: #fff; }
+
+/* Windows 98 drop-down buttons carry a filled triangle, not Windows 10's chevron */
+.pb-theme--classic .pb-drop-glyph__chevron { display: none; }
+.pb-theme--classic .pb-drop-glyph__triangle { display: inline; }
+.pb-theme--classic .pb-inputgroup__btn--drop { color: #000; }
 
 /* XP.css's bevelled 98 scroll buttons, now that there is a theme for them */
 .pb-theme--classic ::-webkit-scrollbar { width: 17px; height: 17px; }

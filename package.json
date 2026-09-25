@@ -15,7 +15,9 @@
     "./tree.css": "./src/pb/tree.css"
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./src/**/*.ts",
+    "./src/**/*.tsx"
   ],
   "scripts": {
     "dev": "vite",

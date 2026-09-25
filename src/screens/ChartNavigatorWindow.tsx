@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PBButton, PBCheckbox, PBDataWindow, PBWindow } from '../pb'
 import { chartNavigatorRows, type ChartNavigatorRow } from '../data/chartUtilities'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    Chart Navigator.
@@ -42,6 +43,9 @@ export function ChartNavigatorWindow({ rows = chartNavigatorRows, onOpenChart, o
     next.has(chart) ? next.delete(chart) : next.add(chart)
     return next
   })
+  /* how many charts are loaded and excluded, and which is current — a Mail
+     Merge lesson grades the Exclude it asked for */
+  useScreenReport({ navigatorRows: rows.length, excluded: excluded.size, navigatorChart: rows[current]?.chart ?? '' })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>

@@ -4,6 +4,9 @@ import {
   type ReviewRow
 } from '../data/chartUtilities'
 import { usePatient } from '../data/patient-context'
+import { MOIS_TODAY } from '../data/patients'
+import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
+import { useFolderReviews } from '../data/folder-reviews'
 import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug } from '../pb'
 
 /* ============================================================================
@@ -65,13 +68,29 @@ export function ReviewingDialog({ node, onClose }: {
 }) {
   const patient = usePatient()
   const noun = REVIEW_NOUNS[node]
-  const [rows, setRows] = useState<ReviewRow[]>([])
+  /* the folder reads these back: its "not reviewed" notice goes and its
+     title carries the date (data/folder-reviews.ts) */
+  const [filed, file] = useFolderReviews(node)
+  const rows: ReviewRow[] = filed
+  const setRows = (next: (r: ReviewRow[]) => ReviewRow[]) => { const [row] = next([]); if (row) file(row.note) }
   const [note, setNote] = useState('')
+
+  /* with an Encounter Detail Window open, the review is reported onto that
+     encounter's summary (art. 303116: Reaction Risks, Long Term Medications
+     and Health Conditions do this) */
+  const encounters = useEncounterSession()
 
   if (!noun) return null
 
   const markReviewed = () => {
     setRows((r) => [{ date: new Date().toLocaleDateString('en-CA').replace(/-/g, '.'), by: 'LOCAL PREVIEW', note }, ...r])
+    const active = encounters.active
+    if (active) {
+      encounters.update((s) => ({
+        ...s,
+        reviews: { ...s.reviews, [active]: [...(s.reviews[active] ?? []), { folder: node, date: MOIS_TODAY, by: DESKTOP_USER, note }] },
+      }))
+    }
     setNote('')
   }
 

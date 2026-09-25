@@ -8,6 +8,7 @@ import {
   type DesignerColumn, type DesignerListScreen, type DesignerNewDialog, type DesignerRow,
 } from '../data/designerSection'
 import { DesignerDetailWindow, ImportPaperFormsDialog } from './DesignerDetailWindow'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    Administration ▸ Designer Section — the list view ("Skeleton L").
@@ -19,9 +20,11 @@ import { DesignerDetailWindow, ImportPaperFormsDialog } from './DesignerDetailWi
    `data/designerSection.ts`, cited capture by capture, so this file is the
    frame and nothing else.
 
-   Two nodes of the ten in the tree are NOT handled here — `ad-panel-setup`
-   and `ad-quick-entry`. Neither has a capture anywhere in the corpus, so the
-   frame's labelled fallback is what they should show.
+   Nine of the ten nodes in the tree are handled here. `ad-panel-setup` is
+   configured from article 2594035's New dialog and detail captures (its list
+   is inferred — see data/designerSection.ts). `ad-quick-entry` has no
+   capture anywhere in the corpus, so the frame's labelled fallback is what
+   it shows.
 
    MEASURED vs KIT. Three skeleton values are the kit's rather than the
    capture's, and are not presented as measured:
@@ -36,17 +39,37 @@ import { DesignerDetailWindow, ImportPaperFormsDialog } from './DesignerDetailWi
    `#c8dcfa` header, `#ffffff`/`#e8e8e8` bands, `#e89c84` current row.
    ========================================================================= */
 
-/** A blank record, so Create Record can put a row in the list. */
-const blankRow = (columns: DesignerColumn[]): DesignerRow =>
-  Object.fromEntries(columns.map((c) => [c.key, c.check ? false : '']))
+/** A blank record, so Create Record can put a row in the list. `__new`
+    tells the detail window to open empty rather than on sample rows. */
+const blankRow = (columns: DesignerColumn[]): DesignerRow => ({
+  ...Object.fromEntries(columns.map((c) => [c.key, c.check ? false : ''])),
+  __new: true,
+})
 
-export function DesignerSectionView({ node }: { node: string }) {
-  const screen = designerScreen(node)
-  if (!screen) return null
-  return <DesignerList key={screen.node} screen={screen} />
+/**
+ * What the New dialog's fields put on the new row: a field whose label
+ * matches a column (Name → name, Concept → concept, Group → group,
+ * Description → desc) fills it; Concept Mapping's Classification radio fills
+ * Type with GRP or SYM (`f05574eb…`).
+ */
+function rowFromDialog(columns: DesignerColumn[], values: Record<string, string>): DesignerRow {
+  const row = blankRow(columns)
+  for (const [label, value] of Object.entries(values)) {
+    const key = label.replace(/:$/, '').trim().toLowerCase()
+    if (key === 'classification') { row.type = value === 'Synonym' ? 'SYM' : 'GRP'; continue }
+    const col = columns.find((c) => c.header.toLowerCase() === key || c.key === key)
+    if (col) row[col.key] = value
+  }
+  return row
 }
 
-function DesignerList({ screen }: { screen: DesignerListScreen }) {
+export function DesignerSectionView({ node, onClose }: { node: string; onClose?: () => void }) {
+  const screen = designerScreen(node)
+  if (!screen) return null
+  return <DesignerList key={screen.node} screen={screen} onClose={onClose} />
+}
+
+function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose?: () => void }) {
   const host = usePBInstrumentation()
   const [added, setAdded] = useState<DesignerRow[]>([])
   const [filter, setFilter] = useState<Record<string, string>>({})
@@ -54,26 +77,34 @@ function DesignerList({ screen }: { screen: DesignerListScreen }) {
   const [detail, setDetail] = useState<DesignerRow | null>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  /* the HM Item filter tick (Concept Mapping only) */
+  const [onlyTicked, setOnlyTicked] = useState<Record<string, boolean>>({})
 
   const all = useMemo(() => [...screen.rows, ...added], [screen.rows, added])
   const rows = useMemo(() => all.filter((r) => screen.columns.every((c) => {
+    if (c.filterCheck && onlyTicked[c.key]) return Boolean(r[c.key])
     const term = filter[c.key]?.trim().toLowerCase()
     if (!term) return true
     return String(r[c.key] ?? '').toLowerCase().includes(term)
-  })), [all, filter, screen.columns])
+  })), [all, filter, onlyTicked, screen.columns])
+  const anchorKey = screen.anchorKey ?? screen.columns[0]!.key
+  const rowId = (r: DesignerRow) => {
+    const v = String(r[anchorKey] ?? '')
+    return v ? pbSlug(v.slice(0, 32)) : ''
+  }
+  useScreenReport({ rows: all.length, row: rows[cur] ? rowId(rows[cur]!) || null : null })
 
   /* `Create Record` closes the dialog, puts the row in the list with the
      chevron on it, and opens the detail window on the new record — the
      Concept Mapping capture shows both windows stacked (f05574eb03be), and
      every other article's step list says the detail window opens next. */
-  const createRecord = () => {
-    const row = blankRow(screen.columns)
+  const createRecord = (values: Record<string, string>) => {
+    const row = rowFromDialog(screen.columns, values)
     setAdded((a) => [...a, row])
     setNewOpen(false)
     setCur(all.length)
     setDetail(row)
   }
-
   const openDetail = (row: DesignerRow) => setDetail(row)
 
   return (
@@ -85,13 +116,15 @@ function DesignerList({ screen }: { screen: DesignerListScreen }) {
           label,
           onClick:
             label === 'New Record'
-              /* three of the eight have no captured New Record dialog
-                 (Encounter Form, Paper Forms, Care Plan Templates), so the
-                 button raises nothing there rather than an invented one */
+              /* two have no New Record dialog, captured or described (Paper
+                 Forms, Care Plan Templates), so the button raises nothing
+                 there rather than an invented one. Encounter Form's is
+                 described by 303174's step list (data/designerSection.ts). */
               ? (screen.newDialog ? () => setNewOpen(true) : undefined)
               : label === 'Edit Record'
                 ? () => { const r = rows[cur]; if (r) openDetail(r) }
-                : undefined,
+                : label === 'Close Window' ? () => onClose?.()
+                  : undefined,
         }))}
         right={screen.right && (
           /* the block's right edge sits 17px inside the pane's, measured */
@@ -139,7 +172,16 @@ function DesignerList({ screen }: { screen: DesignerListScreen }) {
           }))}
           /* one box per filterable column, pixel-aligned to that column and
              never over the gutter — which is what the `filters` row gives */
-          filters={screen.columns.map((c) => (c.filter
+          filters={screen.columns.map((c) => (c.filterCheck
+            ? (
+              <PBCheckbox
+                key={c.key}
+                checked={Boolean(onlyTicked[c.key])}
+                onChange={(v) => { setOnlyTicked({ ...onlyTicked, [c.key]: v }); setCur(0) }}
+                tutorialId={`host.mois.field.filter-${pbSlug(c.header)}`}
+              />
+            )
+            : c.filter
             ? (
               <PBInput
                 key={c.key}
@@ -149,10 +191,7 @@ function DesignerList({ screen }: { screen: DesignerListScreen }) {
               />
             )
             : null))}
-          rowTutorialId={(r) => {
-            const first = String(r[screen.columns[0]!.key] ?? '')
-            return first ? `host.mois.row.${pbSlug(first.slice(0, 32))}` : undefined
-          }}
+          rowTutorialId={(r) => (rowId(r) ? `host.mois.row.${rowId(r)}` : undefined)}
           empty="No rows retrieved."
         />
       </div>
@@ -165,7 +204,16 @@ function DesignerList({ screen }: { screen: DesignerListScreen }) {
         />
       )}
 
-      {importOpen && <ImportPaperFormsDialog onClose={() => setImportOpen(false)} />}
+      {importOpen && (
+        <ImportPaperFormsDialog
+          onClose={() => setImportOpen(false)}
+          /* the imported forms join the list under their original names */
+          onImport={(picked) => setAdded((a) => [...a, ...picked.map((r) => ({
+            name: String(r.original ?? ''), code: String(r.code ?? ''), desc: String(r.desc ?? ''),
+            author: String(r.author ?? ''), group: String(r.group ?? ''),
+          }))])}
+        />
+      )}
 
       {detail && (
         <DesignerDetailWindow screen={screen} row={detail} onClose={() => setDetail(null)} />
@@ -183,8 +231,14 @@ function DesignerList({ screen }: { screen: DesignerListScreen }) {
    ------------------------------------------------------------------------ */
 function DesignerNewRecordDialog({
   dialog, onCreate, onClose,
-}: { dialog: DesignerNewDialog; onCreate: () => void; onClose: () => void }) {
+}: { dialog: DesignerNewDialog; onCreate: (values: Record<string, string>) => void; onClose: () => void }) {
   const host = usePBInstrumentation()
+  /* what the learner types or picks, by field label; Create Record hands it on */
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(
+    dialog.fields.map((f) => [f.label, 'value' in f && f.value ? f.value : '']),
+  ))
+  const set = (label: string) => (v: string) => setValues((x) => ({ ...x, [label]: v }))
+  useScreenReport({ dialog: pbSlug(dialog.title) })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -212,8 +266,8 @@ function DesignerNewRecordDialog({
                         key={o}
                         name={`${pbSlug(dialog.title)}-${pbSlug(f.label)}`}
                         label={o}
-                        checked={o === f.value}
-                        onChange={() => {}}
+                        checked={o === values[f.label]}
+                        onChange={() => set(f.label)(o)}
                       />
                     ))}
                   </span>
@@ -224,7 +278,8 @@ function DesignerNewRecordDialog({
                     {f.kind === 'text' && (
                       <PBInput
                         w={f.w}
-                        defaultValue={f.value}
+                        value={values[f.label] ?? ''}
+                        onChange={(e) => set(f.label)(e.target.value)}
                         data-tutorial-id={`host.mois.field.${pbSlug(f.label)}`}
                         /* the focused edit takes MOIS's #FFC09C dirty fill */
                         style={f.focus ? { background: '#ffc09c' } : undefined}
@@ -234,12 +289,13 @@ function DesignerNewRecordDialog({
                       <PBSelect
                         w={f.w}
                         options={f.options}
-                        defaultValue={f.value}
+                        value={values[f.label] ?? ''}
+                        onChange={(e) => set(f.label)(e.target.value)}
                         data-tutorial-id={`host.mois.field.${pbSlug(f.label)}`}
                       />
                     )}
                     {f.kind === 'memo' && (
-                      <PBTextArea rows={f.rows ?? 3} w="100%" data-tutorial-id={`host.mois.field.${pbSlug(f.label)}`} />
+                      <PBTextArea rows={f.rows ?? 3} w="100%" value={values[f.label] ?? ''} onChange={(e) => set(f.label)(e.target.value)} data-tutorial-id={`host.mois.field.${pbSlug(f.label)}`} />
                     )}
                   </span>
                 )
@@ -256,7 +312,7 @@ function DesignerNewRecordDialog({
               data-tutorial-id={host?.anchor('command', pbSlug(b))}
               onClick={() => {
                 host?.report('command', { command: pbSlug(b) })
-                if (b === 'Create Record') onCreate()
+                if (b === 'Create Record') onCreate(values)
                 else onClose()
               }}
             >

@@ -6,8 +6,8 @@ import {
 } from '../pb'
 import {
   CARE_PLAN_COLUMNS, CARE_PLAN_ROWS,
-  CONCEPT_CODE_RULE_COLUMNS, CONCEPT_CODE_RULE_ROWS, CONCEPT_HM_CAPTION,
-  CONCEPT_HM_WARNING, CONCEPT_TEXT_RULE_COLUMNS, CONCEPT_TEXT_RULE_ROWS,
+  CONCEPT_CODE_RULE_COLUMNS, CONCEPT_HM_CAPTION,
+  CONCEPT_HM_WARNING, CONCEPT_TEXT_RULE_COLUMNS, conceptRules,
   DETAIL_FOOTERS,
   ENCOUNTER_DATA_TYPES, ENCOUNTER_ELEMENT_COLUMNS, ENCOUNTER_ELEMENT_ROWS,
   ENCOUNTER_FORM_TABS, ENCOUNTER_GROUP_COLUMNS, ENCOUNTER_GROUP_ROWS,
@@ -17,10 +17,14 @@ import {
   FLOWSHEET_SOURCE_TYPES,
   MEASUREMENT_ELEMENT_COLUMNS, MEASUREMENT_ELEMENT_ROWS,
   NEW_LETTER_OPTIONS,
+  PANEL_ITEM_COLUMNS, PANEL_ITEMS,
   PAPER_FIELD_COLUMNS, PAPER_FIELD_ROWS, PAPER_IMPORT_COLUMNS, PAPER_IMPORT_ROWS,
   TASK_DUE_UNITS, TASK_PRIORITIES, TASK_SET_ROWS,
   type DesignerColumn, type DesignerListScreen, type DesignerRow,
 } from '../data/designerSection'
+import { determinantTabs } from '../data/mois'
+import { useScreenReport } from '../host/screen-state'
+import { MoisViewerWindow } from './MoisViewerWindow'
 
 /* ============================================================================
    Administration ▸ Designer Section — the detail windows ("Skeleton D").
@@ -38,9 +42,10 @@ import {
    The footer set is the cleanest per-node discriminator, so it is what the
    caller passes in. See `data/designerSection.ts` for the citations.
 
+   `Preview Form` opens the MOIS Viewer (screens/MoisViewerWindow.tsx), from
+   article 304734's captures and 303327's field-numbered preview.
+
    NOT BUILT, deliberately:
-     - `Preview Form`'s MOIS Viewer. The captures name its menus and three
-       toolbar items and nothing else — no geometry — so the button is inert.
      - The MOIS Letter Writer behind `New Letter`. Never visually read.
      - `Import Concepts` / `Export Concepts` / `Import Flowsheets` /
        `Export Flowsheets` / `Export Forms`. No dialog capture exists for any
@@ -72,7 +77,7 @@ const RULE = '#646464'
    ------------------------------------------------------------------------ */
 
 /** A band button: `New Rule`, `New Element`, `New Row`, `Delete …`. */
-function BandButton({ label, width }: { label: string; width: number }) {
+function BandButton({ label, width, onPress }: { label: string; width: number; onPress?: () => void }) {
   const host = usePBInstrumentation()
   return (
     <button
@@ -80,14 +85,14 @@ function BandButton({ label, width }: { label: string; width: number }) {
       className="pb-btn pb-btn--sm"
       style={{ width }}
       data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => host?.report('command', { command: pbSlug(label) })}
+      onClick={() => { host?.report('command', { command: pbSlug(label) }); onPress?.() }}
     >
       {label}
     </button>
   )
 }
 
-export type BandCommand = { label: string; width: number }
+export type BandCommand = { label: string; width: number; onPress?: () => void }
 
 /**
  * Variant A — the buttons sit RIGHT-anchored inside the 20–21px band itself.
@@ -101,7 +106,7 @@ function BandA({ caption, buttons, h = 21 }: { caption: string; buttons?: BandCo
     >
       <span>{caption}</span>
       <span className="pb-band__spacer" />
-      {buttons?.map((b) => <BandButton key={b.label} label={b.label} width={b.width} />)}
+      {buttons?.map((b) => <BandButton key={b.label} label={b.label} width={b.width} onPress={b.onPress} />)}
     </div>
   )
 }
@@ -123,7 +128,7 @@ function BandB({ caption, buttons, h = 20 }: { caption: string; buttons: BandCom
         className="pb-row"
         style={{ background: BAND, height: 20, gap: 0, padding: '0 1px', flex: 'none', borderBottom: `1px solid ${RULE}` }}
       >
-        {buttons.map((b) => <BandButton key={b.label} label={b.label} width={b.width} />)}
+        {buttons.map((b) => <BandButton key={b.label} label={b.label} width={b.width} onPress={b.onPress} />)}
       </div>
     </>
   )
@@ -143,11 +148,18 @@ function DetailFrame({
   children: ReactNode
 }) {
   const host = usePBInstrumentation()
+  useScreenReport({ dialog: pbSlug(title) })
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60 }}>
+    /* one track the size of the work area: without it the grid's implicit
+       track grows to the window's measured width, the `100%` maxima below
+       resolve against that, and a window measured wider or taller than the
+       stage (Paper Form, Panel Setup) runs off it with its footer */
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}>
       {/* PBWindow does not forward attributes, so the window's anchor rides a
-          wrapper that shrink-wraps it rather than the whole modal layer */}
-      <div data-tutorial-id={host?.anchor('dialog', pbSlug(title))}>
+          wrapper that shrink-wraps it rather than the whole modal layer. The
+          wrapper is clamped to the work area too, so a window measured
+          larger than the stage keeps its footer and right edge on screen. */}
+      <div data-tutorial-id={host?.anchor('dialog', pbSlug(title))} style={{ maxWidth: '100%', maxHeight: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {/* `w` x `h` is the window's painted size, measured. The two maxima
             are the emulator's, not MOIS's: a real PB window would run off the
             frame, and clamping keeps the footer reachable in the work area. */}
@@ -156,12 +168,14 @@ function DetailFrame({
           controls={false}
           title={title}
           onClose={onClose}
-          style={{ width: w, height: h, maxWidth: '100%', maxHeight: '100%' }}
+          /* a column-flex item that may shrink: `maxHeight: 100%` alone never
+             applied, the wrapper's height being indefinite */
+          style={{ width: w, height: h, maxWidth: '100%', flex: '0 1 auto', minHeight: 0 }}
         >
           {/* 25px, `#004080`, caption inset 8px — the same band the list view
               paints, reused here as the window's own title band */}
           {navy && <div className="pb-viewhead"><span className="pb-viewhead__title">{navy}</span></div>}
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)' }}>
+          <div style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)', overflow: 'hidden' }}>
             {children}
           </div>
           <div className="pb-footer">
@@ -259,6 +273,7 @@ export function DesignerDetailWindow({
     case 'care-plan': return <CarePlanDetail title={title} row={row} onClose={onClose} />
     case 'task-set': return <TaskSetDetail title={title} row={row} onClose={onClose} />
     case 'letter': return <LetterTemplateDetail title={title} row={row} onClose={onClose} />
+    case 'panel-setup': return <PanelSetupDetail title={title} row={row} onClose={onClose} />
   }
 }
 
@@ -271,9 +286,16 @@ type DetailProps = { title: string; row: DesignerRow; onClose: () => void }
    ------------------------------------------------------------------------ */
 function ConceptMappingDetail({ title, row, onClose }: DetailProps) {
   const [hm, setHm] = useState(Boolean(row.hm))
-  const RULE_BUTTONS: BandCommand[] = [
-    { label: 'New Rule', width: 81 }, { label: 'Delete Rule', width: 81 },
+  /* the open concept's own rules; New Rule adds an empty one to its grid */
+  const [codeRules, setCodeRules] = useState(() => conceptRules(String(row.concept ?? '')).code)
+  const [textRules, setTextRules] = useState(() => conceptRules(String(row.concept ?? '')).text)
+  useScreenReport({ rows: codeRules.length + textRules.length })
+  const buttons = (add: () => void, remove: () => void): BandCommand[] => [
+    { label: 'New Rule', width: 81, onPress: add }, { label: 'Delete Rule', width: 81, onPress: remove },
   ]
+  /* `62d4040117d3`: Type, Classification and Concept are grey read-only
+     fields with bold values; only Description is an edit (the #FFC09C one) */
+  const fixed = { background: '#e8e8e8', fontWeight: 700 }
 
   return (
     <DetailFrame title={title} navy="Concept Mapping" w={968} h={715} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}>
@@ -281,12 +303,12 @@ function ConceptMappingDetail({ title, row, onClose }: DetailProps) {
       <div style={{ flex: 'none', background: '#f0f0f0', padding: '5px 8px' }}>
         <div className="pb-form pb-form--cols4" style={{ padding: 0 }}>
           <span className="pb-form__label">Type:</span>
-          <PBInput w={150} value={String(row.group ?? '')} readOnly data-tutorial-id={anchorField('Type')} />
+          <PBInput w={150} value={String(row.group ?? '')} readOnly style={fixed} data-tutorial-id={anchorField('Type')} />
           <span className="pb-form__label pb-form__label--right">Classification:</span>
-          <PBInput w={120} value={String(row.type ?? '')} readOnly data-tutorial-id={anchorField('Classification')} />
+          <PBInput w={120} value={String(row.type ?? '')} readOnly style={fixed} data-tutorial-id={anchorField('Classification')} />
 
           <span className="pb-form__label">Concept:</span>
-          <PBInput w={250} defaultValue={String(row.concept ?? '')} data-tutorial-id={anchorField('Concept')} />
+          <PBInput w={250} value={String(row.concept ?? '')} readOnly style={fixed} data-tutorial-id={anchorField('Concept')} />
           <span className="pb-form__label pb-form__label--right">Description:</span>
           {/* the dirty / focused edit takes MOIS's #FFC09C fill */}
           <PBInput
@@ -298,26 +320,39 @@ function ConceptMappingDetail({ title, row, onClose }: DetailProps) {
         </div>
 
         <div className="pb-row" style={{ gap: 6, marginTop: 4 }}>
-          <PBCheckbox label="Health Maintenance Concept" checked={hm} onChange={setHm} />
+          <PBCheckbox label="Health Maintenance Concept" checked={hm} onChange={setHm} tutorialId={anchorField('Health Maintenance Concept')} />
           <span style={{ color: 'var(--pb-text-dim)' }}>{CONCEPT_HM_CAPTION}</span>
         </div>
 
-        {/* the warning only appears while the box is ticked (30a3bdf6f957) */}
+        {/* the warning only appears while the box is ticked, in the form's
+            ordinary black (30a3bdf6f957) */}
         {hm && (
-          <div style={{ marginTop: 3, color: '#a00000' }}>
+          <div style={{ marginTop: 3 }} data-tutorial-id="host.mois.field.hm-warning">
             {CONCEPT_HM_WARNING.map((line) => <div key={line}>{line}</div>)}
           </div>
         )}
       </div>
 
-      <BandB caption="Code Based Concept Rules" buttons={RULE_BUTTONS} />
-      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-        <DetailGrid columns={CONCEPT_CODE_RULE_COLUMNS} rows={CONCEPT_CODE_RULE_ROWS} />
+      <BandB
+        caption="Code Based Concept Rules"
+        buttons={buttons(
+          () => setCodeRules((r) => [...r, { system: '', code: '', dots: '...', term: '' }]),
+          () => setCodeRules((r) => r.slice(0, -1)),
+        )}
+      />
+      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }} data-tutorial-id="host.mois.field.code-rules">
+        <DetailGrid columns={CONCEPT_CODE_RULE_COLUMNS} rows={codeRules} />
       </div>
 
-      <BandB caption="Text Based Concept Rules" buttons={RULE_BUTTONS} />
-      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-        <DetailGrid columns={CONCEPT_TEXT_RULE_COLUMNS} rows={CONCEPT_TEXT_RULE_ROWS} />
+      <BandB
+        caption="Text Based Concept Rules"
+        buttons={buttons(
+          () => setTextRules((r) => [...r, { inc1: '', inc2: '', exc: '', rule: '' }]),
+          () => setTextRules((r) => r.slice(0, -1)),
+        )}
+      />
+      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }} data-tutorial-id="host.mois.field.text-rules">
+        <DetailGrid columns={CONCEPT_TEXT_RULE_COLUMNS} rows={textRules} />
       </div>
     </DetailFrame>
   )
@@ -390,7 +425,8 @@ function EncounterFormDetail({ title, row, onClose }: DetailProps) {
               </div>
               <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'auto' }}>
                 <Section title="Identification">
-                  <Field label="Element ID:"><PBInput w={150} defaultValue="Smoking status" data-tutorial-id={anchorField('Element ID')} /></Field>
+                  {/* `5bf2f5ef…`: a numeric id, read-only and bold */}
+                  <Field label="Element ID:"><PBInput w={150} value="10000043" readOnly style={{ background: '#e8e8e8', fontWeight: 700 }} data-tutorial-id={anchorField('Element ID')} /></Field>
                   {/* Reference is read-only and sits at the right of the row */}
                   <Field label="Reference:"><PBInput w={110} value="fd10000043" readOnly /></Field>
                   <Field label="Group:"><PBSelect w={190} options={ENCOUNTER_GROUP_ROWS.map((g) => String(g.heading))} /></Field>
@@ -491,6 +527,9 @@ function EncounterFormDetail({ title, row, onClose }: DetailProps) {
    ------------------------------------------------------------------------ */
 function FlowsheetDetail({ title, row, onClose }: DetailProps) {
   const [order, setOrder] = useState('Default')
+  /* a new flowsheet opens with no elements; New Element adds one */
+  const [elements, setElements] = useState<DesignerRow[]>(row.__new ? [] : FLOWSHEET_ELEMENT_ROWS)
+  useScreenReport({ rows: elements.length })
 
   return (
     <DetailFrame title={title} w={1011} h={713} footer={DETAIL_FOOTERS.saveAndClose} onClose={onClose}>
@@ -498,7 +537,7 @@ function FlowsheetDetail({ title, row, onClose }: DetailProps) {
         <div>
           <div className="pb-row" style={{ gap: 6 }}>
             <span className="pb-form__label">Name:</span>
-            <PBInput w={220} value={String(row.name ?? '')} readOnly data-tutorial-id={anchorField('Name')} />
+            <PBInput w={220} value={String(row.name ?? '')} readOnly style={{ background: '#e8e8e8', fontWeight: 700 }} data-tutorial-id={anchorField('Name')} />
           </div>
           <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', marginTop: 3 }}>
             <span className="pb-form__label">Description:</span>
@@ -519,12 +558,18 @@ function FlowsheetDetail({ title, row, onClose }: DetailProps) {
         </div>
       </div>
 
-      <BandA caption="Element List" buttons={[{ label: 'New Element', width: 81 }, { label: 'Delete Element', width: 81 }]} />
+      <BandA
+        caption="Element List"
+        buttons={[
+          { label: 'New Element', width: 81, onPress: () => setElements((e) => [...e, { order: String(e.length), label: '' }]) },
+          { label: 'Delete Element', width: 81, onPress: () => setElements((e) => e.slice(0, -1)) },
+        ]}
+      />
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         {/* gutter 14 + Order 41 + Label 268, then the #646464 split rule */}
         <div style={{ width: 325, flex: 'none', display: 'flex', borderRight: `1px solid ${RULE}` }}>
-          <DetailGrid columns={FLOWSHEET_ELEMENT_COLUMNS} rows={FLOWSHEET_ELEMENT_ROWS} />
+          <DetailGrid columns={FLOWSHEET_ELEMENT_COLUMNS} rows={elements} />
         </div>
         <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'auto' }}>
           <Section title="Flowsheet Information">
@@ -532,7 +577,7 @@ function FlowsheetDetail({ title, row, onClose }: DetailProps) {
               <PBInput w={44} align="right" defaultValue="0" data-tutorial-id={anchorField('Order')} />
               <span style={{ color: 'var(--pb-text-dim)' }}>(where the item will show in the flowsheet)</span>
             </Field>
-            <Field label="Label:"><PBInput w={260} defaultValue="Height" data-tutorial-id={anchorField('Label')} /></Field>
+            <Field label="Label:"><PBInput w={260} defaultValue={elements.length ? String(elements[0]!.label ?? '') : ''} data-tutorial-id={anchorField('Label')} /></Field>
           </Section>
           <Section title="Data Source:">
             <Field label="Type:"><PBSelect w={200} options={FLOWSHEET_SOURCE_TYPES} data-tutorial-id={anchorField('Type')} /></Field>
@@ -544,7 +589,9 @@ function FlowsheetDetail({ title, row, onClose }: DetailProps) {
               <span>Field ID</span>
             </Field>
             <Field label="Field Name:"><PBInput w={260} value="HEIGHT" readOnly /></Field>
-            <Field label="Value Mapping:"><PBInput w={260} defaultValue="<0>No;<1>Yes;" /></Field>
+            {/* the manual's `<0>No;<1>Yes;` belongs to a yes/no element, not
+                to a measure, so a measure's mapping is left empty */}
+            <Field label="Value Mapping:"><PBInput w={260} /></Field>
           </Section>
           <Section title="Notes">
             <Field label="Note:"><PBTextArea rows={3} w={260} /></Field>
@@ -561,12 +608,17 @@ function FlowsheetDetail({ title, row, onClose }: DetailProps) {
    and no right-hand element form.
    ------------------------------------------------------------------------ */
 function MeasurementDetail({ title, row, onClose }: DetailProps) {
+  /* a new template opens with no elements; New Element adds one */
+  const [elements, setElements] = useState<DesignerRow[]>(row.__new ? [] : MEASUREMENT_ELEMENT_ROWS)
+  useScreenReport({ rows: elements.length })
   return (
     <DetailFrame title={title} w={688} h={589} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}>
       <div style={{ flex: 'none', background: '#f0f0f0', padding: '5px 8px' }}>
         <div className="pb-row" style={{ gap: 6 }}>
           <span className="pb-form__label">Name:</span>
-          <PBInput w={250} defaultValue={String(row.name ?? '')} data-tutorial-id={anchorField('Name')} />
+          {/* `26528e3f…`: the name carried over from the New dialog, grey,
+              bold and read-only */}
+          <PBInput w={250} value={String(row.name ?? '')} readOnly style={{ background: '#e8e8e8', fontWeight: 700 }} data-tutorial-id={anchorField('Name')} />
         </div>
         <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', marginTop: 3 }}>
           <span className="pb-form__label">Description:</span>
@@ -574,10 +626,16 @@ function MeasurementDetail({ title, row, onClose }: DetailProps) {
         </div>
       </div>
 
-      <BandA caption="Element List" buttons={[{ label: 'New Element', width: 80 }, { label: 'Delete Element', width: 82 }]} />
+      <BandA
+        caption="Element List"
+        buttons={[
+          { label: 'New Element', width: 80, onPress: () => setElements((e) => [...e, { order: String(e.length + 1), code: '', dots: '...', test: '' }]) },
+          { label: 'Delete Element', width: 82, onPress: () => setElements((e) => e.slice(0, -1)) },
+        ]}
+      />
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-        <DetailGrid columns={MEASUREMENT_ELEMENT_COLUMNS} rows={MEASUREMENT_ELEMENT_ROWS} />
+        <DetailGrid columns={MEASUREMENT_ELEMENT_COLUMNS} rows={elements} />
       </div>
     </DetailFrame>
   )
@@ -588,8 +646,12 @@ function MeasurementDetail({ title, row, onClose }: DetailProps) {
    ------------------------------------------------------------------------ */
 function PaperFormDetail({ title, row, onClose }: DetailProps) {
   const host = usePBInstrumentation()
+  /* 303327: "Click 'Preview Form' · The form will open, with the field number
+     in each fillable field … Close the form preview" */
+  const [previewing, setPreviewing] = useState(false)
 
   return (
+    <>
     <DetailFrame title={title} navy="Paper Form" w={1022} h={731} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}>
       <div className="pb-row" style={{ alignItems: 'flex-start', gap: 16, padding: '5px 8px', flex: 'none', background: '#f0f0f0' }}>
         <div>
@@ -604,12 +666,12 @@ function PaperFormDetail({ title, row, onClose }: DetailProps) {
         </div>
         <span className="pb-row__spacer" />
         <div style={{ flex: 'none' }}>
-          {/* opens the MOIS Viewer, which is not built: the captures name its
-              menus and three toolbar items and give no geometry */}
+          {/* 303112: "This button opens the form in the MOIS viewer so you can
+              view any changes you have made" */}
           <PBButton
             wide
             data-tutorial-id={host?.anchor('command', 'preview-form')}
-            onClick={() => host?.report('command', { command: 'preview-form' })}
+            onClick={() => { host?.report('command', { command: 'preview-form' }); setPreviewing(true) }}
           >
             Preview Form
           </PBButton>
@@ -622,6 +684,11 @@ function PaperFormDetail({ title, row, onClose }: DetailProps) {
         <DetailGrid columns={PAPER_FIELD_COLUMNS} rows={PAPER_FIELD_ROWS} />
       </div>
     </DetailFrame>
+    {/* over the detail window, not inside it: a separate top-level window */}
+    {previewing && (
+      <MoisViewerWindow form={String(row.name ?? '')} fields={PAPER_FIELD_ROWS} onClose={() => setPreviewing(false)} />
+    )}
+    </>
   )
 }
 
@@ -905,10 +972,14 @@ function NewLetterDialog({ onClose }: { onClose: () => void }) {
    corpus. The chained OS `Select Import File` dialog (`Files of type: 7z
    Files (*.7z)`) is the platform's, not MOIS's, and is not built.
    ------------------------------------------------------------------------ */
-export function ImportPaperFormsDialog({ onClose }: { onClose: () => void }) {
+export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => void; onImport?: (rows: DesignerRow[]) => void }) {
   const host = usePBInstrumentation()
   const [cur, setCur] = useState(0)
   const [picked, setPicked] = useState<boolean[]>(PAPER_IMPORT_ROWS.map((r) => Boolean(r.select)))
+  /* nothing is listed until Browse... has picked an archive (`d837934e…`
+     shows the file, the provider block and the grid filled together) */
+  const [file, setFile] = useState('')
+  useScreenReport({ dialog: 'import-paper-forms', rows: file ? PAPER_IMPORT_ROWS.length : 0 })
 
   const setAll = (v: boolean) => setPicked(picked.map(() => v))
 
@@ -921,10 +992,12 @@ export function ImportPaperFormsDialog({ onClose }: { onClose: () => void }) {
             <div className="pb-band" style={{ background: BAND }}>Import File:</div>
             <div className="pb-row" style={{ gap: 6, padding: '5px 8px', background: 'var(--pb-face)' }}>
               <span className="pb-form__label">File (7z):</span>
-              <PBInput w={560} readOnly data-tutorial-id={anchorField('File (7z)')} />
+              <PBInput w={560} readOnly value={file} data-tutorial-id={anchorField('File (7z)')} />
               <PBButton
                 data-tutorial-id={host?.anchor('command', 'browse')}
-                onClick={() => host?.report('command', { command: 'browse' })}
+                /* the OS file picker is the platform's, not MOIS's: the pick
+                   is the capture's own archive */
+                onClick={() => { host?.report('command', { command: 'browse' }); setFile('M:\\0222\\paperforms\\LabRequisition.7z') }}
               >
                 Browse...
               </PBButton>
@@ -933,22 +1006,26 @@ export function ImportPaperFormsDialog({ onClose }: { onClose: () => void }) {
 
           {/* --- Available Forms ---------------------------------------- */}
           <div className="pb-band" style={{ background: BAND, flex: 'none' }}>Available Forms</div>
+          {/* `d837934e…`: label / value pairs, the Data Provider values bold,
+              not edit boxes; they fill once an archive is picked */}
           <div className="pb-row" style={{ alignItems: 'flex-start', gap: 24, padding: '5px 8px', flex: 'none', background: 'var(--pb-face)' }}>
-            <div>
+            <div style={{ width: 400 }}>
               <div className="pb-caption">Data Provider:</div>
-              {['Clinic', 'Contact', 'Reference'].map((l) => (
+              {([['Clinic:', 'MOIS Exchange'], ['Contact:', 'AIHS'], ['Reference:', 'Not Available']] as const).map(([l, v]) => (
                 <div key={l} className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
                   <span className="pb-form__label" style={{ minWidth: 66 }}>{l}</span>
-                  <PBInput w={190} readOnly />
+                  <b>{file ? v : ''}</b>
                 </div>
               ))}
             </div>
             <div>
               <div className="pb-caption">Software Provider:</div>
-              {['Software', 'Version', 'Build', 'Date', 'Time'].map((l) => (
+              {([['Software:', 'MOIS Exchange', '', ''], ['Version:', '02.05.09', 'Build:', '110429'], ['Date:', '2019/10/02', 'Time:', '15:39:30']] as const).map(([l, v, l2, v2]) => (
                 <div key={l} className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-                  <span className="pb-form__label" style={{ minWidth: 66 }}>{l}</span>
-                  <PBInput w={150} readOnly />
+                  <span className="pb-form__label" style={{ minWidth: 60 }}>{l}</span>
+                  <span style={{ width: 110 }}>{file ? v : ''}</span>
+                  {l2 && <span className="pb-form__label">{l2}</span>}
+                  {l2 && <span>{file ? v2 : ''}</span>}
                 </div>
               ))}
             </div>
@@ -956,7 +1033,8 @@ export function ImportPaperFormsDialog({ onClose }: { onClose: () => void }) {
 
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 8px' }}>
             <PBDataWindow
-              rows={PAPER_IMPORT_ROWS}
+              rows={file ? PAPER_IMPORT_ROWS : []}
+              empty=" "
               current={cur}
               onCurrentChange={setCur}
               style={{ ['--pb-dw-row-h' as string]: '18px' }}
@@ -987,7 +1065,12 @@ export function ImportPaperFormsDialog({ onClose }: { onClose: () => void }) {
                 key={b}
                 wide
                 data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => { host?.report('command', { command: pbSlug(b) }); onClose() }}
+                onClick={() => {
+                  host?.report('command', { command: pbSlug(b) })
+                  /* Ok brings the ticked forms into the Paper Form List */
+                  if (b === 'Ok' && file) onImport?.(PAPER_IMPORT_ROWS.filter((_, j) => picked[j]))
+                  onClose()
+                }}
               >
                 {b}
               </PBButton>
@@ -997,5 +1080,79 @@ export function ImportPaperFormsDialog({ onClose }: { onClose: () => void }) {
         </PBWindow>
       </div>
     </div>
+  )
+}
+
+/* ---------------------------------------------------------------------------
+   2594035 · Panel Setup Detail — 974 x 722, navy band `Panel Setup`
+   (`4533a187…`). Code is "immutable once added", so it paints grey and
+   read-only; Name and Description stay editable. The item band is the
+   variant-B pair: "Panel Items List", then a strip with New Item and Delete
+   Item left-anchored. Set IDs number themselves and renumber when a row goes
+   in between two others.
+   ------------------------------------------------------------------------ */
+const DETERMINANT_PANELS: Record<string, string> = {
+  'EMPLOYMENT STATUS': 'Employment', 'EDUCATION STATUS': 'Education', 'HOUSING STATUS': 'Housing',
+}
+
+function panelItems(name: string) {
+  const tab = DETERMINANT_PANELS[name]
+  const items = PANEL_ITEMS[name]
+    ?? (tab ? (determinantTabs[tab]?.status ?? []).map((st) => ({ code: '', desc: String(st.name ?? '') })) : [])
+  return items.map((it) => ({ code: it.code, dots: '...', desc: it.desc }))
+}
+
+function PanelSetupDetail({ title, row, onClose }: DetailProps) {
+  const [items, setItems] = useState<DesignerRow[]>(() => (row.__new ? [] : panelItems(String(row.name ?? ''))))
+  const [cur, setCur] = useState(0)
+  useScreenReport({ rows: items.length })
+  const numbered = items.map((it, i) => ({ ...it, setId: String(i + 1) }))
+  /* New Item goes in under the current row; everything below renumbers */
+  const newItem = () => {
+    const at = items.length ? Math.min(cur, items.length - 1) + 1 : 0
+    setItems((all) => [...all.slice(0, at), { code: '', dots: '...', desc: '' }, ...all.slice(at)])
+    setCur(at)
+  }
+  const deleteItem = () => {
+    if (!items.length) return
+    setItems((all) => all.filter((_, i) => i !== cur))
+    setCur((c) => Math.max(0, Math.min(c, items.length - 2)))
+  }
+  return (
+    <DetailFrame title={title} navy="Panel Setup" w={974} h={722} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}>
+      <div style={{ flex: 'none', background: '#f0f0f0', padding: '5px 8px', height: 110 }}>
+        <Field label="Code:">
+          <PBInput w={226} value={String(row.code ?? '')} readOnly style={{ background: '#e8e8e8' }} data-tutorial-id={anchorField('Code')} />
+        </Field>
+        <Field label="Name:">
+          <PBInput w={320} defaultValue={String(row.name ?? '')} data-tutorial-id={anchorField('Name')} />
+        </Field>
+        <Field label="Description:">
+          <PBInput w={422} defaultValue={String(row.desc ?? '')} data-tutorial-id={anchorField('Description')} />
+        </Field>
+      </div>
+
+      <BandB
+        caption="Panel Items List"
+        buttons={[
+          { label: 'New Item', width: 82, onPress: newItem },
+          { label: 'Delete Item', width: 81, onPress: deleteItem },
+        ]}
+      />
+
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
+        <PBDataWindow
+          rows={numbered}
+          current={cur}
+          onCurrentChange={setCur}
+          style={{ ['--pb-dw-row-h' as string]: '18px' }}
+          rowTutorialId={(_, i) => `host.mois.row.panel-item-${i + 1}`}
+          columns={PANEL_ITEM_COLUMNS.map((c) => ({
+            key: c.key, header: c.header, width: c.width, align: c.align, dots: c.dots,
+            render: (r: DesignerRow) => String(r[c.key] ?? ''),
+          }))}
+        />
+      </div>
+    </DetailFrame>
   )
 }

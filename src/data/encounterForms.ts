@@ -44,6 +44,11 @@ export const selectFormRows: FormListRow[] = [
   { type: 'ENCOUNTER FORMS', name: 'CCM COVID CASE INITIAL INTERVIEW', version: '' },
   { type: 'ENCOUNTER FORMS', name: 'CGI  SCALE', version: '' },
   { type: 'ENCOUNTER FORMS', name: 'CHF', version: '' },
+  /* past the capture's last visible row, in the same alphabetical run: the
+     two dynamic forms the manual starts from New Form (303105 First
+     Assessment, 303107 Pain Assessment) */
+  { type: 'ENCOUNTER FORMS', name: 'FIRST ASSESSMENT', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'PAIN ASSESSMENT', version: '' },
 ]
 
 export type EncounterFormRow = {

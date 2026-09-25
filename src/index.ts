@@ -9,3 +9,12 @@ export { usePatient } from './data/patient-context'
    control a lesson tells the learner to click is actually wired */
 export { makeMainMenu } from './data/mois'
 export { printReportByMenu, printReports, type PrintReport } from './data/printReports'
+/* what a stage-rendered Dynamic Form reads from the open chart: its measures
+   (a `viewonly=measure` column, a `Graph` link), the gnuplot window that link
+   opens, and the signed-in user the form header names */
+export { useLoadedChart, loadChartExport, hasChartExport, type MoisRecord } from './data/charts'
+export { MeasurementGraphWindow, graphForCode } from './screens/MeasurementGraphWindow'
+export { SESSION_USER } from './data/chartSession'
+/* MOIS - Search Window, the provider / organization directory a Provider field opens */
+export { DirectorySearchWindow } from './screens/DirectorySearchWindow'
+export { directoryEntries, type DirectoryEntry } from './data/providers'

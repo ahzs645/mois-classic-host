@@ -16,6 +16,13 @@ export type Appointment = {
   as: string; tk: string; mg: string
   issue: string; services: string; payor: string
   ds: string; bs: string; tm: string; rp: string
+  /** the M (general note) and paperclip roll-ups past RP */
+  m?: string; clip?: string
+  /** the encounter this appointment *is* — only rows on the open training
+      chart (87288) carry one, because only that chart has an export */
+  enc?: string
+  /** the resource day book names the provider seeing the patient */
+  provider?: string
 }
 
 /**
@@ -77,26 +84,146 @@ export const visitCodeRows: VisitCode[] = [
   { code: 'N', description: 'Note, Patient Not Seen', mode: '', slots: '0', fill: '#ffff00' },
 ]
 
+/* Every flag column MOIS paints on an empty appointment: DS and BS start at
+   `I` (Incomplete) and the four roll-ups TK / MG / TM / RP, and M, at `-`.
+   Read off art. 303827 `b567c24a…` and art. 303834 `d2620a14…` (v02.30.22),
+   where every untouched row carries exactly these. */
+const FLAGS = { as: '', tk: '-', mg: '-', ds: 'I', bs: 'I', tm: '-', rp: '-', m: '-', clip: '' }
+
 const a = (
   hr: string, mn: string, code: string, chart: string, first: string, last: string,
   reason: string, rest: Partial<Appointment> = {},
 ): Appointment => ({
   hr, mn, code, mode: 'DE', n: '3', chart, first, last, reason,
   loc: 'PRINCE GEORGE CLINIC', resource: '', room: '',
-  as: '', tk: '', mg: '', issue: '', services: '', payor: '',
-  ds: '', bs: '', tm: '', rp: '', ...rest,
+  issue: '', services: '', payor: '',
+  ...FLAGS, ...rest,
 })
 
+/* The training chart every lesson opens (87288, PATCH AADAMS) is on this
+   day book four times, each row bound to one of that chart's real
+   encounters, so a double-click on the row opens the encounter it describes:
+   08:30 an open visit with no note yet (DS I), 11:30 the visit its
+   measurements were taken at, 13:00 a wound-care visit carrying two progress
+   notes, and 14:00 the WCB visit whose report is on the chart. Everyone else
+   is synthetic. */
+export const TRAINING_CHART = '87288'
+
+/** TECHNICAL SUPPORT's day, 2026.08.11 — the day book the Scheduler opens on. */
 export const daybookAppointments: Appointment[] = [
-  a('08', '30', 'O', '10035', 'FARMER', 'BROWN', 'Office visit'),
+  a('08', '30', 'O', TRAINING_CHART, 'PATCH', 'AADAMS', 'Office visit', { enc: '535349' }),
   a('09', '00', 'SA', '10121', 'GEORGE', 'ADAM', 'Same day — sore throat'),
-  a('09', '30', 'C', '10088', 'MARGARET', 'HALE', 'Counselling'),
+  a('09', '30', 'C', '10088', 'MARGARET', 'HALE', 'Counselling', { n: '12' }),
   a('10', '00', 'U', '10204', 'PRIYA', 'RAO', 'Urgent — chest pain', { room: '2' }),
-  a('10', '30', 'FP', '10247', 'SAM', 'OKONKWO', 'Full physical'),
+  a('10', '30', 'FP', '10247', 'SAM', 'OKONKWO', 'Full physical', { n: '6' }),
   a('11', '00', 'TR', '10312', 'DALE', 'FONTAINE', 'Treatment room — dressing'),
-  a('13', '00', 'R', '10035', 'FARMER', 'BROWN', 'Follow-up — blood pressure'),
-  a('13', '30', 'PROC', '10419', 'JUNE', 'CASTILLO', 'Procedure — mole excision', { room: '1' }),
+  a('11', '30', 'R', TRAINING_CHART, 'PATCH', 'AADAMS', 'Diabetes follow-up', { enc: '531588', tm: '5' }),
+  a('13', '00', 'R', TRAINING_CHART, 'PATCH', 'AADAMS', 'Wound care', { enc: '530216', ds: 'C', m: '1' }),
+  a('13', '30', 'PROC', '10419', 'JUNE', 'CASTILLO', 'Procedure — mole excision', { room: '1', n: '6' }),
+  a('14', '00', 'R', TRAINING_CHART, 'PATCH', 'AADAMS', 'WCB — arthritis', { enc: '530205', payor: 'WC', ds: 'C', rp: '1' }),
 ]
+
+/* The other providers' 2026.08.11. Each keeps an 08:30 and a 09:30 row,
+   because the lessons that switch provider ring those two times; the rest of
+   the day, the patients and the count are theirs. */
+const PROVIDER_DAYS: Record<string, Appointment[]> = {
+  'BEARDWOOD, WALTER': [
+    a('08', '30', 'R', '10458', 'HELEN', 'MARCHAND', 'Rx renewal'),
+    a('08', '45', 'R', '10177', 'OSCAR', 'LINDQVIST', 'Follow-up — diabetes'),
+    a('09', '30', 'FP', '10390', 'NINA', 'PETROVA', 'Full physical', { n: '6' }),
+    a('10', '15', 'SA', '10266', 'TOBY', 'WEST', 'Same day — earache'),
+    a('11', '00', 'C', '10501', 'IRENE', 'DOUCETTE', 'Counselling', { n: '12' }),
+    a('14', '30', 'O', '10139', 'KEVIN', 'ASHFORD', 'Office visit'),
+  ],
+  'HOWSER, DOOGIE': [
+    a('08', '30', 'U', '10620', 'LIAM', 'BRENNAN', 'Urgent — laceration'),
+    a('09', '30', 'R', '10611', 'ZOE', 'KAPOOR', 'Well-baby check'),
+    a('10', '00', 'R', '10614', 'AVA', 'NGUYEN', 'Immunization'),
+    a('15', '00', 'O', '10633', 'MILES', 'ORTEGA', 'Office visit'),
+  ],
+  'DUCHARME, AMARILYS': [
+    a('08', '30', 'R', '10702', 'ROSE', 'TREMBLAY', 'Care plan review'),
+    a('09', '30', 'C', '10715', 'ELLIS', 'GRANT', 'Counselling', { n: '12' }),
+    a('13', '00', 'R', '10720', 'VERA', 'STOLZ', 'Medication review'),
+  ],
+  'FAIRCHILD, NESRIN L': [
+    a('08', '30', 'O', '10801', 'PAUL', 'ROMERO', 'Office visit'),
+    a('09', '00', 'TR', '10804', 'ANNA', 'BERG', 'Treatment room — dressing'),
+    a('09', '30', 'R', '10812', 'LUCAS', 'MOREAU', 'Blood pressure check'),
+    a('11', '30', 'SA', '10817', 'FIONA', 'LYNCH', 'Same day — rash'),
+    a('14', '00', 'R', '10823', 'OMAR', 'HADDAD', 'Follow-up — asthma'),
+  ],
+  'SHEWCHUK, LEAH': [],
+}
+
+/* Any other day: a deterministic spread of the same synthetic patients, so
+   moving the date shows a different list without a table per date, and the
+   weekend is empty the way a clinic's is. */
+const POOL: [string, string, string, string, string][] = [
+  ['10121', 'GEORGE', 'ADAM', 'R', 'Follow-up — sore throat'],
+  ['10088', 'MARGARET', 'HALE', 'C', 'Counselling'],
+  ['10204', 'PRIYA', 'RAO', 'R', 'ECG results'],
+  ['10247', 'SAM', 'OKONKWO', 'O', 'Office visit'],
+  ['10312', 'DALE', 'FONTAINE', 'TR', 'Dressing change'],
+  ['10419', 'JUNE', 'CASTILLO', 'R', 'Suture removal'],
+  ['10458', 'HELEN', 'MARCHAND', 'SA', 'Same day — cough'],
+  ['10177', 'OSCAR', 'LINDQVIST', 'R', 'HbA1c review'],
+  ['10390', 'NINA', 'PETROVA', 'O', 'Office visit'],
+  ['10266', 'TOBY', 'WEST', 'U', 'Urgent — sprained wrist'],
+  ['10501', 'IRENE', 'DOUCETTE', 'FP', 'Full physical'],
+  ['10139', 'KEVIN', 'ASHFORD', 'R', 'Rx renewal'],
+]
+const TIMES = ['08:30', '09:00', '09:15', '09:45', '10:00', '10:30', '11:15', '13:00', '13:45', '14:30', '15:15', '16:00']
+
+const seedOf = (s: string) => [...s].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 7)
+
+/** Weekday of a day-book offset: 2026.08.11 is a Tuesday. */
+export const weekdayOf = (offset: number) => (((2 + offset) % 7) + 7) % 7
+
+/** One provider's appointments on the day `offset` days from 2026.08.11. */
+export function daybookFor(provider: string, offset: number): Appointment[] {
+  if (offset === 0) return provider === 'TECHNICAL SUPPORT' ? daybookAppointments : PROVIDER_DAYS[provider] ?? []
+  const wd = weekdayOf(offset)
+  if (wd === 0 || wd === 6) return []
+  const seed = seedOf(`${provider}|${offset}`)
+  const count = provider === 'SHEWCHUK, LEAH' ? 0 : 3 + (seed % 5)
+  const times = TIMES.filter((_, i) => (seed >> (i % 7)) % 3 !== 0 || i < 2).slice(0, count)
+  return times.map((t, i) => {
+    const [chart, first, last, code, reason] = POOL[(seed + i * 5) % POOL.length]!
+    const [hr, mn] = t.split(':') as [string, string]
+    return a(hr, mn, code, chart, first, last, reason, code === 'C' || code === 'FP' ? { n: code === 'C' ? '12' : '6' } : {})
+  })
+}
+
+/** The name behind a synthetic chart number, for fields that fill from one. */
+export function knownPatient(chart: string): { first: string; last: string } | null {
+  const rows = [...daybookAppointments, ...Object.values(PROVIDER_DAYS).flat()]
+  const row = rows.find((r) => r.chart === chart)
+  if (row) return { first: row.first, last: row.last }
+  const pooled = POOL.find(([c]) => c === chart)
+  return pooled ? { first: pooled[1], last: pooled[2] } : null
+}
+
+/* --- Resource Schedules ▸ Day Book ----------------------------------------
+   art. 303807 `9c17a65e…`: the resource day book lists a resource's bookings
+   with a Provider column where the provider book has Resource. The capture's
+   resource is called `1`; its three rows are its day. */
+export const RESOURCES = ['1', '2', 'TREATMENT ROOM', 'GROUP ROOM']
+
+export function resourceDayFor(resource: string, offset: number): Appointment[] {
+  if (offset !== 0) return []
+  if (resource === '1') {
+    return [
+      a('09', '30', 'R', '10026', 'ASHLEE', 'MORRISON', '', { provider: 'BEARDWOOD, WALTER' }),
+      a('10', '00', 'R', '10037', 'DORA', 'EXPLORER', '', { provider: 'HOWSER, DOOGIE' }),
+      a('10', '15', 'R', '10023', 'MARY', 'COMPLEX', '', { provider: 'FAIRCHILD, NESRIN L' }),
+    ]
+  }
+  if (resource === 'TREATMENT ROOM') {
+    return [a('11', '00', 'TR', '10312', 'DALE', 'FONTAINE', 'Treatment room — dressing', { provider: 'TECHNICAL SUPPORT' })]
+  }
+  return []
+}
 
 /**
  * The seven appointment statuses, in the order the live drop-down lists them.
@@ -118,18 +245,18 @@ export const APPOINTMENT_STATUSES: { code: string; label: string; detail: string
 /** The three (now four) statuses the Hide Status filter can drop from view. */
 export const HIDDEN_BY_DEFAULT = new Set(['N', 'R', 'C'])
 
-/** A row for an appointment booked from the New Appointment window. */
+/** A row for an appointment booked from the New Appointment window. With
+    no chart number it is a name only — the start of a Quick Registration
+    (art. 303855). */
 export function bookedAppointment(draft: {
   hr: string; mn: string; slots: string; chart: string; reason: string
+  first?: string; last?: string; code?: string
 }): Appointment {
   const pad = (v: string, fallback: string) => (v.trim() ? v.trim().padStart(2, '0').slice(-2) : fallback)
-  return {
-    hr: pad(draft.hr, '14'), mn: pad(draft.mn, '00'), code: 'O', mode: 'DE',
-    n: draft.slots.trim() || '3',
-    chart: draft.chart.trim() || '10035', first: '', last: '',
-    reason: draft.reason.trim() || 'Office visit',
-    loc: 'PRINCE GEORGE CLINIC', resource: '', room: '',
-    as: '', tk: '', mg: '', issue: '', services: '', payor: '',
-    ds: '', bs: '', tm: '', rp: '',
-  }
+  return a(
+    pad(draft.hr, '14'), pad(draft.mn, '00'), draft.code?.trim() || 'O',
+    draft.chart.trim(), (draft.first ?? '').trim().toUpperCase(), (draft.last ?? '').trim().toUpperCase(),
+    draft.reason.trim() || 'Office visit',
+    { n: draft.slots.trim() || '3' },
+  )
 }

@@ -2,10 +2,13 @@
    Administration ▸ Designer Section.
 
    Ten nodes hang off the folder in the current build; eight of them were
-   measured off list captures and are configured here. `Panel Setup` and
-   `Quick Entry` are visible in the v02.30.11 tree but no capture of either
-   screen exists in the corpus, so they are deliberately absent — the frame's
-   labelled fallback is the honest thing to show for them.
+   measured off list captures and are configured here. `Panel Setup` is the
+   ninth: its list was never captured, but article 2594035 ("Measures -
+   Panel Setup") captures its New dialog and its detail window, so it is
+   configured from those (see its entry). `Quick Entry` is visible in the
+   v02.30.11 tree but no capture of it exists in the corpus, so it is
+   deliberately absent — the frame's labelled fallback is the honest thing
+   to show for it.
 
    PROVENANCE. Every width, band height and caption below is a PIL pixel scan
    of a named capture (row-band colour runs, `#C8DCFA` header-run boundaries,
@@ -34,6 +37,8 @@
    and are kept on purpose.
    ========================================================================= */
 
+import { measureTemplates } from './measures'
+
 export type DesignerColumn = {
   key: string
   header: string
@@ -52,6 +57,9 @@ export type DesignerColumn = {
   dim?: boolean
   /** a filter box sits over this column in the filter strip */
   filter?: boolean
+  /** a tick box sits over this column in the filter strip (Concept Mapping's
+      HM Item: `9c8dcb68…`, `30a3bdf6…`); ticked, only ticked rows show */
+  filterCheck?: boolean
 }
 
 export type DesignerRow = Record<string, string | boolean | undefined>
@@ -81,7 +89,7 @@ export type DesignerNewDialog = {
 /** Which Skeleton-D body the node's detail window uses. */
 export type DesignerDetailKind =
   | 'concept' | 'encounter-form' | 'flowsheet' | 'measurement'
-  | 'paper-form' | 'care-plan' | 'task-set' | 'letter'
+  | 'paper-form' | 'care-plan' | 'task-set' | 'letter' | 'panel-setup'
 
 export type DesignerListScreen = {
   node: string
@@ -107,6 +115,9 @@ export type DesignerListScreen = {
   /** the detail window's title bar, verbatim */
   detailTitle: string
   newDialog?: DesignerNewDialog
+  /** the column a row's anchor is built from, where the first column repeats
+      (`host.mois.row.<slug>`); the first column otherwise */
+  anchorKey?: string
   source: string
 }
 
@@ -144,13 +155,13 @@ export const designerScreens: DesignerListScreen[] = [
       { label: 'Import Concepts', width: 86 },
       { label: 'Export Concepts', width: 88 },
     ],
-    /* four filter boxes: nothing sits over HM Item */
+    /* four filter boxes, and a tick box over HM Item (`9c8dcb68…`) */
     columns: [
       { key: 'group', header: 'Group', width: 117, filter: true },
       { key: 'concept', header: 'Concept', width: 223, filter: true },
       { key: 'desc', header: 'Description', width: 318, filter: true },
       /* a 13px checkbox centred in a 55px column, pads 24/25 */
-      { key: 'hm', header: 'HM Item', width: 55, check: true, align: 'center' },
+      { key: 'hm', header: 'HM Item', width: 55, check: true, align: 'center', filterCheck: true },
       /* GRP / SYM, centred, pads 22/23 */
       { key: 'type', header: 'Type', width: 67, align: 'center', filter: true },
     ],
@@ -158,12 +169,16 @@ export const designerScreens: DesignerListScreen[] = [
     gutter: 16,
     detail: 'concept',
     detailTitle: 'Concept Mapping Detail',
+    /* the Group column repeats, so a row is anchored by its Concept */
+    anchorKey: 'concept',
+    /* CHF ADMISSIONS and DIABETES are the captures' own rows (`9c8dcb68…`,
+       `62d4040117d3`, `30a3bdf6…`): CHF ADMISSIONS is not an HM item */
     rows: [
-      { group: 'ADMISSION', concept: 'CHF ADMISSIONS', desc: 'Admissions for congestive heart failure', hm: true, type: 'GRP' },
+      { group: 'ADMISSION', concept: 'CHF ADMISSIONS', desc: 'HOSPITAL ADMISSIONS FOR CHF', hm: false, type: 'GRP' },
       { group: 'CONSULT', concept: 'CARDIOLOGY', desc: 'Cardiology consultation requests', hm: false, type: 'GRP' },
       { group: 'FEE CODE', concept: 'CHRONIC CARE', desc: 'Chronic care management fee codes', hm: false, type: 'GRP' },
       { group: 'HEALTH ISSUE', concept: 'CHF', desc: 'Congestive heart failure', hm: true, type: 'GRP' },
-      { group: 'HEALTH ISSUE', concept: 'DIABETES', desc: 'Diabetes mellitus, excluding gestational', hm: true, type: 'GRP' },
+      { group: 'HEALTH ISSUE', concept: 'DIABETES', desc: 'DIABETES', hm: true, type: 'SYM' },
       { group: 'HEALTH ISSUE', concept: 'DM', desc: 'Diabetes mellitus', hm: false, type: 'SYM' },
       { group: 'MEASURE', concept: 'HBA1C', desc: 'Glycated haemoglobin', hm: true, type: 'GRP' },
       { group: 'MEASURE', concept: 'A1C', desc: 'Glycated haemoglobin', hm: false, type: 'SYM' },
@@ -180,7 +195,8 @@ export const designerScreens: DesignerListScreen[] = [
       source: 'f05574eb03be (fields), art. 302639 (confirm button)',
       fields: [
         { kind: 'radio', label: 'Classification', options: ['Group', 'Synonym'], value: 'Group' },
-        { kind: 'drop', label: 'Group:', options: ['', 'ADMISSION', 'CONSULT', 'FEE CODE', 'HEALTH ISSUE', 'MEASURE'], value: '', w: 196 },
+        /* the nine groups 302269 names */
+        { kind: 'drop', label: 'Group:', options: ['', 'ADMISSION', 'CONSULT', 'FEE CODE', 'HEALTH ISSUE', 'IMAGE', 'INTERVENTION', 'MEASURE', 'MEDICATION', 'PROCEDURE'], value: '', w: 196 },
         /* the focused edit takes MOIS's #FFC09C fill */
         { kind: 'text', label: 'Concept:', w: 250, focus: true },
         { kind: 'text', label: 'Description:', w: 250 },
@@ -207,9 +223,28 @@ export const designerScreens: DesignerListScreen[] = [
     gutter: 16,
     detail: 'encounter-form',
     detailTitle: 'Encounter Documentation Form Detail',
-    /* NO CAPTURE of this node's New Record dialog exists; art. 303174 says
-       only "Name your form and give it a description (optional)". Nothing is
-       invented, so New Record opens the detail window directly. */
+    /* NO CAPTURE of this node's New Record dialog exists, but art. 303174's
+       step list describes it: "Click 'New Record' on the taskbar · Name your
+       form and give it a description (optional) · Click 'Create Record'",
+       and only then the Encounter Documentation Form Detail window. So the
+       fields (Name, Description) and the Create Record button are the
+       manual's; the shape, size and Cancel are the family's — this list is
+       byte-identical to Flowsheet's, whose New dialog `91a5bf856f19` is the
+       same two fields over Create Record / Cancel. INFERRED, not captured:
+       the title and band captions, built the way Flowsheet's are ("New
+       Flowsheet" / "New Flowsheet Definition" over "Flowsheet List"). */
+    newDialog: {
+      title: 'New Encounter Documentation Form',
+      band: 'New Encounter Documentation Form Definition',
+      w: 418,
+      h: 176,
+      buttons: ['Create Record', 'Cancel'],
+      source: 'art. 303174 step list; shape of 91a5bf856f19 (INFERRED captions)',
+      fields: [
+        { kind: 'text', label: 'Name:', w: 250, focus: true },
+        { kind: 'text', label: 'Description:', w: 250 },
+      ],
+    },
     rows: [
       { name: 'DIABETES REVIEW', desc: 'Annual diabetes flow review', created: '2026.02.11', by: PEOPLE[0] },
       { name: 'CHF ASSESSMENT', desc: 'Heart failure assessment', created: '2026.03.04', by: PEOPLE[1] },
@@ -295,6 +330,57 @@ export const designerScreens: DesignerListScreen[] = [
       fields: [
         { kind: 'text', label: 'Name:', w: 250, focus: true },
         { kind: 'text', label: 'Description:', w: 250 },
+      ],
+    },
+  },
+
+  /* --- 2594035 Panel Setup ---------------------------------------------
+     "Administration > Designer Section > Panel Setup · New / Delete / Edit
+     · New ... Enter a Code and Name - code is immutable once added. Create
+     Record..." (2594035).
+       New dialog  `1810d737…` — "New Panel Setup", band "New Panel
+                   Information", Code: and Name:, Create Record / Cancel
+                   (the capture's 512 x 228, scaled from its 125%-free
+                   crop).
+       Detail      `4533a187…` — "Panel Setup Detail" (below).
+     The LIST was never captured. Its command row is the family's four
+     buttons (the article's "New / Delete / Edit"); its columns are the New
+     dialog's two fields plus the detail's Description, and its caption is
+     built like its siblings' ("… List") — INFERRED, not measured.
+     Rows: the panels in the emulator's Measure Template / Panel Selection
+     list (data/measures.ts, type PANEL) and the article's own worked
+     example, OCULAR TENSION AND TIME, which `01e19854…` lists as a PANEL
+     with no description. The article's one captured panel has Code equal
+     to Name; the others follow it. */
+  {
+    node: 'ad-panel-setup',
+    treeLabel: 'Panel Setup',
+    header: 'Panel Setup List',
+    source: 'art. 2594035: 1810d737 (New), 4533a187 (Detail); list INFERRED',
+    columns: [
+      { key: 'code', header: 'Code', width: 214, filter: true },
+      { key: 'name', header: 'Name', width: 250, filter: true },
+      { key: 'desc', header: 'Description', width: 330, filter: true },
+    ],
+    pitch: 18,
+    gutter: 16,
+    detail: 'panel-setup',
+    detailTitle: 'Panel Setup Detail',
+    anchorKey: 'name',
+    rows: [
+      ...measureTemplates.filter((t) => t.type === 'PANEL').map((t) => ({ code: t.name, name: t.name, desc: t.description })),
+      { code: 'OCULAR TENSION AND TIME', name: 'OCULAR TENSION AND TIME', desc: '' },
+    ].sort((a, b) => a.name.localeCompare(b.name)),
+    newDialog: {
+      title: 'New Panel Setup',
+      band: 'New Panel Information',
+      w: 512,
+      h: 228,
+      buttons: ['Create Record', 'Cancel'],
+      source: '1810d737, art. 2594035',
+      fields: [
+        { kind: 'text', label: 'Code:', w: 176 },
+        { kind: 'text', label: 'Name:', w: 380, focus: true },
       ],
     },
   },
@@ -469,11 +555,19 @@ export const CONCEPT_CODE_RULE_COLUMNS: DesignerColumn[] = [
   { key: 'term', header: 'Code Term', width: 383 },
 ]
 
-export const CONCEPT_CODE_RULE_ROWS: DesignerRow[] = [
-  { system: 'ICD9', code: '428', term: 'HEART FAILURE' },
-  { system: 'ICD9', code: '428.0', term: 'CONGESTIVE HEART FAILURE, UNSPECIFIED' },
-  { system: 'ICD9', code: '428.20', term: 'SYSTOLIC HEART FAILURE, UNSPECIFIED' },
-]
+/* The rules belong to the concept that is open. CHF ADMISSIONS is
+   `62d4040117d3`: no coded rules and one text rule, CHF → Has CHF. DIABETES
+   is `30a3bdf6…`: ICD-9 250 DIABETES MELLITUS, and DIABETES-but-not-GESTA
+   and DM. CHF carries the ICD-9 428 family. A concept no capture opens,
+   and a new one, starts with no rules. */
+const CONCEPT_CODE_RULES: Record<string, DesignerRow[]> = {
+  'DIABETES': [{ system: 'ICD-9', code: '250', dots: '...', term: 'DIABETES MELLITUS' }],
+  'CHF': [
+    { system: 'ICD9', code: '428', dots: '...', term: 'HEART FAILURE' },
+    { system: 'ICD9', code: '428.0', dots: '...', term: 'CONGESTIVE HEART FAILURE, UNSPECIFIED' },
+    { system: 'ICD9', code: '428.20', dots: '...', term: 'SYSTOLIC HEART FAILURE, UNSPECIFIED' },
+  ],
+}
 
 export const CONCEPT_TEXT_RULE_COLUMNS: DesignerColumn[] = [
   /* the capture really does show `Include String` twice */
@@ -484,12 +578,20 @@ export const CONCEPT_TEXT_RULE_COLUMNS: DesignerColumn[] = [
   { key: 'rule', header: 'Rule', width: 293, dim: true },
 ]
 
-export const CONCEPT_TEXT_RULE_ROWS: DesignerRow[] = [
-  { inc1: 'CHF', inc2: '', exc: '', rule: 'Has CHF' },
-  /* MOIS's own spelling of "exclude" [sic] */
-  { inc1: 'DIABETES', inc2: '', exc: 'GESTA', rule: 'Has DIABETES but exlude if it has GESTA' },
-  { inc1: 'DM', inc2: '', exc: '', rule: 'Has DM' },
-]
+const CONCEPT_TEXT_RULES: Record<string, DesignerRow[]> = {
+  'CHF ADMISSIONS': [{ inc1: 'CHF', inc2: '', exc: '', rule: 'Has CHF' }],
+  'CHF': [{ inc1: 'CHF', inc2: '', exc: '', rule: 'Has CHF' }],
+  'DIABETES': [
+    /* MOIS's own spelling of "exclude" [sic] */
+    { inc1: 'DIABETES', inc2: '', exc: 'GESTA', rule: 'Has DIABETES but exlude if it has GESTA' },
+    { inc1: 'DM', inc2: '', exc: '', rule: 'Has DM' },
+  ],
+}
+
+/** The coded and text rules of one concept, by its name. */
+export function conceptRules(concept: string): { code: DesignerRow[]; text: DesignerRow[] } {
+  return { code: CONCEPT_CODE_RULES[concept] ?? [], text: CONCEPT_TEXT_RULES[concept] ?? [] }
+}
 
 /**
  * Two other versions of this window exist in the corpus and are reported
@@ -609,10 +711,10 @@ export const MEASUREMENT_ELEMENT_COLUMNS: DesignerColumn[] = [
 ]
 
 export const MEASUREMENT_ELEMENT_ROWS: DesignerRow[] = [
-  { order: '1', code: '3137', dots: '', test: 'HEIGHT' },
-  { order: '2', code: '3141', dots: '', test: 'WEIGHT' },
-  { order: '3', code: '1950', dots: '', test: 'BLOOD PRESSURE' },
-  { order: '4', code: '128', dots: '', test: 'HEMOGLOBIN A1C' },
+  { order: '1', code: '3137', dots: '...', test: 'HEIGHT' },
+  { order: '2', code: '3141', dots: '...', test: 'WEIGHT' },
+  { order: '3', code: '1950', dots: '...', test: 'BLOOD PRESSURE' },
+  { order: '4', code: '128', dots: '...', test: 'HEMOGLOBIN A1C' },
 ]
 
 /* --- 303112 Paper Form Detail -------------------------------------------- */
@@ -630,12 +732,12 @@ export const PAPER_FIELD_COLUMNS: DesignerColumn[] = [
 ]
 
 export const PAPER_FIELD_ROWS: DesignerRow[] = [
-  { index: '1', title: 'Surname', desc: 'Patient surname', type: 'Text', populator: 'Patient Chart', property: 'Last Name', valueType: 'Text', dots: '', default: '' },
-  { index: '2', title: 'GivenName', desc: 'Patient given name', type: 'Text', populator: 'Patient Chart', property: 'First Name', valueType: 'Text', dots: '', default: '' },
-  { index: '3', title: 'DOB', desc: 'Date of birth', type: 'Text', populator: 'Patient Chart', property: 'Date of Birth', valueType: 'Date', dots: '', default: '' },
-  { index: '4', title: 'PHN', desc: 'Personal health number', type: 'Text', populator: 'Patient Chart', property: 'PHN', valueType: 'Text', dots: '', default: '' },
-  { index: '5', title: 'ClinicName', desc: 'Clinic letterhead name', type: 'Text', populator: '', property: '', valueType: '', dots: '', default: 'MOIS TRAINING CLINIC' },
-  { index: '6', title: 'ProviderSig', desc: 'Signature block', type: 'Signature', populator: 'Desktop Provider', property: 'Full Name', valueType: 'Text', dots: '', default: '' },
+  { index: '1', title: 'Surname', desc: 'Patient surname', type: 'Text', populator: 'CHART', property: 'LAST NAME', valueType: 'TEXT', dots: '...', default: '' },
+  { index: '2', title: 'GivenName', desc: 'Patient given name', type: 'Text', populator: 'CHART', property: 'FIRST NAME', valueType: 'TEXT', dots: '...', default: '' },
+  { index: '3', title: 'DOB', desc: 'Date of birth', type: 'Text', populator: 'CHART', property: 'BIRTH DATE', valueType: 'DATE', dots: '...', default: '' },
+  { index: '4', title: 'PHN', desc: 'Personal health number', type: 'Text', populator: 'CHART', property: 'PHN', valueType: 'TEXT', dots: '...', default: '' },
+  { index: '5', title: 'ClinicName', desc: 'Clinic letterhead name', type: 'Text', populator: '', property: '', valueType: '', dots: '...', default: 'MOIS TRAINING CLINIC' },
+  { index: '6', title: 'ProviderSig', desc: 'Signature block', type: 'Signature', populator: 'PROVIDER', property: 'FULL NAME', valueType: 'TEXT', dots: '...', default: '' },
 ]
 
 /**
@@ -720,3 +822,36 @@ export const NEW_LETTER_OPTIONS = [
   'Create a new letter from a MOIS template',
   'Create a new letter from an existing file',
 ]
+
+/* --- 2594035 Panel Setup Detail ------------------------------------------
+   `4533a187…` (974 x 722): title "Panel Setup Detail", navy band "Panel
+   Setup", Code / Name / Description at the top (Code "immutable once
+   added", so it is grey here), a "Panel Items List" band over a strip whose
+   New Item / Delete Item sit left, the grid Set ID · Code · … · Description,
+   and the Save Changes (F2) / Cancel footer. "Set ID is automatically
+   generated - if you insert a row between 1 and 2, the numbers will self
+   adjust": New Item inserts under the current row and every Set ID is
+   renumbered.
+   ----------------------------------------------------------------------- */
+
+export const PANEL_ITEM_COLUMNS: DesignerColumn[] = [
+  { key: 'setId', header: 'Set ID', width: 60, align: 'center' },
+  { key: 'code', header: 'Code', width: 102 },
+  { key: 'dots', header: '', dots: true, width: 20 },
+  { key: 'desc', header: 'Description', width: 530 },
+]
+
+/**
+ * A panel's items, by panel name. OCULAR TENSION AND TIME is the article's
+ * capture (`4533a187…`, codes and descriptions verbatim). The Determinants
+ * of Health panels carry the measures their tab's status grid lists
+ * (data/mois.tsx `determinantTabs`), whose codes the corpus never shows, so
+ * their Code is left blank rather than guessed. Anything else opens empty.
+ */
+export const PANEL_ITEMS: Record<string, { code: string; desc: string }[]> = {
+  'OCULAR TENSION AND TIME': [
+    { code: '21868', desc: 'CORN INDENT DEPTH EYE-R GOLDMANN APPL' },
+    { code: '21869', desc: 'CORN INDENT DEPTH EYE-L GOLDMANN APPL' },
+    { code: '21870', desc: 'TONOMETRY TIME EYE' },
+  ],
+}

@@ -58,9 +58,11 @@ export function PBDataWindow<T extends Record<string, any>>({
   collapsed,
   onCollapsedChange,
   filters,
+  filterGutter,
   head = 'blue',
   empty,
   style,
+  onSort,
 }: {
   columns: PBColumn<T>[]
   rows: T[]
@@ -122,17 +124,29 @@ export function PBDataWindow<T extends Record<string, any>>({
   onCollapsedChange?: (next: Set<string>) => void
   /** a filter control per column, above the headers, the way a lookup DataWindow filters */
   filters?: (ReactNode | null)[]
+  /** what the filter row's gutter cell holds — the Advanced Lookup Service
+      puts its "include RECON CODE 1" checkbox there (303602 `f2fa600c`).
+      Omitted, the cell is empty, as before. */
+  filterGutter?: ReactNode
   /** header band: the DataWindow blue, the grey the Patient Summary uses, or
       `false` for a grid that draws no header row at all (the Report List) */
   head?: 'blue' | 'grey' | false
   empty?: ReactNode
   style?: CSSProperties
+  /**
+   * Opt-in column sorting: a click on a column title calls this with the
+   * column's key (art. 303750 — "Click on one of the Titles … this changes the
+   * order"). The caller sorts `rows`; omitted, titles are inert, as before.
+   * Each title is anchored `host.mois.sort.{key}` and reports `host.mois.sort`.
+   */
+  onSort?: (key: string) => void
 }) {
   const [internal, setInternal] = useState(0)
   const [ownCollapsed, setOwnCollapsed] = useState<Set<string>>(new Set())
   const cur = current ?? internal
   const setCur = (i: number) => { setInternal(i); onCurrentChange?.(i) }
   const shut = collapsed ?? ownCollapsed
+  const sortHost = usePBInstrumentation()
 
   const span = columns.length + (gutter ? 1 : 0)
 
@@ -223,7 +237,7 @@ export function PBDataWindow<T extends Record<string, any>>({
             <thead>
             {filters && (
               <tr className="pb-dw__filters">
-                {gutter && <th className="pb-dw__gutter" />}
+                {gutter && <th className="pb-dw__gutter">{filterGutter}</th>}
                 {columns.map((c, i) => <th key={c.key}>{filters[i]}</th>)}
               </tr>
             )}
@@ -237,6 +251,13 @@ export function PBDataWindow<T extends Record<string, any>>({
                     (c.headAlign ?? c.align) === 'center' && 'pb-dw__c--center',
                     (c.headAlign ?? c.align) === 'right' && 'pb-dw__c--num',
                   )}
+                  {...(onSort ? {
+                    'data-tutorial-id': sortHost?.anchor('sort', pbSlug(c.key)),
+                    onClick: () => {
+                      sortHost?.report('sort', { column: pbSlug(c.key) })
+                      onSort(c.key)
+                    },
+                  } : {})}
                 >
                   {c.header}
                 </th>
@@ -423,15 +444,20 @@ export function PBTree({
     </>
   )
 
-  const render = (node: PBTreeNode, depth: number): ReactNode => {
+  /* `shown`: every folder above this node is open. A closed <details> keeps
+     its rows in the DOM, laid out but never painted, so an anchor on one
+     would ring an invisible spot (or the row painted there); a node hidden
+     in a closed folder carries no tutorial anchor until the folder opens. */
+  const render = (node: PBTreeNode, depth: number, shown = true): ReactNode => {
     const hasKids = !!node.children?.length
     const open = expanded.has(node.id)
     const cls = cx('pb-tree__row', selected === node.id && 'is-selected')
+    const tutorialId = shown ? getTutorialId?.(node.id) : undefined
 
     if (!hasKids) {
       return (
         <li key={node.id}>
-          <div className={cls} data-tutorial-id={getTutorialId?.(node.id)} onMouseDown={() => onSelect?.(node.id)}>
+          <div className={cls} data-tutorial-id={tutorialId} onMouseDown={() => onSelect?.(node.id)}>
             {row(node, depth, false, false)}
           </div>
         </li>
@@ -445,14 +471,14 @@ export function PBTree({
               toggle so only the +/- box — or a double-click — expands */}
           <summary
             className={cls}
-            data-tutorial-id={getTutorialId?.(node.id)}
+            data-tutorial-id={tutorialId}
             onMouseDown={(e) => { e.preventDefault(); onSelect?.(node.id) }}
             onClick={(e) => e.preventDefault()}
             onDoubleClick={() => onToggle(node.id)}
           >
             {row(node, depth, true, open)}
           </summary>
-          <ul>{node.children!.map((child) => render(child, depth + 1))}</ul>
+          <ul>{node.children!.map((child) => render(child, depth + 1, shown && open))}</ul>
         </details>
       </li>
     )

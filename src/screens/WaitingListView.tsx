@@ -3,10 +3,13 @@ import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow,
   PBInput, PBLookup, PBRadio, PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
-import { waitListRows, waitListNames } from '../data/mois'
+import { daybookProviders, waitListRows, waitListNames } from '../data/mois'
 
 /* Provider Waiting List — transcribed from the tdt_wait_list evidence
-   capture, including the DropDownDataWindow on the Wait List field. */
+   capture, including the DropDownDataWindow on the Wait List field, and
+   art. 303841 `d266cb00…` (v02.22.93) for the taskbar (New Appt … Close
+   Window) and the five tabs: Contact Information, List Detail, Procedure
+   List, Unavailable Date(s), Correspondence Log. */
 
 type Wait = Record<string, string>
 
@@ -36,15 +39,15 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
         commands={[
           { label: 'New Appt' }, { label: 'Delete Appt' }, { label: 'Save', disabled: true },
           { label: 'Undo', disabled: true }, { label: 'Refresh' },
-          { label: 'Create Appointment', width: 112 }, { label: 'Print Report', width: 88 },
-          { label: 'Print List' }, { label: 'Open Chart' }, { label: 'Close Window', width: 90 },
+          { label: 'Create Appointment' }, { label: 'Print Report' },
+          { label: 'Print List' }, { label: 'Open Chart' }, { label: 'Close Window' },
         ]}
       />
 
       {/* filter block: a required owner, an optional list, and the record scope */}
       <div className="pb-form" style={{ gridTemplateColumns: 'auto auto 1fr', padding: '4px 8px', alignItems: 'center' }}>
         <span className="pb-form__label">{mode === 'provider' ? 'Provider:' : 'Resource:'}</span>
-        <PBSelect options={['TECHNICAL SUPPORT', 'MURPHY, JOAN', 'GRAHAM, CHELSEA']} w={224} />
+        <PBSelect options={daybookProviders.map((p) => p.provider)} w={224} />
         <div className="pb-row">
           <span>(required)</span>
           <span style={{ width: 20 }} />
@@ -83,7 +86,7 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
         <PBTabs
-          tabs={['Contact Information', 'List Detail', 'Procedure List', 'Unavailability']}
+          tabs={['Contact Information', 'List Detail', 'Procedure List', 'Unavailable Date(s)', 'Correspondence Log']}
           active={tab}
           onChange={setTab}
           compact
@@ -111,10 +114,10 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
               </div>
             </>
           )}
-          {tab === 'Unavailability' && (
+          {tab === 'Unavailable Date(s)' && (
             <>
               <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
-                Unavailability
+                Unavailable Date(s)
               </PBBand>
               <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
                 <PBDataWindow
@@ -128,6 +131,29 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
                     { key: 'by', header: 'Recorded By', width: 160 },
                   ]}
                   empty="No unavailability recorded."
+                />
+              </div>
+            </>
+          )}
+          {/* every contact made while the patient waits (art. 303841). No
+              capture shows the tab open: its grid is modelled. */}
+          {tab === 'Correspondence Log' && (
+            <>
+              <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
+                Correspondence Log
+              </PBBand>
+              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+                <PBDataWindow
+                  flush
+                  gutter={false}
+                  rows={[]}
+                  columns={[
+                    { key: 'date', header: 'Date', width: 100, align: 'center' },
+                    { key: 'type', header: 'Type', width: 110 },
+                    { key: 'note', header: 'Note' },
+                    { key: 'by', header: 'By', width: 160 },
+                  ]}
+                  empty=""
                 />
               </div>
             </>

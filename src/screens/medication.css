@@ -1,0 +1,7 @@
+/* Long Term Medication's Task Bar carries eleven buttons (303218
+   `8fbac6a3…png`'s ten plus the v02.30 No Known, 303791 `7d42bca7…png`).
+   At the kit's 80.5px Task Bar button that is 886px, wider than the work
+   area at the 1000px frame — the row overflowed and scrolling Review into
+   view dragged the whole frame sideways. MOIS narrows the buttons to fit the
+   run instead: 72.5px each, 797.5px in all. */
+.pb-ltm-cmdrow .pb-cmdrow__btn { width: 72.5px; }

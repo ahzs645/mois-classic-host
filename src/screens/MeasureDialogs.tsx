@@ -3,9 +3,12 @@ import {
   bmiClassification, calculatorMeasureCode, encounterWindowMeasures, measureCalculators,
   measureFlags, measureTemplates, type MeasureSlot, type MeasureTemplate,
 } from '../data/measures'
+import { useChartRecords } from '../data/chart-records'
+import { useScreenReport } from '../host/screen-state'
+import { BloodPressureFormWindow } from './BloodPressureFormWindow'
 import { usePatient } from '../data/patient-context'
 import {
-  PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, PBWindow,
+  PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, PBWindow, pbSlug,
 } from '../pb'
 
 /* ============================================================================
@@ -19,6 +22,13 @@ import {
    ========================================================================= */
 
 /** What a measure row looks like on the encounter's Measurements tab. */
+/* quick codes MOIS resolves in the Code column (303104: "type the quick
+   code BP … Blood Pressure, code 1950") */
+const QUICK_CODES: Record<string, Partial<MeasurementRow>> = {
+  BP: { code: '1950', name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', units: 'mm Hg' },
+  '1950': { name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', units: 'mm Hg' },
+}
+
 export type MeasurementRow = {
   code: string
   name: string
@@ -32,6 +42,8 @@ export type MeasurementRow = {
   report?: string
   lower?: string
   upper?: string
+  /** the chart record behind the row, when it has one */
+  id?: string
 }
 
 /* ---------------------------------------------------------------------------
@@ -51,6 +63,10 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
   const patient = usePatient()
   const [draft, setDraft] = useState(row)
   const set = (patch: Partial<MeasurementRow>) => setDraft((d) => ({ ...d, ...patch }))
+  /* a blood pressure has a form behind its value: BLOOD PRESSURE MEASUREMENT */
+  const hasForm = draft.code === '1950'
+  const [bpForm, setBpForm] = useState(false)
+  useScreenReport(bpForm ? { dialog: 'blood-pressure-form' } : {})
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 96 }}>
@@ -90,8 +106,10 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
             <PBLookup
               w={96}
               value={draft.code}
-              onChange={(v) => set({ code: v })}
+              /* the quick code BP is Blood Pressure, 1950 (303104) */
+              onChange={(v) => set(QUICK_CODES[v.toUpperCase()] ? { code: v, ...QUICK_CODES[v.toUpperCase()] } : { code: v })}
               name="measurement-code"
+              fieldId="host.mois.field.measurement-code"
             />
             <span style={{ marginLeft: 10 }}>Category:</span>
             <PBInput w={150} />
@@ -119,8 +137,21 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
               w={132}
               value={draft.value}
               onChange={(e) => set({ value: e.target.value })}
+              /* F4 in Value opens the measure's form instead of taking a
+                 typed reading (303104) */
+              onKeyDown={(e) => { if (e.key === 'F4' && hasForm) { e.preventDefault(); setBpForm(true) } }}
               data-tutorial-id="host.mois.field.measurement-value"
             />
+            {/* the "…" right of Value (302837 `17afb92b…`, v02.30.22) */}
+            <button
+              type="button"
+              className="pb-inputgroup__btn pb-inputgroup__btn--dots"
+              disabled={!hasForm}
+              data-tutorial-id="host.mois.command.measurement-value-form"
+              onClick={() => setBpForm(true)}
+            >
+              …
+            </button>
             <span style={{ marginLeft: 12 }}>Flag:</span>
             <PBSelect
               w={62}
@@ -160,6 +191,13 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
           </PBButton>
         </div>
       </PBWindow>
+      {bpForm && (
+        <BloodPressureFormWindow
+          initial={draft.value.includes('/') ? { systolic: draft.value.split('/')[0], diastolic: draft.value.split('/')[1] } : undefined}
+          onSave={(r) => set({ value: `${r.systolic}/${r.diastolic}` })}
+          onClose={() => setBpForm(false)}
+        />
+      )}
     </div>
   )
 }
@@ -202,14 +240,18 @@ function RefRanges({ row }: { row: MeasurementRow }) {
    Flag drop-down. Nothing is a record until `Save Changes (F2)`, and MOIS
    files only the rows that were given a value.
    ------------------------------------------------------------------------ */
-export function MeasureTemplateGridDialog({ title, slots, onSave, onClose }: {
+export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClose }: {
   /** the template's own name, which is what MOIS puts in the caption */
   title: string
   slots: MeasureSlot[]
+  /** "This window will also retrieve measurements that were already
+      entered" (art. 303070): by code, the records linked to the encounter
+      it was opened from, or the ones carrying today's date from Measures */
+  initial?: Record<string, { value: string; flag: string }>
   onSave: (rows: MeasurementRow[]) => void
   onClose: () => void
 }) {
-  const [values, setValues] = useState<Record<string, { value: string; flag: string }>>({})
+  const [values, setValues] = useState<Record<string, { value: string; flag: string }>>(() => initial ?? {})
   const at = (code: string) => values[code] ?? { value: '', flag: '' }
   const set = (code: string, patch: Partial<{ value: string; flag: string }>) => (
     setValues((v) => ({ ...v, [code]: { ...at(code), ...patch } }))
@@ -401,6 +443,13 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
 }) {
   const [cms, setCms] = useState('')
   const [kgs, setKgs] = useState('')
+  /* Populate (Ctrl+P) "for previously inputted height and weight
+     measurements to be used" (art. 303065; 302837 "the calculator will pull
+     the patient's last weight and height measured"): the latest HEIGHT
+     (1948) and WEIGHT (22732) on the chart. */
+  const measures = useChartRecords('measure', 'dtm_collect_date')
+  const latest = (code: string) => measures.find((r) => r.str_code === code && Number(r.str_value) > 0)?.str_value ?? ''
+  const populate = () => { setCms(latest('1948')); setKgs(latest('22732')) }
 
   const { bmi, ideal } = useMemo(() => {
     const m = Number(cms) / 100
@@ -412,6 +461,11 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
     }
   }, [cms, kgs])
 
+  /* the WHO band the index falls in: Underweight < 18.5, Normal Weight
+     18.50–24.99, Overweight 25.00–29.99, Obese >= 30.00 */
+  const klass = !bmi ? '' : Number(bmi) < 18.5 ? 'Underweight' : Number(bmi) < 25 ? 'Normal Weight'
+    : Number(bmi) < 30 ? 'Overweight' : 'Obese'
+  useScreenReport({ bmiClass: klass ? pbSlug(klass) : 'none' })
   const imperial = (value: number, per: number) => (value > 0 ? String(Math.floor(value / per)) : '-')
   const rule = { borderTop: '1px solid var(--pb-border)' }
   const code = calculatorMeasureCode[calculator] ?? ''
@@ -428,7 +482,16 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
       >
         <div style={{ padding: 8, display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <div style={{ border: '1px solid var(--pb-border)', flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
-            <PBBand>{`BODY MASS INDEX (${calculator}) CALCULATOR`}</PBBand>
+            {/* only the BMI calculator is transcribed (302837 `ff51e56c…`); the
+                BSA, Cardiac Risk, Predicted PEF and Gestational Age windows are
+                their own layouts in MOIS and are not built on this stage */}
+            <PBBand>{calculator === 'BMI' ? 'BODY MASS INDEX (BMI) CALCULATOR' : `${calculator.toUpperCase()} CALCULATOR`}</PBBand>
+            {calculator !== 'BMI' && (
+              <div className="pb-dw__empty" style={{ padding: 16 }}>
+                The {calculator} calculator is not built on this practice stage yet.
+              </div>
+            )}
+            {calculator === 'BMI' && <>
 
             <div style={{ padding: '5px 8px' }}>
               <div className="pb-row" style={{ gap: 6, marginBottom: 4 }}>
@@ -463,6 +526,12 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
               <div className="pb-row" style={{ gap: 6, marginBottom: 4 }}>
                 <span style={{ width: 96 }}>BMI (kg/m2):</span>
                 <PBInput w={122} align="center" value={bmi || '-'} readOnly />
+                {/* the classification badge beside the index, `< OVERWEIGHT >` */}
+                {klass && (
+                  <span data-tutorial-id="host.mois.field.bmi-class" style={{ marginLeft: 8, padding: '1px 8px', background: 'var(--pb-yellow)' }}>
+                    {`< ${klass.toUpperCase()} >`}
+                  </span>
+                )}
               </div>
               <div className="pb-row" style={{ gap: 6 }}>
                 <span>Ideal Weight Range (kgs):</span>
@@ -477,7 +546,8 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
               <span>BMI (kg/m2)</span>
             </div>
             {bmiClassification.map((c) => (
-              <div key={c.label} style={{ ...rule, padding: '4px 8px', display: 'flex' }}>
+              /* the band the computed index falls in is painted yellow and bold */
+              <div key={c.label} style={{ ...rule, padding: '4px 8px', display: 'flex', ...(klass && c.label.startsWith(klass) ? { background: 'var(--pb-yellow)', fontWeight: 700 } : {}) }}>
                 <span style={{ width: 132 }}>{c.label}</span>
                 <span style={{ width: 118 }}>{c.range}</span>
                 <span>
@@ -495,24 +565,26 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
               <span>Measure Code:</span>
               <PBInput w={122} defaultValue={code} />
             </div>
+            </>}
           </div>
         </div>
 
         <div className="pb-row" style={{ justifyContent: 'space-between', padding: '0 8px 10px', flex: 'none' }}>
           <PBButton
             style={{ minWidth: 132 }}
-            /* Populate writes the result into the grid the calculator was
-               opened from, which is a save of one measure row */
+            /* Populate pulls the chart's last height and weight in; Save (F2)
+               is what files the index as a measure row */
             data-tutorial-id="host.mois.command.populate"
-            disabled={!bmi}
-            onClick={() => onSave({ code, name: 'BODY MASS INDEX', value: bmi, flag: '-', units: '', fresh: true })}
+            disabled={calculator !== 'BMI'}
+            onClick={populate}
           >
             Populate (Ctrl+P)
           </PBButton>
           <PBButton
             style={{ minWidth: 132 }}
+            data-tutorial-id="host.mois.command.calculator-save"
             disabled={!bmi}
-            onClick={() => onSave({ code, name: 'BODY MASS INDEX', value: bmi, flag: '-', units: '', fresh: true })}
+            onClick={() => onSave({ code, name: 'BODY MASS INDEX', value: Number(bmi).toFixed(1), flag: '-', units: '', fresh: true })}
           >
             Save (F2)
           </PBButton>

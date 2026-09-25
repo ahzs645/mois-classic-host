@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { PBInput } from '../pb'
+import { PBDropGlyph, PBInput } from '../pb'
 import { PBPopup, pbInPopup, usePBPopupOwner } from '../pb/popup'
 
 /** Headerless PowerBuilder choice list, including its empty dropped state. */
@@ -39,7 +39,7 @@ export function PreferenceChoice({ label, value, options, onChange, disabled }: 
       value={value} disabled={disabled} onChange={e => onChange(e.target.value)} />
     <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--drop" aria-label={`Open ${label.toLowerCase()} choices`}
       disabled={disabled} aria-expanded={open} onClick={() => { setActive(choices.indexOf(value)); setOpen(v => !v) }}>
-      <svg width="7" height="5" viewBox="0 0 7 5"><path d="M0 0h7L3.5 5z" fill="currentColor" /></svg>
+      <PBDropGlyph />
     </button>
     {open && <PBPopup anchorRef={anchor} owner={owner} minWidth="anchor" className="pb-preference-choice__popup">
       <div role="listbox" id={id} aria-label={`${label} choices`} className={choices.length ? undefined : 'is-empty'}>

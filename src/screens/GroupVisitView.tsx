@@ -1,11 +1,24 @@
 import { useState } from 'react'
 import { groupVisitRows } from '../data/mois'
+import { schedulerStore } from '../data/schedulerStore'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
 } from '../pb'
 
 type Visit = typeof groupVisitRows[number]
+
+/* Group Visit List — art. 303840 `21c6140d…` (v02.30.11): New Appt, Appt
+   Series, Save, Delete Appt, Undo, Refresh and Prepare for Meeting; the
+   visit list (Date, HR, MIN, #, Provider, Topic Code, Topic Description,
+   Code, Service Location); and the four tabs, where Other Provider(s) carries
+   a `Reserve Time on Schedule` link per provider. Adding a provider turns the
+   link on; following it blocks the meeting out of that provider's day (it
+   files a GROUP VISIT reservation block — Reservation Blocks ▸ Provider). */
+const PATIENTS = [
+  { chart: '10204', first: 'PRIYA', last: 'RAO', code: 'G', mode: 'DE', reason: 'Group session', issue: '', services: '', as: '', ds: 'I', bs: 'I', t: '-' },
+  { chart: '10177', first: 'OSCAR', last: 'LINDQVIST', code: 'G', mode: 'DE', reason: 'Group session', issue: '', services: '', as: '', ds: 'I', bs: 'I', t: '-' },
+]
 
 const columns: PBColumn<Visit>[] = [
   { key: 'date', header: 'Date', width: 78, align: 'center' },
@@ -30,17 +43,36 @@ const SeriesGlyph = () => (
 
 export function GroupVisitView() {
   const [tab, setTab] = useState('Patient List')
+  const [rows, setRows] = useState<Visit[]>(() => groupVisitRows.filter((r) => r.date))
   const [cur, setCur] = useState(0)
+  const [others, setOthers] = useState<Record<number, { provider: string; reserved: boolean }[]>>({})
+  const visit = rows[cur]
+  const mine = others[cur] ?? (visit?.series ? [{ provider: 'DHALIWAL, RUPINDER', reserved: false }] : [])
+  const newAppt = () => {
+    setRows([{ date: '2026.08.18', hr: '13', min: '00', n: '12', provider: 'TECHNICAL SUPPORT', topic: '', desc: '', code: 'G', loc: 'PRINCE GEORGE CLINIC', series: false }, ...rows])
+    setOthers({})
+    setCur(0)
+  }
+  const reserve = (i: number) => {
+    const list = mine.map((o, j) => (j === i ? { ...o, reserved: true } : o))
+    setOthers({ ...others, [cur]: list })
+    const o = mine[i]
+    if (visit && o) {
+      schedulerStore.addBlock(o.provider, false, {
+        id: `gv${Date.now()}`, date: visit.date, hr: String(Number(visit.hr)), min: String(Number(visit.min)),
+        n: visit.n, code: 'GROUP VISIT', note: visit.desc,
+      })
+    }
+  }
 
   return (
     <>
       <PBViewHeader title="Group Visit List" />
       <PBCommandRow
         commands={[
-          { label: 'New Appt' }, { label: 'Appt Series' }, { label: 'Save', disabled: true },
-          { label: 'Delete Appt' }, { label: 'Undo', disabled: true }, { label: 'Refresh' },
-          { label: 'Prepare for Meeting', width: 116 }, { label: 'Create MSP Claims', width: 108 },
-          { label: 'Clone Appt' },
+          { label: 'New Appt', onClick: newAppt }, { label: 'Appt Series' }, { label: 'Save' },
+          { label: 'Delete Appt' }, { label: 'Undo' }, { label: 'Refresh' },
+          { label: 'Prepare for Meeting', width: 116 },
         ]}
       />
 
@@ -58,7 +90,7 @@ export function GroupVisitView() {
       <div style={{ height: 244, display: 'flex', padding: '0 3px' }}>
         <PBDataWindow
           columns={columns}
-          rows={[] as Visit[]}
+          rows={rows}
           current={cur}
           onCurrentChange={setCur}
           rowIcon={(r) => (r.series ? <SeriesGlyph /> : null)}
@@ -83,7 +115,7 @@ export function GroupVisitView() {
               <PBDataWindow
                 flush
                 gutter={false}
-                rows={[]}
+                rows={visit?.desc ? PATIENTS : []}
                 columns={[
                   { key: 'chart', header: 'Chart', width: 72, align: 'center' },
                   { key: 'first', header: 'First Name', width: 92 },
@@ -104,7 +136,7 @@ export function GroupVisitView() {
               <PBDataWindow
                 flush
                 gutter={false}
-                rows={[]}
+                rows={tab === 'Other Provider(s)' ? mine.map((o, i) => ({ ...o, i, note: '' })) : []}
                 columns={[
                   {
                     key: tab === 'Other Provider(s)' ? 'provider' : 'resource',
@@ -113,7 +145,16 @@ export function GroupVisitView() {
                   },
                   { key: 'd', header: '', dots: true },
                   { key: 'note', header: 'Note', align: 'center' },
-                  { key: 'reserve', header: 'Reserve Time on Schedule', width: 160, align: 'center' },
+                  {
+                    key: 'reserve', header: 'Reserve Time on Schedule', width: 160, align: 'center',
+                    render: (r: Record<string, unknown>) => (r.reserved
+                      ? <span>Reserved</span>
+                      : (
+                        <button className="pb-link" data-tutorial-id="host.mois.command.reserve-time-on-schedule" onClick={() => reserve(Number(r.i))}>
+                          Reserve Time on Schedule
+                        </button>
+                      )),
+                  },
                 ]}
                 empty={`No ${tab.replace(/\(s\)/, 's').toLowerCase()} attached to this visit.`}
               />

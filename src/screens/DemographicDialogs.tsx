@@ -4,6 +4,8 @@ import { usePatient, usePatientRoster } from '../data/patient-context'
 import { patientEdits, updatePatient } from '../data/patient-edits'
 import { type Patient, type ChartAddressEntry } from '../data/patients'
 import { PBButton, PBInput, PBTextArea, PBCheckbox, PBRadio, PBWindow, PBGroup, PBBand, PBDataWindow } from '../pb'
+import { useScreenReport } from '../host/screen-state'
+import { AdvancedLookupDialog } from './AdvancedLookupDialog'
 
 export const today = () => {
   const d = new Date()
@@ -11,9 +13,13 @@ export const today = () => {
 }
 
 /** Child dialogs cover the host desktop, including the tree, without clipping. */
-export function DemographicModal({ title, onClose, children, width = 620, height }: {
+export function DemographicModal({ title, onClose, children, width = 620, height, dialog: dialogId }: {
   title: string; onClose: () => void; children: ReactNode; width?: number; height?: number
+  /** the window's slug: reported as `host.dialog` while it is open, and its
+      `host.mois.dialog.{slug}` anchor, so a lesson can grade and ring it */
+  dialog?: string
 }) {
+  useScreenReport(dialogId ? { dialog: dialogId } : {})
   const anchor = useRef<HTMLSpanElement>(null)
   const dialog = useRef<HTMLDivElement>(null)
   const [layer, setLayer] = useState<HTMLElement | null>(null)
@@ -35,15 +41,23 @@ export function DemographicModal({ title, onClose, children, width = 620, height
           if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
         }
       }}>
-      <PBWindow child controls={false} title={title} onClose={onClose} style={{ width: '100%', height, maxHeight: '90vh' }}>{children}</PBWindow>
+      <PBWindow child controls={false} title={title} onClose={onClose} tutorialId={dialogId ? `host.mois.dialog.${dialogId}` : undefined} style={{ width: '100%', height, maxHeight: '90vh' }}>{children}</PBWindow>
     </div>
   </div>, layer)}</>
 }
+
+export { CmdButton } from './CmdButton'
+import { CmdButton } from './CmdButton'
 
 export function DialogButtons({ children }: { children: ReactNode }) {
   return <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: 16, flex: 'none' }}>{children}</div>
 }
 
+/* View Or Update Patient Photo — art. 301174 `764f23cc…png` (v02.20.18):
+   a Photo band over the photo box ("No Photo Selected") with Update Photo /
+   Remove Photo under it, the identity block on the right — Chart No., the
+   address lines, "City, PROV  POSTAL", DOB / Age / Gender, Home / Work /
+   Ext., and one PHN line (insurer, number, dependent) — then Ok / Cancel. */
 export function PatientPhotoDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
   const [photo, setPhoto] = useState(patient.photo ?? '')
@@ -51,11 +65,12 @@ export function PatientPhotoDialog({ onClose }: { onClose: () => void }) {
   const file = useRef<HTMLInputElement>(null)
   const request = useRef(0)
   useEffect(() => () => { request.current++ }, [])
-  return <DemographicModal title="View Or Update Patient Photo" width={740} onClose={onClose}>
+  const years = patient.age.replace(/ OLD$/, '').replace(/\bYR\b/, 'YEARS')
+  return <DemographicModal title="View Or Update Patient Photo" width={740} onClose={onClose} dialog="patient-photo">
     <div style={{ padding: 12 }}><PBBand>Photo</PBBand>
       <div className="pb-row" style={{ alignItems: 'center', gap: 12, padding: 14 }}>
         <div style={{ width: '50%' }}>
-          <div style={{ height: 250, border: '1px dashed #777', display: 'grid', placeItems: 'center' }}>
+          <div data-tutorial-id="host.mois.field.patient-photo" style={{ height: 250, border: '1px dashed #777', display: 'grid', placeItems: 'center' }}>
             {photo ? <img src={photo} alt="Patient photo" style={{ width: '100%', height: '100%', objectFit: 'contain', minHeight: 0 }} /> : 'No Photo Selected'}
           </div>
           <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="Patient photo file" onChange={async e => {
@@ -67,19 +82,19 @@ export function PatientPhotoDialog({ onClose }: { onClose: () => void }) {
             reader.onerror = () => { if (request.current === token) setError('The image could not be read.') }
             reader.readAsDataURL(f)
           }} />
-          <DialogButtons><PBButton onClick={() => { if (file.current) { file.current.value = ''; file.current.click() } }}>Update Photo</PBButton>
-            <PBButton disabled={!photo} onClick={() => { request.current++; setPhoto('') }}>Remove Photo</PBButton></DialogButtons>
+          <DialogButtons><CmdButton command="update-photo" onClick={() => { if (file.current) { file.current.value = ''; file.current.click() } }}>Update Photo</CmdButton>
+            <CmdButton command="remove-photo" disabled={!photo} onClick={() => { request.current++; setPhoto('') }}>Remove Photo</CmdButton></DialogButtons>
           {error && <span role="alert">{error}</span>}
         </div>
         <div style={{ lineHeight: 2, flex: 1 }}>
-          <div>Chart No.:&nbsp; {patient.chart}</div><div>{patient.first} {patient.middle} {patient.last}</div>
-          <div>{patient.address}</div><div>{patient.address2}</div><div>{patient.city}, {patient.province}&nbsp; {patient.postal}</div>
-          <div>DOB: {patient.dob}&nbsp; Age: {patient.age}&nbsp; Gender: {patient.gender}</div>
-          <div>Home: {patient.home}&nbsp; Work: {patient.work}&nbsp; Ext.: {patient.workExt}</div>
-          <div>BCHN: {patient.bchn}</div><div>Insurance: {patient.insuranceBy} {patient.insurance} {patient.dep}</div>
+          <div>Chart No.:&nbsp; {patient.chart}</div>
+          <div>{patient.address}</div><div>{patient.address2}</div><div>{[patient.city, patient.province].filter(Boolean).join(', ')}&nbsp; {patient.postal}</div>
+          <div>DOB:&nbsp; {patient.dob}&nbsp;&nbsp; Age:&nbsp; {years}&nbsp;&nbsp; Gender:&nbsp; {patient.gender}</div>
+          <div>Home:&nbsp; {patient.home}&nbsp;&nbsp; Work:&nbsp; {patient.work}&nbsp;&nbsp; Ext.:&nbsp; {patient.workExt}</div>
+          <div>PHN:&nbsp;&nbsp; {[patient.insuranceBy, patient.insurance || patient.bchn, patient.dep].filter(Boolean).join(' ')}</div>
         </div>
       </div></div>
-    <DialogButtons><PBButton onClick={() => { updatePatient(patient.chart, { photo }); onClose() }}>Ok</PBButton><PBButton onClick={onClose}>Cancel</PBButton></DialogButtons>
+    <DialogButtons><CmdButton command="photo-ok" wide onClick={() => { updatePatient(patient.chart, { photo }); onClose() }}>Ok</CmdButton><CmdButton command="photo-cancel" wide onClick={onClose}>Cancel</CmdButton></DialogButtons>
   </DemographicModal>
 }
 
@@ -88,7 +103,7 @@ export function MspEligibilityDialog({ onClose }: { onClose: () => void }) {
   const [serviceDate, setServiceDate] = useState(today)
   const [attempted, setAttempted] = useState(false)
   const [source, setSource] = useState(false)
-  return <DemographicModal title="MSP Eligibility Check" width={680} height={590} onClose={onClose}>
+  return <DemographicModal title="MSP Eligibility Check" width={680} height={590} onClose={onClose} dialog="msp-eligibility">
     <div style={{ padding: 12, display: 'grid', gap: 14 }}>
       <PBGroup title="Patient Information"><div>Patient:&nbsp; <strong>{patient.last}, {patient.first} {patient.middle}</strong></div>
         <div>PHN: <strong>{patient.bchn}</strong>&nbsp; DoB: <strong>{patient.dob}</strong>&nbsp; Gender: <strong>{patient.gender}</strong></div></PBGroup>
@@ -106,7 +121,7 @@ export function MspEligibilityDialog({ onClose }: { onClose: () => void }) {
         empty={attempted ? 'Eligibility was not checked. Connect an MSP service to retrieve a result.' : ' '} />
       {source && <PBTextArea aria-label="MSP source response" value="" readOnly placeholder="No response received." />}
     </div>
-    <DialogButtons><PBButton onClick={() => setAttempted(true)}>Check Eligibility</PBButton><PBButton onClick={onClose}>Close</PBButton></DialogButtons>
+    <DialogButtons><CmdButton command="check-eligibility" onClick={() => setAttempted(true)}>Check Eligibility</CmdButton><CmdButton command="msp-close" wide onClick={onClose}>Close</CmdButton></DialogButtons>
   </DemographicModal>
 }
 
@@ -132,7 +147,7 @@ export function DemographicLookupDialog({ title, value, rows: source, city, onPi
     && r.code.includes(code.toUpperCase()) && r.category.includes(category.toUpperCase()) && status !== 'Inactive').slice(0, Math.max(0, Number(limit) || 0))
   const selected = rows[Math.min(cur, Math.max(0, rows.length - 1))]
   const toggle = (list: string[], item: string) => list.includes(item) ? list.filter(x => x !== item) : [...list, item]
-  return <DemographicModal title={`MOIS - Universal Search Window for Chart Number: ${p.chart} ${p.first} ${p.last} — ${title}`} width={1000} height={640} onClose={onClose}>
+  return <DemographicModal title={`MOIS - Universal Search Window for Chart Number: ${p.chart} ${p.first} ${p.last} — ${title}`} width={1000} height={640} onClose={onClose} dialog="universal-search">
     <div className="pb-row" style={{ alignItems: 'stretch', padding: 4, gap: 4 }}>
       <div style={{ width: '25%' }}><PBBand>Select from Code System(s)</PBBand>
         {(city ? ['PP-BC', 'PP-AB', 'PP-MB'] : [...new Set(source.map(r => r.system))]).map(s => <div key={s}><PBCheckbox label={s.replace('PP-', '')} checked={systems.includes(s)} onChange={() => setSystems(toggle(systems, s))} /></div>)}</div>
@@ -161,15 +176,15 @@ export function AddressExpiryDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
   const [expiry, setExpiry] = useState(today)
   const [error, setError] = useState('')
-  return <DemographicModal title="Address Expiry Date" width={420} onClose={onClose}>
+  return <DemographicModal title="Address Expiry Date" width={420} onClose={onClose} dialog="address-expiry-date">
     <div style={{ padding: 20, textAlign: 'center' }}><strong>Would you like to archive the patient's current address?</strong>
       <p>If yes, please select an expiry date:</p><label>Expiry Date:&nbsp; <PBInput aria-label="Address expiry date" w={105} value={expiry} onChange={e => setExpiry(e.target.value)} /></label>
       {error && <p role="alert">{error}</p>}</div>
-    <DialogButtons><PBButton onClick={() => {
+    <DialogButtons><CmdButton command="archive-ok" wide onClick={() => {
       const iso = expiry.replace(/[/.]/g, '-')
       if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || Number.isNaN(Date.parse(iso)) || new Date(iso).toISOString().slice(0, 10) !== iso) { setError('Enter a valid date as YYYY.MM.DD.'); return }
       updatePatient(patient.chart, { addressHistory: [{ ...addressOf(patient), expiry }, ...(patient.addressHistory ?? [])] }); onClose()
-    }}>Ok</PBButton><PBButton onClick={onClose}>Cancel</PBButton></DialogButtons>
+    }}>Ok</CmdButton><CmdButton command="archive-cancel" wide onClick={onClose}>Cancel</CmdButton></DialogButtons>
   </DemographicModal>
 }
 
@@ -178,20 +193,36 @@ export function addressOf(p: Patient): ChartAddressEntry {
     home: p.home, work: p.work, cell: p.cell, other: p.pager, ext: p.workExt, fax: p.fax, emailHome: p.emailHome, emailWork: p.emailWork }
 }
 
+/** Renders children on the desktop layer, above any open modal — for a list
+    a modal opens over itself (the wizard's Find / Add). */
+export function DesktopLayer({ children }: { children: ReactNode }) {
+  const anchor = useRef<HTMLSpanElement>(null)
+  const [layer, setLayer] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => { setLayer(anchor.current?.closest<HTMLElement>('.pb-desktop') ?? null) }, [])
+  return <><span hidden ref={anchor} />{layer && createPortal(children, layer)}</>
+}
+
+/* Change Address Wizard — art. 301556 `a136af6f…png` (v02.20.19): Current
+   Patient Data (Patient: Chart No., Patient Name; Current Address: two
+   address lines, City / Province, Postal Code / Country, Home), the grid
+   "Family Members / Other (pre-loaded from the patient's Family Hx list)" —
+   Update / Chart / Last Name / First Name / Middle Name / Address / Address /
+   City / Province / Country / Postal Code — then Find / Add Patient to List
+   alone at the bottom left and Update / Cancel centred. Find / Add opens the
+   list of patient charts (the Advanced Lookup Service); a picked chart joins
+   the grid with its Update box ticked. */
 export function AddressWizardDialog({ onClose }: { onClose: () => void }) {
   const patient = usePatient()
   const [adding, setAdding] = useState(false)
-  const [search, setSearch] = useState('')
   const [members, setMembers] = useState<Patient[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const roster = usePatientRoster()
-  const available = roster.filter(p => p.chart !== patient.chart && !members.some(m => m.chart === p.chart)
-    && `${p.chart} ${p.last} ${p.first}`.toLowerCase().includes(search.toLowerCase()))
   const [current, setCurrent] = useState(0)
+  useScreenReport(adding ? { prompt: 'find-add-patient' } : {})
   const columns = [{ key: 'chart', header: 'Chart', width: 60 }, { key: 'last', header: 'Last Name', width: 95 }, { key: 'first', header: 'First Name', width: 90 },
     { key: 'middle', header: 'Middle Name', width: 90 }, { key: 'address', header: 'Address', width: 130 }, { key: 'address2', header: 'Address', width: 110 },
     { key: 'city', header: 'City', width: 100 }, { key: 'province', header: 'Province', width: 60 }, { key: 'country', header: 'Country', width: 70 }, { key: 'postal', header: 'Postal Code', width: 80 }]
-  return <DemographicModal title="Change Address Wizard" width={1000} height={620} onClose={onClose}>
+  return <DemographicModal title="Change Address Wizard" width={1000} height={620} onClose={onClose} dialog="change-address-wizard">
     <div style={{ padding: 14 }}><PBBand>Current Patient Data</PBBand><div className="pb-row" style={{ alignItems: 'stretch', gap: 18, padding: 12 }}>
       <PBGroup title="Patient" style={{ flex: 1 }}><div className="pb-form" style={{ gridTemplateColumns: '85px 1fr' }}>
         <span>Chart No.:</span><PBInput w={100} value={patient.chart} readOnly />
@@ -205,19 +236,31 @@ export function AddressWizardDialog({ onClose }: { onClose: () => void }) {
       </div></PBGroup>
     </div></div>
     <div style={{ margin: '0 14px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <PBBand>{adding ? 'Find / Add Patient to List' : "Family Members / Other (pre-loaded from the patient's Family Hx list)"}</PBBand>
-      {adding && <label>Search: <PBInput aria-label="Find address recipient" value={search} onChange={e => { setSearch(e.target.value); setCurrent(0) }} /></label>}
-      <PBDataWindow style={{ flex: 1, background: 'white' }} hscroll rowFill={p => !adding && selected.includes(p.chart) ? '#a0e79b' : undefined} rows={(adding ? available : members).map(p => ({ ...p, ...patientEdits(p.chart) }))} columns={adding ? columns : [
+      <PBBand>Family Members / Other (pre-loaded from the patient's Family Hx list)</PBBand>
+      <PBDataWindow style={{ flex: 1, background: 'white' }} hscroll rowFill={p => selected.includes(p.chart) ? '#a0e79b' : undefined} rows={members.map(p => ({ ...p, ...patientEdits(p.chart) }))} columns={[
         { key: 'update', header: 'Update', width: 55, render: (p: Patient) => <PBCheckbox label={`Update chart ${p.chart}`} checked={selected.includes(p.chart)} onChange={() => setSelected(v => v.includes(p.chart) ? v.filter(c => c !== p.chart) : [...v, p.chart])} /> }, ...columns,
-      ]} current={current} onCurrentChange={setCurrent} empty="No linked family charts with address records are available. Use Find / Add Patient to select recipients." />
+      ]} current={current} onCurrentChange={setCurrent} empty=" " />
     </div>
-    <DialogButtons>{adding ? <><PBButton disabled={!available[current]} onClick={() => {
-      const p = available[current]; if (!p) return; setMembers(v => [...v, p]); setSelected(v => [...v, p.chart]); setAdding(false); setCurrent(0)
-    }}>Add Patient</PBButton><PBButton onClick={() => setAdding(false)}>Back</PBButton></> : <>
-      <PBButton onClick={() => { setAdding(true); setCurrent(0) }}>Find / Add Patient to List</PBButton>
-      <PBButton disabled={!selected.length} onClick={() => {
+    <div className="pb-row" style={{ padding: 14, gap: 10 }}>
+      <CmdButton command="find-add-patient-to-list" onClick={() => setAdding(true)}>Find / Add Patient to List</CmdButton>
+      <span className="pb-row__spacer" />
+      <CmdButton command="wizard-update" wide disabled={!selected.length} onClick={() => {
         for (const chart of selected) updatePatient(chart, { address: patient.address, address2: patient.address2, city: patient.city, province: patient.province, country: patient.country, postal: patient.postal, home: patient.home })
         onClose()
-      }}>Update</PBButton></>}<PBButton onClick={onClose}>Cancel</PBButton></DialogButtons>
+      }}>Update</CmdButton>
+      <CmdButton command="wizard-cancel" wide onClick={onClose}>Cancel</CmdButton>
+      <span className="pb-row__spacer" />
+      <span style={{ width: 150 }} />
+    </div>
+    {adding && <DesktopLayer>
+      <AdvancedLookupDialog chart={patient.chart} zIndex={95}
+        roster={roster.filter(p => p.chart !== patient.chart && !members.some(m => m.chart === p.chart))}
+        onPick={chart => {
+          const p = roster.find(r => r.chart === chart)
+          if (p) { setMembers(v => [...v, p]); setSelected(v => [...v, p.chart]) }
+          setAdding(false)
+        }}
+        onClose={() => setAdding(false)} />
+    </DesktopLayer>}
   </DemographicModal>
 }

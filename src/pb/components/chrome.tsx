@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { pbSlug, usePBInstrumentation } from '../instrumentation'
 import { PBPopup, pbInPopup, usePBPopupOwner, type PBPopupSide } from '../popup'
 import {
@@ -107,7 +107,11 @@ export type PBMenuItem = {
   menu?: PBMenuItem[]
 }
 
-export function PBMenuBar({ items }: { items: { label: string; menu?: PBMenuItem[] }[] }) {
+/** A caption on the bar. One with `onSelect` and no `menu` is a command on
+    the bar itself — the Encounter Detail Window's Save (F2) and Close (Esc). */
+export type PBMenuBarEntry = { label: string; menu?: PBMenuItem[]; onSelect?: () => void }
+
+export function PBMenuBar({ items }: { items: PBMenuBarEntry[] }) {
   const [open, setOpen] = useState<number | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const host = usePBInstrumentation()
@@ -146,7 +150,7 @@ export function PBMenuBar({ items }: { items: { label: string; menu?: PBMenuItem
 function PBMenuBarItem({
   item, owner, open, onToggle, onHover, onPick,
 }: {
-  item: { label: string; menu?: PBMenuItem[] }
+  item: PBMenuBarEntry
   owner: string
   open: boolean
   onToggle: () => void
@@ -155,6 +159,7 @@ function PBMenuBarItem({
 }) {
   const host = usePBInstrumentation()
   const btn = useRef<HTMLButtonElement>(null)
+  const listId = useId()
 
   return (
     <>
@@ -162,15 +167,20 @@ function PBMenuBarItem({
         ref={btn}
         className="pb-menubar__item"
         aria-expanded={open}
+        aria-controls={open && item.menu ? listId : undefined}
         data-tutorial-id={host?.anchor('menu', pbSlug(item.label))}
         data-tutorial-aliases={!open || !item.menu ? host?.anchor('menu-region', pbSlug(item.label)) : undefined}
-        onClick={onToggle}
+        onClick={!item.menu && item.onSelect ? () => {
+          host?.report('menu', { menu: pbSlug(item.label) })
+          item.onSelect?.()
+        } : onToggle}
         onMouseEnter={onHover}
       >
         {item.label}
       </button>
       {open && item.menu && (
         <PBMenuList
+          id={listId}
           items={item.menu}
           menu={item.label}
           owner={owner}
@@ -185,8 +195,9 @@ function PBMenuBarItem({
 
 /* One drop-down. Items carrying their own `menu` open a fly-out beside them. */
 function PBMenuList({
-  items, menu, owner, anchorRef, side, onPick,
+  id, items, menu, owner, anchorRef, side, onPick,
 }: {
+  id?: string
   items: PBMenuItem[]
   /** the top-level menu these items belong to, for anchors */
   menu: string
@@ -203,6 +214,7 @@ function PBMenuList({
 
   return (
     <PBPopup
+      id={id}
       anchorRef={anchorRef}
       owner={owner}
       side={side}
@@ -292,7 +304,19 @@ export type PBStatusLink = string | { label: string; onSelect?: () => void }
 export type PBStatusCell =
   | { text: ReactNode; grow?: boolean; width?: number }
   | { links: PBStatusLink[]; grow?: boolean; width?: number }
-  | { label: string; value: ReactNode; grow?: boolean; width?: number }
+  | {
+    label: string; value: ReactNode; grow?: boolean; width?: number
+    /** the cell's own fill — the pink Task Item / Msg Item cells light up
+        while anything is outstanding (art. 3268648) */
+    fill?: string
+    /** anchored `host.mois.status.{slug}` when given */
+    slug?: string
+    /** a double-click on the cell — the Task Item / Msg Item cells open the
+        Automated Notification Service's Task Reminder / Message List
+        (art. 304741, 3268648: "double-clicking the flashing item"). Reported
+        as `host.mois.status` with the cell's slug, like a status link. */
+    onOpen?: () => void
+  }
 
 export function PBStatusBar({ cells }: { cells: PBStatusCell[] }) {
   const host = usePBInstrumentation()
@@ -321,7 +345,15 @@ export function PBStatusBar({ cells }: { cells: PBStatusCell[] }) {
         <div
           key={i}
           className={cx('pb-statusbar__cell', c.grow && 'pb-statusbar__cell--grow')}
-          style={c.width ? { width: c.width, flex: 'none' } : undefined}
+          style={{
+            ...(c.width ? { width: c.width, flex: 'none' } : {}),
+            ...('fill' in c && c.fill ? { background: c.fill } : {}),
+          }}
+          data-tutorial-id={'slug' in c && c.slug ? host?.anchor('status', c.slug) : undefined}
+          onDoubleClick={'onOpen' in c && c.onOpen ? () => {
+            host?.report('status', { link: c.slug ?? '' })
+            c.onOpen?.()
+          } : undefined}
         >
           {'links' in c
             ? c.links.map(link)

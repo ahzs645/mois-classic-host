@@ -36,9 +36,11 @@ export type BasketRow = {
 /* Every folder opens with these four, at the same widths but for Patient,
    which is sized per folder and must not be normalised. */
 const head = (patient: number): BasketColumn[] => [
-  { key: 'ra', header: 'RA', width: 26, align: 'center' },
+  /* 26 in the captures, where RA reads 461 at most; four more pixels, taken
+     from Patient, so a three-digit age like 474 is not cut to "4…" */
+  { key: 'ra', header: 'RA', width: 30, align: 'center' },
   { key: 't', header: 'T', width: 18, align: 'center' },
-  { key: 'patient', header: 'Patient', width: patient },
+  { key: 'patient', header: 'Patient', width: patient - 4 },
   { key: 'age', header: 'Age', width: 30, align: 'center' },
 ]
 
@@ -87,6 +89,33 @@ export type BasketFolder = {
   commands?: string[]
   /** the tabs under the grid */
   tabs: string[]
+  /** the Report tab's form — see `BasketReportLayout` */
+  report: BasketReportLayout
+  /** the column Reassign Items / Copy Items add as of MOIS 2.22 (art. 303758) */
+  extra: { header: string; key: string }
+  /** what a linked Create Task / Create Message names the record as */
+  recordType: string
+}
+
+/* ----------------------------------------------------------------------------
+   The Report tab under the grid.
+
+   Each folder's reference page lists its Report-tab fields (1802756–1802763);
+   the Measures and Consults layouts are drawn from 303756 image `24c0798b`
+   and 303764 image `22acb4da` (v02.21.18): two columns of labelled boxes, a
+   tall Report memo, then the record-source footer — "Source: SYSTEM  Sent
+   Date:  Code: -  UNSIGNED" over "Created: …  Last Modified:  ENC# EMPTY".
+   Progress Notes' tab has no source footer (1802762).
+   ------------------------------------------------------------------------- */
+export type BasketReportLayout = {
+  left: [label: string, key: string][]
+  right: [label: string, key: string][]
+  /** the memo's caption: Report, Comment, Progress Note */
+  memo: string
+  /** Measures alone carries a Comments box under the Report */
+  comments?: boolean
+  /** Progress Notes has no Source / Created footer */
+  noFooter?: boolean
 }
 
 const SHARED_COMMANDS = [
@@ -99,8 +128,22 @@ export const BASKET_COMMAND_WIDTH: Record<string, number> = {
   'Create Message': 91, 'Reassign Items': 82, 'Copy Items': 82, Respond: 78,
 }
 
+/* Status is the lab's own one-letter code — F final, P preliminary — the way
+   the Status column prints it in `24c0798b`. */
 const row = (ra: string, t: string, patient: string, age: string, rest: Partial<BasketRow>): BasketRow =>
-  ({ ra, t, patient, age, status: 'Final', ir: '', assignee: 'ADMIN', clip: '-', ...rest })
+  ({ ra, t, patient, age, status: 'F', ir: '', assignee: 'ADMIN', clip: '-', ...rest })
+
+/* The synthetic chart each basket patient belongs to, and the record id a
+   linked task or message quotes ("Consult - record id: 500090"). */
+export const BASKET_CHARTS: Record<string, string> = {
+  'BROWN, FARMER': '10023',
+  'ADAM, GEORGE': '10031',
+  'HALE, MARGARET': '10044',
+  'RAO, PRIYA': '10052',
+  'OKONKWO, SAM': '10067',
+  'FONTAINE, DALE': '10071',
+  'CASTILLO, JUNE': '10085',
+}
 
 export const basketFolders: BasketFolder[] = [
   {
@@ -108,23 +151,33 @@ export const basketFolders: BasketFolder[] = [
     label: 'Measures',
     header: 'Acknowledge - Measures',
     tabs: ['Report', 'Detail', 'Panel (0)'],
+    recordType: 'Measurement',
+    extra: { header: 'Ordered By Provider', key: 'orderedBy' },
+    report: {
+      left: [['Test Name:', 'test'], ['Value:', 'valueUnits'], ['Flag:', 'flag'], ['Ref. Ranges:', 'range'], ['Status:', 'status']],
+      right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
+      memo: 'Report',
+      comments: true,
+    },
     abnormalCells: ['test', 'value', 'units', 'flag'],
     columns: [
       ...head(134),
       { key: 'collected', header: 'Collected', width: 56, align: 'center' },
-      { key: 'test', header: 'Test Name', width: 196 },
+      /* 196 in the capture, which was taken in a wider window; at this
+         1000-wide frame the grid would otherwise squeeze RA and Check */
+      { key: 'test', header: 'Test Name', width: 176 },
       { key: 'value', header: 'Value', width: 64 },
       { key: 'units', header: 'Units', width: 49 },
       { key: 'flag', header: 'Flag', width: 41, align: 'center' },
       ...TAIL,
     ],
     rows: [
-      row('1393', 'A', 'BROWN, FARMER', '35', { collected: '26.03.17', test: 'HEMOGLOBIN A1C', value: '8.4', units: '%', flag: 'H', abnormal: true }),
-      row('474', 'A', 'ADAM, GEORGE', '48', { collected: '26.03.17', test: 'CREATININE', value: '96', units: 'umol/L', flag: '' }),
-      row('586', 'A', 'HALE, MARGARET', '70', { collected: '26.03.16', test: 'THYROID STIMULATING HORMONE', value: '11.2', units: 'mIU/L', flag: 'H', abnormal: true }),
-      row('461', 'A', 'RAO, PRIYA', '41', { collected: '26.03.16', test: 'POTASSIUM', value: '4.1', units: 'mmol/L', flag: '' }),
-      row('0', 'R', 'OKONKWO, SAM', '56', { collected: '26.03.15', test: 'LIPID PANEL', value: '', units: '', flag: '', clip: '1' }),
-      row('13', 'A', 'FONTAINE, DALE', '24', { collected: '26.03.15', test: 'HEMOGLOBIN', value: '131', units: 'g/L', flag: '' }),
+      row('139', 'A', 'BROWN, FARMER', '35', { collected: '26.03.17', test: 'HEMOGLOBIN A1C', value: '8.4', units: '%', flag: 'H', abnormal: true, range: '4.0 to 6.0', orderDate: '2026.03.16', orderedBy: 'BEARDWOOD, WENDY', recordId: '500112', report: 'Consistent with poorly controlled diabetes.' }),
+      row('474', 'A', 'ADAM, GEORGE', '48', { collected: '26.03.17', test: 'CREATININE', value: '96', units: 'umol/L', flag: '', range: '60 to 110', orderDate: '2026.03.16', orderedBy: 'BEARDWOOD, WENDY', recordId: '500113' }),
+      row('586', 'A', 'HALE, MARGARET', '70', { collected: '26.03.16', test: 'THYROID STIMULATING HORMONE', value: '11.2', units: 'mIU/L', flag: 'H', abnormal: true, range: '0.32 to 5.04', orderedBy: 'SMITH, DALENE', recordId: '500098' }),
+      row('461', 'A', 'RAO, PRIYA', '41', { collected: '26.03.16', test: 'POTASSIUM', value: '4.1', units: 'mmol/L', flag: '', range: '3.5 to 5.0', orderedBy: 'BEARDWOOD, WENDY', recordId: '500101' }),
+      row('0', 'R', 'OKONKWO, SAM', '56', { collected: '26.03.15', test: 'LIPID PANEL', value: '', units: '', flag: '', clip: '1', orderedBy: 'SMITH, DALENE', recordId: '500094', reviewNote: 'Please review with the LDL target in mind.' }),
+      row('13', 'A', 'FONTAINE, DALE', '24', { collected: '26.03.15', test: 'HEMOGLOBIN', value: '131', units: 'g/L', flag: '', range: '120 to 160', orderedBy: 'RESIDENT, R1', recordId: '500090' }),
     ],
   },
   {
@@ -133,6 +186,13 @@ export const basketFolders: BasketFolder[] = [
     /* the tree says Imaging; the banner says Images */
     header: 'Acknowledge - Images',
     tabs: ['Report', 'Detail'],
+    recordType: 'Image',
+    extra: { header: 'Ordered By Provider', key: 'orderedBy' },
+    report: {
+      left: [['Test Name:', 'test'], ['Region:', 'region'], ['Laterality:', 'laterality'], ['Flag:', 'flag'], ['Modality:', 'modality'], ['Status:', 'status']],
+      right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
+      memo: 'Report',
+    },
     abnormalCells: ['test', 'flag'],
     columns: [
       ...head(147),
@@ -146,8 +206,8 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('488', 'A', 'CASTILLO, JUNE', '78', { collected: '26.03.14', test: 'CHEST X-RAY, TWO VIEWS', flag: '' }),
-      row('474', 'A', 'BROWN, FARMER', '35', { collected: '26.03.12', test: 'ULTRASOUND ABDOMEN COMPLETE', flag: 'A', abnormal: true }),
+      row('488', 'A', 'CASTILLO, JUNE', '78', { collected: '26.03.14', test: 'CHEST X-RAY, TWO VIEWS', flag: '', region: 'CHEST', modality: 'XR', orderedBy: 'SMITH, DALENE', recordId: '500077', report: 'No acute cardiopulmonary process.' }),
+      row('474', 'A', 'BROWN, FARMER', '35', { collected: '26.03.12', test: 'ULTRASOUND ABDOMEN COMPLETE', flag: 'A', abnormal: true, region: 'ABDOMEN', modality: 'US', orderedBy: 'BEARDWOOD, WENDY', recordId: '500081', report: 'Diffuse fatty infiltration of the liver. No focal lesion.' }),
     ],
   },
   {
@@ -155,6 +215,13 @@ export const basketFolders: BasketFolder[] = [
     label: 'Consults',
     header: 'Acknowledge - Consults',
     tabs: ['Report', 'Detail'],
+    recordType: 'Consult',
+    extra: { header: 'Referred By', key: 'referredBy' },
+    report: {
+      left: [['Reason:', 'reason'], ['Seen By:', 'seenBy'], ['Date:', 'seenDate'], ['Diag. Code:', 'diagCode'], ['Diag Desc.:', 'diagDesc']],
+      right: [['Refer Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Referred By:', 'referredBy'], ['Copies To:', 'copiesTo']],
+      memo: 'Report',
+    },
     columns: [
       ...head(145),
       { key: 'seen', header: 'Seen', width: 56, align: 'center' },
@@ -167,9 +234,9 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('474', 'A', 'HALE, MARGARET', '70', { seen: '26.03.10', seenBy: 'CARDIOLOGY, UHNBC', reason: 'ATRIAL FIBRILLATION - RATE CONTROL' }),
-      row('33', 'A', 'OKONKWO, SAM', '56', { seen: '26.03.09', seenBy: 'GENERAL SURGERY', reason: 'INGUINAL HERNIA REPAIR - FOLLOW UP' }),
-      row('25', 'R', 'RAO, PRIYA', '41', { seen: '26.03.05', seenBy: 'RESPIROLOGY', reason: 'CHRONIC COUGH' }),
+      row('474', 'A', 'HALE, MARGARET', '70', { seen: '26.03.10', seenBy: 'CARDIOLOGY, UHNBC', reason: 'ATRIAL FIBRILLATION - RATE CONTROL', seenDate: '2026.03.10', referredBy: 'SMITH, DALENE', diagCode: '427', diagDesc: 'CARDIAC DYSRHYTHMIAS', recordId: '500090' }),
+      row('33', 'A', 'OKONKWO, SAM', '56', { seen: '26.03.09', seenBy: 'GENERAL SURGERY', reason: 'INGUINAL HERNIA REPAIR - FOLLOW UP', seenDate: '2026.03.09', referredBy: 'BEARDWOOD, WENDY', recordId: '500088' }),
+      row('25', 'R', 'RAO, PRIYA', '41', { seen: '26.03.05', seenBy: 'RESPIROLOGY', reason: 'CHRONIC COUGH', seenDate: '2026.03.05', referredBy: 'BEARDWOOD, WENDY', recordId: '500084' }),
     ],
   },
   {
@@ -177,6 +244,13 @@ export const basketFolders: BasketFolder[] = [
     label: 'Procedures',
     header: 'Acknowledge - Procedures',
     tabs: ['Report', 'Detail'],
+    recordType: 'Procedure',
+    extra: { header: 'Ordered By Provider', key: 'orderedBy' },
+    report: {
+      left: [['Description:', 'description'], ['Diagnostic Code:', 'diagCode'], ['Diagnostic Description:', 'diagDesc']],
+      right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
+      memo: 'Report',
+    },
     columns: [
       ...head(153),
       { key: 'performed', header: 'Performed', width: 56, align: 'center' },
@@ -189,8 +263,8 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('461', 'A', 'CASTILLO, JUNE', '78', { performed: '26.03.11', by: 'ENDOSCOPY, UHNBC', description: 'COLONOSCOPY WITH POLYPECTOMY', clip: '1' }),
-      row('0', 'R', 'FONTAINE, DALE', '24', { performed: '26.03.08', by: 'DAY SURGERY', description: 'WOUND DEBRIDEMENT' }),
+      row('461', 'A', 'CASTILLO, JUNE', '78', { performed: '26.03.11', by: 'ENDOSCOPY, UHNBC', description: 'COLONOSCOPY WITH POLYPECTOMY', clip: '1', orderedBy: 'SMITH, DALENE', recordId: '500079', report: 'Two sessile polyps removed from the sigmoid colon. Pathology to follow.' }),
+      row('0', 'R', 'FONTAINE, DALE', '24', { performed: '26.03.08', by: 'DAY SURGERY', description: 'WOUND DEBRIDEMENT', orderedBy: 'RESIDENT, R1', recordId: '500076' }),
     ],
   },
   {
@@ -200,6 +274,13 @@ export const basketFolders: BasketFolder[] = [
     /* the only folder with three content columns, and the only one with no
        Detail tab */
     tabs: ['Report'],
+    recordType: 'Document',
+    extra: { header: 'Recipient', key: 'recipient' },
+    report: {
+      left: [['Note:', 'note'], ['Order #:', 'orderNo'], ['Recipient:', 'recipient'], ['Transcribed:', 'transcribed']],
+      right: [['Facility:', 'facility'], ['Facility Ref:', 'facilityRef'], ['Diagnostic Code:', 'diagCode'], ['Copies To:', 'copiesTo']],
+      memo: 'Comment',
+    },
     columns: [
       ...head(140),
       { key: 'date', header: 'Date', width: 56, align: 'center' },
@@ -213,8 +294,8 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('461', 'A', 'BROWN, FARMER', '35', { date: '26.03.13', author: 'NORTHERN HLTH', docType: 'ASSESSMENT', note: 'HOME SUPPORT ASSESSMENT' }),
-      row('461', 'A', 'HALE, MARGARET', '70', { date: '26.03.11', author: 'UHNBC', docType: 'DISCHARGE', note: 'DISCHARGE SUMMARY - CARDIOLOGY' }),
+      row('461', 'A', 'BROWN, FARMER', '35', { date: '26.03.13', author: 'NORTHERN HLTH', docType: 'ASSESSMENT', note: 'HOME SUPPORT ASSESSMENT', recipient: 'BEARDWOOD, WENDY', facility: 'NORTHERN HEALTH', recordId: '500070' }),
+      row('461', 'A', 'HALE, MARGARET', '70', { date: '26.03.11', author: 'UHNBC', docType: 'DISCHARGE', note: 'DISCHARGE SUMMARY - CARDIOLOGY', recipient: 'SMITH, DALENE', facility: 'UHNBC', recordId: '500068' }),
     ],
   },
   {
@@ -222,6 +303,13 @@ export const basketFolders: BasketFolder[] = [
     label: 'Facility Admissions',
     header: 'Acknowledge - Facility Admissions',
     tabs: ['Report', 'Detail'],
+    recordType: 'Facility Admission',
+    extra: { header: 'Attending', key: 'attending' },
+    report: {
+      left: [['Description:', 'description'], ['Admit Date:', 'admitDate'], ['Attending:', 'attending'], ['Admitted By:', 'admittedBy']],
+      right: [['Diagnostic Code:', 'diagCode'], ['Diagnostic Description:', 'diagDesc'], ['Copies To:', 'copiesTo']],
+      memo: 'Report',
+    },
     columns: [
       ...head(143),
       { key: 'discharge', header: 'Discharge', width: 56, align: 'center' },
@@ -234,7 +322,7 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('461', 'A', 'HALE, MARGARET', '70', { discharge: '26.03.02', facility: 'UHNBC', description: 'DISCHARGE SUMMARY' }),
+      row('461', 'A', 'HALE, MARGARET', '70', { discharge: '26.03.02', facility: 'UHNBC', description: 'DISCHARGE SUMMARY', admitDate: '2026.02.26', attending: 'CARDIOLOGY, UHNBC', recordId: '500061' }),
     ],
   },
   {
@@ -246,6 +334,14 @@ export const basketFolders: BasketFolder[] = [
        paperclip, Check is terminal and a pixel wider, and its Report tab has
        no record-source footer */
     tabs: ['Report'],
+    recordType: 'Progress Note',
+    extra: { header: 'Author', key: 'author' },
+    report: {
+      left: [['Appoint:', 'apptDate'], ['Provider:', 'provider']],
+      right: [['Author:', 'author'], ['Creator:', 'creator']],
+      memo: 'Progress Note',
+      noFooter: true,
+    },
     columns: [
       ...head(153),
       { key: 'apptDate', header: 'Appt. Date', width: 56, align: 'center' },
@@ -255,8 +351,8 @@ export const basketFolders: BasketFolder[] = [
       { key: 'check', header: 'Check', width: 39, align: 'center' },
     ],
     rows: [
-      row('461', 'A', 'ADAM, GEORGE', '48', { apptDate: '26.03.18', provider: 'RESIDENT, R1', note: 'SAME DAY - SORE THROAT' }),
-      row('461', 'A', 'RAO, PRIYA', '41', { apptDate: '26.03.16', provider: 'RESIDENT, R1', note: 'URGENT - CHEST PAIN' }),
+      row('461', 'A', 'ADAM, GEORGE', '48', { apptDate: '26.03.18', provider: 'RESIDENT, R1', note: 'SAME DAY - SORE THROAT', author: 'ADMINISTRATOR', creator: 'RESIDENT, R1', recordId: '500058' }),
+      row('461', 'A', 'RAO, PRIYA', '41', { apptDate: '26.03.16', provider: 'RESIDENT, R1', note: 'URGENT - CHEST PAIN', author: 'ADMINISTRATOR', creator: 'RESIDENT, R1', recordId: '500057' }),
     ],
   },
   {
@@ -266,6 +362,13 @@ export const basketFolders: BasketFolder[] = [
     /* a later build than the rest: ten buttons, with Respond inserted before
        Close Window, and the only folder with a Src. column */
     tabs: ['Report', 'Detail'],
+    recordType: 'Order',
+    extra: { header: 'Referred To', key: 'referredTo' },
+    report: {
+      left: [['Referred To:', 'referredTo'], ['Payor:', 'payor'], ['Copies To:', 'copiesTo']],
+      right: [['Order Type:', 'orderType'], ['Ordered By:', 'orderedBy'], ['Transcribed:', 'transcribed']],
+      memo: 'Report',
+    },
     commands: [
       'Refresh', 'Change W/S', 'Open Chart', 'Create Task', 'Create Message',
       'Reassign Items', 'Copy Items', 'Print', 'Respond', 'Close Window',
@@ -284,8 +387,8 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('33', 'A', 'RAO, PRIYA', '41', { ordDate: '26.03.07', orderedBy: 'RESPIROLOGY', orderType: 'Consultation', src: 'EXT', description: 'PULMONARY FUNCTION TESTING', status: 'In Process' }),
-      row('25', 'A', 'BROWN, FARMER', '35', { ordDate: '26.03.04', orderedBy: 'BEARDWOOD, W', orderType: 'Lab', src: 'EXT', description: 'HEMOGLOBIN A1C', status: 'Completed' }),
+      row('33', 'A', 'RAO, PRIYA', '41', { ordDate: '26.03.07', orderedBy: 'RESPIROLOGY', orderType: 'Consultation', src: 'EXT', description: 'PULMONARY FUNCTION TESTING', status: 'In Process', referredTo: 'RESPIROLOGY', payor: 'MSP', recordId: '500050' }),
+      row('25', 'A', 'BROWN, FARMER', '35', { ordDate: '26.03.04', orderedBy: 'BEARDWOOD, W', orderType: 'Lab', src: 'EXT', description: 'HEMOGLOBIN A1C', status: 'Completed', referredTo: 'LIFELABS', payor: 'MSP', recordId: '500049' }),
     ],
   },
 ]
@@ -294,3 +397,15 @@ export const basketCommands = (f: BasketFolder): string[] => f.commands ?? SHARE
 
 export const basketFolderById = (id: string): BasketFolder | undefined =>
   basketFolders.find((f) => f.id === id)
+
+/** The chart folder a basket folder's Open Chart lands on. */
+export const CHART_FOLDER_FOR_BASKET: Record<string, string> = {
+  'ws-measures': 'measures',
+  'ws-imaging': 'imaging',
+  'ws-consults': 'consults',
+  'ws-procedures': 'procedures',
+  'ws-documents': 'documents',
+  'ws-admissions': 'admissions',
+  'ws-progress': 'encounters',
+  'ws-orders': 'orders',
+}

@@ -3,7 +3,9 @@ import { useChartRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
 import { type OrderLinkRow } from '../data/chartUtilities'
 import { usePatient } from '../data/patient-context'
-import { PBButton, PBDataWindow, PBDropField, PBGroup, PBTextArea, PBWindow, pbSlug } from '../pb'
+import { useEncounterSession } from '../host/encounterArea'
+import { PBDataWindow, PBDropField, PBGroup, PBTextArea, PBWindow, pbSlug } from '../pb'
+import { CmdButton } from './CmdButton'
 
 /* ============================================================================
    Order Linking Service — the Patient Chart's Taskbar `Link to Order`.
@@ -23,6 +25,8 @@ import { PBButton, PBDataWindow, PBDropField, PBGroup, PBTextArea, PBWindow, pbS
    edge of the capture, so its widths and y are the report's estimates and are
    marked as such below.
    ========================================================================= */
+
+const ORDER_STATUS: Record<string, string> = { IP: 'IN PROCESS' }
 
 const W = 897
 const H = 679
@@ -50,7 +54,29 @@ export function OrderLinkingServiceDialog({ onLink, onClose }: {
 }) {
   const patient = usePatient()
   const records = useChartRecords('order', 'dtm_ord_date')
-  const [rows, setRows] = useState<OrderLinkRow[]>(() => records.map(r => ({ date: date(r.dtm_ord_date), orderBy: r.str_order_by ?? '', referral: r.str_performed_by ?? '', description: r.str_description ?? '', detail: r.str_note ?? '', status: r.str_status ?? '', priority: r.str_priority_code ?? '', links: r.num_results ?? '' })))
+  /* "outstanding orders" only: a completed order has nothing left to link.
+     The Status cell prints the status's name — IN PROCESS in the capture,
+     where the export stores IP; the other codes' names are not documented
+     and print as stored. */
+  const outstanding = records.filter(r => r.str_status !== 'CM' && r.str_status !== 'COMPLETED')
+  const [rows, setRows] = useState<OrderLinkRow[]>(() => outstanding
+    .map(r => ({ date: date(r.dtm_ord_date), orderBy: r.str_order_by ?? '', referral: r.str_performed_by ?? '', description: r.str_description ?? '', detail: r.str_note ?? '', status: ORDER_STATUS[r.str_status ?? ''] ?? r.str_status ?? '', priority: r.str_priority_code ?? '', links: r.num_results ?? '' })))
+  /* Link ties the record selected in the folder behind to the order: its
+     Report tab's Order # fills in (host/encounterArea session copy) */
+  const encounters = useEncounterSession()
+  const link = (row: OrderLinkRow) => {
+    const id = encounters.session.measureSelected?.id
+    if (id) {
+      encounters.update((s) => {
+        const orderLinks = { ...s.orderLinks }
+        /* "The same button unlinks": linking a linked record again undoes it */
+        if (orderLinks[id]) delete orderLinks[id]
+        else orderLinks[id] = outstanding[rows.indexOf(row)]?.id_order ?? row.date
+        return { ...s, orderLinks }
+      })
+    }
+    onLink?.(row)
+  }
   const [current, setCurrent] = useState(0)
 
   const picked = rows[Math.min(current, Math.max(0, rows.length - 1))]
@@ -150,23 +176,24 @@ export function OrderLinkingServiceDialog({ onLink, onClose }: {
               display: 'flex', justifyContent: 'center', gap: 14,
             }}
           >
-            <PBButton
+            {/* not `link-to-order`: that is the Taskbar button behind this
+                window, and an anchor lookup takes the first match on screen.
+                CmdButtons, so a learner's press reports itself too. */}
+            <CmdButton
               style={{ width: 75, minWidth: 0 }}
-              /* not `link-to-order`: that is the Taskbar button behind this
-                 window, and an anchor lookup takes the first match on screen */
-              data-tutorial-id="host.mois.command.order-linking-link"
+              command="order-linking-link"
               disabled={!picked}
-              onClick={() => picked && onLink?.(picked)}
+              onClick={() => picked && link(picked)}
             >
               Link
-            </PBButton>
-            <PBButton
+            </CmdButton>
+            <CmdButton
               style={{ width: 75, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.order-linking-cancel"
+              command="order-linking-cancel"
               onClick={onClose}
             >
               Cancel
-            </PBButton>
+            </CmdButton>
           </div>
         </div>
       </PBWindow>

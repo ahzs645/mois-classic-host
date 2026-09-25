@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useEncounterSession } from '../host/encounterArea'
 import {
   AFTER_ATTACHING, ATTACH_FILE_MODES, FORM_LETTER_GROUPS, FORM_LETTER_WIDTHS,
   formLetterRows,
@@ -231,11 +232,22 @@ function AttachFileTab({ mode, onMode }: { mode: AttachFileMode; onMode: (m: Att
   )
 }
 
-export function AddAttachmentDialog({ onOk, onClose }: {
+export function AddAttachmentDialog({ onOk, onClose, target }: {
   /** Ok — the caller bumps the source row's paper-clip count */
   onOk?: (after: string) => void
   onClose: () => void
+  /** the record the attachment hangs from (`encounter:<id>`); defaults to
+      the row the folder behind had current when Attachment was pressed */
+  target?: string
 }) {
+  /* Ok files the attachment: the source row's paper-clip count goes up
+     (303793) — kept in the frame's session copy (host/encounterArea) */
+  const encounters = useEncounterSession()
+  const attachTo = target ?? encounters.session.attachTarget
+  const file = () => {
+    if (attachTo) encounters.update((s) => ({ ...s, attachments: { ...s.attachments, [attachTo]: (s.attachments[attachTo] ?? 0) + 1 } }))
+    onOk?.(after)
+  }
   const [tab, setTab] = useState(TAB_FORM)
   const [recentLimit, setRecentLimit] = useState(10)
   const [mode, setMode] = useState<AttachFileMode>('Copy Original File(s)')
@@ -287,7 +299,7 @@ export function AddAttachmentDialog({ onOk, onClose }: {
               <PBButton
                 style={{ width: 75, height: 25, minWidth: 0 }}
                 data-tutorial-id="host.mois.command.add-attachment-ok"
-                onClick={() => onOk?.(after)}
+                onClick={file}
               >
                 Ok
               </PBButton>

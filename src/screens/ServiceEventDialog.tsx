@@ -140,8 +140,8 @@ export function ServiceEventDialog({ onClose }: { onClose: () => void }) {
         <div className="pb-footer">
           <PBButton wide>Change <u>L</u>inked Service Episode…</PBButton>
           <span className="pb-footer__spacer" />
-          <PBButton wide onClick={onClose}><u>S</u>ave</PBButton>
-          <PBButton wide onClick={onClose}><u>C</u>ancel</PBButton>
+          <PBButton wide data-tutorial-id="host.mois.command.service-event-save" onClick={onClose}><u>S</u>ave</PBButton>
+          <PBButton wide data-tutorial-id="host.mois.command.service-event-cancel" onClick={onClose}><u>C</u>ancel</PBButton>
           <span className="pb-footer__spacer" />
           <PBButton wide>View <u>H</u>istory…</PBButton>
         </div>

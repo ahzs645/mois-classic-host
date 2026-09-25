@@ -3,7 +3,7 @@
 .pb-patient-detail__background { min-width: 0; }
 .pb-patient-detail__histories { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .pb-patient-detail__field { display: grid; grid-template-columns: 105px minmax(0, 1fr); align-items: center; gap: 5px; margin-bottom: 3px; }
-.pb-patient-detail__field input, .pb-patient-detail__field select, .pb-patient-detail__field textarea { width: 100%; min-width: 0; }
+.pb-patient-detail__field input, .pb-patient-detail__field .pb-select, .pb-patient-detail__field textarea { width: 100%; min-width: 0; }
 .pb-patient-detail__name { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; border-bottom: 1px solid #ccc; }
 .pb-patient-detail__name label { display: flex; gap: 5px; align-items: center; min-width: 0; }
 .pb-patient-detail__name label span { width: 40px; text-transform: capitalize; flex: none; }

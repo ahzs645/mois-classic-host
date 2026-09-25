@@ -1,11 +1,17 @@
 import type { ReactNode } from 'react'
-import { useState } from 'react'
-import { useChartRows } from '../data/chart-records'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useChartExport, useChartRows } from '../data/chart-records'
+import { carePlanRows } from '../data/carePlanRows'
+import { useChartSession } from '../data/chartSession'
+import {
+  CARE_PLAN_TYPES, letterBody, letterHeader, letterTables, setLetterFlow, useLetterFlow,
+  type BodyLine, type BodyTable, type LetterHeader,
+} from '../data/letterFlow'
 import { TEMPLATE_PREVIEW } from '../data/letterSetup'
 import {
   ADVANCE_SELECTION_BLOCKS, ADVANCE_SELECTION_MODES,
-  LETTER_DOCUMENT_TYPES, LETTER_MENUS, LETTER_TOOLBOX, LETTER_WRITER_COMMANDS,
-  LW, LW_BANDS, LW_CREATED_ROW, LW_HEADER_GRID, LW_LEFT_FIELDS, LW_RAIL, LW_SOURCE_ROW,
+  LETTER_MENUS, LETTER_TOOLBOX, LETTER_WRITER_COMMANDS,
+  LW, LW_BANDS, LW_CREATED_ROW, LW_HEADER_GRID, LW_RAIL, LW_SOURCE_ROW,
   LW_STATUS, LW_TOOLBAR,
   SELECTION_LISTS, TEMPLATE_DESIGN_COMMANDS,
   TEMPLATE_TOOLBOX,
@@ -14,10 +20,12 @@ import {
   type ToolboxGroup
 } from '../data/letterWriter'
 import { usePatient } from '../data/patient-context'
+import { useScreenReport } from '../host/screen-state'
 import {
-  PBButton, PBCheckbox, PBGroup, PBInput, PBMenuBar, PBRadio, PBSelect, PBStatusBar, PBWindow,
+  PBButton, PBCheckbox, PBGroup, PBInput, PBLookup, PBMenuBar, PBRadio, PBSelect, PBStatusBar, PBWindow,
   pbSlug, usePBInstrumentation,
 } from '../pb'
+import { useOpenWindow } from './areaWindowRegistry'
 
 /* ============================================================================
    MOIS Letter Writer — the CURRENT FLAT generation.
@@ -103,22 +111,27 @@ function LetterCommandRow({
       style={{ height: LW_BANDS.commandRow, background: LW.band, paddingLeft: 5, alignItems: 'center' }}
       data-tutorial-id={host?.anchor('commandrow')}
     >
-      {commands.map((c) => (
+      {commands.map((c) => {
+        /* Distribute... is anchored `letter-distribute`: the Care Plan's own
+           command row, behind this window, has a Distribute... of its own */
+        const slug = c.label === 'Distribute...' ? 'letter-distribute' : pbSlug(c.label)
+        return (
         <button
           key={c.label}
           type="button"
           className="pb-cmdrow__btn"
           style={{ width: c.width, height: LW_BANDS.commandRow }}
           title={c.hint}
-          data-tutorial-id={host?.anchor('command', pbSlug(c.label))}
+          data-tutorial-id={host?.anchor('command', slug)}
           onClick={() => {
-            host?.report('command', { command: pbSlug(c.label) })
+            host?.report('command', { command: slug })
             onCommand?.(c.label)
           }}
         >
           {c.label}
         </button>
-      ))}
+        )
+      })}
       <span className="pb-cmdrow__spacer" />
       <span style={{ paddingRight: 8, display: 'flex', alignItems: 'center' }}>
         <CollapseChevrons />
@@ -162,15 +175,8 @@ function MetaRow({ runs, height, anchor }: { runs: LetterMetaRun[]; height: numb
    Row 3 of the right column is document-type dependent — `Diagnosis:` for a
    referral, `Service Event:` on a service event, `Note:` on a Shared Care
    Plan — so it is read from the document type rather than written in.     */
-function HeaderFieldPanel({ docTypeId }: { docTypeId: string }) {
-  const doc = LETTER_DOCUMENT_TYPES.find((d) => d.id === docTypeId) ?? LETTER_DOCUMENT_TYPES[0]!
-  const right = [
-    { label: 'Type:', value: doc.type },
-    { label: 'Code:', value: '' },
-    { label: doc.row3Label, value: '' },
-    { label: 'Copies To:', value: '' },
-  ]
-
+function HeaderFieldPanel({ header, editable }: { header: LetterHeader | null; editable?: boolean }) {
+  const [type, setType] = useState(header?.right[0]?.value ?? '')
   const cell = (label: string, value: string, side: 'left' | 'right') => (
     <>
       <span
@@ -181,26 +187,46 @@ function HeaderFieldPanel({ docTypeId }: { docTypeId: string }) {
           alignItems: 'center',
           justifyContent: side === 'right' ? 'flex-end' : 'flex-start',
           paddingRight: side === 'right' ? 3 : 0,
+          fontWeight: side === 'left' ? 700 : 700,
         }}
       >
         {label}
       </span>
-      <span
-        data-tutorial-id={`host.mois.field.${pbSlug(label)}`}
-        style={{
-          height: LW_BANDS.headerRowPitch,
-          display: 'flex',
-          alignItems: 'center',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {value}
-      </span>
+      {editable && !(side === 'right' && label === 'Type:') ? (
+        /* the shared-care-plan variant (2070139/5dc6ad4fc232): every header
+           field is an edit, the left ones with a "…" lookup */
+        <span data-tutorial-id={`host.mois.field.${pbSlug(label)}`} style={{ display: 'flex', alignItems: 'center', height: LW_BANDS.headerRowPitch, paddingRight: 8 }}>
+          {side === 'left'
+            ? <PBLookup w="100%" value={value} name={pbSlug(label)} />
+            : <PBInput w="100%" value={value} readOnly={false} onChange={() => {}} />}
+        </span>
+      ) : editable ? (
+        <span data-tutorial-id="host.mois.field.type" style={{ display: 'flex', alignItems: 'center', gap: 6, height: LW_BANDS.headerRowPitch }}>
+          <PBSelect w={170} options={CARE_PLAN_TYPES} value={type} onChange={(e) => setType(e.target.value)} />
+          <span className="pb-form__label" style={{ fontWeight: 700 }}>Date:</span>
+          <PBInput w={80} value={header?.date ?? ''} onChange={() => {}} />
+        </span>
+      ) : (
+        <span
+          data-tutorial-id={`host.mois.field.${pbSlug(label)}`}
+          style={{
+            height: LW_BANDS.headerRowPitch,
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+            paddingLeft: 2,
+          }}
+        >
+          {value}
+        </span>
+      )}
     </>
   )
 
+  const left = header?.left ?? ['Attending:', 'Author:', 'Responsible Org.:', 'Primary Recipient:'].map((label) => ({ label, value: '' }))
+  const right = header?.right ?? ['Type:', 'Code:', 'Diagnosis:', 'Copies To:'].map((label) => ({ label, value: '' }))
   return (
     <div
       style={{
@@ -219,10 +245,53 @@ function HeaderFieldPanel({ docTypeId }: { docTypeId: string }) {
     >
       {[0, 1, 2, 3].map((i) => (
         <span key={i} style={{ display: 'contents' }}>
-          {cell(LW_LEFT_FIELDS[i]!.label, '', 'left')}
+          {cell(left[i]!.label, left[i]!.value, 'left')}
           {cell(right[i]!.label, right[i]!.value, 'right')}
         </span>
       ))}
+    </div>
+  )
+}
+
+/* --- the populated letter --------------------------------------------------
+   `pop` runs carry the #ffc09c salmon wash (populated from the record,
+   read-only here), the one `order` run the #bee6f8 blue (the Order's Record
+   Report / Comment, which reads back to the Order). */
+function LetterPage({ lines, tables, inserts }: {
+  lines: BodyLine[]
+  tables: BodyTable[]
+  inserts: ReactNode
+}) {
+  const style = (t: string) => t === 'pop' ? { background: LW.populator }
+    : t === 'order' ? { background: LW.orderField }
+    : t === 'bold' ? { fontWeight: 700 } : undefined
+  return (
+    <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 13 }}>
+      {lines.map((l, i) => (
+        <div key={i} style={{ marginBottom: l.gap ?? 0, minHeight: '1.35em', fontSize: l.big ? 20 : undefined }}>
+          {l.runs.map((r, j) => (
+            <span
+              key={j}
+              style={style(r.t)}
+              data-tutorial-id={r.t === 'order' ? 'host.mois.field.record-report' : undefined}
+              contentEditable={r.t === 'order' ? true : undefined}
+              suppressContentEditableWarning
+            >
+              {r.s}
+            </span>
+          ))}
+        </div>
+      ))}
+      {tables.map((t) => (
+        <div key={t.title} style={{ margin: '18px 0 6px' }} data-tutorial-id={`host.mois.field.table-${pbSlug(t.title)}`}>
+          <div style={{ textDecoration: 'underline', marginBottom: 6 }}>{t.title}</div>
+          <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+            <thead><tr>{t.columns.map((c) => <th key={c} style={{ background: LW.tableHead, border: '1px solid #808080', padding: '4px 6px', textAlign: 'left' }}>{c}</th>)}</tr></thead>
+            <tbody>{t.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} style={{ border: '1px solid #808080', padding: '3px 6px' }}>{c}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      ))}
+      {inserts}
     </div>
   )
 }
@@ -505,12 +574,18 @@ function SelectionWindow({
                             className={c.check ? 'pb-dw__c--center' : undefined}
                             /* the row is wider than a ring should be, so the
                                anchor goes on the check cell, not the row */
-                            data-tutorial-id={
-                              c.check ? `host.mois.cell.${c.key}-${pbSlug(String(r.date ?? i))}` : undefined
-                            }
                           >
                             {c.check
-                              ? <PBCheckbox checked={Boolean(r[c.key])} onChange={checked => setRows(all => all.map((row, j) => j === i ? { ...row, [c.key]: checked } : row))} />
+                              ? (
+                                /* the anchor sits on the box itself, so a
+                                   replayed click ticks it; the first row also
+                                   answers to `…-first` */
+                                <PBCheckbox
+                                  checked={Boolean(r[c.key])}
+                                  tutorialId={i === 0 ? `host.mois.cell.${c.key}-first` : `host.mois.cell.${c.key}-${pbSlug(String(r.date ?? i))}`}
+                                  onChange={checked => setRows(all => all.map((row, j) => j === i ? { ...row, [c.key]: checked } : row))}
+                                />
+                              )
                               : c.link
                                 ? <button className="pb-link">{String(r[c.key] ?? '')}</button>
                                 : String(r[c.key] ?? '')}
@@ -591,23 +666,66 @@ export type LetterWriterMode = 'letter' | 'template'
 
 export function LetterWriterWindow({
   mode = 'letter',
-  documentType = 'referral',
+  documentType,
+  raw = false,
   onClose,
   onCommand,
 }: {
   mode?: LetterWriterMode
-  /** which document type the header block and title band describe */
+  /** which document type the header block and title band describe; by
+      default, the one the letter in progress was started as */
   documentType?: string
+  /** the template as picked, before Letter Setup: header empty, populators
+      still yellow — what 303099 `4bb2668b…` shows behind the order prompt */
+  raw?: boolean
   onClose?: () => void
   onCommand?: (label: string) => void
 }) {
   const patient = usePatient()
   const template = mode === 'template'
-  const doc = LETTER_DOCUMENT_TYPES.find((d) => d.id === documentType) ?? LETTER_DOCUMENT_TYPES[0]!
+  const flow = useLetterFlow()
+  const data = useChartExport()
+  const session = useChartSession(patient.chart)
+  const doc = (documentType ?? flow.doc) as typeof flow.doc
+  const header = useMemo(() => (template || raw ? null : letterHeader(doc, data, flow)), [data, doc, flow, raw, template])
+  const lines = useMemo(() => (header ? letterBody(doc, patient, header) : []), [doc, header, patient])
+  const tables = useMemo(() => {
+    if (!header) return []
+    if (doc !== 'care-plan') return letterTables(data, flow.selected)
+    /* a shared care plan carries the plan itself, section by section */
+    const rows = carePlanRows(data, session.tags)
+    return [...new Set(rows.map((r) => r.section))].map((section) => ({
+      title: `${section.charAt(0)}${section.slice(1).toLowerCase()}:`,
+      columns: ['DATE', 'DESCRIPTION', 'DETAIL'],
+      rows: rows.filter((r) => r.section === section).map((r) => [r.date.replace(/\./g, '-'), r.description, r.detail]),
+    }))
+  }, [data, doc, flow.selected, header, session.tags])
+  const openWindow = useOpenWindow()
+  /* an inserted table lands at the end of the letter: bring it into view */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  /* Distribute (F2) on Create Distribution sends the letter, and a sent
+     letter's writer closes */
+  useEffect(() => {
+    if (flow.distributed && !template && !raw) onClose?.()
+  }, [flow.distributed, onClose, raw, template])
+  const command = (label: string) => {
+    if (label === 'Distribute...') openWindow('create-distribution', { doc })
+    if (label === 'Create Task') openWindow('create-task', { chart: patient.chart, linked: header?.title })
+    if (label === 'Create Message') openWindow('create-message', { chart: patient.chart, linked: header?.title })
+    if (label === 'Save') setLetterFlow({})
+    onCommand?.(label)
+  }
 
   const [source, setSource] = useState<Record<string, string>>({})
   const [inserts, setInserts] = useState<{ kind: 'table' | 'detail'; list: SelectionList }[]>([])
   const [selection, setSelection] = useState<{ list: SelectionList; insert: 'table' | 'detail' | null } | null>(null)
+  /* the document type and the template picked two windows back, so a lesson
+     can check the letter it is grading is the one that was chosen */
+  useScreenReport(template || raw ? {} : { letterDoc: doc, ...(flow.template ? { letterTemplate: pbSlug(flow.template) } : {}), letterInserts: inserts.length })
+  useEffect(() => {
+    const body = bodyRef.current
+    if (body && inserts.length) body.scrollTop = body.scrollHeight
+  }, [inserts.length])
 
   const measures = useChartRows('measures')
   const documents = useChartRows('documents')
@@ -667,7 +785,7 @@ export function LetterWriterWindow({
             {RULE(LW.rule)}
             <LetterCommandRow
               commands={template ? TEMPLATE_DESIGN_COMMANDS : LETTER_WRITER_COMMANDS}
-              onCommand={onCommand}
+              onCommand={command}
             />
             {RULE(LW.rule)}
 
@@ -686,7 +804,7 @@ export function LetterWriterWindow({
                 overflow: 'hidden',
               }}
             >
-              {template ? 'LETTER TEMPLATE' : doc.title.split(' - ')[0]}
+              {template ? 'LETTER TEMPLATE' : header?.title ?? (doc === 'consult' ? 'CONSULT NOTE' : doc === 'information-request' ? 'INFORMATION REQUEST' : doc === 'care-plan' ? 'SHARED CARE PLAN' : 'REFERRAL NOTE')}
             </div>
             {RULE(LW.rule)}
 
@@ -700,16 +818,23 @@ export function LetterWriterWindow({
                     background: `linear-gradient(to bottom, ${LW.headerTop}, ${LW.headerBottom})`,
                   }}
                 >
-                  <HeaderFieldPanel docTypeId={doc.id} />
+                  <HeaderFieldPanel header={header} editable={doc === 'care-plan'} />
                   {RULE(LW.ruleSoft)}
                   <MetaRow
-                    runs={LW_SOURCE_ROW.map(r => ({ ...r, text: r.field || r.text.startsWith('- ') ? '' : r.text }))}
+                    runs={LW_SOURCE_ROW.map(r => ({ ...r, text: !header ? (r.field || r.text.startsWith('- ') ? '' : r.text)
+                      : r.field === 'record-date' ? header.date
+                      : r.field === 'loinc' ? header.loinc
+                      : r.text.startsWith('- ') ? header.loincName
+                      : r.text }))}
                     height={LW_BANDS.sourceRow}
                     anchor="host.mois.field.source-row"
                   />
                   {RULE(LW.ruleSoft)}
                   <MetaRow
-                    runs={LW_CREATED_ROW.map(r => ({ ...r, text: r.field ? '' : r.text }))}
+                    runs={LW_CREATED_ROW.map(r => ({ ...r, text: !header ? (r.field ? '' : r.text)
+                      : r.field === 'created' ? header.created
+                      : r.field === 'last-modified' ? `Last Modified: ${header.created}`
+                      : r.text }))}
                     height={LW_BANDS.createdRow}
                     anchor="host.mois.field.created-row"
                   />
@@ -722,6 +847,7 @@ export function LetterWriterWindow({
             <Ruler />
 
             <div
+              ref={bodyRef}
               data-tutorial-id="host.mois.field.letter-body"
               style={{
                 flex: '1 1 auto',
@@ -732,7 +858,7 @@ export function LetterWriterWindow({
                 lineHeight: 1.35,
               }}
             >
-              {template
+              {template || raw
                 ? TEMPLATE_PREVIEW.map((p, i) => (
                   <div key={i} style={{ marginBottom: p.gap ?? 0, minHeight: '1.4em' }}>
                     {p.tokens.map((t, j) => (
@@ -752,11 +878,11 @@ export function LetterWriterWindow({
                   </div>
                 ))
                 : (
-                  <>
-                    <div>{patient.full} · Chart {patient.chart}</div>
-                    {inserts.length === 0 && <div style={{ marginTop: 12 }}>No letter content selected.</div>}
-                    {inserts.map((entry, i) => <GeneratedRecords key={i} list={entry.list} detail={entry.kind === 'detail'} />)}
-                  </>
+                  <LetterPage
+                    lines={lines}
+                    tables={tables}
+                    inserts={inserts.map((entry, i) => <GeneratedRecords key={i} list={entry.list} detail={entry.kind === 'detail'} />)}
+                  />
                 )}
             </div>
           </div>

@@ -5,23 +5,33 @@
    window — a grey band, navy section headings, a handful of fields and an
    Ok / Cancel pair — and Ok opens a **Richtext Report** window, an editable
    RTF preview with Print / Print and Attach / Fax / Cancel across the top.
+   Not every window is the same shape: Consultations and the Clinical History
+   Segment have no band and say View Report, MAR History carries a grey note
+   and a `Select Records to Print...` button. Each entry below cites the
+   capture its window was transcribed from.
 
-   Transcribed from the one flow the help site captures end to end on a single
-   build (v02.30.22): `PrintInterventionsList_image1.png` (the Print menu),
-   `PrintInterventionsList_SelectedParams_image2.png` (the dialog) and
-   `PrintInterventionsList_SelectedParams_image3.png` (the output). The
-   medications dialog is `patient_chart/long_term_meds/active.PNG`; its report
-   body is **not** captured anywhere, so its page is modelled on the sibling
-   prescriptions report in `Common Window/print_1.png` and is marked below.
-
-   The page bodies are monospace, the way MOIS renders them (Lucida Console).
-   Patients and values are synthetic training data.
+   Every page is laid out from the open chart by a builder in
+   `data/printPages.ts`, which cites the article image each layout (title,
+   columns, sections) was transcribed from. The one page no capture shows is
+   the long-term medication list; it is marked `captured: false`.
    ========================================================================= */
+import { MOIS_TODAY } from './patients'
+import {
+  admissionsPage, clinicalHistoryPage, consultationsPage, familyHistoryPage,
+  interventionsPage, marHistoryPage, medicationsPage, problemListPage,
+  proceduresPage, radiologyPage, socialHistoryPage, type PrintContext,
+} from './printPages'
 
 export type PrintField =
   | { kind: 'section'; label: string }
-  | { kind: 'text'; label: string; value?: string; width?: number }
-  | { kind: 'check'; label: string; checked?: boolean }
+  /** `key` names the value a page builder reads; `dots` draws the "…" lookup */
+  | { kind: 'text'; label: string; value?: string; width?: number; key?: string; dots?: boolean }
+  /** From and To on one row, as the Consultations window lays them out */
+  | { kind: 'range'; from?: string; to?: string }
+  /** `caption` is a label to the left of the box (`Consultations:`) */
+  | { kind: 'check'; label: string; checked?: boolean; key?: string; caption?: string }
+  /** the Clinical History Segment's Include Section / With Detail grid */
+  | { kind: 'segments'; rows: { label: string; include?: boolean; detail?: boolean; date?: boolean }[] }
 
 export type PrintReport = {
   /** the Print-menu item that opens it */
@@ -31,304 +41,203 @@ export type PrintReport = {
   fields: PrintField[]
   /** the Richtext Report window's title bar, after "Richtext Report: " */
   reportTitle: string
-  /** the page, verbatim in layout; `captured: false` means the body is modelled */
+  /** `captured: false` means the page body is modelled, not transcribed */
   captured: boolean
-  page: string
+  /** a static page, for a report with no builder */
+  page?: string
+  /** lays the page out from the open chart (data/printPages.ts) */
+  build?: (ctx: PrintContext) => string
+  /** the default button's caption: `Ok` unless the capture shows otherwise */
+  okLabel?: string
+  /** false = no grey `Selection Parameter` band across the top */
+  band?: boolean
+  /** the grey note line some windows carry above the buttons */
+  note?: string
+  /** a button in the bottom-left corner, opening a window of its own */
+  leftButton?: { label: string; window: 'select-mar-records' }
+  /** MAR History is a DataWindow report in a proportional face */
+  font?: 'mono' | 'sans'
+  /** the window's size when the capture's differs from the 650×530 default */
+  size?: { width: number; height: number }
 }
 
+/** the dialog's default dates: MOIS opens them on today and a span back */
+const TO = MOIS_TODAY
+const back = (years: number, months = 0) => {
+  const [y, m, d] = MOIS_TODAY.split('.').map(Number) as [number, number, number]
+  const total = y * 12 + (m - 1) - years * 12 - months
+  return `${Math.floor(total / 12)}.${String((total % 12) + 1).padStart(2, '0')}.${String(d).padStart(2, '0')}`
+}
 
 export const printReports: PrintReport[] = [
+  /* 303146 `de09b682…` (the window) and `8e214ced…` (the page) */
   {
     menu: 'Interventions for Patient',
     title: 'Patient Interventions Report',
     fields: [
       { kind: 'section', label: 'Performed Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '2025.01.01', width: 100 },
-      { kind: 'text', label: 'To:', value: '2026.03.18', width: 100 },
+      { kind: 'text', label: 'From:', value: back(7), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
       { kind: 'section', label: 'Description' },
-      { kind: 'text', label: 'Includes:', value: '', width: 260 },
-      { kind: 'text', label: 'Excludes:', value: '', width: 260 },
+      { kind: 'text', label: 'Includes:', value: '', width: 190, key: 'includes' },
+      { kind: 'text', label: 'Excludes:', value: '', width: 190, key: 'excludes' },
     ],
     reportTitle: 'Patient Intervention Report',
     captured: true,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                            PATIENT INTERVENTIONS AS OF 2026/03/18
-                               PERIOD 2025/01/01 TO 2026/03/18
-                       DESCRIPTION - INCLUDES: <ALL> - EXCLUDES: <NONE>
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-INTERVENTIONS
-DATE       PERFORMED BY         INTERVENTION                                    DEC  N.IND
-%RULE%
-2025-04-02 BEARDWOOD, W         COUNSELING - SMOKING CESSATION
-2025-09-17 SHEWCHUK, LEAH       DIABETIC FOOT EXAMINATION
-2025-11-28 SHEWCHUK, LEAH       INFLUENZA VACCINE OFFERED                       Y
-2026-03-04 BEARDWOOD, W         COLORECTAL SCREENING DISCUSSED                       Y
-DEC = DECLINED   N.IND = NOT INDICATED`,
+    build: interventionsPage,
   },
   {
     menu: 'Medications for Patient',
     title: 'Patient Long Term Medications Report',
     fields: [
       { kind: 'section', label: 'Stopped Medications' },
-      { kind: 'check', label: 'Show Stopped Medications', checked: false },
+      { kind: 'check', label: 'Show Stopped Medications', checked: false, key: 'stopped' },
     ],
     reportTitle: 'Patient Long Term Medication Report',
-    captured: true,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-PATIENT LONG TERM MEDICATION LIST AS OF 2026/03/18
-%RULE%
-
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-REACTION RISK
-START      SUBSTANCE                                REACTION(S)
-%RULE%
-2008-04-06 PENICILLIN                               UNSPECIFIED
-MEDICATION
-START      END        MEDICATION                                DOSE / FREQ     INDICATION
-%RULE%
-                      CBGM STRIPS
-                      BLISTER PACK ALL MEDICATIONS
-2024-06-03            METFORMIN HYDROCHLORIDE 500 MG TABLET     bid
-2023-02-11            RAMIPRIL 5 MG CAPSULE                     daily
-2025-09-17            ATORVASTATIN 20 MG TABLET                 1 tab at hs`,
+    /* the window is captured; the page is not (see medicationsPage) */
+    captured: false,
+    build: medicationsPage,
   },
   /* ------------------------------------------------------------------------
-     The nine reports below back the chart print-flow lessons. Their Selection
-     Parameter windows are transcribed from the help site's captures (titles,
-     navy section headings and checkbox captions verbatim, including the
-     `Include Report Detail` / `Include Detail Reports` split between Radiology
-     and Admissions). None of their report *bodies* is captured anywhere, so
-     every page here is modelled on the two captured siblings above and is
-     marked `captured: false`.
-
-     The first three have no Selection Parameter window at all — the Print menu
-     goes straight to the preview — so their `fields` are empty and the lessons
-     only ever ask for `stage: 'report'`.
+     The chart print-flow lessons. Each window and each page is transcribed
+     from its article's capture: 303457 problem list, 303158 family history,
+     303444 social history, 303120 radiology, 303134 consultations, 303142
+     procedures, 303591 admissions. The three undated lists have no Selection
+     Parameter window at all — the Print menu goes straight to the preview —
+     so their `fields` are empty.
      --------------------------------------------------------------------- */
   {
     menu: 'Problem List for Patient',
     title: 'Patient Problem List Report',
     fields: [],
     reportTitle: 'Patient Problem List Report',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                             PATIENT PROBLEM LIST AS OF 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-HEALTH ISSUES
-ONSET      CODE        DESCRIPTION                                        STATUS
-%RULE%
-2008-04-06 250.00      DIABETES MELLITUS TYPE 2                           ACTIVE
-2014-11-02 401.9       HYPERTENSION, ESSENTIAL                            ACTIVE
-2019-07-15 272.0       HYPERCHOLESTEROLEMIA                               ACTIVE
-2021-03-30 715.90      OSTEOARTHRITIS                                     INACTIVE`,
+    captured: true,
+    build: problemListPage,
   },
   {
     menu: 'Family History (Hx) for Patient',
     title: 'Patient Family History Report',
     fields: [],
     reportTitle: 'Patient Family History Report',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                           PATIENT FAMILY HISTORY AS OF 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-FAMILY HISTORY
-RECORDED   RELATION             CONDITION                                  AGE ONSET
-%RULE%
-2009-01-12 MOTHER               DIABETES MELLITUS TYPE 2                   52
-2009-01-12 FATHER               MYOCARDIAL INFARCTION                      61
-2016-05-20 SISTER               BREAST CANCER                              47`,
+    captured: true,
+    build: familyHistoryPage,
   },
   {
     menu: 'Social History for Patient',
     title: 'Patient Social History Report',
     fields: [],
     reportTitle: 'Patient Social History Report',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                      PATIENT SOCIAL HISTORY / RISK AS OF 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-SOCIAL HISTORY / RISK
-RECORDED   CATEGORY             DETAIL
-%RULE%
-2025-11-28 SMOKING              FORMER SMOKER - QUIT 2019/04
-2025-11-28 ALCOHOL              OCCASIONAL, UNDER 5 DRINKS PER WEEK
-2024-02-14 OCCUPATION           RETIRED SCHOOL ADMINISTRATOR
-2024-02-14 LIVING SITUATION     LIVES WITH SPOUSE`,
+    captured: true,
+    build: socialHistoryPage,
   },
+  /* 303120 `83853431…`: band, heading, From/To stacked, one checkbox, Ok */
   {
     menu: 'Radiology Reports for Patient',
     title: 'Patient Radiology Report',
     fields: [
       { kind: 'section', label: 'Performed Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '2025.01.01', width: 100 },
-      { kind: 'text', label: 'To:', value: '2026.03.18', width: 100 },
-      { kind: 'check', label: 'Include Report Detail', checked: true },
+      { kind: 'text', label: 'From:', value: back(0, 3), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+      { kind: 'check', label: 'Include Report Detail', checked: true, key: 'detail' },
     ],
     reportTitle: 'Patient Radiology Report',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                            PATIENT RADIOLOGY AS OF 2026/03/18
-                               PERIOD 2025/01/01 TO 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-IMAGING
-PERFORMED  MODALITY   DESCRIPTION                               ORDERED BY
-%RULE%
-2025-06-11 XR         CHEST - PA AND LATERAL                    BEARDWOOD, W
-  REPORT : No focal consolidation. Heart size within normal limits. No
-           pleural effusion. Impression: no acute cardiopulmonary disease.
-2026-01-22 US         ABDOMEN - COMPLETE                        SHEWCHUK, LEAH
-  REPORT : Hepatic echotexture mildly increased, consistent with steatosis.
-           Gallbladder without stones. Impression: hepatic steatosis.`,
+    captured: true,
+    build: radiologyPage,
   },
+  /* 303134 `81cf425c…`: no Selection Parameter band, From and To on one row,
+     a `Consultations:` caption beside the `with detail reports` box, and the
+     article's button is View Report */
   {
     menu: 'Consultations for Patient',
     title: 'Patient Consultations Report',
+    band: false,
+    okLabel: 'View Report',
     fields: [
       { kind: 'section', label: 'Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '2025.01.01', width: 100 },
-      { kind: 'text', label: 'To:', value: '2026.03.18', width: 100 },
+      { kind: 'range', from: back(2), to: TO },
       { kind: 'section', label: 'Select Report Content' },
-      { kind: 'check', label: 'Consultations: with detail reports', checked: true },
+      { kind: 'check', caption: 'Consultations:', label: 'with detail reports', checked: true, key: 'detail' },
     ],
     reportTitle: 'Consultations for Patient',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                           PATIENT CONSULTATIONS AS OF 2026/03/18
-                               PERIOD 2025/01/01 TO 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-CONSULTATIONS
-DATE       SPECIALTY            CONSULTANT                      REASON
-%RULE%
-2025-08-19 ENDOCRINOLOGY        DR. A. PEDIATRICIAN             GLYCEMIC CONTROL
-  REPORT : HbA1c 8.4%. Recommend addition of a second oral agent and
-           quarterly review. Foot examination unremarkable.
-2026-02-03 OPHTHALMOLOGY        DR. M. MCPHILLIPS               RETINAL SCREENING
-  REPORT : No retinopathy. Repeat screening in twelve months.`,
+    captured: true,
+    build: consultationsPage,
   },
+  /* 303142 `035b042b…` */
   {
     menu: 'Procedure List for Patient',
     title: 'Patient Procedures Report',
     fields: [
       { kind: 'section', label: 'Performed Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '2025.01.01', width: 100 },
-      { kind: 'text', label: 'To:', value: '2026.03.18', width: 100 },
-      { kind: 'check', label: 'Include Report Detail', checked: true },
+      { kind: 'text', label: 'From:', value: back(0, 3), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+      { kind: 'check', label: 'Include Report Detail', checked: true, key: 'detail' },
     ],
     reportTitle: 'Patient Procedure Report',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                            PATIENT PROCEDURES AS OF 2026/03/18
-                               PERIOD 2025/01/01 TO 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-PROCEDURES
-PERFORMED  PERFORMED BY         PROCEDURE                                 OUTCOME
-%RULE%
-2025-05-07 BEARDWOOD, W         COLONOSCOPY                               COMPLETE
-  REPORT : Two diminutive polyps removed from the sigmoid colon. Repeat in
-           five years.
-2025-10-14 SHEWCHUK, LEAH       SKIN LESION EXCISION - LEFT FOREARM       COMPLETE`,
+    captured: true,
+    build: proceduresPage,
   },
+  /* 303591 `b7ae6c19…`: Discharge, not Performed, and `Include Detail Reports` */
   {
     menu: 'Facility Admission for Patient',
     title: 'Patient Admissions Report',
     fields: [
       { kind: 'section', label: 'Discharge Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '2025.01.01', width: 100 },
-      { kind: 'text', label: 'To:', value: '2026.03.18', width: 100 },
-      { kind: 'check', label: 'Include Detail Reports', checked: true },
+      { kind: 'text', label: 'From:', value: back(0, 3), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+      { kind: 'check', label: 'Include Detail Reports', checked: true, key: 'detail' },
     ],
     reportTitle: 'Patient Admission Report',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                       PATIENT FACILITY ADMISSIONS AS OF 2026/03/18
-                               PERIOD 2025/01/01 TO 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-FACILITY ADMISSIONS
-ADMITTED   DISCHARGED  FACILITY                        MOST RESPONSIBLE
-%RULE%
-2025-07-02 2025-07-05  UNIVERSITY HOSPITAL OF NBC      BEARDWOOD, W
-  REPORT : Admitted with cellulitis of the left lower leg. Treated with
-           intravenous antibiotics. Discharged on oral cephalexin.`,
+    captured: true,
+    build: admissionsPage,
   },
+  /* 319686 `98c198a6…`: blank 0000.00.00 dates, a Concept lookup, the grey
+     optional-parameters note, and `Select Records to Print...` bottom-left,
+     which opens `Select MAR Record(s) to Print` (`06e789f8…`) */
   {
     menu: 'MAR History',
     title: 'Report: Patient MAR History',
     fields: [
       { kind: 'section', label: 'Administration Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '0000.00.00', width: 100 },
-      { kind: 'text', label: 'To:', value: '0000.00.00', width: 100 },
+      { kind: 'text', label: 'From:', value: '0000.00.00', width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: '0000.00.00', width: 80, key: 'to' },
       { kind: 'section', label: 'Records' },
-      { kind: 'text', label: 'Concept:', value: '', width: 260 },
+      { kind: 'text', label: 'Concept:', value: '', width: 356, key: 'concept', dots: true },
     ],
+    note: 'Note: All parameters are optional.  Blank parameters will be ignored when filtering the list.',
+    leftButton: { label: 'Select Records to Print...', window: 'select-mar-records' },
     reportTitle: 'Patient MAR History',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                            PATIENT MAR HISTORY AS OF 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-MEDICATION ADMINISTRATION RECORD
-GIVEN            MEDICATION                          DOSE      SITE    GIVEN BY
-%RULE%
-2025-11-28 10:14 INFLUENZA VACCINE (QUAD)            0.5 ML    L DELT  SHEWCHUK, LEAH
-                 LOT 4471B  EXP 2026-06-30
-2025-11-28 10:20 PNEUMOCOCCAL 23-VALENT              0.5 ML    R DELT  SHEWCHUK, LEAH
-                 LOT 9920C  EXP 2027-01-31
-2026-02-11 09:02 VITAMIN B12 CYANOCOBALAMIN          1000 MCG  L GLUT  BEARDWOOD, W`,
+    captured: true,
+    font: 'sans',
+    build: marHistoryPage,
   },
+  /* 303082 `4e709015…`: no band — a Date Range row, then a grid with an
+     Include Section / With Detail / Custom Date / From / To header, and
+     View Report. `26d0eab1…` is the page. */
   {
     menu: 'Clinical History Segment',
     title: 'Patient Clinical History - Segmented',
+    band: false,
+    okLabel: 'View Report',
+    size: { width: 585, height: 535 },
     fields: [
       { kind: 'section', label: 'Date Range (INCLUSIVE)' },
-      { kind: 'text', label: 'From:', value: '2025.01.01', width: 100 },
-      { kind: 'text', label: 'To:', value: '2026.03.18', width: 100 },
-      { kind: 'check', label: 'ALL Records (including items w/o a date)', checked: false },
-      { kind: 'section', label: 'Sections' },
-      { kind: 'check', label: 'Health Issues', checked: true },
-      { kind: 'check', label: 'Long Term Medications', checked: true },
-      { kind: 'check', label: 'Reaction Risks', checked: true },
-      { kind: 'check', label: 'Encounters', checked: false },
+      { kind: 'range', from: back(2), to: TO },
+      { kind: 'check', label: 'ALL Records (including items w/o a date)', checked: false, key: 'all' },
+      {
+        kind: 'segments',
+        rows: [
+          { label: 'Problem List' }, { label: 'Reaction Risks' }, { label: 'Adverse Events' },
+          { label: 'Long Term Medications' }, { label: 'MAR' }, { label: 'Measures / Labs' },
+          { label: 'Imaging' }, { label: 'Consultations' }, { label: 'Admissions' },
+          { label: 'Procedures' }, { label: 'Family History' }, { label: 'Social History' },
+          { label: 'Encounters', include: true }, { label: 'Encounter Forms' }, { label: 'Interventions' },
+          { label: 'Documents' }, { label: 'Dynamic Forms' }, { label: 'Messages' }, { label: 'Tasks' },
+        ],
+      },
     ],
     reportTitle: 'Patient Clinical History',
-    captured: false,
-    page: `HALLIWELL MEDICAL CLINIC                                                            Page 1
-                      PATIENT CLINICAL HISTORY AS OF 2026/03/18
-                               PERIOD 2025/01/01 TO 2026/03/18
-%RULE%
-PATIENT  : DIABETES, BETTY                                      DOB: 1955-05-04  SEX: F
-INS NO.  : BC   111222333444      00                         CHART:  10018
-HEALTH ISSUES
-ONSET      DESCRIPTION                                                    STATUS
-%RULE%
-2008-04-06 DIABETES MELLITUS TYPE 2                                       ACTIVE
-2014-11-02 HYPERTENSION, ESSENTIAL                                        ACTIVE
-LONG TERM MEDICATIONS
-START      MEDICATION                                DOSE / FREQ
-%RULE%
-2024-06-03 METFORMIN HYDROCHLORIDE 500 MG TABLET     bid
-2023-02-11 RAMIPRIL 5 MG CAPSULE                     daily
-REACTION RISKS
-START      SUBSTANCE                                REACTION(S)
-%RULE%
-2008-04-06 PENICILLIN                               UNSPECIFIED`,
+    captured: true,
+    build: clinicalHistoryPage,
   },
 ]
 

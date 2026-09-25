@@ -117,7 +117,8 @@ export type LetterSetupRow = {
   section: string
   available: number
   selected: number
-  /** `Select All` is the default on every row the capture shows */
+  /** the template's default: 304687/08364fcebd64 opens HEALTH ISSUES, LT MEDS
+      and ALLERGIES on Select All and every other section on Choose */
   action: 'all' | 'choose'
   attachAvailable: number
   attachSelected: number
@@ -135,23 +136,29 @@ export type LetterSetupRow = {
    with fewer tags (HEALTH ISSUES, LT MEDS, ALLERGIES, FAMILY HX, ATTACHMENT
    REVIEW). */
 export const LETTER_SETUP_ROWS: LetterSetupRow[] = [
-  { section: 'CONSULT', available: 2, selected: 2, action: 'all', attachAvailable: 1, attachSelected: 0 },
-  { section: 'ENCOUNTERS', available: 24, selected: 24, action: 'all', attachAvailable: 0, attachSelected: 0 },
-  { section: 'FACILITY ADMISSION', available: 2, selected: 2, action: 'all', attachAvailable: 2, attachSelected: 0 },
+  /* The counts here are the capture's; the window replaces them with the
+     open chart's own (LetterFlow.tsx). The Action defaults are 304687/
+     08364fcebd64's: Choose everywhere except HEALTH ISSUES, LT MEDS and
+     ALLERGIES. */
+  { section: 'CONSULT', available: 3, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
+  { section: 'ENCOUNTERS', available: 39, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
+  { section: 'FACILITY ADMISSION', available: 2, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
   {
-    section: 'HEALTH ISSUES', available: 11, selected: 11, action: 'all',
+    section: 'HEALTH ISSUES', available: 7, selected: 1, action: 'all',
     attachAvailable: 0, attachSelected: 0, stoppedRecords: true,
   },
-  { section: 'IMAGES', available: 3, selected: 3, action: 'all', attachAvailable: 1, attachSelected: 0 },
+  { section: 'IMAGES', available: 3, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
   {
-    section: 'LT MEDS', available: 10, selected: 9, action: 'all',
+    section: 'LT MEDS', available: 2, selected: 2, action: 'all',
     attachAvailable: 0, attachSelected: 0, stoppedRecords: true,
+    /* the tooltip 303589/c6995e12bab2 catches live, where Selected is one
+       short of Available */
     tooltip: 'LT MEDS\n1 sensitive/inactive record excluded',
   },
-  { section: 'MEASURES', available: 21, selected: 21, action: 'all', attachAvailable: 0, attachSelected: 0 },
-  { section: 'PROCEDURE', available: 1, selected: 1, action: 'all', attachAvailable: 0, attachSelected: 0 },
-  { section: 'ALLERGIES', available: 2, selected: 2, action: 'all', attachAvailable: 0, attachSelected: 0 },
-  { section: 'DOCUMENTS', available: 7, selected: 7, action: 'choose', attachAvailable: 4, attachSelected: 0 },
+  { section: 'MEASURES', available: 90, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
+  { section: 'PROCEDURE', available: 3, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
+  { section: 'ALLERGIES', available: 3, selected: 3, action: 'all', attachAvailable: 0, attachSelected: 0 },
+  { section: 'DOCUMENTS', available: 28, selected: 0, action: 'choose', attachAvailable: 0, attachSelected: 0 },
   {
     section: 'ATTACHMENT REVIEW', available: 0, selected: 0, action: 'all',
     attachAvailable: 0, attachSelected: 0, disabled: true,

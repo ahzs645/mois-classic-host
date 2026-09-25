@@ -127,42 +127,90 @@ textarea.pb-field {
 .pb-inputgroup__btn:disabled { color: #b4b4b4; background: #f2f2f2; border-color: #d4d4d4; }
 /* the ellipsis lookup button is a touch wider and sits flush */
 .pb-inputgroup__btn--dots { width: 18px; font-size: var(--pb-fs); letter-spacing: -1px; }
-.pb-inputgroup__btn--drop { width: var(--pb-dropdown-button-width, 18px); }
+.pb-inputgroup__btn--drop { width: var(--pb-dropdown-button-width, 18px); color: #606060; }
+/* PBDropGlyph: Windows 10's thin chevron; the classic theme shows the
+   triangle instead (tokens.css) */
+.pb-drop-glyph { display: block; }
+.pb-drop-glyph__triangle { display: none; }
 
-/* --- select ------------------------------------------------------------- */
-/* PBSelect, PBDropField and PBDropDownDataWindow share the closed-field
-   chrome. Their opened lists still use their respective MOIS control types. */
-.pb-select,
+/* --- select -------------------------------------------------------------
+   PBSelect, PBDropField and PBDropDownDataWindow are one control closed: a
+   .pb-field face and a real .pb-inputgroup__btn--drop, so hover, press,
+   disabled and the classic bevel come from the same rules. Open, PBSelect
+   and the DDDW drop the same .pb-dddw__list (below).                       */
 .pb-inputgroup > .pb-field,
-.pb-dddw > .pb-field {
+.pb-dddw > .pb-field,
+.pb-select__face {
   height: var(--pb-row-h);
   background-color: var(--pb-field-bg);
 }
+.pb-inputgroup > .pb-field:disabled,
+.pb-dddw > .pb-field:disabled { background-color: #fdfdfd; }
+
 .pb-select {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
   height: var(--pb-row-h);
-  padding: 0 18px 0 3px;
-  border: 1px solid var(--pb-border);
-  background: var(--pb-field-bg);
-  /* first layer paints on top, so the arrow must lead and the button face
-     (plus its 1px separator rule) follow underneath it */
-  background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='7' height='5'><path d='M0 0h7L3.5 5z' fill='%233c3c3c'/></svg>"),
-    linear-gradient(90deg, var(--pb-border) 0 1px, var(--pb-btn-face) 1px);
-  background-repeat: no-repeat, no-repeat;
-  background-position: right 5px center, right 0 center;
-  background-size: 7px 5px, var(--pb-dropdown-button-width, 18px) 100%;
+  min-width: 0;
+  vertical-align: middle;
+}
+/* the native <select> sizes the control and takes the input; it is painted
+   by the face and button under it, never by itself */
+.pb-select__native {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+  /* the face's text inset and the button's width, so an unsized control is
+     as wide as its longest option plus the button, as it always was */
+  padding: 0 var(--pb-dropdown-button-width, 18px) 0 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: transparent;
   font-family: var(--pb-font);
   font-size: var(--pb-fs);
-  color: var(--pb-text);
+  opacity: 0;
   appearance: none;
   -webkit-appearance: none;
   cursor: default;
-  min-width: 0;
 }
-.pb-select:focus { outline: none; border-color: var(--pb-border-strong); }
-.pb-select:disabled { background-color: #fdfdfd; color: var(--pb-text-dim); border-color: #cfcfcf; }
-.pb-inputgroup > .pb-field:disabled,
-.pb-dddw > .pb-field:disabled { background-color: #fdfdfd; }
+.pb-select__face {
+  /* a .pb-field's look under its own class: rules that size a form's fields
+     (`.x .pb-field { width: 100% }`) must not stretch it over the button */
+  padding: 0 3px;
+  border: 1px solid var(--pb-border);
+  font-family: var(--pb-font);
+  font-size: var(--pb-fs);
+  color: var(--pb-text);
+  position: absolute;
+  inset: 0 var(--pb-dropdown-button-width, 18px) 0 0;
+  display: flex;
+  align-items: center;
+  border-right: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.pb-select > .pb-inputgroup__btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+.pb-select:focus-within .pb-select__face { border-color: var(--pb-border-strong); }
+/* the button's own :hover / :active cannot fire under the native layer */
+.pb-select:not(.is-disabled):hover > .pb-inputgroup__btn { background: #d8d8d8; }
+.pb-select.is-open > .pb-inputgroup__btn { background: #c6c6c6; }
+.pb-select.is-disabled .pb-select__face { background-color: #fdfdfd; color: var(--pb-text-dim); border-color: #cfcfcf; }
+/* a picker living in a grid row (Create New Message's "select user" line):
+   the row is its face, and the arrow shows only while it has the focus */
+.pb-select--cell .pb-select__face { border-color: transparent; background-color: transparent; }
+.pb-select--cell:not(:focus-within):not(.is-open) > .pb-inputgroup__btn { visibility: hidden; }
 
 /* --- checkbox / radio ----------------------------------------------------
    These are the clearest evidence that MOIS is NOT a Windows 10 application
@@ -286,6 +334,18 @@ textarea.pb-field {
 .pb-root ::-webkit-scrollbar { width: 16px; height: 16px; }
 .pb-root ::-webkit-scrollbar-track { background: #f0f0f0; }
 .pb-root ::-webkit-scrollbar-thumb { background: #cdcdcd; border: 3px solid #f0f0f0; }
+/* Windows 10's arrow buttons, a thin chevron at each end (the Dynamic Form
+   captures; NOTES.md "scrollbars: thin chevrons"). The classic theme draws
+   its own bevelled 98 buttons (tokens.css). */
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:vertical:start:decrement,
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:vertical:end:increment,
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:horizontal:start:decrement,
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:horizontal:end:increment { display: block; width: 16px; height: 16px; background-color: #f0f0f0; background-repeat: no-repeat; background-position: center; }
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:hover { background-color: #dadada; }
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:vertical:start:decrement { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M.5 4.5 4.5.8 8.5 4.5' fill='none' stroke='%23606060' stroke-width='1.1'/%3E%3C/svg%3E"); }
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:vertical:end:increment { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M.5.5 4.5 4.2 8.5.5' fill='none' stroke='%23606060' stroke-width='1.1'/%3E%3C/svg%3E"); }
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:horizontal:start:decrement { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='9'%3E%3Cpath d='M4.5.5.8 4.5 4.5 8.5' fill='none' stroke='%23606060' stroke-width='1.1'/%3E%3C/svg%3E"); }
+.pb-root:not(.pb-theme--classic) ::-webkit-scrollbar-button:horizontal:end:increment { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='9'%3E%3Cpath d='M.5.5 4.2 4.5.5 8.5' fill='none' stroke='%23606060' stroke-width='1.1'/%3E%3C/svg%3E"); }
 .pb-root ::-webkit-scrollbar-thumb:hover { background: #a6a6a6; }
 .pb-root ::-webkit-scrollbar-corner { background: #f0f0f0; }
 

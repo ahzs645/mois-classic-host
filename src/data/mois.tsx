@@ -1,5 +1,7 @@
 /* Mock content transcribed from the MOIS training-environment screenshots. */
 import type { PBTreeNode } from '../pb'
+import type { PBMenuItem } from '../pb/components/chrome'
+import { menusFor, type MenuGo, type MenuName } from './menus'
 import {
   IconBasket, IconBilling, IconBook, IconCalendarGrid, IconChart, IconClock, IconEnvelope,
   IconFolder, IconTaskCheck,
@@ -279,10 +281,12 @@ type MdiLike = {
    The menu bar.
 
    PROVENANCE: every item, accelerator and separator below is transcribed from
-   the eight menu captures in `reference/menus/`. Two things are the
-   emulator's rather than MOIS's, because the kit needs them and MOIS has no
-   equivalent: the open MDI sheets listed at the foot of Views, and the
-   Appearance switch at the foot of Maintenance.
+   the seven menu captures in `reference/menus/` (Record … Maintenance);
+   there is no capture of Help, which follows art. 304393 instead, and
+   Utilities ▸ Chart Merging… follows arts. 301557 / 301558 (see there). Two
+   things are the emulator's rather than MOIS's, because the kit needs them
+   and MOIS has no equivalent: the open MDI sheets listed at the foot of
+   Views, and the Appearance switch at the foot of Maintenance.
    ------------------------------------------------------------------------ */
 export const makeMainMenu = (
   setTheme: (t: PBTheme) => void,
@@ -292,30 +296,31 @@ export const makeMainMenu = (
   /** opens the component gallery; omitted when embedded, where the host owns the URL */
   onKit?: () => void,
   /** navigation the frame owns, so a menu item lands on the same screen a click would */
-  go?: {
-    node?: (id: string) => void
-    module?: (id: string) => void
-    lookup?: () => void
-    stepChart?: (delta: 1 | -1) => void
-    /** a Print-menu item that has a Selection Parameter window behind it */
-    print?: (menu: string) => void
-    /** Action ▸ Create Referral / Consult Note, which opens the letter run-up */
-    letter?: () => void
-  },
+  go?: MenuGo,
+  /** where the frame is: the module and folder whose menus replace the chart's */
+  place?: { module: string; node: string },
 ) => {
   const printItem = (label: string) => ({ label, onSelect: () => go?.print?.(label) })
   const view = (label: string, node: string, key?: string) => ({ label, key, onSelect: () => go?.node?.(node) })
-  return [
+  const bar = [
     { label: 'Record', menu: [
-      { label: 'New', key: 'Ctrl+N' },
-      { label: 'Delete' },
+      /* New / Delete / Save act on the window in front — the same as its
+         command-row button (art. 304393's Record table) */
+      { label: 'New', key: 'Ctrl+N', onSelect: () => go?.command?.('new-record') },
+      { label: 'Delete', key: 'Shift+F2', onSelect: () => go?.command?.('delete-record') },
       { label: 'Find', key: 'F9', onSelect: () => go?.lookup?.() },
       { label: 'Next', key: 'F8', onSelect: () => go?.stepChart?.(1) },
       { label: 'Previous', key: 'F7', onSelect: () => go?.stepChart?.(-1) },
+      /* Superfind opens the Find Patient window for the folder in front
+         (303787 `95d0bdaa…png`: between Previous and Find First, with their
+         Shift+F9 / Shift+F8 / Shift+F7 accelerators) */
+      { label: 'Superfind', key: 'Shift+F9', onSelect: () => go?.open?.('find-patient') },
+      { label: 'Superfind Next', key: 'Shift+F8' },
+      { label: 'Superfind Previous', key: 'Shift+F7' },
       { label: 'Find First' },
       { label: 'Find Last' },
-      { label: 'Save', key: 'F2' },
-      { label: 'Prompt', key: 'F4' },
+      { label: 'Save', key: 'F2', onSelect: () => go?.command?.('save') },
+      { label: 'Prompt', key: 'F4', onSelect: () => go?.prompt?.() },
     ]},
     { label: 'Modules', menu: [
       { label: 'Patient Chart', onSelect: () => go?.module?.('chart') },
@@ -382,35 +387,47 @@ export const makeMainMenu = (
       { label: 'Close All Views', disabled: !mdi?.instances.length, onSelect: () => mdi?.closeAll() },
     ]},
     { label: 'Action', menu: [
-      { label: 'Account Summary', key: 'Alt+F1' },
+      { label: 'Account Summary', key: 'Alt+F1', onSelect: () => go?.open?.('account-summary') },
       { label: 'Invoice Window', key: 'Alt+I' },
-      { label: 'Create Referral Note', key: 'Ctrl+R', onSelect: () => go?.letter?.() },
-      { label: 'Create Consult Note', key: 'Ctrl+Shift+R', onSelect: () => go?.letter?.() },
-      { label: 'Create Information Request', onSelect: () => go?.letter?.() },
+      { label: 'Create Referral Note', key: 'Ctrl+R', onSelect: () => go?.letter?.('referral') },
+      { label: 'Create Consult Note', key: 'Ctrl+Shift+R', onSelect: () => go?.letter?.('consult') },
+      { label: 'Create Information Request', onSelect: () => go?.letter?.('information-request') },
       { label: 'Distribute Encounter Summary', key: 'Ctrl+Shift+E' },
-      { label: 'Print Label', key: 'Ctrl+L' },
+      { label: 'Print Label', key: 'Ctrl+L', onSelect: () => go?.open?.('print-label') },
       { sep: true },
-      { label: 'Change Desktop Provider', key: 'Alt+D' },
+      { label: 'Change Desktop Provider', key: 'Alt+D', onSelect: () => go?.open?.('desktop-provider') },
       { label: 'Create an Appointment' },
       { sep: true },
-      { label: 'Create Task', key: 'Ctrl+K' },
-      { label: 'Create Message', key: 'Ctrl+M' },
+      /* the Workspace's Create New Task / Create New Message windows, raised
+         from the open chart (303596, 303597) */
+      { label: 'Create Task', key: 'Ctrl+K', onSelect: () => go?.open?.('chart-create-task') },
+      { label: 'Create Message', key: 'Ctrl+M', onSelect: () => go?.open?.('chart-create-message') },
       { sep: true },
       { label: 'Workflow Summary' },
     ]},
     { label: 'Utilities', menu: [
       { label: 'Lock MOIS / Switch User', key: 'Ctrl+Alt+L', onSelect: onLogin },
-      { label: 'Paste Patient Text' },
+      { label: 'Paste Patient Text', onSelect: () => go?.open?.('patient-text') },
+      /* Chart Merging… is on the menu of a user granted the Merge Chart
+         special function (art. 301557 `365e0b39…png`, art. 301558
+         `35a602d8…png`); the v02.31 capture in reference/menus/ was taken by a
+         user without it. The stage's user has it. */
+      { label: 'Chart Merging...', menu: [
+        { label: 'Merge Chart', onSelect: () => go?.open?.('merge-chart') },
+        { label: 'Unmerge Chart', onSelect: () => go?.open?.('unmerge-chart') },
+        { label: 'View Merge Log', onSelect: () => go?.open?.('merge-log') },
+      ]},
       { sep: true },
-      { label: 'Health Maintenance Review', key: 'Ctrl+H' },
-      { label: 'Flow Sheet Review' },
-      { label: 'MSP Eligibility Check' },
+      /* both open their windows (303225, 303789; screens/encounterAreaWindows) */
+      { label: 'Health Maintenance Review', key: 'Ctrl+H', onSelect: () => go?.open?.('health-maintenance-review') },
+      { label: 'Flow Sheet Review', onSelect: () => go?.open?.('flow-sheet-review') },
+      { label: 'MSP Eligibility Check', onSelect: () => go?.open?.('msp-eligibility') },
       { label: 'Provider Address to Clipboard' },
       { label: 'Patient Address to Clipboard (lookup)', onSelect: () => go?.lookup?.() },
       { sep: true },
-      { label: 'Change Teleplan Password' },
+      { label: 'Change Teleplan Password', onSelect: () => go?.open?.('change-teleplan-password') },
       { label: 'Patient Address to Clipboard (current)' },
-      { label: 'Chart Navigator - Load from File' },
+      { label: 'Chart Navigator - Load from File', onSelect: () => go?.open?.('select-file') },
     ]},
     { label: 'Print', menu: [
       /* Every item asks the frame to print it. `go.print` looks the label up in
@@ -457,21 +474,50 @@ export const makeMainMenu = (
     { label: 'Maintenance', menu: [
       { label: 'User Settings' },
       { label: 'Computer Settings' },
-      { label: 'Default Value Setting' },
+      { label: 'Default Value Setting', onSelect: () => go?.open?.('default-value') },
       /* emulator extra: the three looks the kit can be dialled to, and the
          two ways its text can be rasterised */
       { sep: true },
       ...THEMES.map((t) => ({ label: `Appearance: ${t.label}`, onSelect: () => setTheme(t.id) })),
       { sep: true },
       ...TEXT_MODES.map((t) => ({ label: `Text: ${t.label}`, onSelect: () => setTextMode(t.id) })),
+      /* emulator extra (standalone viewer only), moved off Help, which is
+         MOIS's own list */
+      ...(onKit ? [{ sep: true }, { label: 'UI Kit gallery…', onSelect: onKit }] : []),
     ]},
+    /* Help: art. 304393's Help table, in its order ("The Help options remain
+       consistent regardless of the folder opened"); the 300924 accelerator
+       sheet (`b468b902…png`) corroborates it. The manual has no picture of
+       the dropped menu, so where its separators fall is not known and none
+       are drawn. Only About opens a window here; the rest reach websites,
+       e-mail and remote-support tools outside MOIS. */
     { label: 'Help', menu: [
-      { label: 'Contents', key: 'F1' },
-      { sep: true },
-      ...(onKit ? [{ label: 'UI Kit gallery…', onSelect: onKit }] : []),
-      { label: 'About MOIS…' },
+      { label: 'User Manual' },
+      { label: 'Release Notes' },
+      { label: 'Bright Health Website' },
+      { label: 'Pathways' },
+      { label: 'Speech Recognition' },
+      { label: 'Pharmanet (via Medinet)' },
+      { label: 'Up To Date' },
+      { label: 'CPSBC Library' },
+      { label: 'Request support (e-mail)' },
+      { label: 'Launch Remote Support' },
+      { label: 'End User License Agreement' },
+      { label: 'MOIS Product Key' },
+      { label: 'Toggle Diagnostics' },
+      { label: 'Terminate Sessions' },
+      { label: 'About', onSelect: () => go?.open?.('about') },
     ]},
   ]
+  if (!place || !go) return bar
+  const replaced = menusFor({
+    module: place.module, node: place.node, go,
+    base: Object.fromEntries(bar.map((entry) => [entry.label, entry.menu])) as Partial<Record<MenuName, PBMenuItem[]>>,
+  })
+  return bar.map((entry) => {
+    const menu = replaced[entry.label as MenuName]
+    return menu ? { ...entry, menu } : entry
+  })
 }
 
 /* --- the lists behind the Patient Summary drop-downs ---------------------- */
@@ -609,7 +655,14 @@ export const serviceProviders = [
  * the 2x capture — so the links cell is the one that grows and everything
  * after it lands where MOIS paints it.
  */
-export const makeStatusCells = (onGoToChart?: () => void, onCreateAppointment?: () => void) => [
+export const makeStatusCells = (
+  onGoToChart?: () => void,
+  onCreateAppointment?: () => void,
+  /** the Workspace's outstanding tasks and messages: each cell shows its
+      count and turns pink while it is above zero (art. 3268648; 303599
+      image `74b97af2`, "Task Item: 2 / Msg Item: 1") */
+  items?: { tasks: number; messages: number },
+) => [
   { text: 'Ready.', width: 116 },
   {
     links: [
@@ -618,8 +671,14 @@ export const makeStatusCells = (onGoToChart?: () => void, onCreateAppointment?: 
     ],
     grow: true,
   },
-  { label: 'Task Item: ', value: '-', width: 108 },
-  { label: 'Msg Item: ', value: '-', width: 108 },
+  {
+    label: 'Task Item: ', value: items?.tasks ? String(items.tasks) : '-', width: 108,
+    fill: items?.tasks ? '#ffc0c8' : undefined, slug: 'task-item',
+  },
+  {
+    label: 'Msg Item: ', value: items?.messages ? String(items.messages) : '-', width: 108,
+    fill: items?.messages ? '#ffc0c8' : undefined, slug: 'msg-item',
+  },
   { label: 'User: ', value: 'JALA2', width: 147 },
   { label: 'Site ID: ', value: '_dev', width: 98 },
   { text: 'v02.31.23 b250508', width: 123 },

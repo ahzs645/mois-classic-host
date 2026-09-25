@@ -552,32 +552,30 @@ export const WINDOW_ACCESS_ROWS: WindowAccessRow[] = [
 export type SpecialFunctionRow = { fn: string; desc: string; execute?: boolean; bh?: boolean }
 
 export const SPECIAL_FUNCTION_ROWS: SpecialFunctionRow[] = [
-  { fn: 'Merge Chart', desc: 'Merge two patient charts into one' },
-  { fn: 'Unmerge Chart', desc: 'Reverse a chart merge' },
-  { fn: 'Field Audit Registration', desc: 'Register fields for the field audit' },
-  { fn: 'Release Record Locks', desc: 'Release locks held on records' },
-  { fn: 'Teleplan Password', desc: 'Maintain the Teleplan password' },
-  { fn: 'Check For Updates', desc: 'Check for a new MOIS version' },
-  { fn: 'SQL Editor Window', desc: 'Open the SQL editor' },
-  { fn: 'Data Extraction, Access, & Control', desc: 'Open the DEACON utility' },
-  { fn: 'Report All Tasks and Messages', desc: 'Report on every user’s tasks and messages' },
-  { fn: 'Share W/S on Behalf of MOIS User', desc: 'Share a workspace for another user' },
+  { fn: 'Merge Chart', desc: 'Merge / Combine a Patient Chart' },
+  { fn: 'Unmerge Chart', desc: 'Unmerge / Rollback a Patient Chart Merge' },
+  { fn: 'Field Audit Registration', desc: 'Register Input Fields With the MOIS Data Audit Service' },
+  { fn: 'Release Record Locks', desc: 'Release Orphaned Record Locks' },
+  { fn: 'Teleplan Password', desc: 'Ability to View and Change the Teleplan Password' },
+  { fn: 'Check For Updates', desc: 'Ability to Run the MOIS Updater Utility' },
+  { fn: 'SQL Editor Window', desc: 'Custom SQL Editor Window' },
+  { fn: 'Data Extraction, Access, & Control', desc: 'Data Extraction, Access, & Control Utility' },
+  { fn: 'Report All Tasks and Messages', desc: 'Report All Tasks and Messages' },
+  { fn: 'Share W/S on Behalf of MOIS User', desc: 'Ability to Share Workspace on Behalf of a MOIS User' },
   /* BH-internal — whole row in #FF0000 */
-  { fn: 'Web form administration', desc: 'Administer web forms', bh: true },
-  { fn: 'Override web form signature', desc: 'Override a web form signature', bh: true },
-  { fn: 'Static Recipients', desc: 'Maintain the static recipient list' },
-  { fn: 'Change Associated Service Group', desc: 'Change a record’s service group' },
-  { fn: 'MAR Lock Override', desc: 'Override a MAR administration lock' },
-  { fn: 'Access Control - Break Glass', desc: 'Break-glass access to a restricted chart' },
-  { fn: 'Access Control - Manage Chart Access', desc: 'Manage who may open a restricted chart' },
-  { fn: 'Workspace - can create temporary memberships', desc: 'Create a temporary membership' },
-  { fn: 'Alert user of new version', desc: 'Alert the user when a new version is available' },
+  { fn: 'Web form administration', desc: 'Install and update web form definitions', bh: true },
+  { fn: 'Override web form signature', desc: 'Allow overriding of web form signatures', bh: true },
+  { fn: 'Static Recipients', desc: 'Ability to See and Select Static Recipients' },
+  { fn: 'Change Associated Service Group', desc: "Ability to change a record's associated service group." },
+  { fn: 'MAR Lock Override', desc: 'Ability to edit MAR records regardless of lock setting and MAR creator' },
+  { fn: 'Access Control - Break Glass', desc: 'Ability to Break Glass when chart access is denied.' },
+  { fn: 'Access Control - Manage Chart Access', desc: 'Ability to add / delete chart access control records (ie connections or named users).' },
+  { fn: 'Workspace - can create temporary memberships', desc: 'Ability to create temporary memberships from the workspace module.' },
+  { fn: 'Alert user of new version', desc: 'When starting mois, alert the user that mois has been updated.' },
 ]
 
-/* NOTE. Only the *descriptions* above are the emulator's own: `e361c4e01d11`
-   prints the 19 function names and the Execute column legibly, and the
-   Description column is legible only as a column. The names and the two red
-   rows are the capture's. */
+/* The names, the descriptions and the two red rows are all `e361c4e01d11`'s
+   (the DATA ENTRY profile), word for word. */
 
 /* --- tab 4: `Report Access` -----------------------------------------------
    `9e179125c6d6`. A single-column expander tree on a full-pane #C8DCFA

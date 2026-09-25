@@ -78,6 +78,9 @@ export const SUMMARY_SELECTED_ROW = '#f2c6b8'
 
 /** Every summary row comes from the active chart; absent sections stay absent. */
 export function summarySections(p: Patient, data: MoisChartExport | null = null, lastDays = '60', now = new Date()): SummarySection[] {
+  /* no chart loaded: MOIS still paints one collapsed band, PREFERENCES [1]
+     (`reference/patient-summary-empty.png`). Its row was not captured. */
+  if (!p.chart) return [{ id: 'preferences', title: 'PREFERENCES', rows: [], count: 1, accent: SUMMARY_ACCENT.preferences }]
   const sections: SummarySection[] = []
   const add = (id: string, title: string, rows: SummaryRow[], extra: Partial<SummarySection> = {}) => {
     if (rows.length) sections.push({ id, title, rows, ...extra })

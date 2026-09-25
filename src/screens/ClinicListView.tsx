@@ -6,9 +6,12 @@ import {
 } from '../pb'
 import type { PBColumn } from '../pb'
 import {
-  CLINIC_COMMAND_WIDTH, clinicCommands, clinicListSpec,
-  type ClinicColumn, type ClinicField, type ClinicListSpec, type ClinicPage, type ClinicRow,
+  CLINIC_COMMAND_WIDTH, CONVERTED_PROVIDERS_KEY, CURRENT_PROVIDER_KEY, clinicCommands, clinicListSpec,
+  type ClinicColumn, type ClinicField, type ClinicListSpec, type ClinicPage, type ClinicRow, type ConvertedProviders,
 } from '../data/clinicManagement'
+import { useScreenReport } from '../host/screen-state'
+import { useScreenWindow, useSessionState } from '../host/screen-windows'
+import { ClinicEditorLayer, EDIT_RECORD_WINDOW, NEW_RECORD_WINDOW, useClinicRows } from './ClinicEditorWindows'
 
 /* ============================================================================
    Administration ▸ Clinic Management — the twelve list screens.
@@ -24,9 +27,15 @@ import {
      2. grid + tabbed detail pane   — Global Reminders, Immunization Inventory
      3. grid + untabbed detail form — Clinic Favourite Meds, Organizations
 
-   The editor windows a double-click opens (Provider, Resource Detail,
-   Facility Detail, Service Center Detail, Computer Detail, Master Provider,
-   and the New … creation dialogs) are not built here.
+   The editor windows New Record, Edit Record and a double-click raise live
+   in `ClinicEditorWindows.tsx`: New Provider Profile → Provider, New Provider
+   → Master Provider, New Resource / Resource Detail, New Facility / Facility
+   Detail and New Service Center. Service Center Detail, Computer Detail and
+   the Find / Replace window are captured in no article and are not built, so
+   those buttons stay inert. A list's rows are this session's
+   (`useClinicRows`): what a window creates or saves is there when the
+   learner comes back to the list, and in the Master Provider List lookup the
+   Letter Writer opens.
    ========================================================================= */
 
 /* A caption MOIS wraps itself. Only Service Location has one — its
@@ -152,6 +161,9 @@ function Field({ f }: { f: ClinicField }) {
    the corpus has no capture of it. */
 function DetailPage({ page }: { page: ClinicPage }) {
   const [cur, setCur] = useState(0)
+  /* a grid page's New adds an empty row (a condition, a lot number) and makes
+     it current; Delete removes the current one */
+  const [rows, setRows] = useState<ClinicRow[]>(page.kind === 'grid' ? page.rows : [])
 
   /* The tab is real — it is in the capture's strip — but its contents were
      never captured, so nothing is drawn rather than something invented. */
@@ -162,8 +174,20 @@ function DetailPage({ page }: { page: ClinicPage }) {
       <>
         <PBBand
           right={page.buttons?.map((b) => (
-            <span key={b} data-tutorial-id={`host.mois.command.${pbSlug(page.scope ?? page.caption ?? 'detail')}-${pbSlug(b)}`}>
-              <PBButton size="sm">{b}</PBButton>
+            <span key={b}>
+              {/* the anchor rides the button itself: `clickAnchor` clicks
+                  whatever carries it, and a click on a wrapper never reaches
+                  the button inside */}
+              <PBButton
+                size="sm"
+                data-tutorial-id={`host.mois.command.${pbSlug(page.scope ?? page.caption ?? 'detail')}-${pbSlug(b)}`}
+                onClick={() => {
+                  if (b === 'New') { setRows((r) => [...r, Object.fromEntries(page.columns.map((c) => [c.key, '']))]); setCur(rows.length) }
+                  if (b === 'Delete') { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) }
+                }}
+              >
+                {b}
+              </PBButton>
             </span>
           ))}
         >
@@ -172,7 +196,7 @@ function DetailPage({ page }: { page: ClinicPage }) {
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
           <PBDataWindow
             columns={toPBColumns(page.columns)}
-            rows={page.rows}
+            rows={rows}
             current={cur}
             onCurrentChange={setCur}
             empty=" "
@@ -216,11 +240,37 @@ function DetailPage({ page }: { page: ClinicPage }) {
    The screen
    ------------------------------------------------------------------------ */
 
-export function ClinicListView({ node }: { node: string }) {
+/**
+ * The rows a list shows this session: the Provider List loses a provider the
+ * Provider Type Conversion Utility has converted, and the Org Role List or
+ * Organization List gains it (2090817); every list keeps the rows New Record
+ * added and the edits its windows saved (`base`, the session's copy).
+ */
+function sessionRows(view: ClinicListSpec, converted: ConvertedProviders, base: ClinicRow[]): ClinicRow[] {
+  const moved = (to: string) => Object.entries(converted)
+    .filter(([, kind]) => kind === to)
+    .map(([name]) => ({ name, category: '' }))
+  if (view.node === 'ad-provider-list') return base.filter((r) => !converted[String(r.name)])
+  if (view.node === 'ad-org-role-list') return [...base, ...moved('org-role')]
+  if (view.node === 'ad-org-list') return [...base, ...moved('organization')]
+  return base
+}
+
+export function ClinicListView({ node, onClose }: { node: string; onClose?: () => void }) {
   const view: ClinicListSpec | undefined = clinicListSpec(node)
   const [cur, setCur] = useState(0)
   const [tab, setTab] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [base, updateRows] = useClinicRows(node)
+  const win = useScreenWindow()
+  const [converted] = useSessionState<ConvertedProviders>(CONVERTED_PROVIDERS_KEY, {})
+  const [, setCurrentProvider] = useSessionState<string>(CURRENT_PROVIDER_KEY, '')
+  const rows = view ? sessionRows(view, converted, base) : []
+  const currentRow = rows[cur < rows.length ? cur : 0]
+  useScreenReport({
+    rows: rows.length,
+    row: view && currentRow ? `${view.anchorPrefix}-${pbSlug(String(currentRow[view.anchorKey] ?? ''))}` : null,
+  })
 
   if (!view) return null
 
@@ -261,7 +311,25 @@ export function ClinicListView({ node }: { node: string }) {
   const page = detail
     ? activeTab ? detail.pages[activeTab] : detail.pages.main
     : undefined
-  const current = cur < view.rows.length ? cur : 0
+  const current = cur < rows.length ? cur : 0
+  const pickRow = (i: number) => {
+    setCur(i)
+    if (view.node === 'ad-provider-list') setCurrentProvider(String(rows[i]?.name ?? ''))
+  }
+  /* New Record on an inline list adds an empty row and makes it current
+     (303213, 303214, 303197: "New Record" then type into the new row); an
+     edit-record list raises its New … dialog, where one is captured */
+  const newRow = () => {
+    const blank = Object.fromEntries(view.columns.map((c) => [c.key, c.check ? false : '']))
+    updateRows((prev) => [...prev, blank])
+    setCur(rows.length)
+  }
+  const newWindow = NEW_RECORD_WINDOW[view.node]
+  const editWindow = EDIT_RECORD_WINDOW[view.node]
+  /* Edit Record and a double-click open the current row's detail window */
+  const editRow = (row: ClinicRow | undefined) => {
+    if (row && editWindow) win.open(editWindow, { key: String(row[view.anchorKey] ?? '') })
+  }
 
   return (
     <>
@@ -272,7 +340,15 @@ export function ClinicListView({ node }: { node: string }) {
       <div className={CMDGAP_CLASS}>
         <PBCommandRow
           commands={clinicCommands(view).map((label) => (
-            label === null ? null : { label, width: CLINIC_COMMAND_WIDTH[label] }
+            label === null ? null : {
+              label,
+              width: CLINIC_COMMAND_WIDTH[label],
+              onClick: label === 'Close Window' ? () => onClose?.()
+                : label === 'New Record' && view.editable ? newRow
+                  : label === 'New Record' && newWindow ? () => win.open(newWindow)
+                    : label === 'Edit Record' && editWindow ? () => editRow(rows[current])
+                      : undefined,
+            }
           ))}
         />
       </div>
@@ -291,12 +367,17 @@ export function ClinicListView({ node }: { node: string }) {
         </div>
       )}
 
+      {/* an inactive record is drawn grey (`439c4830…`: METHADONE, NURSING,
+          PSYCHSOC on the Service Center List) */}
+      <style>{`.${gridClass} .pb-dw__table > tbody > tr.is-inactive > td { color: #9c9c9c; }`}</style>
       <div className={gridClass} style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
         <PBDataWindow
           columns={columns}
-          rows={view.rows}
+          rows={rows}
           current={current}
-          onCurrentChange={setCur}
+          onCurrentChange={pickRow}
+          onActivate={editWindow ? (r) => editRow(r) : undefined}
+          rowClassName={(r) => (r.active === false || r.active === 'N' ? 'is-inactive' : undefined)}
           gutter={gutter}
           head={view.bare ? false : 'blue'}
           rules={view.bare ? false : true}
@@ -345,6 +426,14 @@ export function ClinicListView({ node }: { node: string }) {
           </div>
         </>
       )}
+
+      <ClinicEditorLayer
+        window={win.window}
+        open={win.open}
+        close={win.close}
+        /* a created row lands at the end of the list and becomes current */
+        onAdded={() => setCur(rows.length)}
+      />
     </>
   )
 }

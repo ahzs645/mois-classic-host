@@ -29,6 +29,19 @@ export type ChartScreen = {
   rows?: Record<string, string>[]
   /** screens without an active-encounter block on the identity strip */
   noEncounter?: boolean
+  /**
+   * A screen outside the Patient Chart (Data Exchange, Administration, the
+   * Scheduler's lists, a Workspace setting): no patient on the title bar, no
+   * FIRST/MIDDLE/LAST strip, no Search For band. MOIS draws none of those
+   * outside the chart.
+   */
+  noPatient?: boolean
+  /**
+   * The emulator has no transcription of this screen yet. It is drawn as an
+   * explicit placeholder rather than a plausible-looking empty list, so a
+   * lesson cannot point at buttons that are not there.
+   */
+  placeholder?: boolean
   /** column set verified against the MOIS field audit */
   audited?: boolean
   /** tabs wrap the grid itself; there is no detail form underneath */
@@ -48,7 +61,12 @@ export type ChartScreen = {
 }
 
 const SAVE_SET = ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh']
-const DIS = ['Save', 'Undo']
+/* Save and Undo are enabled on every chart folder — see the note on DIS in
+   data/reportScreens.tsx for the captures that show it. */
+const DIS: string[] = []
+/* The Scheduler and the other modules' windows keep the greyed pair they
+   were built with; the chart-folder evidence above does not cover them. */
+const MODULE_DIS = ['Save', 'Undo']
 
 const col = (key: string, header: string, width?: number, align?: ChartColumn['align']): ChartColumn =>
   ({ key, header, width, align })
@@ -145,15 +163,20 @@ export const chartScreens: Record<string, ChartScreen> = {
     audited: true,
   },
 
+  /* SHADOWED — `interventions` routes to `reportScreens.interventions`.
+     Kept in step with art. 303129 and MATRIX-R0634..R0638: Date /
+     Performed By / Description / Declined / Not Indicated over a bare
+     Comment box. Rows come from tdt_intervention (ROW_MAPS.interventions). */
   interventions: {
-    title: 'Interventions',
-    commands: SAVE_SET, disabled: DIS,
+    title: 'Intervention',
+    commands: SAVE_SET.concat(['Attachment']), disabled: DIS,
     columns: [
-      col('start', 'Start', 82, 'center'), col('end', 'End', 82, 'center'),
-      col('intervention', 'Intervention'), dots('d'),
-      col('by', 'Provided By', 160), col('status', 'Status', 90, 'center'),
+      col('date', 'Date', 86, 'center'), dots('d1'),
+      col('by', 'Performed By', 150, 'center'), col('desc', 'Description'), dots('d2'),
+      col('declined', 'Declined', 62, 'center'), col('notind', 'Not Indicated', 80, 'center'),
+      col('m', 'M', 22, 'center'), col('clip', '\u{1F4CE}', 22, 'center'),
     ],
-    tabs: ['Detail', 'Linked Goals'],
+    audited: true,
   },
 
   famhx: {
@@ -200,15 +223,21 @@ export const chartScreens: Record<string, ChartScreen> = {
     ],
   },
 
+  /* SHADOWED — `ltm` routes to `MedicationView mode="ltm"`, which holds
+     its own columns. Kept in step with them and with the field audit's
+     tdt_medication_lt set: Start / End / Medication / Dose/Frequency /
+     Indic. / Type / M. */
   ltm: {
-    title: 'Long Term Meds',
+    title: 'Long Term Medication',
     commands: SAVE_SET.concat(['Print', 'Attachment']), disabled: DIS,
     columns: [
-      col('start', 'Start', 82, 'center'), col('drug', 'Drug'), dots('d'),
-      col('dose', 'Dose', 110, 'center'), col('route', 'Route', 70, 'center'),
-      col('freq', 'Frequency', 110, 'center'), col('status', 'ST', 34, 'center'),
+      col('start', 'Start', 80, 'center'), col('end', 'End', 80, 'center'),
+      col('med', 'Medication'), dots('d1'),
+      col('dose', 'Dose / Frequency', 140, 'center'), dots('d2'),
+      col('indic', 'Indic.', 60, 'center'), col('type', 'Type', 58, 'center'),
+      col('m', 'M', 22, 'center'),
     ],
-    tabs: ['Detail', 'History'],
+    audited: true,
   },
   rx: {
     title: 'Prescriptions',
@@ -253,14 +282,20 @@ export const chartScreens: Record<string, ChartScreen> = {
     audited: true,
   },
 
+  /* SHADOWED — `socialhx` routes to `reportScreens.socialhx`. Kept in
+     step with art. 303438 and MATRIX-R0784..R0789: one coded Description
+     per record between Start and End, not a topic/value pair, over a
+     Comment box. Rows come from tdt_social_hx (ROW_MAPS.socialhx). */
   socialhx: {
     title: 'Social History',
-    commands: SAVE_SET, disabled: DIS,
+    commands: SAVE_SET.concat(['Attachment']), disabled: DIS,
     columns: [
-      col('date', 'Date', 86, 'center'), col('topic', 'Topic', 180),
-      col('value', 'Value', 170), col('note', 'Note'), col('by', 'Recorded By', 140),
+      col('start', 'Start', 86, 'center'), col('end', 'End', 86, 'center'),
+      col('desc', 'Description'), dots('d'),
+      col('s', 'S', 22, 'center'), col('m', 'M', 22, 'center'),
+      col('clip', '\u{1F4CE}', 22, 'center'),
     ],
-    tabs: ['Detail'],
+    audited: true,
   },
   /* MATRIX-R0792..R0822. The command row is nine buttons — Link to Order and
      Distribute sit either side of Print and were missing, and there is no
@@ -456,6 +491,9 @@ export const chartScreens: Record<string, ChartScreen> = {
       col('by', 'Admit By', 160),
       col('facility', 'Facility', 200),
       col('desc', 'Description'),
+      dots('d'),
+      /* art. 303527: "M: 'More'" sits between Description and the clip */
+      col('m', 'M', 22, 'center'),
       col('clip', '\u{1F4CE}', 22, 'center'),
     ],
     tabs: ['Report', 'Detail'],
@@ -493,7 +531,7 @@ export const schedulerScreens: Record<string, ChartScreen> = {
   waiting: {
     title: 'Waiting List', noEncounter: true,
     commands: ['New Entry', 'Delete Entry', 'Save', 'Undo', 'Refresh', 'Book Appt'],
-    disabled: DIS,
+    disabled: MODULE_DIS,
     columns: [
       col('added', 'Added', 86, 'center'), col('chart', 'Chart', 68, 'center'),
       col('first', 'First Name', 110), col('last', 'Last Name', 110),
@@ -506,33 +544,9 @@ export const schedulerScreens: Record<string, ChartScreen> = {
   'w-res': { title: 'Waiting List - Resource Lists', noEncounter: true, commands: ['Refresh', 'Print List'],
     columns: [col('resource', 'Resource', 200), col('waiting', 'Waiting', 70, 'center'), col('oldest', 'Oldest Entry', 110, 'center')] },
 
-  blocks: {
-    title: 'Reservation Blocks', noEncounter: true,
-    commands: ['New Block', 'Delete Block', 'Save', 'Undo', 'Refresh'], disabled: DIS,
-    columns: [
-      col('date', 'Date', 86, 'center'), col('from', 'From', 60, 'center'), col('to', 'To', 60, 'center'),
-      col('owner', 'Provider / Resource', 190), col('reason', 'Reason'),
-      col('recurs', 'Recurs', 70, 'center'),
-    ],
-  },
-  'b-prov': { title: 'Reservation Blocks - Provider', noEncounter: true, commands: ['New Block', 'Delete Block', 'Refresh'],
-    columns: [col('date', 'Date', 86, 'center'), col('from', 'From', 60, 'center'), col('to', 'To', 60, 'center'), col('provider', 'Provider', 200), col('reason', 'Reason')] },
-  'b-res': { title: 'Reservation Blocks - Resource', noEncounter: true, commands: ['New Block', 'Delete Block', 'Refresh'],
-    columns: [col('date', 'Date', 86, 'center'), col('from', 'From', 60, 'center'), col('to', 'To', 60, 'center'), col('resource', 'Resource', 200), col('reason', 'Reason')] },
-
-  shift: {
-    title: 'Shift Manager', noEncounter: true,
-    commands: ['New Shift', 'Delete Shift', 'Save', 'Undo', 'Refresh', 'Generate'], disabled: DIS,
-    columns: [
-      col('from', 'Effective From', 100, 'center'), col('to', 'Effective To', 100, 'center'),
-      col('owner', 'Provider / Resource', 190), col('pattern', 'Pattern', 130, 'center'),
-      col('loc', 'Service Location', 170), col('slots', 'Slots', 56, 'center'),
-    ],
-  },
-  's-prov': { title: 'Provider Shifts', noEncounter: true, commands: ['New Shift', 'Delete Shift', 'Refresh', 'Generate'],
-    columns: [col('from', 'Effective From', 100, 'center'), col('to', 'Effective To', 100, 'center'), col('provider', 'Provider', 190), col('pattern', 'Pattern', 130, 'center'), col('loc', 'Service Location', 170)] },
-  's-res': { title: 'Resource Shifts', noEncounter: true, commands: ['New Shift', 'Delete Shift', 'Refresh', 'Generate'],
-    columns: [col('from', 'Effective From', 100, 'center'), col('to', 'Effective To', 100, 'center'), col('resource', 'Resource', 190), col('pattern', 'Pattern', 130, 'center'), col('loc', 'Service Location', 170)] },
+  /* Reservation Blocks and Shift Manager have real windows now
+     (screens/scheduler/ReservationViews.tsx, ShiftViews.tsx), routed by the
+     frame before this table is consulted. */
 }
 
 /* --- The other five modules ---------------------------------------------
@@ -542,16 +556,6 @@ export const schedulerScreens: Record<string, ChartScreen> = {
 /* The eight Basket folders share one shape: what arrived, for whom, and
    whether it is waiting on an acknowledgement (A) or a review (R) — the "T"
    column the manual's Workspace Summary article describes. */
-/* Manual Entry: enter a result against a chart, then save it into that chart
-   and the ordering physician's basket. */
-const MANUAL_ENTRY: ChartScreen = {
-  title: 'Data Exchange - Manual Entry', noEncounter: true,
-  commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Attach'], disabled: DIS,
-  columns: [col('date', 'Date', 92, 'center'), col('chart', 'Chart', 64, 'center'),
-    col('patient', 'Patient', 170), col('type', 'Type', 110, 'center'),
-    col('detail', 'Detail'), col('by', 'Ordered By', 150)],
-}
-
 const BASKET_FOLDER: ChartScreen = {
   title: 'Workspace - Basket', noEncounter: true,
   commands: ['Refresh', 'Acknowledge', 'Mark Reviewed', 'Go To Chart', 'Print'],
@@ -563,7 +567,7 @@ const BASKET_FOLDER: ChartScreen = {
 export const moduleScreens: Record<string, ChartScreen> = {
   /* Workspace */
   'ws-task-inbox': { title: 'Workspace - Task List - Inbox', noEncounter: true,
-    commands: ['New Task', 'Delete Task', 'Save', 'Undo', 'Refresh'], disabled: DIS,
+    commands: ['New Task', 'Delete Task', 'Save', 'Undo', 'Refresh'], disabled: MODULE_DIS,
     columns: [col('due', 'Due', 92, 'center'), col('patient', 'Patient', 170), col('task', 'Task'),
       col('ack', 'Ack.', 46, 'center'), col('complete', 'Complete', 62, 'center'), col('by', 'Created By', 140)] },
   'ws-task-sent': { title: 'Workspace - Task List - Sent Tasks', noEncounter: true,
@@ -571,7 +575,7 @@ export const moduleScreens: Record<string, ChartScreen> = {
     columns: [col('sent', 'Sent', 92, 'center'), col('task', 'Task'), col('to', 'Sent To', 160),
       col('ack', 'Ack.', 46, 'center'), col('complete', 'Complete', 62, 'center')] },
   'ws-msg-inbox': { title: 'Workspace - Message Board - Inbox', noEncounter: true,
-    commands: ['New Message', 'Delete Message', 'Save', 'Undo', 'Refresh'], disabled: DIS,
+    commands: ['New Message', 'Delete Message', 'Save', 'Undo', 'Refresh'], disabled: MODULE_DIS,
     columns: [col('received', 'Received', 110, 'center'), col('from', 'From', 150),
       col('subject', 'Subject'), col('priority', 'Priority', 70, 'center'), col('read', 'Read', 46, 'center')] },
   'ws-msg-sent': { title: 'Workspace - Message Board - Sent Messages', noEncounter: true,
@@ -591,7 +595,7 @@ export const moduleScreens: Record<string, ChartScreen> = {
     columns: [col('received', 'Received', 110, 'center'), col('type', 'Type', 110, 'center'),
       col('patient', 'Patient', 170), col('subject', 'Subject'), col('from', 'From', 150), col('m', 'M', 24, 'center')] },
   'ws-tasks': { title: 'Workspace - Tasks', noEncounter: true,
-    commands: ['New Task', 'Delete Task', 'Save', 'Undo', 'Refresh'], disabled: DIS,
+    commands: ['New Task', 'Delete Task', 'Save', 'Undo', 'Refresh'], disabled: MODULE_DIS,
     columns: [col('due', 'Due', 92, 'center'), col('patient', 'Patient', 170), col('task', 'Task'),
       col('ack', 'Ack.', 46, 'center'), col('complete', 'Complete', 62, 'center'), col('by', 'Created By', 140)] },
   'ws-review': { title: 'Workspace - Marked for Review', noEncounter: true,
@@ -605,7 +609,7 @@ export const moduleScreens: Record<string, ChartScreen> = {
 
   /* Billing */
   'bl-claims': { title: 'Billing - Claims', noEncounter: true,
-    commands: ['New Claim', 'Delete Claim', 'Save', 'Undo', 'Refresh', 'Submit', 'Print'], disabled: DIS,
+    commands: ['New Claim', 'Delete Claim', 'Save', 'Undo', 'Refresh', 'Submit', 'Print'], disabled: MODULE_DIS,
     columns: [col('service', 'Service', 86, 'center'), col('chart', 'Chart', 66, 'center'),
       col('patient', 'Patient', 170), col('fee', 'Fee Code', 74, 'center'), col('diag', 'Diag', 60, 'center'),
       col('amount', 'Amount', 80, 'right'), col('payor', 'Payor', 76, 'center'), col('status', 'ST', 34, 'center')] },
@@ -628,7 +632,7 @@ export const moduleScreens: Record<string, ChartScreen> = {
      New Record · Delete Record · Edit Record · Close Window, and the real
      `User Accounts` grid now lives in `screens/UserManagementView.tsx`. */
   'ad-locations': { title: 'Administration - Service Locations', noEncounter: true,
-    commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh'], disabled: DIS,
+    commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh'], disabled: MODULE_DIS,
     columns: [col('code', 'Code', 80, 'center'), col('name', 'Service Location', 230),
       col('type', 'Type', 130, 'center'), col('msp', 'MSP Loc.', 80, 'center'), col('active', 'Active', 60, 'center')] },
   'ad-tables': { title: 'Administration - Maintenance Tables', noEncounter: true,
@@ -640,40 +644,11 @@ export const moduleScreens: Record<string, ChartScreen> = {
     columns: [col('when', 'Date / Time', 130, 'center'), col('user', 'User', 90, 'center'),
       col('action', 'Action', 130, 'center'), col('record', 'Record', 160), col('detail', 'Detail')] },
 
-  /* Data Exchange — the Manual Entry folders share the shape the manual's
-     "How to Enter Orders" describes: a record per result, keyed to a chart. */
-  'dx-measures': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Measures' },
-  'dx-imaging': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Imaging' },
-  'dx-consults': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Consults' },
-  'dx-procedures': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Procedures' },
-  'dx-documents': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Documents' },
-  'dx-admissions': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Facility Admissions' },
-  'dx-orders': { ...MANUAL_ENTRY, title: 'Data Exchange - Manual Entry - Orders' },
-  'dx-setup': { title: 'Setup / Registration', noEncounter: true,
-    commands: ['New Record', 'Delete Record', 'Save', 'Close Window'],
-    columns: [col('code', 'Interface Code', 150, 'center'), col('user', 'Interface User Name', 170),
-      col('password', 'Interface Password', 230), col('active', 'Active', 70, 'center')] },
-  'dx-lab-results': { title: 'Electronic Interfaces - Lab Results', noEncounter: true,
-    commands: ['Refresh', 'Distribute', 'Print'],
-    columns: [col('received', 'Received', 110, 'center'), col('chart', 'Chart', 64, 'center'),
-      col('patient', 'Patient', 170), col('test', 'Test'), col('provider', 'Ordered By', 150),
-      col('status', 'Status', 90, 'center')] },
-  'dx-distribution': { title: 'Electronic Interfaces - Inbox Distribution', noEncounter: true,
-    commands: ['Refresh', 'Print'],
-    columns: [col('received', 'Received', 110, 'center'), col('patient', 'Patient', 170),
-      col('result', 'Result'), col('basket', 'Distributed To', 170)] },
-  /* `dx-inbound` / `dx-outbound` used to sit here as invented five-column
-     approximations that nothing routed to — the tree calls these nodes
-     `dx-inbound-msg` and `dx-outbound-msg`. They now route to the transcribed
-     CDX windows in `screens/CdxMessageViews.tsx`. */
-  'dx-errors': { title: 'Data Exchange - Errors', noEncounter: true,
-    commands: ['Refresh', 'Reprocess', 'Dismiss', 'Print'],
-    columns: [col('when', 'Date / Time', 130, 'center'), col('source', 'Source', 140, 'center'),
-      col('error', 'Error'), col('code', 'Code', 70, 'center')] },
-  'dx-hl7': { title: 'Data Exchange - HL7 Interfaces', noEncounter: true,
-    commands: ['Refresh', 'Start', 'Stop'],
-    columns: [col('name', 'Interface', 200), col('direction', 'Direction', 100, 'center'),
-      col('host', 'Host', 170), col('port', 'Port', 60, 'center'), col('state', 'State', 90, 'center')] },
+  /* Data Exchange: every folder is its own window with its own taskbar, so
+     none of them uses this section window any more — they route to
+     `screens/ExchangeView.tsx`, transcribed per folder in `data/exchange.ts`.
+     The invented `dx-errors` / `dx-hl7` entries that used to sit here had no
+     tree node behind them and are gone. */
 
   /* Reports */
   'rp-clinical': { title: 'Reports - Clinical', noEncounter: true,

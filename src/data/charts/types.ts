@@ -26,6 +26,19 @@ export type MoisChartGroup =
   | 'service_event' | 'service_event_diag' | 'form_header' | 'form_wcb'
   | 'dform_header' | 'dform_data'
 
+/**
+ * Groups an export carries but the chart-87288 fixture was generated before
+ * the importer read them. They are optional so that file still type-checks;
+ * a regenerated export fills them in. Chart 87288's own export has all five
+ * empty (`<admissions></admissions>`, `<interventions></interventions>`,
+ * `<social_hxs></social_hxs>`, `<chart_barriers></chart_barriers>`,
+ * `<medication_lts></medication_lts>`), so those folders list nothing for it.
+ * Field names are from the multi-chart export MOIS_REF_10000074 and the
+ * field audit's verified columns.
+ */
+export type MoisOptionalGroup =
+  | 'admission' | 'intervention' | 'social_hx' | 'chart_barrier' | 'medication_lt'
+
 export type MoisChartExport = {
   /** who exported it, from which build — the provenance MOIS stamps itself */
   header: Record<string, string>
@@ -33,4 +46,4 @@ export type MoisChartExport = {
   chart_status?: MoisRecord[]
   chart_name?: MoisRecord[]
   chart: MoisRecord
-} & Record<MoisChartGroup, MoisRecord[]>
+} & Record<MoisChartGroup, MoisRecord[]> & Partial<Record<MoisOptionalGroup, MoisRecord[]>>

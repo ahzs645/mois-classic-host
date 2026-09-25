@@ -150,7 +150,7 @@ export function FindPatientDialog({
   /** the folder that invoked Superfind — it picks the variant */
   node: string
   /** the `Chart Navigator` button, which opens that window over this one */
-  onChartNavigator?: () => void
+  onChartNavigator?: (rows?: { chart: string; name: string; description: string }[]) => void
   onPrintList?: () => void
   /** `Select` or a double-click: the chart the caller should open */
   onSelect?: (chart: string) => void
@@ -251,7 +251,11 @@ export function FindPatientDialog({
             <PBButton
               style={{ width: 69, height: 16, minWidth: 0 }}
               data-tutorial-id="host.mois.command.chart-navigator"
-              onClick={onChartNavigator}
+              /* the navigator holds the patients this search found (303787:
+                 "open the Chart Navigator to … populate a call list") */
+              onClick={() => onChartNavigator?.([...new Map(rows.map((r) => [r.chart, {
+                chart: r.chart, name: `${r.last},${r.first}`, description: String(r[screen.fields[1]?.key ?? ''] ?? ''),
+              }])).values()])}
             >
               Chart Navigator
             </PBButton>
