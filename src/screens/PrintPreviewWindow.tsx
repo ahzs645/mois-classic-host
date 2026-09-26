@@ -31,6 +31,10 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
                         data/printPages.ts: plain lines, %TITLE%, %TH%/%TR%
                         table rows under %COLS:…%, %RULE%, **bold**)
      heading? string    printed bold at the top of every page built from rows
+     bare?    boolean   no `title · Page n` line over each page: the page is
+                        only what the report prints (the Encounter Note and
+                        WCB Physician Report prints, user capture 2026-09-25
+                        #23 / #24 / #31, v02.31.23)
      columns? { key, header, width? }[]   a table report: its columns …
      rows?    Record<string,string>[]     … and its rows, paginated
                         ROWS_PER_PAGE to a page with the header repeated
@@ -47,6 +51,7 @@ export type PrintPreviewArgs = {
   title: string
   pages?: string[]
   heading?: string
+  bare?: boolean
   columns?: PrintPreviewColumn[]
   rows?: Record<string, string>[]
 }
@@ -76,6 +81,7 @@ function asArgs(args: Record<string, unknown>): PrintPreviewArgs {
     title: typeof args.title === 'string' ? args.title : '',
     pages: Array.isArray(args.pages) ? args.pages.map(String) : undefined,
     heading: typeof args.heading === 'string' ? args.heading : undefined,
+    bare: args.bare === true,
     columns: Array.isArray(args.columns) ? (args.columns as PrintPreviewColumn[]) : undefined,
     rows: Array.isArray(args.rows) ? (args.rows as Record<string, string>[]) : undefined,
   }
@@ -119,6 +125,8 @@ export function PrintPreviewWindow({ args, close }: AreaWindowProps) {
               <DialogButton id="preview-change-header" width={84} disabled>Change Header</DialogButton>
               <DialogButton id="preview-sort" width={84}>Sort</DialogButton>
               <span style={{ height: 14 }} />
+              {/* v02.31.23 adds Fax above Print All (user capture 2026-09-25 #23, #31) */}
+              <DialogButton id="preview-fax" width={84}>Fax</DialogButton>
               <DialogButton id="preview-print-all" width={84} onClick={() => setPrinted('all')}>Print All</DialogButton>
               <DialogButton id="preview-print-range" width={84} onClick={() => setPrinted(range || 'all')}>Print Range</DialogButton>
               <PBInput w={86} value={range} onChange={(e) => setRange(e.target.value)} />
@@ -147,10 +155,12 @@ export function PrintPreviewWindow({ args, close }: AreaWindowProps) {
                   fontFamily: 'Arial, "Helvetica Neue", sans-serif', fontSize: 12, lineHeight: 1.35, minHeight: 360,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginBottom: 6 }}>
-                  <span>{a.title}</span>
-                  <span>Page {i + 1}</span>
-                </div>
+                {!a.bare && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginBottom: 6 }}>
+                    <span>{a.title}</span>
+                    <span>Page {i + 1}</span>
+                  </div>
+                )}
                 <ReportPage page={page} font="sans" />
               </div>
             ))}

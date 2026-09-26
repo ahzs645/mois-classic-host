@@ -4,8 +4,8 @@ import type { WcbClaimEntry } from './patients'
 /* ============================================================================
    The WCB Form (encounter form window WP_FORM_HEADER_WCB) as data.
 
-   The window is transcribed in screens/WcbFormWindow.tsx from art. 303118
-   `1800dc96…`. This module holds what it edits and how a saved form in a
+   The window is transcribed in screens/WcbFormWindow.tsx from user captures
+   2026-09-25 #25–#32 (v02.31.23) and art. 303118 `1800dc96…`. This module holds what it edits and how a saved form in a
    chart export (`form_wcb`, joined to its `form_header`) reads back into it.
 
    Export decoding. Chart 87288 carries one form (form_header 500135 on
@@ -115,4 +115,109 @@ export function mergeClaim(claims: WcbClaimEntry[] | undefined, claim: WcbClaimE
   const at = list.findIndex(same)
   const next = at < 0 ? [claim, ...list] : list.map((c, i) => (i === at ? { ...c, ...claim } : c))
   return claim.isDefault ? next.map((c) => (same(c) ? c : { ...c, isDefault: false })) : next
+}
+
+/* ============================================================================
+   The WCB Form's drop lists and code sets, as the current build lists them.
+
+   PROVENANCE: user capture 2026-09-25 (v02.31.23), each list dropped open in
+   the pale-cream `Code | Description` DDDW style:
+     · #27 — Fee: the five codes below, in this order and spelling (the
+       first description is cut off at the list's edge in the capture:
+       "WORKSAFEBC 1ST RPRT OF INJURY (FORM").
+     · #28 — Anatomic Position: B Bilateral · L Left · N Not Applicable ·
+       R Right.
+     · #30 — Ready for Rehab Program? ▸ If yes, type: C WCP · O Other.
+     · #29 — Area of Injury "…": the Advanced Lookup Service band "Area of
+       Injury", Code / Description / Category, the memo "Code set from WCB".
+       The 21 rows are the first screenful the capture shows, in its order
+       (alphabetical by description); the rest of the WCB set is past the
+       capture's PgDwn and is not transcribed.
+   ========================================================================= */
+
+export type WcbCode = { code: string; description: string; category?: string }
+
+export const WCB_FEE_CODES: WcbCode[] = [
+  { code: '19927', description: 'WORKSAFEBC 1ST RPRT OF INJURY (FORM' },
+  { code: '19937', description: 'E-FORM 8 REC.D WTHN 3 WORK DYS' },
+  { code: '19940', description: 'E-FRM 11 REC.D WTHN 3 WORK DYS' },
+  { code: '19943', description: 'E-FORM 8 RESUBMISSION, NO CHARGE' },
+  { code: '19944', description: 'E-FORM 11 SUBMISSION' },
+]
+
+export const WCB_POSITION_CODES: WcbCode[] = [
+  { code: 'B', description: 'Bilateral' },
+  { code: 'L', description: 'Left' },
+  { code: 'N', description: 'Not Applicable' },
+  { code: 'R', description: 'Right' },
+]
+
+export const WCB_REHAB_TYPES: WcbCode[] = [
+  { code: 'C', description: 'WCP' },
+  { code: 'O', description: 'Other' },
+]
+
+export const WCB_AREA_OF_INJURY: WcbCode[] = [
+  { code: '24000', description: 'ABDOMEN, EXCEPT INT. LOC. OF DISEASES OR DISORDERS', category: 'ABDOMEN' },
+  { code: '42000', description: 'ANKLE(S)', category: 'ANKLE(S)' },
+  { code: '43220', description: 'ARCH(ES)', category: 'FOOT(FEET)' },
+  { code: '43210', description: 'BALL(S)', category: 'FOOT(FEET)' },
+  { code: '24410', description: 'BLADDER', category: 'ABDOMEN' },
+  { code: '01100', description: 'BRAIN', category: 'CRANIAL' },
+  { code: '22600', description: 'BREAST(S)--INTERNAL', category: 'CHEST' },
+  { code: '22400', description: 'BRONCHUS', category: 'CHEST' },
+  { code: '25300', description: 'BUTTOCK(S)', category: 'PELVIC REGION' },
+  { code: '10001', description: 'CERVICAL REGION (CERVICAL VERTEBRAE)', category: 'NECK' },
+  { code: '23201', description: 'CERVICO-THORACIC REGION', category: 'BACK' },
+  { code: '03400', description: 'CHEEKS', category: 'FACE' },
+  { code: '22000', description: 'CHEST, EXCEPT INT. LOC. OF DISEASES OR DISORDERS', category: 'CHEST' },
+  { code: '50001', description: 'CIRCULATORY SYSTEM', category: 'BODY SYSTEMS' },
+  { code: '23400', description: 'COCCYGEAL REGION', category: 'BACK' },
+  { code: '50002', description: 'DIGESTIVE SYSTEM', category: 'BODY SYSTEMS' },
+  { code: '31200', description: 'ELBOW(S)', category: 'ARM(S)' },
+  { code: '22200', description: 'ESOPHAGUS', category: 'CHEST' },
+  { code: '03201', description: 'EXTERNAL EYE(EX. FOR SUPERFICIAL CORNEAL ABRASIONS', category: 'FACE' },
+  { code: '25530', description: 'EXTERNAL FEMALE GENITAL REGION', category: 'PELVIC REGION' },
+  { code: '03200', description: 'EYE(S)', category: 'FACE' },
+]
+
+/** Printed on the Physician Report for the Family physician radio set. Only
+    `> 12 m` → ">12 months" is captured (#31); the others follow its form. */
+export const FAMILY_MD_PRINTED: Record<string, string> = {
+  'No': 'No', '1-6 m': '1-6 months', '7 - 12 m': '7-12 months', '> 12 m': '>12 months',
+}
+
+/* ============================================================================
+   Create MSP Claim — the checks MOIS runs before it will raise the bill.
+
+   PROVENANCE: user capture 2026-09-25 #32 (v02.31.23), the "WCB Form MSP
+   Claim Validation Warnings / Errors" window over a new, empty form: ten
+   rows, all Code VALIDATION, in the order and wording below. Which field
+   each check reads is inferred from its Type (EMPLOYER LOCATION is taken to
+   be the employer's City); PATIENT INSURER fired for a chart insured out of
+   province (Insurance By AB), and BC is taken as the one province that
+   passes. What Create MSP Claim does when every check passes is not
+   captured.
+   ========================================================================= */
+
+export type WcbValidation = { code: 'VALIDATION'; type: string; description: string }
+
+const REQUIRE = (what: string) => `WCB Claims require ${what} to be entered - please correct before creating a MSP Claim.`
+
+export function wcbMspValidation(form: WcbFormState, patient: { insuranceBy?: string }): WcbValidation[] {
+  const out: WcbValidation[] = []
+  const add = (type: string, description: string) => out.push({ code: 'VALIDATION', type, description })
+  const blank = (v: string) => !v.trim()
+  const insurer = (patient.insuranceBy ?? '').trim().toUpperCase()
+  if (insurer && insurer !== 'BC') add('PATIENT INSURER', 'Cannot bill a WCB Claim for an out-of-province patient - please correct before creating a MSP Claim.')
+  if (blank(form.company)) add('EMPLOYER NAME', REQUIRE('an employer name'))
+  if (blank(form.city)) add('EMPLOYER LOCATION', REQUIRE('an employer location'))
+  if (blank(form.diagnosis)) add('DIAGNOSIS', REQUIRE('a diagnosis'))
+  if (blank(form.fee)) add('FEE CODE', REQUIRE('a fee code'))
+  if (blank(form.icd9)) add('ICD9 CODE', REQUIRE('an ICD9 code'))
+  if (blank(form.area)) add('AREA OF INJURY', REQUIRE('an Area of Injury code'))
+  if (blank(form.position)) add('ANATOMIC POSITION', REQUIRE('an anatomic position code'))
+  if (blank(form.nature)) add('NATURE OF INJURY', REQUIRE('a nature of injury code'))
+  if (blank(form.doi)) add('DATE OF INJURY', REQUIRE('a Date of Injury'))
+  return out
 }

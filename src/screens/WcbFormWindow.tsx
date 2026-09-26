@@ -2,47 +2,55 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { usePatient } from '../data/patient-context'
 import { isPatientSaved, savePatient, updatePatient } from '../data/patient-edits'
 import {
-  FAMILY_MD, TIME_TO_RTW, claimFromForm, mergeClaim, withClaim,
-  type WcbFormState, type YesNo,
+  FAMILY_MD, FAMILY_MD_PRINTED, TIME_TO_RTW, WCB_FEE_CODES, WCB_POSITION_CODES, WCB_REHAB_TYPES,
+  claimFromForm, mergeClaim, wcbMspValidation, withClaim,
+  type WcbCode, type WcbFormState, type YesNo,
 } from '../data/wcbForm'
 import type { SessionNote } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
-import { PrintPreviewWindow } from './PrintPreviewWindow'
+import { PrintPreviewWindow, type PrintPreviewArgs } from './PrintPreviewWindow'
 import {
-  PBButton, PBCheckbox, PBDataWindow, PBGroup, PBInput, PBLookup, PBMessageBox, PBRadio, PBSelect,
+  WcbClaimLookupDialog, WcbCodeLookupDialog, WcbMspValidationWindow, wcbLookupSlug, type WcbLookupKind,
+} from './WcbLookupWindows'
+import {
+  PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroup, PBInput, PBLookup, PBMessageBox, PBRadio,
   PBTextArea, PBWindow, pbSlug, usePBInstrumentation,
 } from '../pb'
 
 /* ============================================================================
    WCB Form — the encounter form behind a WCB REPORT row (form window
-   WP_FORM_HEADER_WCB). Double-click the row on the Encounter Detail Window's
-   Encounter Forms tab, or create one there with New Form ▸ WCB Report.
+   WP_FORM_HEADER_WCB), filed under INSURANCE FORMS. Double-click the row on
+   the Encounter Detail Window's Encounter Forms tab, or create one there with
+   New Form ▸ INSURANCE FORMS / WCB REPORT.
 
    PROVENANCE:
-     · art. 303118 "Create a WCB Form", image `1800dc96…` (1495×736: the
-       Select Form list behind, with INSURANCE FORMS / WCB REPORT ringed, and
-       the whole WCB Form window over it, 875 wide). Transcribed from it:
-       the title bar `WCB Form` with only a close box; the grey band reading
-       `WCB Form`; the tool bar `Save` (floppy) · `Create MSP Claim` ·
-       `Print Form` · `Assign Progress Note` · `Update Patient Chart` ·
-       `View Previous Form` · `Close/Exit`; the two identity rows (CHART /
-       FIRST / MIDDLE / LAST / DoB, then Enc # / Attending / Create by /
-       Date); the `Claim Information` group (Claim No. …, DOI, Area of
-       Injury …, Anatomic Position ▾, Nature of Injury …, ICD9 …, Fee ▾,
-       Bill Status [ ] (B or I), MSP Seq. No. greyed) beside `Employer
-       Information` (Company, Address, City / Postal Code, Province /
-       Country, Phone); `General Claim Information` (Who rendered 1st
-       treatment, Are you the family MD: No · 1-6 m · 7 - 12 m · > 12 m,
-       Prior/Other Medical Problems, Diagnosis) and `Return to Work Plan`
-       (Since injury/last report - Disabled from work place? Yes/No + If
-       yes, when; Now capable of Full Time / Full Duties: Yes/No + If no,
-       restrictions; Time to RTW Place: At Work · 1-6 days · 7-13 days ·
-       14-20 days · >20 days; Ready for Rehab Program? Yes/No + If yes,
-       type ▾; Consult WCB Adviser; Est. MMR; Report to Follow). The radio
-       defaults are that capture's new form.
+     · user capture 2026-09-25 #25 (v02.31.23), a new form, unscrolled, and
+       #27 / #28 / #30 (the same form with Fee, Anatomic Position and "If
+       yes, type" dropped): the title bar `WCB Form` with only a close box;
+       the flat grey band reading `WCB Form` in bold white; the tool bar
+       `Save` (floppy) · `Create MSP Claim` · `Print Form` · `Assign Progress
+       Note` · `Update Patient Chart` · `View Previous Form` · `Close/Exit`;
+       the two white identity rows (CHART / FIRST / MIDDLE / LAST / DoB, then
+       Enc # / Attending / Create by / Date, values bold); the `Claim
+       Information` group (Claim No. …, DOI, Area of Injury …, Anatomic
+       Position ▾, Nature of Injury …; ICD9 …, Fee ▾, Bill Status [I] (B or
+       I), MSP Seq. No. greyed) beside `Employer Information` (Company,
+       Address, City / Postal Code, Province / Country, Phone); `General
+       Claim Information` and `Return to Work Plan` with every row, radio set
+       and default as below. The form ends at Report to Follow and the window
+       does not scroll (#27 says so outright) — there is no section under it,
+       so the assigned progress note is not shown on the form; it goes out on
+       the Physician Report as CLINICAL INFORMATION (#31).
+       The captures are ~1.1x the manual's scale (955 px wide here, 875 in
+       art. 303118 `1800dc96…`); sizes below are the capture's / 1.1.
+     · the drop lists and the Area of Injury code set: data/wcbForm.ts.
+     · the windows over the form (#26 claim lookup, #29 Advanced Lookup
+       Service, #32 MSP claim validation): screens/WcbLookupWindows.tsx.
+     · #31, Print Form: the "Workers' Compensation Board of British Columbia
+       - Physician Report" page in the frame's Print Preview (`printPages`).
      · art. 356054 "WCB Report" (images missing from the export): what each
-       tool-bar button does, the field notes, and "There is a character
-       limit of 800 for the progress note length".
+       tool-bar button does, and "There is a character limit of 800 for the
+       progress note length".
      · art. 361951 "Assign a Progress Note" (images missing): Assign
        Progress Note → "you have the option to select which one you want.
        Select the correct note. Click 'Ok'."
@@ -55,20 +63,25 @@ import {
 
    NOT IN ANY CAPTURE, so reconstructed and kept plain: the Assign Progress
    Note picker (a grid of this encounter's notes, Ok / Cancel), the Update
-   Patient Chart prompt's wording, the claim picker behind Claim No. F4 /
-   "…", and the `Progress Note` section at the foot of the form, which is
-   where the assigned note is shown — `1800dc96…` is cut off below Report
-   to Follow. Create MSP Claim and View Previous Form report their press and
-   change nothing: the bill they raise and the previous forms' list are not
-   modelled. The Area of Injury / Nature of Injury / ICD9 "…" pickers are
-   not captured either; the fields are typeable.
+   Patient Chart prompt's wording, what Create MSP Claim does once every
+   validation passes (it reports the press and raises nothing), and View
+   Previous Form (reports its press).
    ========================================================================= */
 
 const NAVY = '#000080'
-const RULE = '1px solid #b9b9b9'
+const LIGHT_RULE = '1px solid #d2d2d2'
+const SECTION_RULE = '1px solid #1d1d1d'
 
-/** what the window reports as host.screen.*; slugs and counts only */
-type Prompt = 'assign-progress-note' | 'update-wcb-claim-list' | 'wcb-claim-list' | null
+/** a window over the form; its slug is what `host.dialog` reads */
+type Prompt =
+  | { id: 'assign-progress-note' }
+  | { id: 'update-wcb-claim-list' }
+  | { id: 'wcb-claim-list' }
+  | { id: 'wcb-msp-claim-validation' }
+  | { id: 'lookup'; kind: WcbLookupKind }
+  | null
+
+const promptSlug = (p: Prompt) => (!p ? null : p.id === 'lookup' ? wcbLookupSlug(p.kind) : p.id)
 
 export function WcbFormWindow({
   encounterId, encounterDate, attending, createdBy, created, initial, notes, onSave, onClose,
@@ -89,23 +102,28 @@ export function WcbFormWindow({
   const [form, setForm] = useState<WcbFormState>(initial)
   const [saved, setSaved] = useState(true)
   const [prompt, setPrompt] = useState<Prompt>(null)
-  /* Print Form's pages, in the frame's Print Preview — held here, over this
-     window, because the frame's own area layer sits under it */
-  const [printing, setPrinting] = useState<string[] | null>(null)
+  /* Print Form's page (or the validation list's), in the frame's Print
+     Preview — held here, over this window, because the frame's own area
+     layer sits under it */
+  const [printing, setPrinting] = useState<PrintPreviewArgs | null>(null)
   const set = <K extends keyof WcbFormState>(key: K, value: WcbFormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
     setSaved(false)
   }
   const claims = patient.wcbClaims ?? []
+  const validation = wcbMspValidation(form, patient)
 
   useScreenReport({
-    dialog: printing ? 'print-preview' : prompt ?? 'wcb-form',
+    dialog: printing ? 'print-preview' : promptSlug(prompt) ?? 'wcb-form',
     saved,
     assignedNote: form.note?.number ?? 0,
     wcbClaims: claims.length,
+    mspValidation: validation.length,
   })
 
   const save = () => { onSave(form); setSaved(true) }
+  /* the date the form is dated — the encounter's, as #25 shows it */
+  const formDate = encounterDate || created
 
   const text = (key: keyof WcbFormState, w: number | string, extra?: { align?: 'center'; disabled?: boolean }) => (
     <PBInput
@@ -117,7 +135,7 @@ export function WcbFormWindow({
       data-tutorial-id={`host.mois.field.wcb-${pbSlug(key)}`}
     />
   )
-  const lookup = (key: keyof WcbFormState, w: number, onDots?: () => void) => (
+  const lookup = (key: 'claim' | 'area' | 'nature' | 'icd9', w: number, onDots: () => void) => (
     <PBLookup
       w={w}
       name={`wcb-${pbSlug(key)}`}
@@ -125,24 +143,48 @@ export function WcbFormWindow({
       value={String(form[key] ?? '')}
       onChange={(v) => set(key, v as never)}
       onDots={onDots}
-      onKeyDown={(e) => { if (e.key === 'F4' && onDots) { e.preventDefault(); onDots() } }}
+      onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); onDots() } }}
     />
   )
-  const yesNo = (key: 'disabled' | 'fullDuties' | 'rehab' | 'consult' | 'followUp') => (
+  const codeList = (key: 'fee' | 'position' | 'rehabType', rows: WcbCode[], w: number, listW: number, codeW: number) => (
+    <PBDropDownDataWindow
+      columns={[
+        { key: 'code', header: 'Code', width: codeW },
+        { key: 'description', header: 'Description', width: listW - codeW - 2 },
+      ]}
+      rows={rows}
+      value={form[key]}
+      display="code"
+      w={w}
+      listW={listW}
+      onSelect={(r) => set(key, r.code)}
+      tutorialId={`host.mois.field.wcb-${pbSlug(key)}`}
+    />
+  )
+  const radios = <T extends string>(name: string, key: 'disabled' | 'fullDuties' | 'rehab' | 'consult' | 'followUp' | 'familyMd' | 'rtw', values: readonly T[], width: number) => (
     <>
-      {(['Yes', 'No'] as YesNo[]).map((v) => (
-        <span key={v} style={{ width: 46 }}>
+      {values.map((v) => (
+        <span key={v} style={{ width, flex: 'none' }}>
           <PBRadio
-            name={`wcb-${key}`}
+            name={`wcb-${name}`}
             label={v}
             checked={form[key] === v}
-            onChange={() => set(key, v)}
-            tutorialId={`host.mois.field.wcb-${pbSlug(key)}-${pbSlug(v)}`}
+            onChange={() => set(key, v as never)}
+            tutorialId={`host.mois.field.wcb-${name}-${pbSlug(v)}`}
           />
         </span>
       ))}
     </>
   )
+  const yesNo = (key: 'disabled' | 'fullDuties' | 'rehab' | 'consult' | 'followUp') =>
+    radios(pbSlug(key), key, ['Yes', 'No'] as YesNo[], 48)
+
+  const printForm = () => setPrinting({
+    title: 'WCB Form',
+    bare: true,
+    pages: printPages(form, { patient, attending, date: formDate }),
+  })
+  const createMspClaim = () => { if (validation.length) setPrompt({ id: 'wcb-msp-claim-validation' }) }
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 92 }}>
@@ -152,130 +194,92 @@ export function WcbFormWindow({
         tutorialId="host.mois.dialog.wcb-form"
         title="WCB Form"
         onClose={onClose}
-        style={{ width: 'min(875px, 100%)', height: 'min(800px, 100%)' }}
+        style={{ width: 'min(875px, 100%)', height: 'min(645px, 100%)' }}
       >
         <div
-          style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
+          style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#f2f2f2' }}
           onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); save() } }}
         >
-          <div style={{ background: '#6f6f6f', color: '#fff', fontSize: 18, padding: '1px 6px 2px', flex: 'none' }}>WCB Form</div>
+          {/* #25: a flat grey band, the caption in bold white */}
+          <div style={{ background: '#8b8b8b', color: '#fff', fontSize: 17, fontWeight: 700, padding: '1px 5px 2px', flex: 'none', borderTop: '1px solid #5a5a5a' }}>WCB Form</div>
 
           {/* the tool bar: flat captions between rules, Save with its floppy */}
-          <div className="pb-row" style={{ gap: 0, padding: '2px 4px', borderBottom: RULE, background: 'var(--pb-face)', flex: 'none' }}>
+          <div className="pb-row" style={{ gap: 0, padding: '2px 4px', borderBottom: '1px solid #a0a0a0', background: 'linear-gradient(#ececec, #dcdcdc)', flex: 'none' }}>
             <ToolButton id="wcb-save" onClick={save}><FloppyGlyph /> Save</ToolButton>
-            <ToolButton id="wcb-create-msp-claim">Create MSP Claim</ToolButton>
-            <ToolButton id="wcb-print-form" onClick={() => setPrinting(printPages(form, { patient, encounterId, encounterDate, attending, createdBy, created }))}>Print Form</ToolButton>
-            <ToolButton id="assign-progress-note" onClick={() => setPrompt('assign-progress-note')}>Assign Progress Note</ToolButton>
-            <ToolButton id="update-patient-chart" onClick={() => setPrompt('update-wcb-claim-list')}>Update Patient Chart</ToolButton>
+            <ToolButton id="wcb-create-msp-claim" onClick={createMspClaim}>Create MSP Claim</ToolButton>
+            <ToolButton id="wcb-print-form" onClick={printForm}>Print Form</ToolButton>
+            <ToolButton id="assign-progress-note" onClick={() => setPrompt({ id: 'assign-progress-note' })}>Assign Progress Note</ToolButton>
+            <ToolButton id="update-patient-chart" onClick={() => setPrompt({ id: 'update-wcb-claim-list' })}>Update Patient Chart</ToolButton>
             <ToolButton id="view-previous-form">View Previous Form</ToolButton>
             <ToolButton id="wcb-close" onClick={onClose}>Close/Exit</ToolButton>
           </div>
 
           <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
             {/* identity: two white rows */}
-            <div style={{ background: '#fff', borderBottom: RULE }}>
+            <div style={{ background: '#fff', borderBottom: '1px solid #a0a0a0' }}>
               <IdRow cells={[
-                ['CHART:', patient.chart, 150], ['FIRST:', patient.first.toUpperCase(), 170], ['MIDDLE:', patient.middle.toUpperCase(), 170],
-                ['LAST:', patient.last.toUpperCase(), 196], ['DoB:', patient.dob],
+                ['CHART:', patient.chart, 150, 48], ['FIRST:', patient.first.toUpperCase(), 170], ['MIDDLE:', patient.middle.toUpperCase(), 175],
+                ['LAST:', patient.last.toUpperCase(), 194], ['DoB:', patient.dob],
               ]} />
               <IdRow cells={[
-                ['Enc #:', encounterId, 136], ['Attending:', attending, 340], ['Create by:', createdBy, 214], ['Date:', created],
+                ['Enc #:', encounterId, 136, 48], ['Attending:', attending, 339], ['Create by:', createdBy, 212], ['Date:', formDate],
               ]} />
             </div>
 
-            <div style={{ display: 'flex', gap: 12, padding: '6px 8px', borderBottom: RULE }}>
-              <PBGroup title="Claim Information" style={{ flex: '1 1 0', minWidth: 0, margin: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '94px auto 1fr auto', gap: '3px 6px', alignItems: 'center' }}>
-                  <span>Claim No.:</span>{lookup('claim', 100, () => setPrompt('wcb-claim-list'))}
-                  <Right>ICD9:</Right>{lookup('icd9', 74)}
-                  <span>DOI:</span>{text('doi', 96, { align: 'center' })}
-                  <Right>Fee:</Right>
-                  <PBSelect w={78} options={['', '19937']} value={form.fee} onChange={(e) => set('fee', e.target.value)} data-tutorial-id="host.mois.field.wcb-fee" />
-                  <span>Area of Injury:</span>{lookup('area', 100)}
+            <div style={{ display: 'flex', gap: 30, padding: '4px 12px 6px', borderBottom: SECTION_RULE }}>
+              <PBGroup title="Claim Information" style={{ flex: '0 0 432px', margin: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '103px 118px 1fr 76px', gap: '3px 5px', alignItems: 'center' }}>
+                  <span>Claim No.:</span>{lookup('claim', 113, () => setPrompt({ id: 'wcb-claim-list' }))}
+                  <Right>ICD9:</Right>{lookup('icd9', 75, () => setPrompt({ id: 'lookup', kind: 'icd9' }))}
+                  <span>DOI:</span>{text('doi', 97)}
+                  <Right>Fee:</Right>{codeList('fee', WCB_FEE_CODES, 75, 296, 58)}
+                  <span>Area of Injury:</span>{lookup('area', 107, () => setPrompt({ id: 'lookup', kind: 'area' }))}
                   <Right>Bill Status:</Right>
-                  <span className="pb-row" style={{ gap: 4 }}>{text('billStatus', 30, { align: 'center' })}<span>(B or I)</span></span>
-                  <span>Anatomic Position:</span>
-                  <PBSelect w={52} options={['', 'B', 'N', 'L', 'R']} value={form.position} onChange={(e) => set('position', e.target.value)} data-tutorial-id="host.mois.field.wcb-position" />
-                  <Right>MSP Seq. No.:</Right>{text('mspSeq', 62, { disabled: true })}
-                  <span>Nature of Injury:</span>{lookup('nature', 100)}
+                  <span className="pb-row" style={{ gap: 6 }}>{text('billStatus', 30, { align: 'center' })}<span>(B or I)</span></span>
+                  <span>Anatomic Position:</span>{codeList('position', WCB_POSITION_CODES, 50, 200, 46)}
+                  <Right>MSP Seq. No.:</Right>{text('mspSeq', 60, { disabled: true })}
+                  <span>Nature of Injury:</span>{lookup('nature', 107, () => setPrompt({ id: 'lookup', kind: 'nature' }))}
                   <span /><span />
                 </div>
               </PBGroup>
               <PBGroup title="Employer Information" style={{ flex: '1 1 0', minWidth: 0, margin: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto 80px', gap: '3px 6px', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '72px 130px 1fr 81px', gap: '3px 5px', alignItems: 'center' }}>
                   <span>Company:</span><span style={{ gridColumn: 'span 3' }}>{text('company', '100%')}</span>
                   <span>Address:</span><span style={{ gridColumn: 'span 3' }}>{text('address', '100%')}</span>
-                  <span>City:</span>{text('city', '100%')}<Right>Postal Code:</Right>{text('postal', 80)}
-                  <span>Province:</span>{text('province', '100%')}<Right>Country:</Right>{text('country', 80)}
-                  <span>Phone:</span>{text('phone', 104)}<span /><span />
+                  <span>City:</span>{text('city', '100%')}<Right>Postal Code:</Right>{text('postal', 81)}
+                  <span>Province:</span>{text('province', '100%')}<Right>Country:</Right>{text('country', 81)}
+                  <span>Phone:</span>{text('phone', 107)}<span /><span />
                 </div>
               </PBGroup>
             </div>
 
             <Section title="General Claim Information">
-              <Line label="Who rendered 1st treatment:">{text('firstTreatment', 234)}</Line>
-              <Line label="Are you the family MD:">
-                {FAMILY_MD.map((v) => (
-                  <span key={v} style={{ width: 80 }}>
-                    <PBRadio name="wcb-family-md" label={v} checked={form.familyMd === v} onChange={() => set('familyMd', v)}
-                      tutorialId={`host.mois.field.wcb-family-md-${pbSlug(v)}`} />
-                  </span>
-                ))}
-              </Line>
-              <Line label="Prior/Other Medical Problems:" top>
-                <PBTextArea rows={3} w={300} value={form.prior} onChange={(e) => set('prior', e.target.value)} data-tutorial-id="host.mois.field.wcb-prior" />
-                <span style={{ width: 24 }} />
-                <span style={{ alignSelf: 'flex-start' }}>Diagnosis:</span>
-                <PBTextArea rows={3} w={300} value={form.diagnosis} onChange={(e) => set('diagnosis', e.target.value)} data-tutorial-id="host.mois.field.wcb-diagnosis" />
+              <Line label="Who rendered 1st treatment:">{text('firstTreatment', 233)}</Line>
+              <Line label="Are you the family MD:">{radios('family-md', 'familyMd', FAMILY_MD, 60)}</Line>
+              <Line label={<>Prior/Other Medical<br />Problems:</>} top>
+                <PBTextArea rows={2} w={295} value={form.prior} onChange={(e) => set('prior', e.target.value)} data-tutorial-id="host.mois.field.wcb-prior" />
+                <span style={{ width: 23, flex: 'none' }} />
+                <span style={{ width: 58, flex: 'none' }}>Diagnosis:</span>
+                <PBTextArea rows={2} w={295} value={form.diagnosis} onChange={(e) => set('diagnosis', e.target.value)} data-tutorial-id="host.mois.field.wcb-diagnosis" />
               </Line>
             </Section>
 
-            <Section title="Return to Work Plan">
-              <Line label={<>Since injury/last report -<br />Disabled from work place?</>}>
-                {yesNo('disabled')}<span style={{ width: 16 }} /><span>If yes, when:</span>{text('disabledWhen', 90)}
+            <Section title="Return to Work Plan" last>
+              <Line label={<>Since injury/last report -<br />Disabled from work place?</>} top>
+                {yesNo('disabled')}<span style={{ width: 70, flex: 'none' }}>If yes, when:</span>{text('disabledWhen', 96)}
               </Line>
               <Line label={<>Now capable of Full Time /<br />Full Duties:</>} top>
-                {yesNo('fullDuties')}<span style={{ width: 16 }} /><span>If no,<br />restrictions:</span>
-                <PBTextArea rows={3} w={300} value={form.restrictions} onChange={(e) => set('restrictions', e.target.value)} data-tutorial-id="host.mois.field.wcb-restrictions" />
+                {yesNo('fullDuties')}<span style={{ width: 70, flex: 'none' }}>If no,<br />restrictions:</span>
+                <PBTextArea rows={2} w={516} value={form.restrictions} onChange={(e) => set('restrictions', e.target.value)} data-tutorial-id="host.mois.field.wcb-restrictions" />
               </Line>
-              <Line label="Time to RTW Place:">
-                {TIME_TO_RTW.map((v) => (
-                  <span key={v} style={{ width: 88 }}>
-                    <PBRadio name="wcb-rtw" label={v} checked={form.rtw === v} onChange={() => set('rtw', v)}
-                      tutorialId={`host.mois.field.wcb-rtw-${pbSlug(v)}`} />
-                  </span>
-                ))}
-              </Line>
+              <Line label="Time to RTW Place:">{radios('rtw', 'rtw', TIME_TO_RTW, 89)}</Line>
               <Line label="Ready for Rehab Program?">
-                {yesNo('rehab')}<span style={{ width: 16 }} /><span>If yes, type:</span>
-                <PBSelect w={70} options={['']} value={form.rehabType} onChange={(e) => set('rehabType', e.target.value)} />
+                {yesNo('rehab')}<span style={{ width: 70, flex: 'none' }}>If yes, type:</span>
+                {codeList('rehabType', WCB_REHAB_TYPES, 66, 200, 46)}
               </Line>
               <Line label="Consult WCB Adviser:">{yesNo('consult')}</Line>
               <Line label="Est. MMR:">{text('mmr', 96)}</Line>
               <Line label="Report to Follow:">{yesNo('followUp')}</Line>
-            </Section>
-
-            {/* past the capture's foot: where the assigned note is shown */}
-            <Section title="Progress Note">
-              <div style={{ padding: '4px 20px 8px' }}>
-                <div data-tutorial-id="host.mois.field.wcb-progress-note-caption" style={{ marginBottom: 3 }}>
-                  {form.note ? `Note ${form.note.number}  —  ${form.note.author}` : 'No progress note assigned. Press Assign Progress Note.'}
-                </div>
-                <PBTextArea
-                  rows={5}
-                  w="100%"
-                  readOnly
-                  value={form.note?.text ?? ''}
-                  data-tutorial-id="host.mois.field.wcb-progress-note"
-                  style={{ fontFamily: '"Courier New", monospace' }}
-                />
-                {/* art. 356054: the note is cut at 800 characters on submission */}
-                {form.note && form.note.text.length > 800 && (
-                  <div style={{ color: '#a00000', marginTop: 2 }}>
-                    {form.note.text.length} characters: WCB will receive the first 800.
-                  </div>
-                )}
-              </div>
             </Section>
           </div>
         </div>
@@ -283,23 +287,42 @@ export function WcbFormWindow({
 
       {printing && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 94 }}>
-          <PrintPreviewWindow args={{ title: 'WCB Form', pages: printing }} close={() => setPrinting(null)} open={() => false} />
+          <PrintPreviewWindow args={printing} close={() => setPrinting(null)} open={() => false} />
         </div>
       )}
-      {prompt === 'assign-progress-note' && (
+      {prompt?.id === 'assign-progress-note' && (
         <AssignProgressNoteDialog
           notes={notes}
           onOk={(note) => { if (note) set('note', note); setPrompt(null) }}
           onClose={() => setPrompt(null)}
         />
       )}
-      {prompt === 'wcb-claim-list' && (
-        <WcbClaimListDialog
-          onPick={(i) => { const c = claims[i]; if (c) { setForm((f) => withClaim(f, c)); setSaved(false) } setPrompt(null) }}
+      {prompt?.id === 'wcb-claim-list' && (
+        <WcbClaimLookupDialog
+          onPick={(i) => { const c = i == null ? undefined : claims[i]; if (c) { setForm((f) => withClaim(f, c)); setSaved(false) } setPrompt(null) }}
           onClose={() => setPrompt(null)}
         />
       )}
-      {prompt === 'update-wcb-claim-list' && (
+      {prompt?.id === 'lookup' && (
+        <WcbCodeLookupDialog
+          kind={prompt.kind}
+          initial={form[prompt.kind]}
+          onPick={(r) => { set(prompt.kind, r.code); setPrompt(null) }}
+          onClose={() => setPrompt(null)}
+        />
+      )}
+      {prompt?.id === 'wcb-msp-claim-validation' && (
+        <WcbMspValidationWindow
+          rows={validation}
+          onPrint={() => setPrinting({
+            title: 'WCB Form MSP Claim Validation Warnings / Errors',
+            columns: [{ key: 'code', header: 'Code', width: 80 }, { key: 'type', header: 'Type', width: 160 }, { key: 'description', header: 'Description', width: 460 }],
+            rows: validation,
+          })}
+          onClose={() => setPrompt(null)}
+        />
+      )}
+      {prompt?.id === 'update-wcb-claim-list' && (
         <UpdateClaimListPrompt
           onClose={(answer, isDefault) => {
             setPrompt(null)
@@ -324,7 +347,7 @@ function ToolButton({ id, onClick, children }: { id: string; onClick?: () => voi
   return (
     <button
       type="button"
-      style={{ border: 'none', borderRight: RULE, background: 'transparent', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4, font: 'inherit', cursor: 'default' }}
+      style={{ border: 'none', borderRight: '1px solid #b9b9b9', background: 'transparent', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 4, font: 'inherit', cursor: 'default' }}
       data-tutorial-id={host?.anchor('command', id)}
       onClick={() => { host?.report('command', { command: id }); onClick?.() }}
     >
@@ -345,32 +368,33 @@ function FloppyGlyph() {
 
 const Right = ({ children }: { children: ReactNode }) => <span style={{ textAlign: 'right' }}>{children}</span>
 
-function IdRow({ cells }: { cells: [string, string, number?][] }) {
+/** one identity row: [label, value, cell width, label width] */
+function IdRow({ cells }: { cells: [string, string, number?, number?][] }) {
   return (
-    <div className="pb-row" style={{ gap: 0, padding: '3px 6px', borderBottom: '1px solid #e2e2e2' }}>
-      {cells.map(([label, value, w], i) => (
-        <span key={i} style={{ width: w, flex: w ? 'none' : '1 1 auto', whiteSpace: 'nowrap' }}>
-          {label}&nbsp;<b>{value}</b>
+    <div className="pb-row" style={{ gap: 0, padding: '3px 8px', borderBottom: '1px solid #e2e2e2' }}>
+      {cells.map(([label, value, w, lw], i) => (
+        <span key={i} style={{ width: w, flex: w ? 'none' : '1 1 auto', whiteSpace: 'nowrap', display: 'inline-flex' }}>
+          <span style={{ width: lw }}>{label}&nbsp;</span><b>{value}</b>
         </span>
       ))}
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, last, children }: { title: string; last?: boolean; children: ReactNode }) {
   return (
-    <div style={{ borderBottom: '1px solid #6d6d6d' }}>
-      <div style={{ color: NAVY, fontWeight: 700, padding: '4px 8px 2px' }}>{title}</div>
+    <div style={{ borderBottom: last ? undefined : SECTION_RULE }}>
+      <div style={{ color: NAVY, fontWeight: 700, padding: '3px 12px 2px' }}>{title}</div>
       {children}
     </div>
   )
 }
 
 function Line({ label, top, children }: { label: ReactNode; top?: boolean; children: ReactNode }) {
-  const style: CSSProperties = { display: 'flex', alignItems: top ? 'flex-start' : 'center', gap: 6, padding: '4px 8px 4px 20px', borderTop: '1px solid #e6e6e6' }
+  const style: CSSProperties = { display: 'flex', alignItems: top ? 'flex-start' : 'center', gap: 6, padding: '4px 8px 4px 23px', borderTop: LIGHT_RULE, minHeight: 25 }
   return (
     <div style={style}>
-      <span style={{ width: 170, flex: 'none' }}>{label}</span>
+      <span style={{ width: 142, flex: 'none' }}>{label}</span>
       {children}
     </div>
   )
@@ -430,49 +454,6 @@ export function AssignProgressNoteDialog({ notes, onOk, onClose }: {
   )
 }
 
-/* --- Claim No. F4 / "…" -----------------------------------------------------
-   Art. 303852: "press F4 in the Claim Number Field and select the correct
-   claim". The chart's WCB Claims rows, in the columns Demographics shows
-   them (DemographicsView WcbClaimsPage). */
-function WcbClaimListDialog({ onPick, onClose }: { onPick: (i: number) => void; onClose: () => void }) {
-  const patient = usePatient()
-  const [cur, setCur] = useState(0)
-  const rows = (patient.wcbClaims ?? []).map((c, i) => ({
-    i: String(i), doi: c.doi ?? '', claim: c.claim ?? '', area: c.area ?? '', nature: c.nature ?? '',
-    icd9: c.icd9 ?? '', employer: c.employer ?? c.company ?? '', default: c.isDefault ? 'Y' : '',
-  }))
-  return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 93 }}>
-      <PBWindow child controls={false} tutorialId="host.mois.dialog.wcb-claim-list" title="WCB Claim List" onClose={onClose}
-        style={{ width: 'min(640px, 100%)', height: 'min(300px, 100%)' }}>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 6 }}>
-          <PBDataWindow
-            columns={[
-              { key: 'doi', header: 'DOI', width: 80, align: 'center' },
-              { key: 'claim', header: 'Claim No.', width: 90 },
-              { key: 'area', header: 'Area of Injury', width: 90 },
-              { key: 'nature', header: 'Nature of Injury', width: 94 },
-              { key: 'icd9', header: 'Diagnosis', width: 66 },
-              { key: 'employer', header: 'Employer' },
-              { key: 'default', header: 'Default', width: 48, align: 'center' },
-            ]}
-            rows={rows}
-            current={cur}
-            onCurrentChange={setCur}
-            onActivate={(r) => onPick(Number(r.i))}
-            rowTutorialId={(r) => `host.mois.row.wcb-claim-${Number(r.i) + 1}`}
-            empty="No WCB claims on file."
-          />
-        </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 19, padding: '6px 0 10px', flex: 'none' }}>
-          <CommandButton id="wcb-claim-select" disabled={!rows.length} onClick={() => onPick(cur)}>Select</CommandButton>
-          <CommandButton id="wcb-claim-cancel" onClick={onClose}>Cancel</CommandButton>
-        </div>
-      </PBWindow>
-    </div>
-  )
-}
-
 /* --- Update Patient Chart ----------------------------------------------------
    Art. 361789: "A new window will open asking if you would like to
    add/update the Patient's WCB Claim List. You also have the option to 'Mark
@@ -516,54 +497,62 @@ function CommandButton({ id, onClick, disabled, children }: { id: string; onClic
 }
 
 /* --- Print Form ---------------------------------------------------------------
-   "Allows you to print the form instead of sending it electronically" (art.
-   356054). No printed WCB form is captured; the page is the form's own
-   captions and values in its own order, in the page markup ReportPage reads
-   (screens/PrintFlow). */
+   User capture 2026-09-25 #31 (v02.31.23): Print Form on a new form brings
+   up the frame's Print Preview on "Workers' Compensation Board of British
+   Columbia - Physician Report", no page header. Transcribed line for line
+   from it: the title and "Physician's First Report:" (bold), EMPLOYER INFO:
+   · WORKER INFO: (last, first with sex and DoB, street, city/province/postal,
+   PHN) · CLAIM NO:; Date of Injury / Date of Service; Family physician for;
+   the first-treatment line; PRIOR / OTHER PROBLEMS…; DIAGNOSIS: with the
+   CODES line (ICD9 / BP / Side / NOI); the disabled-from-work sentence;
+   CLINICAL INFORMATION (the assigned note, indented); the full-duties
+   sentence; "Is currently at work"; Physician information: Payee Name (three
+   lines) and Practitioner Name. The capture's form had every default
+   answer, so only those sentences are captured: the wording of a Yes to
+   Disabled, a No to Full Duties, a Time to RTW other than At Work and a
+   named first treatment follows the captured ones and is not verified. The
+   payee lines come from billing setup the emulator does not model and are
+   left blank. */
 function printPages(form: WcbFormState, ctx: {
-  patient: { chart: string; first: string; middle: string; last: string; dob: string }
-  encounterId: string; encounterDate: string; attending: string; createdBy: string; created: string
+  patient: { first: string; last: string; dob: string; gender: string; address?: string; city?: string; province?: string; postal?: string; bchn?: string }
+  attending: string
+  date: string
 }): string[] {
   const p = ctx.patient
   const clean = (v: string) => v.replace(/\|/g, '/').replace(/\*\*/g, '')
-  const row = (...cells: string[]) => `%TR%${cells.map(clean).join('|')}`
-  const lines = [
-    '%TITLE%WCB Form',
+  const four = (a: string, b: string, c = '', d = '') => `%LINE:47,23,15,15%${[a, b, c, d].map(clean).join('|')}`
+  const noteLines = form.note ? clean(form.note.text).split(/\r\n|\r|\n/).map((l) => `%LINE:5,95%|${l}`) : []
+  return [[
+    "**Workers' Compensation Board of British Columbia - Physician Report**",
+    "%LINE:2,98%|**Physician's First Report:**",
+    `%LINE:47,23,15,15%**EMPLOYER INFO:**|**WORKER INFO:**|CLAIM NO:|${clean(form.claim)}`,
+    four(form.company, `  ${p.last.toUpperCase()}`),
+    four(form.address, `  ${p.first.toUpperCase()}`, p.gender, p.dob),
+    four([form.city, form.province, form.postal].filter(Boolean).join('  '), `  ${p.address ?? ''}`),
+    four(form.phone, `  ${[p.city, p.province, p.postal].filter(Boolean).join('   ')}`),
+    four('', `  ${p.bchn ?? ''}`),
+    `%LINE:47,53%Date of Injury: ${clean(form.doi)}|Date of Service: ${clean(ctx.date)}`,
+    `Family physician for: ${FAMILY_MD_PRINTED[form.familyMd] ?? form.familyMd}`,
+    form.firstTreatment.trim() ? `First treatment rendered by: ${clean(form.firstTreatment)}` : 'First treatment rendered here or unknown',
+    `PRIOR / OTHER PROBLEMS affecting injury, recovery and disability: ${clean(form.prior)}`,
+    `DIAGNOSIS: ${clean(form.diagnosis)}`,
+    `%LINE:10,10,33,33,14%|CODES:|ICD9: ${clean(form.icd9)}|BP / Side: ${clean([form.area, form.position].filter(Boolean).join(' / '))}|NOI: ${clean(form.nature)}`,
+    form.disabled === 'Yes'
+      ? `From injury or last report, worker HAS BEEN DISABLED from work${form.disabledWhen ? ` since ${clean(form.disabledWhen)}` : ''}`
+      : 'From injury or last report, worker HAS NOT BEEN DISABLED from work',
     '',
-    '%COLS:20,30,20,30%',
-    row('CHART:', p.chart, 'DoB:', p.dob),
-    row('FIRST:', p.first.toUpperCase(), 'LAST:', p.last.toUpperCase()),
-    row('Enc #:', ctx.encounterId, 'Date:', ctx.created || ctx.encounterDate),
-    row('Attending:', ctx.attending, 'Create by:', ctx.createdBy),
-    '%S%Claim Information',
-    '%COLS:20,30,20,30%',
-    row('Claim No.:', form.claim, 'ICD9:', form.icd9),
-    row('DOI:', form.doi, 'Fee:', form.fee),
-    row('Area of Injury:', form.area, 'Bill Status:', form.billStatus),
-    row('Anatomic Position:', form.position, 'MSP Seq. No.:', form.mspSeq),
-    row('Nature of Injury:', form.nature, '', ''),
-    '%S%Employer Information',
-    '%COLS:20,30,20,30%',
-    row('Company:', form.company, 'Phone:', form.phone),
-    row('Address:', form.address, 'City:', form.city),
-    row('Province:', form.province, 'Postal Code:', form.postal),
-    row('Country:', form.country, '', ''),
-    '%S%General Claim Information',
-    '%COLS:40,60%',
-    row('Who rendered 1st treatment:', form.firstTreatment),
-    row('Are you the family MD:', form.familyMd),
-    row('Prior/Other Medical Problems:', form.prior),
-    row('Diagnosis:', form.diagnosis),
-    '%S%Return to Work Plan',
-    '%COLS:40,60%',
-    row('Disabled from work place?', [form.disabled, form.disabledWhen].filter(Boolean).join(', ')),
-    row('Capable of Full Time / Full Duties:', [form.fullDuties, form.restrictions].filter(Boolean).join(', ')),
-    row('Time to RTW Place:', form.rtw),
-    row('Ready for Rehab Program?', [form.rehab, form.rehabType].filter(Boolean).join(', ')),
-    row('Consult WCB Adviser:', form.consult),
-    row('Est. MMR:', form.mmr),
-    row('Report to Follow:', form.followUp),
-  ]
-  if (form.note) lines.push('%S%Progress Note', `Author: ${clean(form.note.author)}`, ...clean(form.note.text).split('\n'))
-  return [lines.join('\n')]
+    'CLINICAL INFORMATION',
+    ...noteLines,
+    form.fullDuties === 'No'
+      ? `Worker IS NOT NOW medically capable of working full duties, full time.${form.restrictions ? ` Restrictions: ${clean(form.restrictions)}` : ''}`
+      : 'Worker IS NOW medically capable of working full duties, full time.',
+    '',
+    '',
+    form.rtw === 'At Work' || !form.rtw ? 'Is currently at work' : `Estimated time before return to work: ${clean(form.rtw)}`,
+    '', '', '', '',
+    'Physician information:',
+    '%LINE:2,98%|Payee Name:',
+    '', '', '',
+    `%LINE:2,18,80%|Practitioner Name:|${clean(ctx.attending)}`,
+  ].join('\n')]
 }

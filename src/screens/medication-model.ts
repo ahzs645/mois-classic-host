@@ -51,7 +51,11 @@ export type Med = {
   record?: MoisRecord
 }
 
-export type PrintLogEntry = { date: string; by: string; station: string; items: Med[]; version: 'Original' | 'Copy' }
+export type PrintLogEntry = {
+  date: string; by: string; station: string; items: Med[]; version: 'Original' | 'Copy'
+  /** signed on Please Sign (Sign and Print / Fax / Task), and how it went */
+  signed?: boolean; method?: 'PRINT' | 'FAX'
+}
 
 export type MedSession = {
   rxAdded: Med[]

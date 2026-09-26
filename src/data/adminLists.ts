@@ -453,4 +453,7 @@ export const LOOKUP_REFERENCE_SETS: AdminRow[] = [
 export const adminListNodes = [
   'ad-prompt-lists', 'ad-selection-lists', 'ad-text-labels', 'ad-snippet',
   'ad-chart-summaries', 'ad-reference-sets', 'ad-lookup-settings',
+  /* the two section landing pages (screens/AdminLandingViews.tsx, user
+     capture 2026-09-25 #48 / #54): the folder node itself opens them */
+  'ad-designer', 'ad-clinic-mgt',
 ]

@@ -69,11 +69,15 @@ export type EncounterSession = {
   /** WCB Forms saved (F2) this session, by form header id — the chart's
       form_wcb until the window first saves one (screens/WcbFormWindow) */
   wcbForms: Record<string, WcbFormState>
+  /** "Always create new note" ticked on the New Note confirmation: New Note
+      stops asking (screens/EncounterChrome `NewNoteConfirmation`) */
+  alwaysNewNote: boolean
 }
 
 export const EMPTY_SESSION: EncounterSession = {
   saved: [], notes: {}, measureLinks: {}, orderLinks: {}, reviews: {}, attachments: {},
   measureFilter: null, measureRows: [], measureSelected: null, open: [], attachTarget: null, wcbForms: {},
+  alwaysNewNote: false,
 }
 
 export function useEncounterSession() {

@@ -144,11 +144,19 @@ export const billingTree: PBTreeNode[] = [
  * `Facility List`, and `Folder Registration` between `Facility List` and
  * `Service Centers`. Both are as captured.
  *
- * Two nodes are deliberately absent. `Web Forms Admin` appears in Designer
- * Section on b220906 but not on the strictly newer b230504, so it reads as
- * licence-gated rather than removed. `myhealthkey (BETA)` survives only as a
- * partially-scrolled fragment (`Settings`, `Provid…`) with no capture showing
- * its full child list.
+ * `Web Forms Admin` appears in Designer Section on b220906, is missing on
+ * b230504, and is back — between Task Set Templates and Quick Entry — on the
+ * current build: user capture 2026-09-25 #48, #50, #51 (v02.31.23), which
+ * outrank the older captures. It is licence-gated rather than removed; it
+ * opens the frame's labelled placeholder, since no capture shows its window.
+ * The same captures confirm the Clinic Management children and their order
+ * (#54), Address Book ▸ Contact List (#50, #54), User Management ▸ Security
+ * Profiles / User Accounts / User Groups (#54), and Prompt / Selection List
+ * Mgt's five children (#50).
+ *
+ * One node stays deliberately absent: `myhealthkey (BETA)` survives only as
+ * a partially-scrolled fragment (`Settings`, `Provid…`) with no capture
+ * showing its full child list.
  */
 export const adminTree: PBTreeNode[] = [
   { id: 'ad-user-mgt', label: 'User Management', icon: <IconFolder />, children: [
@@ -177,7 +185,8 @@ export const adminTree: PBTreeNode[] = [
     f('ad-flowsheet', 'Flowsheet'), f('ad-panel-setup', 'Panel Setup'),
     f('ad-measure-inputs', 'Measurement Inputs'), f('ad-letters', 'Letter Templates'),
     f('ad-paper-forms', 'Paper (PDF) Forms'), f('ad-careplan-templates', 'Care Plan Templates'),
-    f('ad-task-sets', 'Task Set Templates'), f('ad-quick-entry', 'Quick Entry'),
+    f('ad-task-sets', 'Task Set Templates'), f('ad-web-forms-admin', 'Web Forms Admin'),
+    f('ad-quick-entry', 'Quick Entry'),
   ]},
   { id: 'ad-external', label: 'External Service Providers', icon: <IconFolder />, children: [
     f('ad-clinics', 'Clinics'), f('ad-providers', 'Providers'),

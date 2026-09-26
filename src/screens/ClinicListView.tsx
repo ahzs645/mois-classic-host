@@ -11,7 +11,7 @@ import {
 } from '../data/clinicManagement'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow, useSessionState } from '../host/screen-windows'
-import { ClinicEditorLayer, EDIT_RECORD_WINDOW, NEW_RECORD_WINDOW, useClinicRows } from './ClinicEditorWindows'
+import { ClinicEditorLayer, EDIT_RECORD_WINDOW, FIND_REPLACE_WINDOW, NEW_RECORD_WINDOW, useClinicRows } from './ClinicEditorWindows'
 
 /* ============================================================================
    Administration ▸ Clinic Management — the twelve list screens.
@@ -30,9 +30,10 @@ import { ClinicEditorLayer, EDIT_RECORD_WINDOW, NEW_RECORD_WINDOW, useClinicRows
    The editor windows New Record, Edit Record and a double-click raise live
    in `ClinicEditorWindows.tsx`: New Provider Profile → Provider, New Provider
    → Master Provider, New Resource / Resource Detail, New Facility / Facility
-   Detail and New Service Center. Service Center Detail, Computer Detail and
-   the Find / Replace window are captured in no article and are not built, so
-   those buttons stay inert. A list's rows are this session's
+   Detail and New Service Center → Service Center Detail, and the Service
+   Center List's Find / Replace → Find and Replace: Service Center (user
+   capture 2026-09-25 #55–#60, v02.31.23). Computer Detail is captured
+   nowhere and is not built, so that list's Edit Record stays inert. A list's rows are this session's
    (`useClinicRows`): what a window creates or saves is there when the
    learner comes back to the list, and in the Master Provider List lookup the
    Letter Writer opens.
@@ -326,6 +327,7 @@ export function ClinicListView({ node, onClose }: { node: string; onClose?: () =
   }
   const newWindow = NEW_RECORD_WINDOW[view.node]
   const editWindow = EDIT_RECORD_WINDOW[view.node]
+  const findWindow = FIND_REPLACE_WINDOW[view.node]
   /* Edit Record and a double-click open the current row's detail window */
   const editRow = (row: ClinicRow | undefined) => {
     if (row && editWindow) win.open(editWindow, { key: String(row[view.anchorKey] ?? '') })
@@ -347,7 +349,8 @@ export function ClinicListView({ node, onClose }: { node: string; onClose?: () =
                 : label === 'New Record' && view.editable ? newRow
                   : label === 'New Record' && newWindow ? () => win.open(newWindow)
                     : label === 'Edit Record' && editWindow ? () => editRow(rows[current])
-                      : undefined,
+                      : label === 'Find / Replace' && findWindow ? () => win.open(findWindow)
+                        : undefined,
             }
           ))}
         />

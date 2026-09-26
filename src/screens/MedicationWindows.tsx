@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useChartExport } from '../data/chart-records'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   dispenseUnits, doseFrequencies, doseRoutes, doseUnits, drugList, favouriteSources,
   type DrugRow, type FavouriteRow,
@@ -8,10 +7,10 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug, type PBColumn,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug, type PBColumn,
 } from '../pb'
 import { STAGE_USER, useMedRows, useMedSession, type Med, type PrintLogEntry } from './medication-model'
-import { CurrentPatientBlock, FooterButton, StageMessageBox, StageWindow } from './StageWindow'
+import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
 
 /* ============================================================================
    The windows the Rx - Prescription and Long Term Medication folders raise.
@@ -43,6 +42,8 @@ export const MED_WINDOWS = {
   duplicate: 'rx-duplicate',
   addToLtm: 'rx-add-to-long-term',
   printRx: 'print-rx',
+  /* the last window of a signed print (user capture 2026-09-25 #44, #46) */
+  pleaseSign: 'please-sign',
 } as const
 
 registerScreenWindows(Object.values(MED_WINDOWS))
@@ -375,290 +376,10 @@ export function AddFavouriteWindow({ med, onDone, onClose }: { med?: Med; onDone
   )
 }
 
-/* --- Pharmacokinetics and Allergies ------------------------------------------
-   The read-only window both print routes raise before the prescription list.
-
-   PROVENANCE (text only — no capture of this window survives anywhere in the
-   manual, and the catalogue's §10 note says so):
-     303229  Print Rx: "An allergy warning window pops up; close after
-             review", then Drug Interaction Results if applicable, then the
-             prescription list.
-     303229  Renew / Print (F2): "the Pharmacokinetics and Allergies Window
-             (Read-Only) will open for review. i. Close or press ESC to
-             continue ii. The Select Medications to Print window will open".
-     303217  "Renew/Print (F2) first shows you the Pharmacokinetics and
-             Allergies window and then the full Prescriptions list";
-             "Renew/Print Direct will skip the Pharmacokinetics and Allergies
-             window".
-     303741  "Print Rx — Opens an Allergy Alert dialog and a Prescription List
-             window"; 303131 / 303132: "An allergy warning window will open
-             followed by a drug selection list".
-   Both routes put the same window in the same place (allergies, read-only,
-   closed to reach the list), so this is one window under the name 303229 /
-   303217 give it. What it holds is what its name and 303131 say: the
-   patient's allergies with their reactions ("the patient's allergies and
-   corresponding reactions … an allergy warning will pop up"), and the
-   pharmacokinetic measures the prescription list itself prints — Height,
-   Weight and GFR (303229 `8bc95398…png`'s Print Height / Print Weight / Print
-   GFR strip). Everything shown comes from the chart: its Reaction Risks
-   (tdt_allergy) and the latest HEIGHT / WEIGHT / GFR measures. The layout is
-   the kit's print-window idiom (Current Patient, banded lists, one Close);
-   the window has no capture to measure against.
-   ------------------------------------------------------------------------ */
-const PK_MEASURES: { label: string; match: (code: string, name: string) => boolean }[] = [
-  { label: 'HEIGHT', match: (code, name) => code === '1948' || name === 'HEIGHT' },
-  { label: 'WEIGHT', match: (code, name) => code === '22732' || name === 'WEIGHT' },
-  { label: 'GFR', match: (code, name) => code === '27540' || /\bGFR\b/.test(name) },
-]
-
-export function PharmacokineticsAllergiesWindow({ onClose }: { onClose: () => void }) {
-  const data = useChartExport()
-  /* "Close or press ESC to continue" */
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', esc)
-    return () => document.removeEventListener('keydown', esc)
-  }, [onClose])
-  const measures = PK_MEASURES.map(({ label, match }) => {
-    const latest = (data?.measure ?? [])
-      .filter((m) => match(m.str_code ?? '', (m.str_description ?? '').toUpperCase()))
-      .sort((a, b) => (b.dtm_collect_date ?? '').localeCompare(a.dtm_collect_date ?? ''))[0]
-    return {
-      measure: label,
-      value: latest?.str_value ?? '',
-      units: latest?.str_units ?? '',
-      collected: (latest?.dtm_collect_date ?? '').split(' ')[0]!.replace(/\//g, '.'),
-    }
-  })
-  const allergies = (data?.allergy ?? []).map((a) => ({
-    start: (a.dtm_start ?? '').replace(/\//g, '.'),
-    substance: a.str_substance ?? '',
-    type: a.str_intolerance_type ?? '',
-    reactions: a.str_reactions ?? a.str_reaction ?? '',
-    severity: a.str_severity ?? '',
-  }))
-  return (
-    <StageWindow id={MED_WINDOWS.allergyWarning} title="Pharmacokinetics and Allergies" width={760} height={470} onClose={onClose}
-      footer={<>
-        <span>(Read-Only)</span>
-        <span className="pb-footer__spacer" />
-        <FooterButton primary onClick={onClose} tutorialId="host.mois.command.pharmacokinetics-close">Close</FooterButton>
-        <span className="pb-footer__spacer" />
-      </>}>
-      <CurrentPatientBlock />
-      <div data-tutorial-id="host.mois.group.pharmacokinetics" style={{ display: 'flex', flexDirection: 'column', flex: 'none', margin: '0 6px' }}>
-        <PBBand>Pharmacokinetics</PBBand>
-        <PBDataWindow
-          flush style={{ height: 84 }}
-          rows={measures}
-          columns={[
-            { key: 'measure', header: 'Measure', width: 120 },
-            { key: 'value', header: 'Value', width: 110, align: 'center' },
-            { key: 'units', header: 'Units', width: 110, align: 'center' },
-            { key: 'collected', header: 'Collected' },
-          ]}
-        />
-      </div>
-      <div data-tutorial-id="host.mois.group.allergies" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, margin: '0 6px 6px' }}>
-        <PBBand>Allergies</PBBand>
-        <PBDataWindow
-          flush style={{ flex: '1 1 auto', minHeight: 0 }}
-          rows={allergies}
-          rowStatus={() => 'flag'}
-          columns={[
-            { key: 'start', header: 'Start', width: 80, align: 'center' },
-            { key: 'substance', header: 'Substance', width: 150 },
-            { key: 'type', header: 'Type', width: 120 },
-            { key: 'reactions', header: 'Reactions' },
-            { key: 'severity', header: 'Severity', width: 190 },
-          ]}
-          empty="No allergies recorded for this patient."
-        />
-      </div>
-    </StageWindow>
-  )
-}
-
-/* --- Drug Interaction Results ----------------------------------------------
-   303229 `db9c345c…png`: Current Patient; "Interactions  Show: All /
-   Drug-Drug / Drug-Adverse Reaction" with counts; the grey scope note; a
-   coloured band per severity with each pair and its monograph underneath;
-   Print Anyway · Cancel Print. The monograph text is not the capture's (a
-   licensed Cerner Multum monograph): what is shown is built from this chart —
-   which of its prescriptions meet which of its recorded reaction risks. */
-type Interaction = { kind: 'drug-drug' | 'drug-adverse'; severity: string; a: string; b: string; text: string }
-
-export function useInteractions(): Interaction[] {
-  const data = useChartExport()
-  const rx = useMedRows('rx')
-  return useMemo(() => {
-    const out: Interaction[] = []
-    for (const allergy of data?.allergy ?? []) {
-      const substance = (allergy.str_substance ?? '').toUpperCase()
-      if (!substance) continue
-      /* a penicillin allergy meets every penicillin: ATC J01C */
-      const hits = rx.filter((m) => !m.voided && (m.med.toUpperCase().includes(substance)
-        || (substance.includes('PENICILLIN') && m.atc.startsWith('J01C'))))
-      for (const m of hits) {
-        out.push({
-          kind: 'drug-adverse',
-          severity: allergy.str_severity ?? '',
-          a: m.med,
-          b: substance,
-          text: `${m.generic || m.med} is recorded against a ${String(allergy.str_intolerance_type ?? 'reaction risk').toLowerCase()} to ${substance} `
-            + `(${allergy.str_reactions ?? allergy.str_reaction ?? 'reaction not recorded'}; ${String(allergy.str_severity ?? 'severity not recorded').toLowerCase()}), `
-            + `entered ${String(allergy.dtm_start ?? '').replace(/\//g, '.')} in Reaction Risks. Review the risk before this prescription is printed.`,
-        })
-      }
-    }
-    return out
-  }, [data, rx])
-}
-
-export function DrugInteractionWindow({ onPrint, onClose }: { onPrint: () => void; onClose: () => void }) {
-  const found = useInteractions()
-  const [show, setShow] = useState<'all' | 'drug-drug' | 'drug-adverse'>('all')
-  const shown = found.filter((f) => show === 'all' || f.kind === show)
-  const count = (k: Interaction['kind']) => found.filter((f) => f.kind === k).length
-  return (
-    <StageWindow id={MED_WINDOWS.interaction} title="Drug Interaction Results" width={827} height={736} onClose={onClose}
-      footer={<>
-        <span className="pb-footer__spacer" />
-        <FooterButton primary onClick={onPrint} tutorialId="host.mois.command.print-anyway">Print Anyway</FooterButton>
-        <FooterButton onClick={onClose} tutorialId="host.mois.command.cancel-print">Cancel Print</FooterButton>
-        <span className="pb-footer__spacer" />
-      </>}>
-      <CurrentPatientBlock />
-      <div style={{ margin: '0 6px', padding: '6px 8px 4px', borderBottom: '1px solid var(--pb-border)', flex: 'none' }}>
-        <div className="pb-row" style={{ gap: 12 }}>
-          <b>Interactions</b><span>Show:</span>
-          <PBRadio name="ix" label={`All (${found.length})`} checked={show === 'all'} onChange={() => setShow('all')} />
-          <span style={{ flex: '1 1 auto' }} />
-          <PBRadio name="ix" label={`Drug-Drug (${count('drug-drug')})`} checked={show === 'drug-drug'} onChange={() => setShow('drug-drug')} />
-          <span style={{ flex: '1 1 auto' }} />
-          <PBRadio name="ix" label={`Drug-Adverse Reaction (${count('drug-adverse')})`} checked={show === 'drug-adverse'} onChange={() => setShow('drug-adverse')} />
-        </div>
-        <div style={{ color: '#6d6d6d', textAlign: 'center', paddingTop: 3 }}>
-          Showing interactions, including Adverse Reactions, for drugs on this Prescription between themselves and with the Long Term Medication list.
-        </div>
-      </div>
-      <div data-tutorial-id="host.mois.group.interactions" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', margin: '0 6px 6px', background: '#fff', border: '1px solid var(--pb-border)' }}>
-        {shown.length === 0 ? <div className="pb-dw__empty">No interactions found.</div> : (
-          <>
-            <div style={{ background: '#ff8a9c', padding: '2px 6px', fontWeight: 700 }}>&#8863; Drug-Adverse Reaction ( {shown.length} )</div>
-            {shown.map((f, i) => (
-              <div key={i} style={{ padding: '4px 10px 8px 18px' }}>
-                <div><b>&#8863; {f.a.toLowerCase()}</b>&nbsp; and &nbsp;<b>{f.b.toLowerCase()}</b></div>
-                <div style={{ background: '#d4ebf8', margin: '4px 0 0 28px', padding: '4px 6px' }}>{f.text}</div>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-    </StageWindow>
-  )
-}
-
-/* --- Select Medications to Print ------------------------------------------
-   303229 `8bc95398…png`: Current Patient, a Prescription List with an Include
-   tick per row (none ticked), the selected row's Generic Name / Comment and
-   instruction flags, the Print Height / Print Weight / Print GFR strip with its
-   note. From v2.27 the pharmacy sits in its own band under Current Patient
-   (303227 `b8e5665f…png`: "No pharmacy on file. Add One" on yellow), and the
-   bottom right keeps Printer and Fax, each with Change... (`2ceaf4ef…png`),
-   over Print (F2) · Sign and Print · Sign and Fax · Sign and Task · Cancel. */
-export function SelectMedsToPrintWindow({ include: preset = [], onClose }: { include?: string[]; onClose: () => void }) {
-  const rows = useMedRows('rx').filter((m) => !m.voided)
-  const [, update] = useMedSession()
-  const [include, setInclude] = useState<Set<string>>(() => new Set(preset))
-  const [cur, setCur] = useState(0)
-  const row = rows[cur]
-  const print = () => {
-    const picked = rows.filter((m) => include.has(m.id))
-    if (picked.length) {
-      const when = nowStamp()
-      update((s) => ({
-        ...s,
-        printed: { ...s.printed, ...Object.fromEntries(picked.map((m) => [m.id, when])) },
-        printLog: [{ date: when, by: STAGE_USER, station: 'MOIS-STAGE', items: picked, version: 'Original' }, ...s.printLog],
-      }))
-    }
-    onClose()
-  }
-  return (
-    <StageWindow id={MED_WINDOWS.selectToPrint} title="Select Medications to Print" width={1000} height={720} onClose={onClose}
-      footer={<>
-        <span className="pb-footer__spacer" />
-        <FooterButton primary onClick={print} tutorialId="host.mois.command.print-f2">Print (F2)</FooterButton>
-        <FooterButton onClick={print}>Sign and Print</FooterButton>
-        <FooterButton onClick={print}>Sign and Fax</FooterButton>
-        <FooterButton onClick={print}>Sign and Task</FooterButton>
-        <FooterButton onClick={onClose}>Cancel</FooterButton>
-        <span className="pb-footer__spacer" />
-      </>}>
-      <CurrentPatientBlock healthNo />
-      <div style={{ margin: '0 6px', flex: 'none' }}>
-        <PBBand>Pharmacy</PBBand>
-        <div className="pb-row" style={{ background: '#fdf8c4', padding: '4px 8px', gap: 16 }}>
-          <span>No pharmacy on file.</span><button type="button" className="pb-link">Add One</button>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, margin: '0 6px' }}>
-        <PBBand>Prescription List</PBBand>
-        <PBDataWindow
-          flush style={{ flex: '1 1 auto', minHeight: 0 }}
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          rowTutorialId={(_r, i) => `host.mois.row.print-${i}`}
-          columns={[
-            {
-              key: 'include', header: 'Include', width: 52, align: 'center',
-              render: (m) => <PBCheckbox checked={include.has(m.id)} tutorialId={`host.mois.check.include-${pbSlug(m.med).slice(0, 24)}`}
-                onChange={(on) => setInclude((s) => { const n = new Set(s); on ? n.add(m.id) : n.delete(m.id); return n })} />,
-            },
-            { key: 'order', header: 'Order', width: 76, align: 'center' },
-            { key: 'cdic', header: 'CDIC', width: 70, align: 'center' },
-            { key: 'med', header: 'Medication' },
-            { key: 'dose', header: 'Dose / Frequency', width: 170 },
-            { key: 'amount', header: 'Amount', width: 130 },
-          ]}
-          empty="No prescriptions to print."
-        />
-      </div>
-      <div data-tutorial-id="host.mois.group.print-instructions" style={{ display: 'flex', gap: 8, padding: '6px 10px', margin: '0 6px', borderTop: '1px solid var(--pb-border)', flex: 'none' }}>
-        <div className="pb-form" style={{ gridTemplateColumns: '74px 1fr', flex: '1 1 auto', padding: 0, alignItems: 'start' }}>
-          <span className="pb-form__label">Generic Name:</span><PBTextArea rows={2} w="100%" readOnly value={row?.generic ?? ''} />
-          <span className="pb-form__label">Comment:</span><PBTextArea rows={3} w="100%" readOnly value={row?.comment ?? ''} />
-        </div>
-        <div className="pb-form" style={{ gridTemplateColumns: '70px auto', width: 250, padding: 0, gap: '1px 6px' }}>
-          <span className="pb-form__label pb-form__label--right">Instructions:</span><PBCheckbox label="Do Not Substitute" checked={row?.record?.str_no_substitute === 'Y'} />
-          <span /><PBCheckbox label="Do Not Adapt" checked={row?.record?.str_do_not_adapt === 'Y'} />
-          <span className="pb-form__label pb-form__label--right">PRN:</span><PBCheckbox label="(when necessary)" checked={row?.record?.str_prn === 'Y'} />
-          <span className="pb-form__label pb-form__label--right">Repeat:</span><div className="pb-row"><PBCheckbox /><PBInput w={42} /><b>&#10007;</b></div>
-          <span className="pb-form__label pb-form__label--right">Last Printed:</span><span>{row?.lastPrinted}</span>
-        </div>
-      </div>
-      <div style={{ display: 'flex', margin: '0 6px 6px', border: '1px solid var(--pb-border)', background: '#fff', flex: 'none' }}>
-        <div data-tutorial-id="host.mois.group.print-measures" style={{ flex: '1 1 auto', padding: '4px 10px' }}>
-          <div className="pb-row" style={{ gap: 26 }}>
-            <PBCheckbox label="Print Height" /><PBCheckbox label="Print Weight" /><PBCheckbox label="Print GFR" />
-          </div>
-          <div style={{ paddingTop: 3 }}>
-            When patient age is less than 12 and Height or Weight measures occurred within the past month, then the associated measure is selected for printing by default.  GFR selected by default for all patients if value is less than 60.
-          </div>
-        </div>
-        <div style={{ width: 330, borderLeft: '1px solid var(--pb-border)' }}>
-          {[['Printer:', 'Default'], ['Fax:', 'DEFAULT']].map(([k, v]) => (
-            <div key={k} className="pb-row" style={{ padding: '4px 8px', borderBottom: '1px solid #e2e2e2' }}>
-              <span style={{ width: 56 }}>{k}</span><span style={{ flex: '1 1 auto' }}>{v}</span><button type="button" className="pb-link">Change...</button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </StageWindow>
-  )
-}
+/* Pharmacokinetics and Allergies, Drug Interaction Results, Select
+   Medications to Print, Select Printer and Please Sign — the print chain —
+   are in PrescriptionPrintWindows.tsx, redrawn off the current build's
+   captures (user capture 2026-09-25 #37–#47 (v02.31.23)). */
 
 /* --- Prescription History ---------------------------------------------------
    303229 `46f7e419…png`: Printing History (Date Printed / Printed By) on the

@@ -300,8 +300,33 @@ export function ReportPage({ page, font = 'mono' }: { page: string; font?: 'mono
       )
       return
     }
+    /* %LINE:w,w…%a|b — cells at set widths with no rule under them (the
+       Encounter Note and WCB Physician Report printouts, user capture
+       2026-09-25 #23/#24/#31) */
+    const lineMatch = /^%LINE:([\d,]+)%(.*)$/.exec(line)
+    if (lineMatch) {
+      const widths = lineMatch[1]!.split(',').map(Number)
+      out.push(
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: widths.map((c) => `${c}%`).join(' '), minHeight: '1.35em' }}>
+          {lineMatch[2]!.split('|').map((c, j) => <span key={j} style={{ whiteSpace: 'pre' }}>{inline(c)}</span>)}
+        </div>,
+      )
+      return
+    }
     cols = null
-    if (line === '%RULE%') {
+    if (line.startsWith('%BAND%')) {
+      /* a page's header band between two rules: left / centre / right (#24) */
+      const [a = '', b = '', c = ''] = line.slice(6).split('|')
+      out.push(
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '50% 20% 30%', borderTop: '2px solid #000', borderBottom: '1px solid #000', padding: '3px 0', margin: '4px 0 3px' }}>
+          <span>{inline(a)}</span><span>{inline(b)}</span><span>{inline(c)}</span>
+        </div>,
+      )
+    } else if (line.startsWith('%MONO%')) {
+      out.push(<div key={i} style={{ fontFamily: '"Courier New", Courier, monospace', whiteSpace: 'pre', minHeight: '1.35em' }}>{line.slice(6)}</div>)
+    } else if (line === '%HR%') {
+      out.push(<div key={i} style={{ borderTop: '1px solid #a0a0a0', margin: '3px 0' }} />)
+    } else if (line === '%RULE%') {
       out.push(<div key={i} style={{ borderTop: font === 'sans' ? '2px solid #000' : '1px solid #000', margin: '2px 0', width: font === 'sans' ? '100%' : '93ch' }} />)
     } else if (line.startsWith('%G%')) {
       out.push(<div key={i} style={{ color: '#6d6d6d', minHeight: '1.35em' }}>{inline(line.slice(3))}</div>)

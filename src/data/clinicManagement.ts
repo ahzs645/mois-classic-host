@@ -305,7 +305,12 @@ const SERVICE_CENTERS: ClinicListSpec = {
   label: 'Service Centers',
   header: 'Service Center List',
   dialect: 'edit-record-find',
-  source: '303058 / 439c48301780 (1021x747, 1:1)',
+  /* User capture 2026-09-25 #55–#60 (v02.31.23) confirms the header, the
+     five-button row, the two filter boxes and Code · Description · Active on
+     the current build. Its own list (ADDICTION, FULL, PCPC ENROLLED, VIRUS,
+     and METHADONE / NURSING / PSYCHSOC inactive) is not copied: the Add a
+     service centre lesson types ADDICTION and counts these rows. */
+  source: '303058 / 439c48301780 (1021x747, 1:1); user capture 2026-09-25 #55–#60',
   filter: { kind: 'columns', boxes: [{ col: 0, w: 138 }, { col: 1, w: 329 }] },
   columns: [
     { key: 'code', header: 'Code', width: 140 },

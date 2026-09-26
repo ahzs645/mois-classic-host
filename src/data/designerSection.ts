@@ -1,14 +1,15 @@
 /* ============================================================================
    Administration ▸ Designer Section.
 
-   Ten nodes hang off the folder in the current build; eight of them were
-   measured off list captures and are configured here. `Panel Setup` is the
-   ninth: its list was never captured, but article 2594035 ("Measures -
-   Panel Setup") captures its New dialog and its detail window, so it is
-   configured from those (see its entry). `Quick Entry` is visible in the
-   v02.30.11 tree but no capture of it exists in the corpus, so it is
-   deliberately absent — the frame's labelled fallback is the honest thing
-   to show for it.
+   Eleven nodes hang off the folder in the current build (user capture
+   2026-09-25 #48, v02.31.23); eight of them were measured off list captures
+   and are configured here. `Panel Setup` is the ninth: its list is the
+   user's current-build capture (#49), its New dialog and detail window
+   article 2594035's ("Measures - Panel Setup"). `Web Forms Admin` and
+   `Quick Entry` have no capture of their windows, so they are deliberately
+   absent — the frame's labelled fallback is the honest thing to show. The
+   folder node itself opens the Designer Management landing page
+   (screens/AdminLandingViews.tsx).
 
    PROVENANCE. Every width, band height and caption below is a PIL pixel scan
    of a named capture (row-band colour runs, `#C8DCFA` header-run boundaries,
@@ -18,8 +19,8 @@
    (0ffe065f893e).
 
    ONE SHELL. All eight lists are the same PowerBuilder window — navy view
-   header, a 22px command row carrying the *same four buttons in the same
-   order*, a 17px filter strip, and a grid. Only the header caption, the
+   header, a 22px command row carrying the *same buttons in the same order*
+   (five on the current build, see DESIGNER_COMMANDS), a 17px filter strip, and a grid. Only the header caption, the
    column set, the filter set, the row pitch and an optional right-anchored
    Import/Export pair move. Two pairs are literally the same grid: Encounter
    Form is byte-identical to Flowsheet, and Care Plan to Task Sets (±1px).
@@ -36,8 +37,6 @@
    emulator's sample data. Spelling mistakes marked `[sic]` are MOIS's own
    and are kept on purpose.
    ========================================================================= */
-
-import { measureTemplates } from './measures'
 
 export type DesignerColumn = {
   key: string
@@ -81,6 +80,9 @@ export type DesignerNewDialog = {
   fields: DesignerNewField[]
   /** footer buttons, left to right */
   buttons: string[]
+  /** the band and fields sit inside an outlined group box inset from the
+      window edge, with the buttons below the box (#51) */
+  boxed?: boolean
   w: number
   h: number
   source: string
@@ -118,14 +120,27 @@ export type DesignerListScreen = {
   /** the column a row's anchor is built from, where the first column repeats
       (`host.mois.row.<slug>`); the first column otherwise */
   anchorKey?: string
+  /** what a row Create Record adds starts with, beyond the dialog's fields */
+  newRow?: DesignerRow
   source: string
 }
 
 /**
- * The command row. Identical on all eight nodes — same four captions, same
- * order, 81 x 22 each, butted edge-to-edge and flush left at the pane edge.
+ * The command row. Identical on every node — same captions, same order,
+ * 81 x 22 each, butted edge-to-edge and flush left at the pane edge.
+ *
+ * The current build (v02.31.23) carries FIVE: `Find / Replace` sits between
+ * Edit Record and Close Window, wider than the rest (user capture 2026-09-25
+ * #49 Panel Setup List, #50/#51 Encounter Documentation Form List: 121px at
+ * the captures' 1.15 scale, 105px at 1:1). The older help-site captures the
+ * rest of this file was measured on show four; the current build's row is
+ * drawn on every node. No capture shows the window behind Find / Replace on
+ * a Designer list, so the button raises nothing.
  */
-export const DESIGNER_COMMANDS = ['New Record', 'Delete Record', 'Edit Record', 'Close Window'] as const
+export const DESIGNER_COMMANDS = ['New Record', 'Delete Record', 'Edit Record', 'Find / Replace', 'Close Window'] as const
+
+/** the one command-row button that is not the 81px default */
+export const DESIGNER_COMMAND_WIDTH: Record<string, number> = { 'Find / Replace': 105 }
 
 /** The three Skeleton-D footer sets, which are the cleanest per-node discriminator. */
 export const DETAIL_FOOTERS = {
@@ -223,26 +238,25 @@ export const designerScreens: DesignerListScreen[] = [
     gutter: 16,
     detail: 'encounter-form',
     detailTitle: 'Encounter Documentation Form Detail',
-    /* NO CAPTURE of this node's New Record dialog exists, but art. 303174's
-       step list describes it: "Click 'New Record' on the taskbar · Name your
-       form and give it a description (optional) · Click 'Create Record'",
-       and only then the Encounter Documentation Form Detail window. So the
-       fields (Name, Description) and the Create Record button are the
-       manual's; the shape, size and Cancel are the family's — this list is
-       byte-identical to Flowsheet's, whose New dialog `91a5bf856f19` is the
-       same two fields over Create Record / Cancel. INFERRED, not captured:
-       the title and band captions, built the way Flowsheet's are ("New
-       Flowsheet" / "New Flowsheet Definition" over "Flowsheet List"). */
+    /* PROVENANCE: user capture 2026-09-25 #51 (v02.31.23) — title "New
+       Encounter Documentation Form", a grey group band captioned "New Data
+       Entry Template" (the product's own name for these forms), Name and
+       Description, and Create Record / Cancel centred under the band. About
+       570 x 220 in the capture, 496 x 191 at 1:1; both edits ~355px there,
+       310 here. The Name edit opens white with the caret in it, not with
+       the #FFC09C fill the Flowsheet dialog shows. This replaces the
+       INFERRED dialog built from art. 303174's step list. */
     newDialog: {
       title: 'New Encounter Documentation Form',
-      band: 'New Encounter Documentation Form Definition',
-      w: 418,
-      h: 176,
+      band: 'New Data Entry Template',
+      boxed: true,
+      w: 496,
+      h: 191,
       buttons: ['Create Record', 'Cancel'],
-      source: 'art. 303174 step list; shape of 91a5bf856f19 (INFERRED captions)',
+      source: 'user capture 2026-09-25 #51 (v02.31.23)',
       fields: [
-        { kind: 'text', label: 'Name:', w: 250, focus: true },
-        { kind: 'text', label: 'Description:', w: 250 },
+        { kind: 'text', label: 'Name:', w: 310 },
+        { kind: 'text', label: 'Description:', w: 310 },
       ],
     },
     rows: [
@@ -343,34 +357,50 @@ export const designerScreens: DesignerListScreen[] = [
                    (the capture's 512 x 228, scaled from its 125%-free
                    crop).
        Detail      `4533a187…` — "Panel Setup Detail" (below).
-     The LIST was never captured. Its command row is the family's four
-     buttons (the article's "New / Delete / Edit"); its columns are the New
-     dialog's two fields plus the detail's Description, and its caption is
-     built like its siblings' ("… List") — INFERRED, not measured.
-     Rows: the panels in the emulator's Measure Template / Panel Selection
-     list (data/measures.ts, type PANEL) and the article's own worked
-     example, OCULAR TENSION AND TIME, which `01e19854…` lists as a PANEL
-     with no description. The article's one captured panel has Code equal
-     to Name; the others follow it. */
+     LIST: user capture 2026-09-25 #49 (v02.31.23). The family's command row
+     (with Find / Replace), three filter boxes over the first three columns,
+     and Common Name · Description · Reference Code · Status · Source —
+     widths 238 / 354 / 168 / 48 / 76 in the capture, x0.87 to 1:1. Status is
+     `A` on every row; Source is CLINIC or AIHS, centred. The rows are the
+     capture's own panel names and reference codes, in its order (it is
+     sorted by Common Name). The capture's truncated descriptions are
+     completed in the same wording. A panel created here takes the New
+     dialog's Code as its Reference Code and Name as its Common Name, and
+     starts `A` / CLINIC. OCULAR TENSION AND TIME, the article's worked
+     example, is not in the current list: the Measure Panel lesson creates
+     it. */
   {
     node: 'ad-panel-setup',
     treeLabel: 'Panel Setup',
     header: 'Panel Setup List',
-    source: 'art. 2594035: 1810d737 (New), 4533a187 (Detail); list INFERRED',
+    source: 'user capture 2026-09-25 #49 (list); art. 2594035: 1810d737 (New), 4533a187 (Detail)',
     columns: [
-      { key: 'code', header: 'Code', width: 214, filter: true },
-      { key: 'name', header: 'Name', width: 250, filter: true },
-      { key: 'desc', header: 'Description', width: 330, filter: true },
+      { key: 'name', header: 'Common Name', width: 207, filter: true },
+      { key: 'desc', header: 'Description', width: 308, filter: true },
+      { key: 'code', header: 'Reference Code', width: 146, filter: true },
+      { key: 'status', header: 'Status', width: 42, align: 'center' },
+      { key: 'source', header: 'Source', width: 66, align: 'center' },
     ],
     pitch: 18,
     gutter: 16,
     detail: 'panel-setup',
     detailTitle: 'Panel Setup Detail',
     anchorKey: 'name',
+    newRow: { status: 'A', source: 'CLINIC' },
     rows: [
-      ...measureTemplates.filter((t) => t.type === 'PANEL').map((t) => ({ code: t.name, name: t.name, desc: t.description })),
-      { code: 'OCULAR TENSION AND TIME', name: 'OCULAR TENSION AND TIME', desc: '' },
-    ].sort((a, b) => a.name.localeCompare(b.name)),
+      { name: 'Aggressive Behaviour Scale', desc: 'Aggressive Behaviour Scale', code: 'ABS', status: 'A', source: 'CLINIC' },
+      { name: 'Community Falls Prevention 3Q Screener', desc: '3 question falls risk screener (do multifactorial assessment if 1+ yes)', code: '', status: 'A', source: 'CLINIC' },
+      { name: 'Education Status', desc: 'Patients current education status', code: 'EDUCATION.STATUS', status: 'A', source: 'AIHS' },
+      { name: 'Employment Status', desc: "Patient's current employment status", code: 'EMPLOYMENT.STATUS', status: 'A', source: 'AIHS' },
+      { name: 'Housing Status', desc: 'Patients current housing status', code: 'HOUSING.STATUS', status: 'A', source: 'AIHS' },
+      { name: 'POCT ACUTE', desc: 'Point of Care tests that require lab accreditation performed in Acute Care', code: '', status: 'A', source: 'CLINIC' },
+      { name: 'POCT Non Acute', desc: 'Point of care tests that do not require lab accreditation in Primary Care', code: '', status: 'A', source: 'CLINIC' },
+      { name: 'POCT Urinalysis Machine Read', desc: 'Point of care urine dipstick machine read done in Primary and Community Care', code: '', status: 'A', source: 'CLINIC' },
+      { name: 'POCT Urinalysis Manual Read', desc: 'Point of care urine dipstick manual read done in Primary and Community Care', code: '', status: 'A', source: 'CLINIC' },
+      { name: 'Socioeconomic Status', desc: "Indicators of a patient's socioeconomic situation.", code: 'SOCIOECONOMIC.STATUS', status: 'A', source: 'AIHS' },
+      { name: 'Staying Independent Checklist', desc: '12 item falls risk screener (do multifactorial assessment if score 4+)', code: '', status: 'A', source: 'CLINIC' },
+      { name: 'Testing', desc: 'Testing to see if Measures can be renamed', code: '', status: 'A', source: 'CLINIC' },
+    ],
     newDialog: {
       title: 'New Panel Setup',
       band: 'New Panel Information',

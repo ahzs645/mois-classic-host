@@ -15,23 +15,31 @@ import { tagRecordFor, TagToCarePlanDialog } from './TagToCarePlanDialog'
    The right-click Option List on a clinical chart folder's record.
 
    PROVENANCE
-   - 302837 `2702f065…png` (v02.20.04, Measurements, Tag to Care Plan ringed):
+   - user capture 2026-09-25 #34 (v02.31.23, Imaging Reports) and #35
+     (v02.31.23, Consult Reports) — the current build, which outranks the
+     manual below; both folders drop the same fifteen items:
        New Record · Delete Record · Save Changes |
        Create Task · Create Message · Create Reminder · Create Recall ·
        View Recalls · Mark for Review · Tag to Care Plan |
        Attachments |
        Audit Report · Access Control |
-       Acknowledge History · Show History
+       Workflow Summary
+     There is no Acknowledge History item any more: the v02.20 captures'
+     last group (302837 `2702f065…png`, Measurements: "Acknowledge History ·
+     Show History") is Workflow Summary on the current build, and it opens
+     the record's Workflow Summary window (RecordOptionWindows), which holds
+     the Acknowledgement History the old item showed.
+   - 302837 (v02.20.04, Measurements) is still the only capture of the
+     Measures list; its Show History ("In the Measures folder, shows the
+     history for this item", 304682) stays after Workflow Summary there.
    - 304731 `fc801c1c…png` (v02.20.04, Consult Reports): the same list down to
-     Tag to Care Plan, where the capture is cropped by the Tag Information to
-     Care Plan window it opened.
+     Tag to Care Plan, cropped by the Tag Information to Care Plan window it
+     opened.
    - 304682 (Right Clicks): the items' meanings; Audit Report is also
      Ctrl+Shift+A. 303741: "Imaging, Consults, Procedures, Documents and Paper
      Forms … Mark for Review", and the same Acknowledgements / Workflow
      Summary rail on Measures, Imaging, Consults, Procedures, Facility
      Admissions, Documents and Orders.
-   Show History is Measures-only (304682: "In the Measures folder, shows the
-   history for this item"); the other folders stop at Acknowledge History.
    Documents adds Attach / Unattach / Open File (303741) and keeps its own
    screen, so it is not in this set.
 
@@ -42,11 +50,11 @@ import { tagRecordFor, TagToCarePlanDialog } from './TagToCarePlanDialog'
        record (303596, 303597)
      Create Recall / View Recalls  the Notifications windows
      Mark for Review  Mark Record for Review (303764); the review then shows
-       in this record's Acknowledge History
+       in this record's Workflow Summary and on the folder's rail
      Tag to Care Plan  Tag Information to Care Plan for the record clicked
        (304731) — not the folder's first row
      Attachments  the Attachments window
-     Audit Report / Access Control / Acknowledge History  RecordOptionWindows
+     Audit Report / Access Control / Workflow Summary  RecordOptionWindows
      Show History  Measures' Show History window (302837)
    Create Reminder has no window on this stage and does nothing.
 
@@ -90,7 +98,7 @@ export function useRecordOptionList({ node, record, commands, setCur }: {
   menu: ReactNode
   /** the windows it raises that the folder draws (Tag to Care Plan) */
   windows: ReactNode
-  /** the rail's View Detail… — the same window Acknowledge History opens */
+  /** the rail's View Detail... — the same window the Workflow Summary item opens */
   openWorkflowSummary: () => void
 } {
   const active = OPTION_LIST_FOLDERS.has(node)
@@ -128,7 +136,7 @@ export function useRecordOptionList({ node, record, commands, setCur }: {
     { label: 'Audit Report', disabled: !record, onSelect: () => { open(RECORD_OPTION_WINDOWS.auditReport, about) } },
     { label: 'Access Control', disabled: !record, onSelect: () => { open(RECORD_OPTION_WINDOWS.accessControl, about) } },
     { sep: true },
-    { label: 'Acknowledge History', disabled: !record, onSelect: () => { open(RECORD_OPTION_WINDOWS.workflowSummary, about) } },
+    { label: 'Workflow Summary', disabled: !record, onSelect: () => { open(RECORD_OPTION_WINDOWS.workflowSummary, about) } },
     ...(node === 'measures' ? [{ label: 'Show History', disabled: !record, onSelect: () => { open('show-history') } }] : []),
   ]
 

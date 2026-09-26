@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNodeRecords } from '../data/chart-records'
+import { useChartExport, useNodeRecords } from '../data/chart-records'
 import { useFolderReviews } from '../data/folder-reviews'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
@@ -12,10 +12,14 @@ import {
 import { useOpenWindow } from './areaWindowRegistry'
 import { blankMed, newMedId, STAGE_USER, useMedRows, useMedSession, type Med } from './medication-model'
 import {
-  AddFavouriteWindow, DeleteAskBox, DoseWizardWindow, DrugInteractionWindow, DrugLookupWindow,
-  FavouriteListWindow, LtmDoseWindow, MED_WINDOWS, PharmacokineticsAllergiesWindow, PrescriptionHistoryWindow,
-  RenewLtmWindow, SelectMedsToPrintWindow, UnvoidAskBox, useInteractions, VoidAskBox, VoidReasonWindow,
+  AddFavouriteWindow, DeleteAskBox, DoseWizardWindow, DrugLookupWindow,
+  FavouriteListWindow, LtmDoseWindow, MED_WINDOWS, PrescriptionHistoryWindow,
+  RenewLtmWindow, UnvoidAskBox, VoidAskBox, VoidReasonWindow,
 } from './MedicationWindows'
+import {
+  DoseTree, DrugInteractionWindow, findInteractions, isPrintJob, PharmacokineticsAllergiesWindow, PleaseSignWindow,
+  SelectMedsToPrintWindow, useFilePrint, type PrintJob,
+} from './PrescriptionPrintWindows'
 import { RECORD_OPTION_WINDOWS } from './RecordOptionWindows'
 import { recordKeyOf } from './reportRecordEdits'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
@@ -43,32 +47,49 @@ import './medication.css'
      detail pane (CPP: Type OAT / Dual OAT / Prescribed Safer Supply,
      Witness and Carries days/week). Dose Detail heads the tree with
      "duration: 0.0 ENTER ON RENEW".
-   - Rx's detail pane is untabbed, with Dose Detail on the right, as every
-     Rx capture draws it.
+   - Rx - Prescription on the current build (user capture 2026-09-25 #36
+     (v02.31.23)): the ten-button row New Record · Rx Wizard · Rx Favourite ·
+     Delete Record · Save · Undo · Refresh · Duplicate · Attachment · Print
+     Rx, and the same Detail / CPP tab pair as Long Term Medication (the
+     manual's v02.2x Rx captures are untabbed). Detail: ATC Code · Ordered
+     By, Generic Name, Indication, Comment ("Printed on Prescription"),
+     Office Note (not Printed), Last Printed + View Print History; the
+     Instructions / PRN / Repeat ticks on the right. #36's row has no dose,
+     and no Dose Detail box is drawn, so on Rx the box shows only for a row
+     that has a dose tree (#39 draws that tree as "⊟ duration: 28.0 DAY").
+     The footer has Created and ENC#, and no Last Modified label for a row
+     never modified.
    - Voided rows are struck through and greyed, and the detail shows the pink
      VOIDED panel (Voided By / Voided Date / Reason) where Comment and Office
      Note were (303233 `55d29d3f…png`).
    - Rx's footer carries `Last Printed:` and the blue `View Print History`
      link (303229 `e57da376…png`).
 
-   Row right-click menus: Rx 303232 `b6a3367f…png` (v02.22.92). Long Term
-   Medication's is not captured; it is the Rx menu less its two Void items,
-   since 303234 says "Add to My Favourites" is reached the same way from both.
+   Row right-click menus (user capture 2026-09-25 #36 Rx, #45 LTM
+   (v02.31.23)): New Record · Delete Record · Save Changes | Create Task ·
+   Create Message · Create Reminder · Create Recall · View Recalls · Tag to
+   Care Plan | Attachments | Audit Report · Access Control | Workflow
+   Summary | Add to My Favourites — Rx adds Void Prescription · UnVoid
+   Prescription straight under it. Neither has Mark for Review (the chart
+   report folders' list does, RecordOptionList.tsx). They supersede 303232
+   `b6a3367f…png` (v02.22.92).
    ========================================================================= */
 
 const RX_COLUMNS: PBColumn<Med>[] = [
   { key: 'order', header: 'Order', width: 84, align: 'center' },
   { key: 'med', header: 'Medication' },
   { key: 'd1', header: '', dots: true },
-  { key: 'dose', header: 'Dose / Frequency', width: 150, align: 'center' },
+  /* left-aligned, as #36 paints them */
+  { key: 'dose', header: 'Dose / Frequency', width: 150 },
   { key: 'd2', header: '', dots: true },
-  { key: 'amount', header: 'Amount', width: 110, align: 'center' },
+  { key: 'amount', header: 'Amount', width: 110 },
   { key: 'type', header: 'Type', width: 56, align: 'center' },
   { key: 'm', header: 'M', width: 22, align: 'center' },
   { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center' },
 ]
 
-const LTM_TABS = ['Detail', 'CPP']
+/* both folders (user capture 2026-09-25 #36 Rx, #45 LTM (v02.31.23)) */
+const DETAIL_TABS = ['Detail', 'CPP']
 
 const LTM_COLUMNS: PBColumn<Med>[] = [
   { key: 'order', header: 'Start', width: 80, align: 'center' },
@@ -97,7 +118,17 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   const [record, setRecord] = useState('')
   const [cur, setCur] = useState(0)
   const [menuAt, setMenuAt] = useState<ContextMenuAt>(null)
-  const interactions = useInteractions()
+  /* the print chain's checks and filing (PrescriptionPrintWindows.tsx) */
+  const data = useChartExport()
+  const rxRows = useMedRows('rx')
+  const ltmRows = useMedRows('ltm')
+  const filePrint = useFilePrint()
+  const interactionsFor = (job: PrintJob) => findInteractions(rxRows.filter((m) => job.include.includes(m.id) && !m.voided), ltmRows, data?.allergy ?? [])
+  /* Print (F2) prints; the Sign and … buttons sign first */
+  const printJob = (job: PrintJob) => {
+    if (job.mode === 'print') { filePrint(job, false); win.close(); setRecord('printed') }
+    else win.open(MED_WINDOWS.pleaseSign, { job })
+  }
   const shown = draft ? [draft, ...rows] : rows
   const current = shown[Math.min(cur, shown.length - 1)]
 
@@ -132,12 +163,12 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   useEffect(() => {
     if (slot === MED_WINDOWS.duplicate) { win.close(); duplicate() }
     else if (slot === MED_WINDOWS.addToLtm) { win.close(); addToLtm() }
-    else if (slot === MED_WINDOWS.printRx) { win.open(MED_WINDOWS.allergyWarning, { then: 'print' }) }
+    else if (slot === MED_WINDOWS.printRx) { win.open(MED_WINDOWS.allergyWarning) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot])
 
   const reviewed = reviews[0]
-  const [detailTab, setDetailTab] = useState<string>(LTM_TABS[0])
+  const [detailTab, setDetailTab] = useState<string>(DETAIL_TABS[0]!)
   const title = rx ? 'Rx - Prescription' : `Long Term Medications${reviewed ? ` - (${reviewed.date})` : ''}`
 
   const commands = rx
@@ -151,7 +182,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         { label: 'Refresh', onClick: () => setRecord('') },
         { label: 'Duplicate', disabled: !current, onClick: duplicate },
         { label: 'Attachment', onClick: () => openFrameWindow('add-attachment') },
-        { label: 'Print Rx', onClick: () => win.open(MED_WINDOWS.allergyWarning, { then: 'print' }) },
+        { label: 'Print Rx', onClick: () => win.open(MED_WINDOWS.allergyWarning) },
       ]
     : [
         { label: 'New', onClick: () => startDraft(blankMed(newMedId('ltm'))) },
@@ -163,7 +194,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         { label: 'Duplicate', disabled: !current, onClick: duplicate },
         { label: 'Renew', onClick: () => win.open(MED_WINDOWS.renew, { preselect: current?.id }) },
         { label: 'Attachment', onClick: () => openFrameWindow('add-attachment') },
-        { label: 'Print Rx', onClick: () => win.open(MED_WINDOWS.allergyWarning, { then: 'print' }) },
+        { label: 'Print Rx', onClick: () => win.open(MED_WINDOWS.allergyWarning) },
         /* the frame opens the Reviewing window on this button (onKitAction) */
         { label: 'Review' },
         { label: 'No Known' },
@@ -174,16 +205,18 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
     category: rx ? 'PRESCRIPTION' : 'LONG TERM MEDICATION',
     date: current?.order ?? '', description: [current?.med, current?.dose].filter(Boolean).join('  '),
   }
+  const who = { chart: patient.chart, patient: `${patient.last}, ${patient.first}`.toUpperCase() }
+  const linkedTo = [about.category, about.date, current?.med].filter(Boolean).join(' ')
   const contextItems: PBMenuItem[] = [
     { label: 'New Record', onSelect: () => startDraft(blankMed(newMedId(mode))) },
-    { label: 'Delete Record', onSelect: () => win.open(MED_WINDOWS.deleteAsk) },
+    { label: 'Delete Record', disabled: !current, onSelect: () => (current === draft ? undo() : win.open(MED_WINDOWS.deleteAsk)) },
     { label: 'Save Changes', disabled: !draft, onSelect: save },
     { sep: true },
-    { label: 'Create Task', onSelect: () => openFrameWindow('create-task') },
-    { label: 'Create Message', onSelect: () => openFrameWindow('create-message') },
+    { label: 'Create Task', onSelect: () => openFrameWindow('create-task', { ...who, linkedTo }) },
+    { label: 'Create Message', onSelect: () => openFrameWindow('create-message', { ...who, linkedTo }) },
     { label: 'Create Reminder' },
-    { label: 'Create Recall' },
-    { label: 'View Recalls' },
+    { label: 'Create Recall', onSelect: () => openFrameWindow('create-recall', who) },
+    { label: 'View Recalls', onSelect: () => openFrameWindow('patient-recall-list', who) },
     { label: 'Tag to Care Plan', onSelect: () => openFrameWindow('tag-to-care-plan') },
     { sep: true },
     { label: 'Attachments', onSelect: () => openFrameWindow('add-attachment') },
@@ -196,7 +229,6 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
     { sep: true },
     { label: 'Add to My Favourites', onSelect: () => win.open(MED_WINDOWS.addFavourite) },
     ...(rx ? [
-      { sep: true },
       { label: 'Void Prescription', disabled: !!current?.voided, onSelect: () => win.open(MED_WINDOWS.voidAsk) },
       { label: 'UnVoid Prescription', disabled: !current?.voided, onSelect: () => win.open(MED_WINDOWS.unvoid) },
     ] : []),
@@ -273,25 +305,21 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
           rowTutorialId={(m) => `host.mois.row.${rowSlug(m)}`}
           empty={rx ? 'No prescriptions on file.' : 'No long term medications on file.'}
         />
-        <RowContextMenu at={menuAt} items={contextItems} onClose={() => setMenuAt(null)} />
+        {menuAt && <OptionMenu at={menuAt} items={contextItems} onClose={() => setMenuAt(null)} />}
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 0' }}>
         <div data-tutorial-id="host.mois.group.medication-detail" style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-face)', border: '1px solid var(--pb-border)', overflow: 'hidden' }}>
-          {rx
-            ? <DetailPage key={current?.id ?? 'none'} rx med={current} onPrintHistory={() => win.open(MED_WINDOWS.history)} />
-            : (
-              <PBTabs tabs={LTM_TABS} active={detailTab} onChange={setDetailTab} compact>
-                <DetailPage key={current?.id ?? 'none'} rx={false} cpp={detailTab === 'CPP'} med={current} onPrintHistory={() => win.open(MED_WINDOWS.history)} />
-              </PBTabs>
-            )}
+          <PBTabs tabs={DETAIL_TABS} active={detailTab} onChange={setDetailTab} compact>
+            <DetailPage key={current?.id ?? 'none'} rx={rx} cpp={detailTab === 'CPP'} med={current} onPrintHistory={() => win.open(MED_WINDOWS.history)} />
+          </PBTabs>
         </div>
       </div>
 
       <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
         <span>Created: {current?.created}</span>
         <span style={{ width: 24 }} />
-        <span>Last Modified: {current?.modified}</span>
+        {(!rx || current?.modified) && <span>Last Modified: {current?.modified}</span>}
         <span className="pb-row__spacer" />
         <button className="pb-link">ENC# {current?.encounter && current.encounter !== '-1' ? current.encounter : 'EMPTY'}</button>
       </div>
@@ -332,26 +360,63 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
       {win.is(MED_WINDOWS.addFavourite) && (
         <AddFavouriteWindow med={current} onClose={win.close} onDone={() => { win.close(); setRecord('favourite') }} />
       )}
-      {/* Print Rx and Renew / Print (F2) both open on the allergy window;
-          closing it continues — to Drug Interaction Results when anything on
-          the prescription interacts (303229 "if applicable"), else, and
-          always after a renewal, to the prescription list */}
+      {/* The print chain, in the current build's order (user capture
+          2026-09-25 #37–#47 (v02.31.23), PrescriptionPrintWindows.tsx): Print
+          Rx and Renew / Print (F2) open Pharmacokinetics and Allergies;
+          closing it opens Select Medications to Print (a renewal's new rows
+          ticked); its buttons check the ticked drugs for interactions —
+          Drug Interaction Results when there are any — then print, or, for
+          the Sign and … buttons, open Please Sign; Sign and Task ends on
+          Create New Task. */}
       {win.is(MED_WINDOWS.allergyWarning) && (
         <PharmacokineticsAllergiesWindow
           onClose={() => {
-            const args = win.window?.args
-            if (args?.then === 'select') win.open(MED_WINDOWS.selectToPrint, { include: args.include })
-            else win.open(interactions.length ? MED_WINDOWS.interaction : MED_WINDOWS.selectToPrint)
+            const include = win.window?.args?.include
+            win.open(MED_WINDOWS.selectToPrint, { include: Array.isArray(include) ? include : [] })
           }}
         />
-      )}
-      {win.is(MED_WINDOWS.interaction) && (
-        <DrugInteractionWindow onClose={win.close} onPrint={() => win.open(MED_WINDOWS.selectToPrint)} />
       )}
       {win.is(MED_WINDOWS.selectToPrint) && (
         <SelectMedsToPrintWindow
           include={Array.isArray(win.window?.args?.include) ? (win.window!.args!.include as string[]) : []}
-          onClose={() => { win.close(); setRecord('printed') }}
+          onClose={win.close}
+          onPrint={(job) => {
+            /* nothing ticked, nothing to print */
+            if (!job.include.length) { win.close(); return }
+            if (interactionsFor(job).length) win.open(MED_WINDOWS.interaction, { job })
+            else printJob(job)
+          }}
+        />
+      )}
+      {win.is(MED_WINDOWS.interaction) && isPrintJob(win.window?.args?.job) && (
+        <DrugInteractionWindow
+          found={interactionsFor(win.window!.args!.job as PrintJob)}
+          onClose={win.close}
+          onPrint={() => printJob(win.window!.args!.job as PrintJob)}
+        />
+      )}
+      {win.is(MED_WINDOWS.pleaseSign) && isPrintJob(win.window?.args?.job) && (
+        <PleaseSignWindow
+          job={win.window!.args!.job as PrintJob}
+          onClose={win.close}
+          onAccept={() => {
+            const job = win.window!.args!.job as PrintJob
+            filePrint(job, true)
+            win.close()
+            setRecord('printed')
+            /* #47: Create New Task, "PLEASE SEND PRESCRIPTION", linked to the
+               prescription log record the signed print made. The stage keeps
+               no tdt_prescription_log rows, so the first prescription's id
+               stands in for the log record's */
+            if (job.mode === 'sign-task') {
+              openFrameWindow('create-task', {
+                chart: patient.chart,
+                patient: `${patient.last}, ${patient.first}`.toUpperCase(),
+                task: 'PLEASE SEND PRESCRIPTION',
+                linkedTo: `tdt_prescription_log - record id: ${job.include[0]?.replace(/\D/g, '') || '1'}`,
+              })
+            }
+          }}
         />
       )}
       {win.is(MED_WINDOWS.history) && <PrescriptionHistoryWindow onClose={win.close} onReprint={() => setRecord('reprinted')} />}
@@ -367,7 +432,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
             update((s) => ({ ...s, rxAdded: [...scripts, ...s.rxAdded] }))
             setRecord('renewed')
             /* Renew / Print (F2): Pharmacokinetics and Allergies, then the list (303229) */
-            if (print) win.open(MED_WINDOWS.allergyWarning, { then: 'select', include: scripts.map((m) => m.id) })
+            if (print) win.open(MED_WINDOWS.allergyWarning, { include: scripts.map((m) => m.id) })
             else win.close()
           }}
         />
@@ -428,6 +493,13 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   )
 }
 
+/** The row's right-click menu, reported as `host.dialog = 'record-option-list'`
+    while it is down, the way the report folders' Option List is. */
+function OptionMenu({ at, items, onClose }: { at: ContextMenuAt; items: PBMenuItem[]; onClose: () => void }) {
+  useScreenReport({ dialog: 'record-option-list' })
+  return <RowContextMenu at={at} items={items} onClose={onClose} />
+}
+
 function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp?: boolean; med?: Med; onPrintHistory: () => void }) {
   const flag = (key: string) => med?.record?.[key] === 'Y'
   return (
@@ -444,7 +516,7 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
         <PBTextArea rows={2} w="100%" readOnly defaultValue={med?.generic ?? ''} style={{ background: 'var(--pb-face)' }} />
 
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Indication:</span>
-        <PBLookup w={84} />
+        <PBLookup w="100%" />
 
         {cpp ? (
           <>
@@ -498,38 +570,34 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
         )}
       </div>
 
-      {/* the instruction flags and the Dose Detail tree, on the right */}
-      <div style={{ width: 290, flex: 'none' }}>
+      {/* the instruction flags and the Dose Detail tree, on the right. The
+          box is white with a bold "Dose Detail" caption over a black rule
+          (user capture 2026-09-25 #45 (v02.31.23)); on Rx it is drawn only
+          for a row with a dose tree (#36) */}
+      <div style={{ width: 340, flex: 'none', alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
         <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '68px 1fr', gap: '0px 6px' }}>
-          <span className="pb-form__label">Instructions:</span>
-          <div className="pb-row" style={{ gap: 12 }}>
+          <span className="pb-form__label pb-form__label--right">Instructions:</span>
+          <div className="pb-row" style={{ gap: 18 }}>
             <PBCheckbox label="Do Not Substitute" checked={med?.record?.str_no_substitute === 'Y'} />
             <PBCheckbox label="Do Not Adapt" checked={med?.record?.str_do_not_adapt === 'Y'} />
           </div>
-          <span className="pb-form__label">PRN:</span>
+          <span className="pb-form__label pb-form__label--right">PRN:</span>
           <PBCheckbox label="(when necessary)" checked={med?.record?.str_prn === 'Y'} />
           {rx && (
             <>
-              <span className="pb-form__label">Repeat:</span>
+              <span className="pb-form__label pb-form__label--right">Repeat:</span>
               <div className="pb-row">
-                <PBCheckbox /><PBInput w={46} /><span style={{ fontWeight: 700 }}>&#10007;</span>
+                <PBCheckbox checked={med?.record?.str_refill === 'Y'} /><PBInput w={46} defaultValue={med?.record?.str_refill === 'Y' ? med.record.num_repeat ?? '' : ''} /><span style={{ fontWeight: 700 }}>&#10007;</span>
               </div>
             </>
           )}
         </div>
-        <div className="pb-groupbox" style={{ marginTop: 8, minHeight: 118 }} data-tutorial-id="host.mois.group.dose-detail">
-          <PBBand>Dose Detail</PBBand>
-          <div style={{ padding: '4px 12px', fontFamily: 'var(--pb-font-mono)', whiteSpace: 'pre-wrap', background: '#fff', minHeight: 96 }}>
-            {med && (med.dispense || med.dose) ? (
-              <>
-                {rx
-                  ? <b>&#8863; DISPENSE: {med.dispense || (med.amount || '0.0')}</b>
-                  : <b>&#8863; duration: {med.dispense || '0.0 ENTER ON RENEW'}</b>}
-                {'\n'}{(med.doses.length ? med.doses : [med.dose]).map((d) => `   ${d}`).join('\n')}
-              </>
-            ) : null}
+        {(!rx || (med && (med.dispense || med.dose))) && (
+          <div data-tutorial-id="host.mois.group.dose-detail" style={{ marginTop: rx ? 8 : 34, flex: '1 1 auto', minHeight: 118, border: '1px solid #000', background: '#fff' }}>
+            <div style={{ fontWeight: 700, padding: '0 4px', borderBottom: '1px solid #000' }}>Dose Detail</div>
+            <DoseTree med={med} rx={rx} />
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
@@ -562,7 +630,7 @@ export function PrintHistoryView() {
   const rows = useMemo<PrintHxRow[]>(() => {
     const dot = (v?: string) => (v ?? '').replace(/\//g, '.').replace(/:\d\d$/, '').replace(' ', ' @ ')
     const fromStage = session.printLog.map((e) => ({
-      by: e.by, created: e.date.replace('  ', ' @ '), signed: '', method: 'PRINT', mby: e.by, mwhen: e.date.replace('  ', ' @ '), version: e.version, items: e.items,
+      by: e.by, created: e.date.replace('  ', ' @ '), signed: e.signed ? 'Y' : '', method: e.method ?? 'PRINT', mby: e.by, mwhen: e.date.replace('  ', ' @ '), version: e.version, items: e.items,
     }))
     const fromExport = records.filter((r) => r.dtm_last_printed).map((r) => ({
       by: r.stp_user_create ?? '', created: dot(r.stp_date_create), signed: r.str_signing_method ? 'Y' : '',

@@ -18,6 +18,10 @@ import { RECORD_FOLDERS, useReportRecords } from './reportRecords'
 import { useFolderReviews } from '../data/folder-reviews'
 import { AdverseEventTab, ALLERGY_WINDOWS, AllergyFolderWindows } from './AllergyWindows'
 import { useRecordOptionList } from './RecordOptionList'
+import { PaperFormsView } from './PaperFormsView'
+import { reviewKeyOf } from './RecordOptionWindows'
+import { useWorkspaceStore } from '../data/workspaceStore'
+import { CURRENT_USER } from '../data/tasks'
 
 
 /* One component for Imaging Reports, Consult Reports, Procedure and Paper
@@ -63,7 +67,17 @@ function Field({ f }: { f: ReportField }) {
   }
 }
 
-export function ClinicalReportView({ screen: layout, node = '', initialRecordId }: { screen: ReportScreen; node?: string; initialRecordId?: string }) {
+type ReportViewProps = { screen: ReportScreen; node?: string; initialRecordId?: string }
+
+/* Paper Forms has its own window since the v02.31.23 captures (no Code
+   caption, full-width Comment, File Name, the MOIS Viewer on double-click):
+   screens/PaperFormsView.tsx. A different component per node, so switching
+   folders remounts rather than changing the hooks this one calls. */
+export function ClinicalReportView(props: ReportViewProps) {
+  return props.node === 'paper' ? <PaperFormsView screen={props.screen} node="paper" /> : <ReportView {...props} />
+}
+
+function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewProps) {
   const data = useChartExport()
   const records = useNodeRecords(node)
   const encounters = useNodeRecords('encounters')
@@ -118,6 +132,11 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
   ))))
   /* the record's right-click Option List (RecordOptionList.tsx) */
   const options = useRecordOptionList({ node, record, commands, setCur })
+  /* the rail's Acknowledgements: a Mark for Review filed on this record
+     (RecordOptionWindows' reviewKeyOf, the same key its Workflow Summary reads) */
+  const ws = useWorkspaceStore()
+  const marked = !!record && ws.reviews.includes(reviewKeyOf(recordKeyOf(patient.chart, node, record)))
+  const acknowledgements = marked ? 1 : 0
   const columns: PBColumn<Record<string, string>>[] = measures.columns(screen.columns.map((c) => ({
     key: c.key,
     auditId: c.auditId,
@@ -188,94 +207,126 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
         {options.menu}
       </div>
 
-      {/* detail body, with the acknowledgement rail alongside where present */}
+      {/* detail body and footer, with the acknowledgement rail alongside
+          where present — the rail runs down beside the Source / Created
+          lines to the bottom of the window (user capture 2026-09-25 #34,
+          #35 (v02.31.23)) */}
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4, padding: '4px 3px 0' }}>
-        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex' }}>
-          {screen.tabs ? (
-            <PBTabs tabs={tabs ?? screen.tabs} active={activeTab} onChange={setTab} compact>
-              {tab === 'Office Notes (0)' ? (
-                <>
-                  <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
-                    Office Notes
-                  </PBBand>
-                  <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                    <PBDataWindow
-                      flush gutter={false} rows={[]}
-                      columns={[
-                        { key: 'date', header: 'Date', width: 96, align: 'center' },
-                        { key: 'author', header: 'Author', width: 150, align: 'center' },
-                        { key: 'note', header: 'Note' },
-                      ]}
-                      empty="No office notes."
-                    />
-                  </div>
-                </>
-              ) : node === 'events' && tab !== 'Reactions' ? (
-                <AdverseEventTab tab={tab} record={record} />
-              ) : tab === 'Reactions' ? (
-                <>
-                  <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
-                    Reactions
-                  </PBBand>
-                  <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                    <PBDataWindow
-                      flush gutter={false}
-                      rows={reactions.map(r => ({ reaction: r.str_reaction ?? '', rank: r.num_rank ?? '', severity: r.str_severity ?? '', comment: r.str_comment ?? '' }))}
-                      columns={[
-                        { key: 'reaction', header: 'Reaction', width: 240 },
-                        { key: 'rank', header: 'Rank', width: 56, align: 'center' },
-                        { key: 'severity', header: 'Severity', width: 100, align: 'center' },
-                        { key: 'comment', header: 'Comment' },
-                      ]}
-                    />
-                  </div>
-                </>
-              ) : tab === 'Linked Events' ? (
-                <>
-                  <PBBand>Linked Events - Read Only</PBBand>
-                  <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                    <PBDataWindow
-                      flush gutter={false} rows={[]}
-                      columns={[
-                        { key: 'date', header: 'Date', width: 96, align: 'center' },
-                        { key: 'agent', header: 'Agent', width: 240 },
-                        { key: 'event', header: 'Event' },
-                        { key: 'outcome', header: 'Outcome', width: 130, align: 'center' },
-                      ]}
-                      empty="No linked events."
-                    />
-                  </div>
-                </>
-              ) : measures.active && activeTab === measures.panel.caption ? (
-                <MeasurePanelPane panel={measures.panel} />
-              ) : tab === 'Panel (0)' ? (
-                <div className="pb-dw__empty" style={{ padding: 24 }}>No panel detail available.</div>
-              ) : node === 'prefs' ? <PreferencesDetail key={recordId} record={record} records={records} onChange={changePreference} /> : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={measures.rows[cur]} /> : detail}
-            </PBTabs>
-          ) : (
-            <div style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-window)', border: '1px solid var(--pb-border)', overflow: 'auto' }}>
-              {detail}
+        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            {screen.tabs ? (
+              <PBTabs tabs={tabs ?? screen.tabs} active={activeTab} onChange={setTab} compact>
+                {tab === 'Office Notes (0)' ? (
+                  <>
+                    <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
+                      Office Notes
+                    </PBBand>
+                    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+                      <PBDataWindow
+                        flush gutter={false} rows={[]}
+                        columns={[
+                          { key: 'date', header: 'Date', width: 96, align: 'center' },
+                          { key: 'author', header: 'Author', width: 150, align: 'center' },
+                          { key: 'note', header: 'Note' },
+                        ]}
+                        empty="No office notes."
+                      />
+                    </div>
+                  </>
+                ) : node === 'events' && tab !== 'Reactions' ? (
+                  <AdverseEventTab tab={tab} record={record} />
+                ) : tab === 'Reactions' ? (
+                  <>
+                    <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
+                      Reactions
+                    </PBBand>
+                    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+                      <PBDataWindow
+                        flush gutter={false}
+                        rows={reactions.map(r => ({ reaction: r.str_reaction ?? '', rank: r.num_rank ?? '', severity: r.str_severity ?? '', comment: r.str_comment ?? '' }))}
+                        columns={[
+                          { key: 'reaction', header: 'Reaction', width: 240 },
+                          { key: 'rank', header: 'Rank', width: 56, align: 'center' },
+                          { key: 'severity', header: 'Severity', width: 100, align: 'center' },
+                          { key: 'comment', header: 'Comment' },
+                        ]}
+                      />
+                    </div>
+                  </>
+                ) : tab === 'Linked Events' ? (
+                  <>
+                    <PBBand>Linked Events - Read Only</PBBand>
+                    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+                      <PBDataWindow
+                        flush gutter={false} rows={[]}
+                        columns={[
+                          { key: 'date', header: 'Date', width: 96, align: 'center' },
+                          { key: 'agent', header: 'Agent', width: 240 },
+                          { key: 'event', header: 'Event' },
+                          { key: 'outcome', header: 'Outcome', width: 130, align: 'center' },
+                        ]}
+                        empty="No linked events."
+                      />
+                    </div>
+                  </>
+                ) : measures.active && activeTab === measures.panel.caption ? (
+                  <MeasurePanelPane panel={measures.panel} />
+                ) : tab === 'Panel (0)' ? (
+                  <div className="pb-dw__empty" style={{ padding: 24 }}>No panel detail available.</div>
+                ) : node === 'prefs' ? <PreferencesDetail key={recordId} record={record} records={records} onChange={changePreference} /> : screen.title === 'Measurements' ? <MeasureReportPane detail={tab === 'Detail'} row={measures.rows[cur]} /> : detail}
+              </PBTabs>
+            ) : (
+              <div style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-window)', border: '1px solid var(--pb-border)', overflow: 'auto' }}>
+                {detail}
+              </div>
+            )}
+          </div>
+
+          {/* the signature / provenance footer */}
+          {screen.footer && !screen.plain && (
+            <div className="pb-row" style={{ padding: '2px 5px 0', gap: 0, flex: 'none' }}>
+              <span style={{ width: 70 }}>Source:</span>
+              <span style={{ width: 92 }}>{record?.str_source ?? ''}</span>
+              <span>Sent Date:&nbsp;</span><span style={{ width: 100 }}>{record?.dtm_sent ?? ''}</span>
+              <span>Code:&nbsp;&nbsp;{record?.str_code ?? ''}</span>
+              <span className="pb-row__spacer" />
+              <SignatureLink key={recordKeyOf(patient.chart, node, record)} recordKey={recordKeyOf(patient.chart, node, record)} source={record?.str_source} hidden={!record} />
             </div>
           )}
+          <div className="pb-row" style={{ padding: '0 5px 4px', gap: 0, flex: 'none' }}>
+            <span>Created:&nbsp;&nbsp;&nbsp;{stamp(record)}</span>
+            <span style={{ width: 28 }} />
+            <span>Last Modified: {stamp(record, 'modify')}</span>
+            <span className="pb-row__spacer" />
+            {/* every record carries the link, EMPTY when it hangs off no
+                encounter (#34, #35: "ENC# EMPTY") */}
+            {node === 'prefs'
+              ? record && <button type="button" className="pb-link" onClick={() => setEncounterOpen(true)}>ENC# {encounterId || 'EMPTY'}</button>
+              : record && <button type="button" className="pb-link">ENC# {encounterId || 'EMPTY'}</button>}
+          </div>
         </div>
 
         {screen.rail && !screen.plain && (
-          <div style={{ width: 156, flex: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div className="pb-groupbox" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 170, flex: 'none', display: 'flex', flexDirection: 'column', paddingBottom: 3 }}>
+            {/* who has acknowledged the record: a Mark for Review filed on it
+                lists its reviewer (#34 lists one name) */}
+            <div className="pb-groupbox" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
               <PBBand>Acknowledgement History</PBBand>
-              <div style={{ flex: '1 1 auto', minHeight: 0 }} />
+              <div data-tutorial-id="host.mois.group.acknowledgement-history" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '2px 6px 0 14px' }}>
+                {marked && <div>{CURRENT_USER.name}</div>}
+              </div>
             </div>
             <div className="pb-groupbox" style={{ flex: 'none' }}>
               <PBBand>Workflow Summary</PBBand>
               <div style={{ padding: '4px 6px' }}>
-                {[['Messages:', '0'], ['Tasks:', '0'], ['Acknowledgements:', '0']].map(([k, v]) => (
+                {[['Messages:', '0'], ['Tasks:', '0'], ['Acknowledgements:', acknowledgements ? String(acknowledgements) : '0']].map(([k, v]) => (
                   <div className="pb-row" key={k} style={{ gap: 0 }}>
-                    <span>{k}</span><span className="pb-row__spacer" /><span>{v}</span>
+                    <span>{k}</span><span className="pb-row__spacer" /><span style={{ paddingRight: 18 }}>{v}</span>
                   </div>
                 ))}
                 <div style={{ textAlign: 'center', marginTop: 2 }}>
-                  {/* 303741: the rail's View Detail opens the record's Workflow Summary */}
-                  <button className="pb-link" data-tutorial-id="host.mois.command.view-detail" onClick={options.active && record ? options.openWorkflowSummary : undefined}>View Detail…</button>
+                  {/* 303741 / #34: the rail's View Detail... opens the record's Workflow Summary */}
+                  <button className="pb-link" data-tutorial-id="host.mois.command.view-detail" onClick={options.active && record ? options.openWorkflowSummary : undefined}>View Detail...</button>
                 </div>
               </div>
             </div>
@@ -283,24 +334,6 @@ export function ClinicalReportView({ screen: layout, node = '', initialRecordId 
         )}
       </div>
 
-      {/* the signature / provenance footer */}
-      {screen.footer && !screen.plain && (
-        <div className="pb-row" style={{ padding: '2px 8px 0', gap: 0 }}>
-          <span style={{ width: 70 }}>Source:</span>
-          <span style={{ width: 92 }}>{record?.str_source ?? ''}</span>
-          <span>Sent Date:&nbsp;</span><span style={{ width: 100 }}>{record?.dtm_sent ?? ''}</span>
-          <span>Code:&nbsp;&nbsp;{record?.str_code ?? ''}</span>
-          <span className="pb-row__spacer" />
-          <SignatureLink key={recordKeyOf(patient.chart, node, record)} recordKey={recordKeyOf(patient.chart, node, record)} source={record?.str_source} hidden={!record} />
-        </div>
-      )}
-      <div className="pb-row" style={{ padding: '0 8px 4px', gap: 0 }}>
-        <span>Created:&nbsp;&nbsp;&nbsp;{stamp(record)}</span>
-        <span style={{ width: 28 }} />
-        <span>Last Modified: {stamp(record, 'modify')}</span>
-        <span className="pb-row__spacer" />
-        {node === 'prefs' ? record && <button type="button" className="pb-link" onClick={() => setEncounterOpen(true)}>ENC# {encounterId || 'EMPTY'}</button> : record?.id_encounter && <button className="pb-link">ENC# {record.id_encounter}</button>}
-      </div>
       {node === 'prefs' && record && encounterOpen && <PreferenceEncounterDialog key={recordId} encounterId={encounterId}
         encounters={encounters} onChange={id => changePreference('id_encounter', id)} onClose={() => setEncounterOpen(false)} />}
       {own.active && <AllergyFolderWindows record={record} onFile={own.file} />}

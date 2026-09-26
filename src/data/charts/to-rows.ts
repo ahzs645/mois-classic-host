@@ -405,9 +405,12 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
     row: (r) => ({
       date: d(r.dtm_created),
       /* both of these are ids the export never resolves — `id_form_type` 1001
-         is ENCOUNTER FORMS, `str_form_window` WP_FORM_HEADER_WCB is WCB REPORT,
-         and the lookup tables are not in a chart export */
-      type: r.id_form_type === '1001' ? 'ENCOUNTER FORMS' : r.id_form_type ?? '',
+         is INSURANCE FORMS, `str_form_window` WP_FORM_HEADER_WCB is WCB REPORT,
+         and the lookup tables are not in a chart export. v02.31.23 files WCB
+         REPORT under INSURANCE FORMS (user capture 2026-09-25 #33), as the
+         encounter's Encounter Forms tab does (screens/EncounterWindow
+         `FORM_TYPES`) */
+      type: r.id_form_type === '1001' ? 'INSURANCE FORMS' : r.id_form_type ?? '',
       form: r.str_form_window === 'WP_FORM_HEADER_WCB' ? 'WCB REPORT' : r.str_form_window ?? '',
       attending: r.id_author && r.id_author !== '-1' ? r.id_author : '',
     }),

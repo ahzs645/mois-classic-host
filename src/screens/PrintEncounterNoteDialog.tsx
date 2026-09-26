@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
 import { usePatient } from '../data/patient-context'
@@ -10,42 +10,40 @@ import { PBButton, PBInput, PBRadio, PBWindow, usePBInstrumentation } from '../p
 /* ============================================================================
    Print Encounter Note — what the note band's `Print Note` opens.
 
-   PROVENANCE (text only; no capture of this window or of its printout is in
-   the manual export):
-     · art. 301931 "Encounters", under `d11b4456…` (the note band with
-       Print Note / New Note / Delete Note): "The Print Note button allows
-       you to print the Current Note, All Notes (both via the Offset Note from
-       Top option) and Cumulative Notes. Cumulative Notes will print all
-       notes from the specified appointment date ranges, with the most recent
-       note first. Current Note will print the note that is shown in the
-       Progress Notes view of the Encounter Detail Window. All Notes will
-       print all notes included in this encounter, with the most recent note
-       last."
-     · art. 303239 "Scheduler Contents", Print Encounter: "Opens the Print
-       Encounter Note window which allows you to choose between two print
-       options: Offset Note from Top: This option prints the selected
-       encounter with date, patient, provider and progress note (with
-       author). You may select where on the page you'd like the information
-       presented (enter the spaces from the top of the page). Cumulative
-       Note: Enter the date range of Encounters you'd like printed. It will
-       print the encounters found in this date range in list form including
-       the date, patient's name and reason for encounter, provider and
-       progress note (with author)."
-   So the window is named, and its two options, the Current / All choice
-   under the first, the spaces-from-top box and the date range under the
-   second are all the manual's; their layout, the `Ok` / `Cancel` captions
-   and the printout's typography are reconstructed, and kept plain. Ok hands
-   the page to the frame's Print Preview (screens/PrintPreviewWindow), the
-   window the manual's other day-book prints come back in (303239 Print
-   List: "Pressing print will prompt a Print Preview window").
+   PROVENANCE:
+     · user capture 2026-09-25 #21 (v02.31.23): the window over the
+       Encounter Detail Window, close box only, ~395×255 at the capture's
+       scale (sized here /1.1, the manual's scale). One etched frame holding
+       two navy captions, each over a rule: `Print Type` with the radios
+       ○ Offset Note from Top / ◉ Cumulative Note — Cumulative is the default
+       — and `Appointment Date Range (inclusive)` with Date(s): [date] to
+       [date], both boxes on the encounter's own date. Under the frame
+       `Print (F2)` and `Cancel`.
+     · #23: Offset Note from Top's page in the Print Preview — no header;
+       the encounter date and the patient on one line, the note text, the
+       provider. #24: Cumulative Note's page — a header band between two
+       rules (patient bold at the left, DOB: in the middle, INSURANCE: at
+       the right), then each encounter in the range, most recent first,
+       split by thin rules: the date, the patient "/ visit reason", the
+       note text and a `PROVIDER … AUTHOR: …` line in Courier. An
+       encounter with no note still prints, with its PROVIDER / AUTHOR:
+       line alone (#24's first entry).
+     · art. 301931 "Encounters" and 303239 "Scheduler Contents" describe an
+       older window: Current Note / All Notes under Offset Note from Top and
+       a "spaces from the top" box. Neither is on the v02.31.23 window, and
+       no follow-up prompt for them is captured, so Offset prints the note
+       on screen in the Progress Note(s) tab, or every note of the encounter
+       (oldest first) when a blank New Note is on screen.
    ========================================================================= */
 
-export type PrintNoteOption = 'current' | 'all' | 'cumulative'
+export type PrintNoteOption = 'offset' | 'cumulative'
 
 export type PrintEncounterNoteJob = { title: string; pages: string[]; option: PrintNoteOption }
 
 /** the encounter the window was opened from */
 export type PrintNoteEncounter = { id: string; date: string; reason: string; provider: string }
+
+const NAVY = '#000080'
 
 export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onClose }: {
   encounter: PrintNoteEncounter
@@ -60,16 +58,15 @@ export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onCl
   const area = useEncounterSession()
   const encounters = useChartRecords('encounter')
   const exported = useChartRecords('encounter_note')
-  const [option, setOption] = useState<PrintNoteOption>(current ? 'current' : 'all')
-  const [offset, setOffset] = useState('0')
+  const [option, setOption] = useState<PrintNoteOption>('cumulative')
   const [from, setFrom] = useState(encounter.date || MOIS_TODAY)
-  const [to, setTo] = useState(MOIS_TODAY)
+  const [to, setTo] = useState(encounter.date || MOIS_TODAY)
   useScreenReport({ dialog: 'print-encounter-note', printOption: option })
 
-  const name = [patient.first, patient.middle, patient.last].filter(Boolean).join(' ').toUpperCase()
+  const name = `${patient.first} ${patient.last}`.toUpperCase()
 
-  /* Cumulative: every encounter of the chart in the range, the session's
-     notes where the window has changed them, the chart's otherwise */
+  /* Cumulative: every encounter of the chart in the range, noted or not; the
+     session's notes where the window has changed them, the chart's otherwise */
   const cumulative = useMemo(() => {
     const lo = from.trim(), hi = to.trim()
     const visits = [
@@ -91,19 +88,17 @@ export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onCl
             complete: r.str_complete === 'Y', createdBy: r.stp_user_create ?? '', created: '',
           })),
       }))
-      .filter((v) => v.notes.length)
-      /* "with the most recent note first" */
-      .sort((a, b) => b.date.localeCompare(a.date))
+      /* most recent first */
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
   }, [area.session.notes, area.session.saved, encounters, exported, from, to])
 
-  const ok = () => {
+  const print = () => {
     if (option === 'cumulative') {
-      onOk({ option, title: 'Cumulative Progress Notes', pages: [cumulativePage(name, patient.chart, from, to, cumulative)] })
+      const insurance = [patient.insuranceBy, patient.insurance].filter(Boolean).join(' ')
+      onOk({ option, title: 'Cumulative Progress Notes', pages: [cumulativePage(name, patient.dob, insurance, cumulative)] })
       return
     }
-    const picked = option === 'current' ? (current ? [current] : []) : notes
-    const blank = Math.max(0, Math.min(60, Number.parseInt(offset, 10) || 0))
-    onOk({ option, title: 'Encounter Note', pages: [offsetPage(blank, name, encounter, picked)] })
+    onOk({ option, title: 'Encounter Note', pages: [offsetPage(name, encounter, current ? [current] : notes)] })
   }
 
   return (
@@ -114,33 +109,22 @@ export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onCl
         tutorialId="host.mois.dialog.print-encounter-note"
         title="Print Encounter Note"
         onClose={onClose}
-        style={{ width: 'min(430px, 100%)' }}
+        style={{ width: 'min(360px, 100%)' }}
       >
         <div
-          style={{ padding: '8px 12px 0', display: 'flex', flexDirection: 'column', gap: 8 }}
-          onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); ok() } }}
+          style={{ padding: '14px 12px 0' }}
+          onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); print() } }}
         >
-          {/* no caption on the frame: none is in the manual's text */}
-          <div style={{ border: '1px solid var(--pb-border)', padding: '8px 10px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ border: '1px solid #a0a0a0', boxShadow: 'inset 1px 1px 0 #fff', paddingBottom: 18 }}>
+            <Caption>Print Type</Caption>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0 6px 82px' }}>
               <PBRadio
                 name="print-note-mode"
                 label="Offset Note from Top"
-                checked={option !== 'cumulative'}
-                onChange={() => setOption(current ? 'current' : 'all')}
+                checked={option === 'offset'}
+                onChange={() => setOption('offset')}
                 tutorialId="host.mois.field.print-note-offset-mode"
               />
-              <div className="pb-row" style={{ paddingLeft: 22, gap: 14 }}>
-                <PBRadio name="print-note-which" label="Current Note" checked={option === 'current'} disabled={!current}
-                  onChange={() => setOption('current')} tutorialId="host.mois.field.print-note-current" />
-                <PBRadio name="print-note-which" label="All Notes" checked={option === 'all'}
-                  onChange={() => setOption('all')} tutorialId="host.mois.field.print-note-all" />
-              </div>
-              <div className="pb-row" style={{ paddingLeft: 22, gap: 6 }}>
-                <span>Spaces from Top:</span>
-                <PBInput w={36} align="center" value={offset} disabled={option === 'cumulative'}
-                  onChange={(e) => setOffset(e.target.value)} data-tutorial-id="host.mois.field.print-note-spaces" />
-              </div>
               <PBRadio
                 name="print-note-mode"
                 label="Cumulative Note"
@@ -148,19 +132,20 @@ export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onCl
                 onChange={() => setOption('cumulative')}
                 tutorialId="host.mois.field.print-note-cumulative"
               />
-              <div className="pb-row" style={{ paddingLeft: 22, gap: 6 }}>
-                <span>From:</span>
-                <PBInput w={80} align="center" value={from} disabled={option !== 'cumulative'}
-                  onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.print-note-from" />
-                <span style={{ marginLeft: 8 }}>To:</span>
-                <PBInput w={80} align="center" value={to} disabled={option !== 'cumulative'}
-                  onChange={(e) => setTo(e.target.value)} data-tutorial-id="host.mois.field.print-note-to" />
-              </div>
+            </div>
+            <Caption>Appointment Date Range (inclusive)</Caption>
+            <div className="pb-row" style={{ gap: 6, padding: '4px 10px 0' }}>
+              <span>Date(s):</span>
+              <PBInput w={84} align="center" value={from}
+                onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.print-note-from" />
+              <span style={{ margin: '0 4px' }}>to</span>
+              <PBInput w={84} align="center" value={to}
+                onChange={(e) => setTo(e.target.value)} data-tutorial-id="host.mois.field.print-note-to" />
             </div>
           </div>
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 19, padding: '12px 0 12px', flex: 'none' }}>
-          <DialogCommand id="print-encounter-note-ok" isDefault onClick={ok}>Ok</DialogCommand>
+        <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '14px 0 14px', flex: 'none' }}>
+          <DialogCommand id="print-encounter-note-print" onClick={print}>Print (F2)</DialogCommand>
           <DialogCommand id="print-encounter-note-cancel" onClick={onClose}>Cancel</DialogCommand>
         </div>
       </PBWindow>
@@ -168,12 +153,16 @@ export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onCl
   )
 }
 
-function DialogCommand({ id, onClick, isDefault, children }: { id: string; onClick: () => void; isDefault?: boolean; children: string }) {
+/** a navy caption over a rule the width of the frame, as #21 paints both */
+const Caption = ({ children }: { children: ReactNode }) => (
+  <div style={{ color: NAVY, fontWeight: 700, padding: '5px 10px 3px', borderBottom: '1px solid #a0a0a0', boxShadow: '0 1px 0 #fff' }}>{children}</div>
+)
+
+function DialogCommand({ id, onClick, children }: { id: string; onClick: () => void; children: string }) {
   const host = usePBInstrumentation()
   return (
     <PBButton
-      className={isDefault ? 'pb-btn--default' : undefined}
-      style={{ minWidth: 75 }}
+      style={{ width: 74, minWidth: 0, height: 22 }}
       data-tutorial-id={host?.anchor('command', id)}
       onClick={() => { host?.report('command', { command: id }); onClick() }}
     >
@@ -183,38 +172,38 @@ function DialogCommand({ id, onClick, isDefault, children }: { id: string; onCli
 }
 
 /* --- the printouts (page markup: screens/PrintFlow ReportPage) ------------- */
-const clean = (v: string) => v.replace(/\*\*/g, '').replace(/^%/gm, ' %')
-const noteLines = (n: SessionNote) => [
-  ...clean(n.text).split('\n'),
-  `%G%Author: ${clean(n.author || n.createdBy)}`,
-  '',
-]
+const clean = (v: string) => v.replace(/\*\*/g, '').replace(/\|/g, '/').replace(/^%/gm, ' %')
 
-/** Offset Note from Top: the encounter's date, patient and provider, then
-    its note(s) with their author, `blank` lines down the page. */
-function offsetPage(blank: number, name: string, enc: PrintNoteEncounter, notes: SessionNote[]): string {
+/** Offset Note from Top (#23): date and patient, the note text, the provider. */
+function offsetPage(name: string, enc: PrintNoteEncounter, notes: SessionNote[]): string {
   return [
-    ...Array.from({ length: blank }, () => ''),
-    `**Date:** ${enc.date}`,
-    `**Patient:** ${name}`,
-    `**Provider:** ${clean(enc.provider)}`,
-    '%RULE%',
-    ...(notes.length ? notes.flatMap(noteLines) : ['%G%No progress note.']),
+    '',
+    `%LINE:14,86%${enc.date}|${name}`,
+    ...notes.flatMap((n) => clean(n.text).split(/\r\n|\r|\n/)),
+    clean(enc.provider),
   ].join('\n')
 }
 
-/** Cumulative Note: the range's encounters in list form, most recent first. */
+/** Cumulative Note (#24): the header band, then every encounter in the
+    range in list form, most recent first. */
 function cumulativePage(
-  name: string, chart: string, from: string, to: string,
+  name: string, dob: string, insurance: string,
   visits: { date: string; reason: string; provider: string; notes: SessionNote[] }[],
 ): string {
+  const signOff = (provider: string, author: string) =>
+    `%MONO%   PROVIDER ${clean(provider).padEnd(24)}  AUTHOR:  ${clean(author)}`
   return [
-    `%SUB%${name}   Chart: ${chart}   ${from} - ${to}`,
-    ...(visits.length ? visits.flatMap((v) => [
-      '%RULE%',
-      `**${v.date}**   ${clean(v.reason)}   **Provider:** ${clean(v.provider)}`,
-      /* "with the most recent note first" — within a visit too */
-      ...[...v.notes].reverse().flatMap(noteLines),
-    ]) : ['%RULE%', '%G%No encounter in this range has a progress note.']),
+    `%BAND%**${name}**|**DOB: ${dob}**|**INSURANCE: ${clean(insurance)}**`,
+    ...visits.flatMap((v) => [
+      `%LINE:27,73%${v.date}|${name}${v.reason.trim() ? `  /  ${clean(v.reason)}` : ''}`,
+      ...(v.notes.length
+        ? v.notes.flatMap((n) => [
+          ...clean(n.text).split(/\r\n|\r|\n/).map((l) => `%MONO% ${l}`),
+          '',
+          signOff(v.provider, n.author || n.createdBy),
+        ])
+        : [signOff(v.provider, '')]),
+      '%HR%',
+    ]),
   ].join('\n')
 }

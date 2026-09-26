@@ -1,6 +1,6 @@
 import { useCallback, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBGroup, PBGroupBox, PBInput, PBLookup, PBRadio, PBSelect,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroupBox, PBInput, PBLookup, PBRadio, PBSelect,
   PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import type { PBColumn } from '../pb'
@@ -12,16 +12,21 @@ import { INBOX_FORWARDING_COLUMNS, SHARING_WORKSPACE_COLUMNS, userListSpec, type
 import { visitCodeRows } from '../data/daybook'
 import { MOIS_TODAY } from '../data/patients'
 import { registerScreenWindows, useSessionState, type ScreenWindow } from '../host/screen-windows'
+import { SESSION_USER } from '../data/chartSession'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
+import {
+  BillingServiceCodeLookup, ChangeAssociatedUserDialog, ServiceConceptSearchWindow, type AssociationChange,
+} from './AdminPickerWindows'
 
 /* ============================================================================
    Administration ▸ Clinic Management / External Service Providers — the
    windows the list screens (screens/ClinicListView.tsx) raise.
 
      new-provider-profile  Provider List ▸ New Record         303184 `b5972e0473c9…`
-     provider              Continue, Edit Record, double-click 303184 `31cddff3bf56…`
-                           and its six other tab captures; 303054 `f6859591c31d…`
+     provider              Continue, Edit Record, double-click user capture 2026-09-25
+                           #61–#68, #73 (all eight tabs); 303184 `31cddff3bf56…`;
+                           303054 `f6859591c31d…`
      (Change Provider Name, raised inside `provider`)          303054 `7c657a8764ed…`
      new-provider          Providers ▸ New Record             303335 `841a38580aae…`
      master-provider       Create Provider, Edit Record, dbl   303335 `1b2fbc9896a4…`,
@@ -30,7 +35,10 @@ import { DemographicModal } from './DemographicDialogs'
      resource-detail       Edit Record, double-click           303204 `8a6d8780e14b…`
      new-facility          Facility List ▸ New Record         303209 `8a23610389d4…`
      facility-detail       Edit Record, double-click           303209 `d84a442ab9f6…`
-     new-service-center    Service Centers ▸ New Record       303211 `90a14afa8b17…`
+     new-service-center    Service Centers ▸ New Record       303211 `90a14afa8b17…`,
+                                                               user capture 2026-09-25 #55
+     service-center-detail Create Record, Edit Record, dbl     user capture 2026-09-25 #56, #57
+     find-replace-service-center  Find / Replace               user capture 2026-09-25 #58–#60
 
    They sit in the frame's screen-window slot (host/screen-windows.tsx), so the
    frame's Close Dialog and a move to another tree node put them away, and each
@@ -40,16 +48,21 @@ import { DemographicModal } from './DemographicDialogs'
    Provider add a row to the list, Save / Save Changes (F2) / Apply Changes
    write the window's fields back to it, Cancel drops them.
 
-   NOT BUILT, because no article captures them: Service Center Detail (303211
-   names its start date, end date and note, and nothing else), the window
-   behind the Service Center List's Find / Replace, the Associated User
-   `Change...` picker, and the lookups behind the Service tab's and the
-   Billing tab's "…" buttons. Those buttons are drawn and raise nothing.
+   The user's captures of the current build (2026-09-25, v02.31.23) outrank
+   the help-site ones and fill what they left out: Service Center Detail, the
+   Find and Replace: Service Center window, the Provider window's eighth tab
+   (Online Booking), its header's Friendly Name and chart-access tick, and
+   the pickers behind Change..., the Service cell's "…" and the Billing
+   tab's Service Code "…" (screens/AdminPickerWindows.tsx).
+
+   NOT BUILT, because no capture shows it: the window behind the Scheduling
+   tab's Edit Display Settings. The button is drawn and raises nothing.
    ========================================================================= */
 
 export const CLINIC_WINDOWS = [
   'new-provider-profile', 'provider', 'new-provider', 'master-provider',
   'new-resource', 'resource-detail', 'new-facility', 'facility-detail', 'new-service-center',
+  'service-center-detail', 'find-replace-service-center',
 ] as const
 registerScreenWindows([...CLINIC_WINDOWS])
 
@@ -68,6 +81,13 @@ export const EDIT_RECORD_WINDOW: Record<string, string> = {
   'ad-providers': 'master-provider',
   'ad-resource-list': 'resource-detail',
   'ad-facility-list': 'facility-detail',
+  /* user capture 2026-09-25 #56 */
+  'ad-service-centers': 'service-center-detail',
+}
+
+/** the window a list's Find / Replace raises, where it is captured (#58) */
+export const FIND_REPLACE_WINDOW: Record<string, string> = {
+  'ad-service-centers': 'find-replace-service-center',
 }
 
 /* --------------------------------------------------------------------------
@@ -213,7 +233,9 @@ export function ClinicEditorLayer({ window: win, close, open, onAdded }: {
     case 'resource-detail': return <ResourceDetailWindow key={key} rowKey={key} close={close} />
     case 'new-facility': return <NewFacilityDialog close={close} onAdded={onAdded} />
     case 'facility-detail': return <FacilityDetailWindow key={key} rowKey={key} close={close} />
-    case 'new-service-center': return <NewServiceCenterDialog close={close} onAdded={onAdded} />
+    case 'new-service-center': return <NewServiceCenterDialog close={close} open={open} onAdded={onAdded} />
+    case 'service-center-detail': return <ServiceCenterDetailWindow key={key} rowKey={key} close={close} />
+    case 'find-replace-service-center': return <FindReplaceServiceCenterDialog close={close} />
     default: return null
   }
 }
@@ -350,17 +372,27 @@ function NewProviderProfileDialog({ close, open, onAdded }: {
 }
 
 /* ===========================================================================
-   Provider                             303184 `31cddff3bf56…` and the six tab
-                                        captures after it (125%, v02.30+)
+   Provider                             user capture 2026-09-25 #61–#68, #73
+                                        (v02.31.23; ~1120 x 830, 975 x 722
+                                        at 1:1), over 303184 `31cddff3bf56…`
+                                        and 303054 `f6859591c31d…`
 
-   The light-blue identity strip — First / Middle / Last Name, Display Name,
-   Signature Line, all read-only, and Change Name... — over seven tabs, and
-   Save at the left / Save / Close + Cancel centred. Save keeps the window
-   open ("Click 'Save' at any point and continue editing"), Save / Close
-   commits and closes. Widths are the captures' divided by 1.25.
+   A top-level window (it hangs off the desktop in every capture) with a
+   close box only. The light-blue identity strip: First / Middle / Last Name
+   on the left and Display Name / Signature Line in the middle, all grey and
+   read-only with bold ink; Friendly Name under them, white and editable;
+   Change Name... at the top right and ☐ Can be used to control chart access
+   under it. Then EIGHT tabs — General · Scheduling · Billing · Alias ID ·
+   Workspace · Service · Online Booking · Telehealth — whose selected caption
+   is bold and outlined, and Save at the left / Save / Close + Cancel
+   centred. Save keeps the window open ("Click 'Save' at any point and
+   continue editing"), Save / Close commits and closes.
+
+   Each tab's blocks are bold navy captions inside lightly outlined boxes
+   (`Group` below) rather than captions set into a Win32 group-box border.
    ======================================================================== */
 
-const PROVIDER_TABS = ['General', 'Scheduling', 'Billing', 'Alias ID', 'Workspace', 'Service', 'Telehealth']
+const PROVIDER_TABS = ['General', 'Scheduling', 'Billing', 'Alias ID', 'Workspace', 'Service', 'Online Booking', 'Telehealth']
 
 type Draft = Record<string, string | boolean | undefined>
 
@@ -375,16 +407,19 @@ function providerSeed(row: ClinicRow): Draft {
   const plain = name.replace(/\s*\(.*\)$/, '')
   const user = (userListSpec('ad-users')?.rows ?? []).find((r) => S(r.display) === plain)
   return {
-    first, middle: '', last, display: name, signature: signatureOf(first, last),
+    first, middle: '', last, display: name, signature: signatureOf(first, last), friendly: '',
     activeYes: row.active !== 'N', serviceEnd: S(row.serviceEnd), agreement: '',
     pract: S(row.pract), payee: S(row.payee), ptype: S(row.ptype),
     paymentMode: PAYMENT_MODES.includes(S(row.payment)) ? S(row.payment) : '',
-    userProfile: user ? S(user.display) : '', userAssigned: '',
+    userProfile: user ? S(user.display) : '', userAssigned: user ? S(user.effective) : '',
     scheduleAppts: true, access: 'public',
     features: true,
     ...row,
   }
 }
+
+/** the per-provider history Change Associated User files (#69) */
+const associationKey = (provider: string) => `admin:provider:${provider}:associated-user-history`
 
 function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }) {
   const [rows, update] = useClinicRows('ad-provider-list')
@@ -393,7 +428,13 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
   const [draft, setDraft] = useState<Draft>(() => providerSeed(row))
   const [tab, setTab] = useState(PROVIDER_TABS[0]!)
   const [renaming, setRenaming] = useState(false)
+  const [changingUser, setChangingUser] = useState(false)
+  const [history, setHistory] = useSessionState<AssociationChange[] | null>(associationKey(rowKey), null)
   const set = (patch: Draft) => setDraft((d) => ({ ...d, ...patch }))
+  /* a provider already associated has the association's own first row */
+  const changes = history ?? (draft.userProfile
+    ? [{ start: S(draft.userAssigned), user: S(draft.userProfile), by: SESSION_USER, note: 'New Record' }]
+    : [])
 
   const save = () => {
     const name = S(draft.display) || key
@@ -410,17 +451,18 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
     setKey(name)
   }
 
-  const ident = (label: string, value: string, w: number) => (
-    <Line label={label} w={label.startsWith('Display') || label.startsWith('Signature') ? 84 : 76} right={label.startsWith('Display') || label.startsWith('Signature')}>
-      <PBInput w={w} value={value} readOnly style={{ background: '#dfeaf3', fontWeight: 700 }} data-tutorial-id={fieldId(label)} />
+  /* grey, read-only, bold (#61) */
+  const ident = (label: string, value: string, w: number, right?: boolean) => (
+    <Line label={label} w={right ? 100 : 80} right={right} style={{ minHeight: 21 }}>
+      <PBInput w={w} value={value} readOnly style={IDENT} data-tutorial-id={fieldId(label)} />
     </Line>
   )
 
   return (
-    <DemographicModal title="Provider" width={972} height={712} onClose={close} dialog="provider">
+    <DemographicModal title="Provider" width={975} height={722} onClose={close} dialog="provider">
       <div className="pb-row" style={{
-        alignItems: 'flex-start', gap: 30, padding: '6px 10px', flex: 'none',
-        background: 'linear-gradient(#cfe7f7, #f3f9fd)', borderBottom: '1px solid #9ab',
+        alignItems: 'flex-start', gap: 0, padding: '5px 10px 4px', flex: 'none',
+        background: 'linear-gradient(#f3f9fd, #cfe7f7)', borderBottom: '1px solid #9ab',
       }}>
         <div>
           {ident('First Name:', S(draft.first), 190)}
@@ -428,16 +470,27 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
           {ident('Last Name:', S(draft.last), 190)}
         </div>
         <div style={{ marginLeft: 'auto' }}>
-          {ident('Display Name:', S(draft.display), 212)}
-          {ident('Signature Line:', S(draft.signature), 212)}
+          {ident('Display Name:', S(draft.display), 212, true)}
+          {ident('Signature Line:', S(draft.signature), 212, true)}
+          <Line label="Friendly Name:" w={100} right style={{ minHeight: 21 }}>
+            <PBInput w={212} value={S(draft.friendly)} onChange={(e) => set({ friendly: e.target.value })} data-tutorial-id={fieldId('Friendly Name')} />
+          </Line>
         </div>
-        <Btn command="change-name" w={92} onClick={() => setRenaming(true)}>Change Name...</Btn>
+        <div style={{ marginLeft: 36, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 26 }}>
+          <Btn command="change-name" w={92} onClick={() => setRenaming(true)}>Change Name...</Btn>
+          <PBCheckbox
+            label="Can be used to control chart access"
+            checked={Boolean(draft.chartAccess)}
+            onChange={(v) => set({ chartAccess: v })}
+            tutorialId={fieldId('Can be used to control chart access')}
+          />
+        </div>
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <PBTabs tabs={PROVIDER_TABS} active={tab} onChange={setTab} compact face>
           <div key={tab} style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <ProviderTab tab={tab} draft={draft} set={set} />
+            <ProviderTab tab={tab} draft={draft} set={set} onChangeUser={() => setChangingUser(true)} />
           </div>
         </PBTabs>
       </div>
@@ -454,11 +507,44 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
           onSave={(n) => { set({ first: n.first, middle: n.middle, last: n.last, display: n.display, signature: n.signature }); setRenaming(false) }}
         />
       )}
+
+      {changingUser && (
+        <ChangeAssociatedUserDialog
+          current={S(draft.userProfile)}
+          history={changes}
+          onClose={() => setChangingUser(false)}
+          onContinue={(user, note) => {
+            set({ userProfile: user, userAssigned: MOIS_TODAY })
+            setHistory([{ start: MOIS_TODAY, user, by: SESSION_USER, note }, ...changes])
+            setChangingUser(false)
+          }}
+        />
+      )}
     </DemographicModal>
   )
 }
 
-function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (patch: Draft) => void }) {
+/* the grey read-only face of the identity strip's fields (#61) */
+const IDENT: CSSProperties = { background: '#e4e4e4', fontWeight: 700 }
+
+/** A block of a Provider tab: bold navy caption inside a light outline (#61–#68). */
+function Group({ title, fill, style, children }: { title: ReactNode; fill?: boolean; style?: CSSProperties; children: ReactNode }) {
+  return (
+    <div style={{
+      border: '1px solid #d4d4d4', padding: '4px 10px 8px', minWidth: 0,
+      ...(fill ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : null),
+      ...style,
+    }}>
+      <div style={{ color: '#000080', fontWeight: 700, padding: '0 0 6px' }}>{title}</div>
+      {children}
+    </div>
+  )
+}
+
+function ProviderTab({ tab, draft, set, onChangeUser }: {
+  tab: string; draft: Draft; set: (patch: Draft) => void; onChangeUser: () => void
+}) {
+  const [lookup, setLookup] = useState<string | null>(null)
   const text = (label: string, key: string, w: number, extra?: Partial<Parameters<typeof PBInput>[0]>) => (
     <PBInput w={w} value={S(draft[key])} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={fieldId(label)} {...extra} />
   )
@@ -467,19 +553,18 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
   )
 
   switch (tab) {
-    /* `31cddff3bf56…` / `f6859591c31d…`: Status, then Correspondence
-       Information — the five letterhead lines MOIS prints on prescriptions,
-       letter templates and fillable forms, the "other values" that are not
-       printed, and Primary Location */
+    /* #61: Status, then Correspondence Information — the five letterhead
+       lines MOIS prints on prescriptions, letter templates and fillable
+       forms, the "other values" that are not printed, and Primary Location */
     case 'General': return (
       <>
-        <PBGroup title="Status">
+        <Group title="Status">
           <Line label="Active:">{tick('Active', 'activeYes', 'Yes')}</Line>
           <Line label="Service End:">{text('Service End', 'serviceEnd', 74)}</Line>
           <Line label="Agreement:">{text('Agreement', 'agreement', 74)}<span style={HINT}>(service agreement accepted date)</span></Line>
-        </PBGroup>
-        <PBGroup title="Correspondence Information">
-          <div style={{ ...HINT, padding: '2px 0 4px' }}>
+        </Group>
+        <Group title="Correspondence Information">
+          <div style={{ ...HINT, padding: '0 0 4px' }}>
             The following information is used throughout MOIS to personalize report output, Rx printouts, Letter Templates, Fillable PDF forms and so on.
           </div>
           {[1, 2, 3, 4, 5].map((n) => (
@@ -499,16 +584,17 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
             Primary Location is used to inform Labs or other testing facilities of this provider&apos;s primary location when it is different from the current clinic.
           </div>
           <Line label="Primary Location:">{text('Primary Location', 'primaryLocation', 264)}</Line>
-        </PBGroup>
+        </Group>
       </>
     )
 
-    /* `ad941fb31516…`: Scheduler / Encounter Settings beside Mandatory
-       Documentation Settings, then Schedule Access */
+    /* #62: Scheduler / Encounter Settings beside Mandatory Documentation
+       Settings, then Schedule Access. The window behind Edit Display
+       Settings is not captured; the button raises nothing. */
     case 'Scheduling': return (
       <>
         <div className="pb-row" style={{ gap: 8, alignItems: 'stretch' }}>
-          <PBGroup title="Scheduler / Encounter Settings" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group title="Scheduler / Encounter Settings" style={{ flex: '1 1 0' }}>
             <Line label="Schedule Appts:" w={88}>{tick('Schedule Appts', 'scheduleAppts', 'Must be able to schedule appointments')}</Line>
             <Line label="Time Slots:" w={88}>{text('Time Slots', 'timeSlots', 36, { align: 'center' })}<span style={HINT}>(slots per appointment - 1 slot = 5 mins)</span></Line>
             <Line label="Visit Code" w={88}>
@@ -519,11 +605,10 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
             </Line>
             <Line label="Attending:" w={88}>{tick('Attending', 'attendingMandatory', 'Make attending mandatory for encounters with notes')}</Line>
             <div className="pb-row" style={{ justifyContent: 'flex-end', paddingTop: 2 }}>
-              {/* the display-settings window is named, never captured */}
               <Btn command="edit-display-settings" w={110}>Edit Display Settings</Btn>
             </div>
-          </PBGroup>
-          <PBGroup title="Mandatory Documentation Settings" style={{ flex: '1 1 0', minWidth: 0 }}>
+          </Group>
+          <Group title="Mandatory Documentation Settings" style={{ flex: '1 1 0' }}>
             <div className="pb-row" style={{ alignItems: 'flex-start', gap: 6 }}>
               <div>
                 <Line label="Service Events:" w={88}>{tick('Service Events', 'mandServiceEvent', 'Require at Least One Service Event')}</Line>
@@ -539,9 +624,9 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
             </div>
             <Line label="Visit Code:" w={88}><PBLookup w={212} name="exclude-visit-code" value={S(draft.excludeVisitCode)} onChange={(v) => set({ excludeVisitCode: v })} /></Line>
             <Line label="Appt. Status:" w={88}><PBLookup w={212} name="exclude-appt-status" value={S(draft.excludeApptStatus)} onChange={(v) => set({ excludeApptStatus: v })} /></Line>
-          </PBGroup>
+          </Group>
         </div>
-        <PBGroup title="Schedule Access" fill style={{ flex: '1 1 auto' }}>
+        <Group title="Schedule Access" fill style={{ flex: '1 1 auto' }}>
           <div className="pb-row" style={{ gap: 24, padding: '2px 0' }}>
             <PBRadio name="schedule-access" label="Public Access" checked={draft.access !== 'private'} onChange={() => set({ access: 'public' })} tutorialId={fieldId('Public Access')} />
             <PBRadio name="schedule-access" label="Private Access" checked={draft.access === 'private'} onChange={() => set({ access: 'private' })} tutorialId={fieldId('Private Access')} />
@@ -549,17 +634,17 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
           <div style={{ color: '#000080', fontWeight: 700, padding: '4px 0 2px' }}>Who has access to this schedule</div>
           {/* only the public case is captured */}
           {draft.access !== 'private' && <div>All users with access to the scheduling module</div>}
-        </PBGroup>
+        </Group>
       </>
     )
 
-    /* `6e1c13abe6e8…`: two groups both captioned "Payment Mode:" as shipped,
-       then Service Code */
+    /* #63: two groups both captioned "Payment Mode:" as shipped, then
+       Service Code, whose four "…" open the Master Service Code List (#74) */
     case 'Billing': return (
       <>
-        <PBGroup title="Payment Mode:">
+        <Group title="Payment Mode:">
           <div className="pb-row" style={{ alignItems: 'flex-start', gap: 20 }}>
-            <div>
+            <div style={{ width: 420 }}>
               <Line label="Practitioner No.:">{text('Practitioner No.', 'pract', 104)}<span style={HINT}>(MSP Practitioner Number)</span></Line>
               <Line label="Payee No.:">{text('Payee No.', 'payee', 104)}<span style={HINT}>(MSP Payee Number)</span></Line>
             </div>
@@ -568,10 +653,10 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
               <Line label="Prof. ID:" w={90}>{text('Prof. ID', 'profId', 104)}</Line>
             </div>
           </div>
-        </PBGroup>
-        <PBGroup title="Payment Mode:">
+        </Group>
+        <Group title="Payment Mode:">
           <div className="pb-row" style={{ alignItems: 'flex-start', gap: 20 }}>
-            <div>
+            <div style={{ width: 420 }}>
               <Line label="Payment Mode:">
                 <PBSelect w={148} options={PAYMENT_MODES} value={S(draft.paymentMode)} onChange={(e) => set({ paymentMode: e.target.value })} data-tutorial-id={fieldId('Payment Mode')} />
               </Line>
@@ -587,24 +672,30 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
               <Line label="ICBC Vendor No.:" w={90}>{text('ICBC Vendor No.', 'icbc', 104)}</Line>
             </div>
           </div>
-        </PBGroup>
-        <PBGroup title="Service Code">
+        </Group>
+        <Group title="Service Code">
           {[['Default Code:', 'defaultCode'], ['F11 Code:', 'f11'], ['F12 Code:', 'f12'], ['PBF Code:', 'pbf']].map(([label, key]) => (
             <Line key={key} label={label}>
-              <PBLookup w={92} name={label!.replace(':', '')} value={S(draft[key!])} onChange={(v) => set({ [key!]: v })} fieldId={fieldId(label!.replace(':', ''))} />
+              <PBLookup w={92} name={label!.replace(':', '')} value={S(draft[key!])} onChange={(v) => set({ [key!]: v })} onDots={() => setLookup(key!)} fieldId={fieldId(label!.replace(':', ''))} />
             </Line>
           ))}
           <div style={{ ...HINT, paddingLeft: 98 }}>
             (Population Based Funding Compensation default service code for patients enrolled in the PBF Model)
           </div>
-        </PBGroup>
+        </Group>
+        {lookup && (
+          <BillingServiceCodeLookup
+            onClose={() => setLookup(null)}
+            onPick={(r) => { set({ [lookup]: r.code }); setLookup(null) }}
+          />
+        )}
       </>
     )
 
-    /* `9889ab2692c4…`: the associated user, then the List of interface IDs */
+    /* #64: the associated user, then the List of interface IDs */
     case 'Alias ID': return (
       <>
-        <AssociatedUser title="Alias ID's for" draft={draft} set={set} />
+        <AssociatedUser title="Alias ID's for" draft={draft} set={set} onChange={onChangeUser} />
         <EditGrid<ClinicRow>
           caption="List"
           scope="alias"
@@ -623,23 +714,32 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
       </>
     )
 
-    /* `654dd5121f63…`: the associated user, Available Features, then the
-       Inbox Forwarding / Sharing Workspace With sub-tabs */
-    case 'Workspace': return <WorkspaceTab draft={draft} set={set} />
+    /* #65: the associated user, Available Features, then the Inbox
+       Forwarding / Sharing Workspace With sub-tabs */
+    case 'Workspace': return <WorkspaceTab draft={draft} set={set} onChangeUser={onChangeUser} />
 
-    /* `b05dda712ddb…`: Service List over Service Detail */
+    /* #66, #73: Service List over Service Detail */
     case 'Service': return <ServiceTab />
 
-    /* `3c38b756035c…` */
+    /* #67: Online Appointments, then the clinic's service locations, each
+       with its own Turned On tick. The list is the Service Location List's
+       own rows; with online booking off its text is greyed. */
+    case 'Online Booking': return <OnlineBookingTab draft={draft} set={set} />
+
+    /* #68: with telehealth off in System Settings, the tab is its labels,
+       the bold instruction, Launch and the explanation — no fields */
     case 'Telehealth': return (
-      <div style={{ padding: '16px 18px' }}>
-        <Line label="Meeting Provider:" w={112}>{text('Meeting Provider', 'meetingProvider', 336)}</Line>
-        <Line label="Meeting Room Url:" w={112}>{text('Meeting Room Url', 'meetingRoomUrl', 336)}</Line>
-        <Line label="Personal Room:" w={112}><PBRadio name="telehealth-room" checked={draft.room === 'personal'} onChange={() => set({ room: 'personal' })} tutorialId={fieldId('Personal Room')} /></Line>
-        <Line label="Instant Rooms:" w={112}><PBRadio name="telehealth-room" checked={draft.room === 'instant'} onChange={() => set({ room: 'instant' })} tutorialId={fieldId('Instant Rooms')} /></Line>
-        <Line label="Dashboard Url:" w={112}>{text('Dashboard Url', 'dashboardUrl', 336)}<span>(optional - if your telehealth login is different from your meeting room url)</span></Line>
-        <div style={{ paddingLeft: 118 }}>
-          <div className="pb-row" style={{ justifyContent: 'flex-end', width: 336, padding: '6px 0' }}>
+      <div style={{ padding: '18px 22px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '114px 1fr', rowGap: 6 }}>
+          <span>Meeting Provider:</span>
+          <b data-tutorial-id={fieldId('Meeting Provider')}>Turn on Telehealth features in Administration &gt; System Settings</b>
+          <span>Meeting Room Url:</span><span />
+          <span>Personal Room:</span><span />
+          <span>Instant Rooms:</span><span />
+          <span>Dashboard Url:</span><span />
+        </div>
+        <div style={{ paddingLeft: 114, width: 450 }}>
+          <div className="pb-row" style={{ justifyContent: 'center', width: 336, padding: '14px 0 10px' }}>
             <Btn command="launch" w={72}>Launch</Btn>
           </div>
           <div style={{ ...HINT, width: 336 }}>
@@ -652,26 +752,28 @@ function ProviderTab({ tab, draft, set }: { tab: string; draft: Draft; set: (pat
   }
 }
 
-/** "Alias ID's for" / "Workspace for": the provider's associated User Account */
-function AssociatedUser({ title, draft, set }: { title: string; draft: Draft; set: (patch: Draft) => void }) {
+/** "Alias ID's for" / "Workspace for": the provider's associated User Account (#64, #65) */
+function AssociatedUser({ title, draft, set, onChange }: {
+  title: string; draft: Draft; set: (patch: Draft) => void; onChange: () => void
+}) {
   return (
-    <PBGroup title={title}>
+    <Group title={title}>
       <div className="pb-row" style={{ gap: 8, alignItems: 'center' }}>
         <span className="pb-form__label">Associated User</span>
         <PBInput w={260} readOnly value={S(draft.userProfile)} style={{ background: '#e8e8e8' }} data-tutorial-id={fieldId('Associated User')} />
-        {/* the picker behind Change... (`60be5bc97b0f…`) is not built */}
-        <Btn command="associated-user-change" w={62}>Change...</Btn>
-        <span style={{ width: 30 }} />
+        {/* raises Change Associated User (#69) */}
+        <Btn command="associated-user-change" w={62} onClick={onChange}>Change...</Btn>
+        <span style={{ width: 50 }} />
         <span className="pb-form__label">Date Assigned:</span>
-        <PBInput w={74} readOnly value={S(draft.userAssigned)} style={{ background: '#e8e8e8' }} />
+        <PBInput w={74} readOnly align="center" value={S(draft.userAssigned)} style={{ background: '#e8e8e8' }} />
         <span className="pb-row__spacer" />
         <Btn command="remove-association" w={120} onClick={() => set({ userProfile: '', userAssigned: '' })}>Remove Association</Btn>
       </div>
-    </PBGroup>
+    </Group>
   )
 }
 
-function WorkspaceTab({ draft, set }: { draft: Draft; set: (patch: Draft) => void }) {
+function WorkspaceTab({ draft, set, onChangeUser }: { draft: Draft; set: (patch: Draft) => void; onChangeUser: () => void }) {
   const [sub, setSub] = useState('Inbox Forwarding')
   const tick = (label: string, key: string, note: string) => (
     <Line label={`${label}:`} w={84}>
@@ -680,8 +782,8 @@ function WorkspaceTab({ draft, set }: { draft: Draft; set: (patch: Draft) => voi
   )
   return (
     <>
-      <AssociatedUser title="Workspace for" draft={draft} set={set} />
-      <PBGroup title="Available Features">
+      <AssociatedUser title="Workspace for" draft={draft} set={set} onChange={onChangeUser} />
+      <Group title="Available Features">
         <div className="pb-row" style={{ alignItems: 'flex-start', gap: 40 }}>
           <div>
             {tick('Basket', 'basket', '(for acknowledging clinical documents)')}
@@ -695,7 +797,7 @@ function WorkspaceTab({ draft, set }: { draft: Draft; set: (patch: Draft) => voi
             <div style={{ ...HINT, paddingLeft: 126 }}>(for the blended workspace initials column)</div>
           </div>
         </div>
-      </PBGroup>
+      </Group>
       <div style={{ flex: '1 1 auto', minHeight: 200, display: 'flex', flexDirection: 'column' }}>
         <PBTabs tabs={['Inbox Forwarding', 'Sharing Workspace With']} active={sub} onChange={setSub} compact face>
           {sub === 'Inbox Forwarding'
@@ -725,44 +827,161 @@ function WorkspaceTab({ draft, set }: { draft: Draft; set: (patch: Draft) => voi
   )
 }
 
+/* #66 (empty), #73 (a new row): the Service List band carries ☐ Hide
+   Stopped Services and New / Delete at its right. A new row is current
+   (salmon) with a "…" in its Service cell — the MOIS - Universal Search
+   Window over SNOMED-CT (#72) — a Default tick, blank Start / End, and a
+   "…" for the Stopped Reason. Service Detail under it is empty until a row
+   exists, then carries General Comment, Stopped Reason and Stopped Note,
+   and the row's Record Created / Last Modified stamp. */
+type ServiceRow = {
+  service: string; code: string; default: boolean; start: string; end: string; stopped: string
+  comment: string; stoppedNote: string; created: string
+}
+
 function ServiceTab() {
+  const host = usePBInstrumentation()
   const [hide, setHide] = useState(false)
-  const dots = { key: 'dots', header: '', width: 16, dots: true }
+  const [rows, setRows] = useState<ServiceRow[]>([])
+  const [cur, setCur] = useState(0)
+  const [searching, setSearching] = useState<number | null>(null)
+  const shown = hide ? rows.filter((r) => !r.stopped) : rows
+  const current = shown[Math.min(cur, Math.max(0, shown.length - 1))]
+  const edit = (row: ServiceRow | undefined, patch: Partial<ServiceRow>) => {
+    if (!row) return
+    setRows((all) => all.map((r) => (r === row ? { ...r, ...patch } : r)))
+  }
+  const dots = (label: string, onPress?: () => void) => (
+    <button
+      type="button"
+      className="pb-dw__dots"
+      data-tutorial-id={host?.anchor('lookup', label)}
+      onClick={(e) => { e.stopPropagation(); host?.report('lookup', { field: label }); onPress?.() }}
+    >
+      …
+    </button>
+  )
+  const now = new Date()
+  const stamp = () => `${MOIS_TODAY}  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}  ${SESSION_USER}`
   return (
     <>
-      <EditGrid<ClinicRow>
-        caption="Service List"
-        scope="service"
-        height={220}
-        right={<span style={{ paddingRight: 10, fontWeight: 400 }}><PBCheckbox label="Hide Stopped Services" checked={hide} onChange={setHide} tutorialId={fieldId('Hide Stopped Services')} /></span>}
-        blank={{ service: '', default: false, start: '', end: '', stopped: '' }}
-        columns={[
-          { key: 'service', header: 'Service', width: 426 },
-          { ...dots, key: 'serviceDots' },
-          { key: 'default', header: 'Default', width: 45, align: 'center', render: (r) => <PBCheckbox checked={Boolean(r.default)} /> },
-          { key: 'start', header: 'Start', width: 80, align: 'center' },
-          { key: 'end', header: 'End', width: 78, align: 'center' },
-          { key: 'stopped', header: 'Stopped Reason', width: 246 },
-          dots,
-        ]}
-      />
-      <div style={{ border: '1px solid #8a8a8a', flex: 'none' }}>
-        <PBBand>Service Detail</PBBand>
-        <div className="pb-row" style={{ alignItems: 'flex-start', gap: 12, padding: '6px 10px' }}>
-          <div style={{ flex: '1 1 0' }}>
-            <div>General Comment</div>
-            <PBTextArea rows={5} w="100%" data-tutorial-id={fieldId('General Comment')} />
-          </div>
-          <div style={{ flex: '1 1 0' }}>
-            <div>Stopped Reason</div>
-            <PBLookup w="100%" name="stopped-reason" />
-            <div style={{ paddingTop: 6 }}>Stopped Note</div>
-            <PBTextArea rows={3} w="100%" data-tutorial-id={fieldId('Stopped Note')} />
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 220, border: '1px solid #8a8a8a' }}>
+        <PBBand
+          right={(
+            <>
+              <span style={{ paddingRight: 30, fontWeight: 400 }}>
+                <PBCheckbox label="Hide Stopped Services" checked={hide} onChange={setHide} tutorialId={fieldId('Hide Stopped Services')} />
+              </span>
+              {['New', 'Delete'].map((b) => (
+                <PBButton
+                  key={b}
+                  size="sm"
+                  data-tutorial-id={host?.anchor('command', `service-${pbSlug(b)}`)}
+                  onClick={() => {
+                    host?.report('command', { command: `service-${pbSlug(b)}` })
+                    if (b === 'New') {
+                      setRows((r) => [...r, { service: '', code: '', default: false, start: '', end: '', stopped: '', comment: '', stoppedNote: '', created: stamp() }])
+                      setCur(shown.length)
+                    } else if (current) {
+                      setRows((r) => r.filter((x) => x !== current))
+                      setCur(0)
+                    }
+                  }}
+                >
+                  {b}
+                </PBButton>
+              ))}
+            </>
+          )}
+        >
+          Service List
+        </PBBand>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#ffffff' }}>
+          <PBDataWindow<ServiceRow>
+            rows={shown}
+            current={Math.min(cur, Math.max(0, shown.length - 1))}
+            onCurrentChange={setCur}
+            empty=" "
+            columns={[
+              { key: 'service', header: 'Service', width: 426, headAlign: 'left' },
+              { key: 'serviceDots', header: '', width: 16, dots: true, render: (_r, i) => dots('service', () => setSearching(i)) },
+              { key: 'default', header: 'Default', width: 45, align: 'center', render: (r) => <PBCheckbox checked={r.default} onChange={(v) => edit(r, { default: v })} /> },
+              { key: 'start', header: 'Start', width: 80, align: 'center' },
+              { key: 'end', header: 'End', width: 78, align: 'center' },
+              { key: 'stopped', header: 'Stopped Reason', width: 246, headAlign: 'left' },
+              { key: 'stoppedDots', header: '', width: 16, dots: true, render: () => dots('stopped-reason') },
+            ]}
+          />
         </div>
-        <div className="pb-row" style={{ gap: 0, padding: '3px 10px', borderTop: '1px solid #c9c9c9' }}>
-          <span style={{ width: '50%' }}>Record Created:</span>
-          <span>Last Modified:</span>
+      </div>
+      <div style={{ border: '1px solid #8a8a8a', flex: 'none', minHeight: 196, display: 'flex', flexDirection: 'column' }}>
+        <PBBand>Service Detail</PBBand>
+        {current && (
+          <>
+            <div className="pb-row" style={{ alignItems: 'flex-start', gap: 16, padding: '6px 10px' }}>
+              <div style={{ flex: '1 1 0' }}>
+                <div>General Comment</div>
+                <PBTextArea rows={5} w="100%" value={current.comment} onChange={(e) => edit(current, { comment: e.target.value })} data-tutorial-id={fieldId('General Comment')} />
+              </div>
+              <div style={{ flex: '1 1 0' }}>
+                <div>Stopped Reason</div>
+                <PBLookup w="100%" name="stopped-reason-detail" value={current.stopped} onChange={(v) => edit(current, { stopped: v })} />
+                <div style={{ paddingTop: 6 }}>Stopped Note</div>
+                <PBTextArea rows={3} w="100%" value={current.stoppedNote} onChange={(e) => edit(current, { stoppedNote: e.target.value })} data-tutorial-id={fieldId('Stopped Note')} />
+              </div>
+            </div>
+            <div className="pb-row" style={{ gap: 0, padding: '3px 10px', borderTop: '1px solid #c9c9c9' }}>
+              <span style={{ width: '50%' }}>Record Created:&nbsp;&nbsp;{current.created}</span>
+              <span>Last Modified:</span>
+            </div>
+          </>
+        )}
+      </div>
+      {searching !== null && (
+        <ServiceConceptSearchWindow
+          onClose={() => setSearching(null)}
+          onPick={(r) => { edit(shown[searching], { service: r.term, code: r.code }); setSearching(null) }}
+        />
+      )}
+    </>
+  )
+}
+
+/* #67 — Online Appointments ▸ Online Booking ☐ Turned On, then the
+   Online Booking Locations band over Turned On · Service Location. The
+   locations are the Service Location List's rows, sorted; while booking is
+   off every row reads grey and its tick cannot be set. */
+function OnlineBookingTab({ draft, set }: { draft: Draft; set: (patch: Draft) => void }) {
+  const [locations] = useClinicRows('ad-locations')
+  const [cur, setCur] = useState(0)
+  const on = Boolean(draft.onlineBooking)
+  const picked = (draft.onlineLocations ? S(draft.onlineLocations).split('|') : []).filter(Boolean)
+  const rows = [...locations].map((l) => ({ location: S(l.location) })).sort((a, b) => a.location.localeCompare(b.location))
+  const toggle = (location: string, v: boolean) => set({
+    onlineLocations: (v ? [...picked, location] : picked.filter((p) => p !== location)).join('|'),
+  })
+  return (
+    <>
+      <Group title="Online Appointments">
+        <Line label="Online Booking:" w={84}>
+          <PBCheckbox label="Turned On" checked={on} onChange={(v) => set({ onlineBooking: v })} tutorialId={fieldId('Online Booking')} />
+        </Line>
+      </Group>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 200, border: '1px solid #8a8a8a' }}>
+        <PBBand>Online Booking Locations</PBBand>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#ffffff' }}>
+          <PBDataWindow<{ location: string }>
+            rows={rows}
+            current={cur}
+            onCurrentChange={setCur}
+            empty=" "
+            rowTutorialId={(r) => `host.mois.row.online-location-${pbSlug(r.location)}`}
+            columns={[
+              /* the boxes draw normally but are protected while booking is off */
+              { key: 'on', header: 'Turned On', width: 65, align: 'center', render: (r) => <PBCheckbox checked={picked.includes(r.location)} onChange={(v) => { if (on) toggle(r.location, v) }} /> },
+              { key: 'location', header: 'Service Location', width: 465, render: (r) => <span style={on ? undefined : { color: '#a0a0a0' }}>{r.location}</span> },
+            ]}
+          />
         </div>
       </div>
     </>
@@ -933,11 +1152,11 @@ function MasterProviderWindow({ rowKey, close }: { rowKey: string; close: () => 
    the fields, Create Record / Cancel. Measured 1:1 off v02.19.04 captures.
    ======================================================================== */
 
-function NewRecordDialog({ title, dialog, onCreate, onClose, children }: {
-  title: string; dialog: string; onCreate: () => void; onClose: () => void; children: ReactNode
+function NewRecordDialog({ title, dialog, width = 420, onCreate, onClose, children }: {
+  title: string; dialog: string; width?: number; onCreate: () => void; onClose: () => void; children: ReactNode
 }) {
   return (
-    <DemographicModal title={title} width={420} onClose={onClose} dialog={dialog}>
+    <DemographicModal title={title} width={width} onClose={onClose} dialog={dialog}>
       <div style={{ padding: '14px 24px 4px' }}>
         <PBGroupBox title={title}>
           <div style={{ padding: '4px 0 18px 6px' }}>{children}</div>
@@ -951,7 +1170,8 @@ function NewRecordDialog({ title, dialog, onCreate, onClose, children }: {
   )
 }
 
-const Required = () => <span>(required - unique)</span>
+/* grey, as #55 draws it */
+const Required = () => <span style={HINT}>(required - unique)</span>
 
 /** the facility codes this session's Facility List holds, and each one's locations */
 function useFacilities() {
@@ -1018,24 +1238,171 @@ function NewFacilityDialog({ close, onAdded }: { close: () => void; onAdded?: ()
   )
 }
 
-/* New Service Center — 303211 `90a14afa8b17…`: Code and Description only.
-   303211 says Create Record then opens Service Center Detail; that window is
-   captured nowhere, so here Create Record puts the row in the list, Active
-   ticked, and stops. */
-function NewServiceCenterDialog({ close, onAdded }: { close: () => void; onAdded?: () => void }) {
+/* New Service Center — 303211 `90a14afa8b17…`, user capture 2026-09-25 #55
+   (v02.31.23): Code with its grey "(required - unique)", and a wider
+   Description. About 460 x 275 in the capture (400 wide at 1:1; the kit's
+   group-box padding needs the family's 420). Create
+   Record puts the row in the list, Active ticked, and opens Service Center
+   Detail on it (303211's step list; #56 shows the detail over the list with
+   the new code in it). */
+function NewServiceCenterDialog({ close, open, onAdded }: {
+  close: () => void; open: (id: string, args?: Record<string, unknown>) => void; onAdded?: () => void
+}) {
   const [rows, update] = useClinicRows('ad-service-centers')
   const [d, setD] = useState({ code: '', desc: '' })
   const create = () => {
     if (!codeFree(rows, d.code)) return
-    update((prev) => [...prev, { code: d.code.trim(), desc: d.desc, active: true }])
+    const code = d.code.trim()
+    update((prev) => [...prev, { code, desc: d.desc, active: true }])
     onAdded?.()
-    close()
+    open('service-center-detail', { key: code })
   }
   return (
     <NewRecordDialog title="New Service Center" dialog="new-service-center" onCreate={create} onClose={close}>
       <Line label="Code:" w={80}><PBInput w={152} value={d.code} onChange={(e) => setD({ ...d, code: e.target.value })} data-tutorial-id={fieldId('Code')} /><Required /></Line>
       <Line label="Description:" w={80}><PBInput w={274} value={d.desc} onChange={(e) => setD({ ...d, desc: e.target.value })} data-tutorial-id={fieldId('Description')} /></Line>
     </NewRecordDialog>
+  )
+}
+
+/* ===========================================================================
+   Service Center Detail                user capture 2026-09-25 #56, #57
+                                        (v02.31.23; ~600 x 360, 522 at 1:1)
+
+   A navy "Service Center" title band, then a sub-band "Service Center" in
+   bold navy, over an outlined box: Code, Description, Status ☑ Active, Start
+   Date and End Date on one line, and a Note memo; Save Changes (F2) / Cancel
+   centred. Create Record lands here with the code just typed selected. The
+   dates take MOIS's yyyy.mm.dd edit mask — focus an empty one and it reads
+   `0000.00.00` (#57) — which is why a service centre is dated rather than
+   deleted: End Date and the Active tick retire it.
+   ======================================================================== */
+
+/**
+ * A PowerBuilder `####.##.##` date edit. Focused and empty it shows the mask
+ * as `0000.00.00`, the way #57 captures it; each digit typed overwrites the
+ * next position, and a blank one reads blank again when focus leaves.
+ */
+export function DateMaskInput({ value, onChange, w = 89, tutorialId }: {
+  value: string; onChange: (v: string) => void; w?: number; tutorialId?: string
+}) {
+  const [focused, setFocused] = useState(false)
+  /* the value keeps only what was typed (`2026.0`); the edit pads it out */
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  const typed = (d: string) => [d.slice(0, 4), d.slice(4, 6), d.slice(6, 8)].filter(Boolean).join('.')
+  const padded = (d: string) => {
+    const full = d.padEnd(8, '0')
+    return `${full.slice(0, 4)}.${full.slice(4, 6)}.${full.slice(6, 8)}`
+  }
+  const shown = digits || focused ? padded(digits) : ''
+  return (
+    <PBInput
+      w={w}
+      value={shown}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      /* a whole value set at once — a paste, or a lesson's fill */
+      onChange={(e) => {
+        const d = e.target.value.replace(/\D/g, '').slice(0, 8)
+        onChange(/^0*$/.test(d) ? '' : typed(d))
+      }}
+      onKeyDown={(e) => {
+        if (/^\d$/.test(e.key)) {
+          e.preventDefault()
+          if (digits.length < 8) onChange(typed(digits + e.key))
+        } else if (e.key === 'Backspace') {
+          e.preventDefault()
+          onChange(typed(digits.slice(0, -1)))
+        }
+      }}
+      data-tutorial-id={tutorialId}
+    />
+  )
+}
+
+function ServiceCenterDetailWindow({ rowKey, close }: { rowKey: string; close: () => void }) {
+  const [rows, update] = useClinicRows('ad-service-centers')
+  const row = rows.find((r) => S(r.code) === rowKey) ?? { code: rowKey, active: true }
+  const [draft, setDraft] = useState<Draft>(() => ({ ...row, active: row.active !== false && row.active !== 'N' }))
+  const set = (patch: Draft) => setDraft((d) => ({ ...d, ...patch }))
+  const save = () => {
+    patchRow(update, 'ad-service-centers', rowKey, { ...draft, code: S(draft.code).trim() || rowKey })
+    close()
+  }
+  const L = 78
+  return (
+    <DemographicModal title="Service Center Detail" width={522} onClose={close} dialog="service-center-detail">
+      <NavyBand>Service Center</NavyBand>
+      <div style={{ margin: 1, border: '1px solid #8a8a8a', background: 'var(--pb-face)' }}>
+        <Head style={{ background: '#f4f4f4', borderBottom: '1px solid #c9c9c9', padding: '4px 8px' }}>Service Center</Head>
+        <div style={{ padding: '6px 8px 8px' }}>
+          <Line label="Code:" w={L}>
+            <PBInput w={198} value={S(draft.code)} onChange={(e) => set({ code: e.target.value })} data-tutorial-id={fieldId('Code')} autoFocus onFocus={(e) => e.currentTarget.select()} />
+          </Line>
+          <Line label="Description:" w={L}>
+            <PBInput w={414} value={S(draft.desc)} onChange={(e) => set({ desc: e.target.value })} data-tutorial-id={fieldId('Description')} />
+          </Line>
+          <Line label="Status:" w={L}>
+            <PBCheckbox label="Active" checked={Boolean(draft.active)} onChange={(v) => set({ active: v })} tutorialId={fieldId('Active')} />
+          </Line>
+          <Line label="Start Date:" w={L}>
+            <DateMaskInput value={S(draft.start)} onChange={(v) => set({ start: v })} tutorialId={fieldId('Start Date')} />
+            <span className="pb-form__label" style={{ paddingLeft: 14 }}>End Date:</span>
+            <DateMaskInput value={S(draft.end)} onChange={(v) => set({ end: v })} tutorialId={fieldId('End Date')} />
+          </Line>
+          <Line label="Note:" w={L} style={{ alignItems: 'flex-start' }}>
+            <PBTextArea rows={5} w={414} value={S(draft.note)} onChange={(e) => set({ note: e.target.value })} data-tutorial-id={fieldId('Note')} />
+          </Line>
+        </div>
+      </div>
+      <Footer>
+        <Btn command="save-changes-f2" w={107} onClick={save}>Save Changes (F2)</Btn>
+        <Btn command="cancel" w={107} onClick={close}>Cancel</Btn>
+      </Footer>
+    </DemographicModal>
+  )
+}
+
+/* ===========================================================================
+   Find and Replace: Service Center     user capture 2026-09-25 #58–#60
+                                        (v02.31.23; ~510 x 325, 444 at 1:1)
+
+   An outlined group box holding Find: and Replace with:, each a drop-down
+   DataWindow whose ivory list is Service Center · Description; the current
+   row is the selection blue, and an inactive code is drawn in red (#59:
+   METHADONE, NURSING, PSYCHSOC). The list puts active codes first. Ok /
+   Cancel centred. Ok swaps every reference to the Find code for the Replace
+   code; this stage keeps no records that reference a service centre, so Ok
+   checks the pair and closes.
+   ======================================================================== */
+
+function FindReplaceServiceCenterDialog({ close }: { close: () => void }) {
+  const [rows] = useClinicRows('ad-service-centers')
+  const [find, setFind] = useState('')
+  const [replace, setReplace] = useState('')
+  const inactive = (r: ClinicRow) => r.active === false || r.active === 'N'
+  const list = [...rows.filter((r) => !inactive(r)), ...rows.filter(inactive)]
+  const columns = [
+    { key: 'code', header: 'Service Center', width: 122, render: (r: ClinicRow) => <span style={inactive(r) ? { color: '#c00000' } : undefined}>{S(r.code)}</span> },
+    { key: 'desc', header: 'Description', width: 261, render: (r: ClinicRow) => <span style={inactive(r) ? { color: '#c00000' } : undefined}>{S(r.desc)}</span> },
+  ]
+  return (
+    <DemographicModal title="Find and Replace: Service Center" width={444} onClose={close} dialog="find-and-replace-service-center">
+      <div style={{ padding: '14px 12px 6px', background: 'var(--pb-face)' }}>
+        <div style={{ border: '1px solid #a0a0a0', padding: '20px 14px 70px' }}>
+          <Line label="Find:" w={74}>
+            <PBDropDownDataWindow<ClinicRow> w={140} listW={407} columns={columns} rows={list} value={find} display="code" onSelect={(r) => setFind(S(r.code))} tutorialId={fieldId('Find')} />
+          </Line>
+          <Line label="Replace with:" w={74}>
+            <PBDropDownDataWindow<ClinicRow> w={140} listW={407} columns={columns} rows={list} value={replace} display="code" onSelect={(r) => setReplace(S(r.code))} tutorialId={fieldId('Replace with')} />
+          </Line>
+        </div>
+      </div>
+      <Footer>
+        <Btn command="find-replace-ok" w={75} onClick={close}>Ok</Btn>
+        <Btn command="find-replace-cancel" w={75} onClick={close}>Cancel</Btn>
+      </Footer>
+    </DemographicModal>
   )
 }
 

@@ -14,6 +14,7 @@ import {
 } from '../data/adminLists'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
+import { AdminLanding } from './AdminLandingViews'
 
 /* ============================================================================
    Administration list windows with no Clinic Management twin:
@@ -155,6 +156,8 @@ export function AdminListsView({ node, onClose }: { node: string; onClose?: () =
     case 'ad-chart-summaries': return <ChartSummaryConfiguration />
     case 'ad-reference-sets': return <CodeReferenceSets />
     case 'ad-lookup-settings': return <CodeLookupConfiguration />
+    case 'ad-designer':
+    case 'ad-clinic-mgt': return <AdminLanding node={node} />
     default: return null
   }
 }

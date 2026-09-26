@@ -162,6 +162,8 @@ const DEFAULT_EXPANDED = [
      master capture shows every section open; the rest stay shut until they
      are more than a labelled fallback. */
   'ad-user-mgt', 'ad-clinic-mgt', 'ad-designer', 'ad-config',
+  /* open in the v02.31.23 captures too (user capture 2026-09-25 #48, #50, #54) */
+  'ad-address-book', 'ad-prompts', 'ad-external',
   /* the Billing tree draws no +/- boxes in any capture: it is always open */
   'bl-msp', 'bl-pbf', 'bl-lfp', 'bl-pas',
 ]
@@ -1083,6 +1085,20 @@ function Frame({
 
   const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 
+  /* press a control that may still be arriving: a folder's records load
+     lazily, and a button drawn only for the current record (the SIGNED /
+     UNSIGNED link) appears once they land. Watch mode presses right after
+     the step before it, so wait a little rather than fail at once. */
+  const pressAnchor = async (id: string, timeoutMs = 3000) => {
+    const until = Date.now() + timeoutMs
+    for (;;) {
+      try { clickAnchor(id); return } catch (error) {
+        if (Date.now() > until || !String((error as Error).message).startsWith('No MOIS control')) throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  }
+
   /* Every window the frame can open by name: the `host.mois.openUtility`
      action, menu items (`go.open`) and command buttons all come through here,
      so a practice-mode click and an autoplay step open the same window. Add a
@@ -1125,7 +1141,7 @@ function Frame({
         case 'host.mois.selectModule': pickModule(slug('module')); return undefined
         case 'host.mois.selectNode': openNode(slug('node')); return undefined
         case 'host.mois.toggleNode': toggle(slug('node')); return undefined
-        case 'host.mois.command': clickAnchor(`host.mois.command.${slug('command')}`); return undefined
+        case 'host.mois.command': await pressAnchor(`host.mois.command.${slug('command')}`); return undefined
         case 'host.mois.selectTab': clickAnchor(`host.mois.tab.${slug('tab')}`); return undefined
         /* a column title on a list that sorts (PBDataWindow onSort) */
         case 'host.mois.sort': clickAnchor(`host.mois.sort.${slug('column')}`); return undefined

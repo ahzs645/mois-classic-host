@@ -4,27 +4,35 @@ import {
   PBTextArea, PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
-  DESIGNER_COMMANDS, designerScreen,
+  DESIGNER_COMMANDS, DESIGNER_COMMAND_WIDTH, designerScreen,
   type DesignerColumn, type DesignerListScreen, type DesignerNewDialog, type DesignerRow,
 } from '../data/designerSection'
 import { DesignerDetailWindow, ImportPaperFormsDialog } from './DesignerDetailWindow'
 import { useScreenReport } from '../host/screen-state'
+import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
    Administration ▸ Designer Section — the list view ("Skeleton L").
 
-   Eight nodes, one window. The command row is the same four buttons in the
-   same order on every one of them; the only variables are the view-header
+   Eight nodes, one window. The command row is the same buttons in the
+   same order on every one of them (five on the current build: New Record,
+   Delete Record, Edit Record, Find / Replace, Close Window — user capture
+   2026-09-25 #49, #50); the only variables are the view-header
    caption, the column set, the filter set, the detail-band pitch and an
    optional right-anchored Import/Export pair. All of that lives in
    `data/designerSection.ts`, cited capture by capture, so this file is the
    frame and nothing else.
 
-   Nine of the ten nodes in the tree are handled here. `ad-panel-setup` is
-   configured from article 2594035's New dialog and detail captures (its list
-   is inferred — see data/designerSection.ts). `ad-quick-entry` has no
-   capture anywhere in the corpus, so the frame's labelled fallback is what
-   it shows.
+   Nine of the eleven nodes in the tree are handled here. `ad-panel-setup`'s
+   list is the user's v02.31.23 capture (#49); its New dialog and detail are
+   article 2594035's. `ad-web-forms-admin` and `ad-quick-entry` have no
+   capture of their windows, so the frame's labelled fallback is what they
+   show.
+
+   The New Record dialog and the detail window are top-level windows: they
+   float over the whole MOIS frame, tree included (user capture 2026-09-25
+   #51, #52), so both are portalled onto the desktop (StageWindow's
+   DesktopLayer) rather than laid over the work area.
 
    MEASURED vs KIT. Three skeleton values are the kit's rather than the
    capture's, and are not presented as measured:
@@ -52,8 +60,8 @@ const blankRow = (columns: DesignerColumn[]): DesignerRow => ({
  * Description → desc) fills it; Concept Mapping's Classification radio fills
  * Type with GRP or SYM (`f05574eb…`).
  */
-function rowFromDialog(columns: DesignerColumn[], values: Record<string, string>): DesignerRow {
-  const row = blankRow(columns)
+function rowFromDialog(columns: DesignerColumn[], values: Record<string, string>, defaults?: DesignerRow): DesignerRow {
+  const row = { ...blankRow(columns), ...defaults }
   for (const [label, value] of Object.entries(values)) {
     const key = label.replace(/:$/, '').trim().toLowerCase()
     if (key === 'classification') { row.type = value === 'Synonym' ? 'SYM' : 'GRP'; continue }
@@ -99,7 +107,7 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
      Concept Mapping capture shows both windows stacked (f05574eb03be), and
      every other article's step list says the detail window opens next. */
   const createRecord = (values: Record<string, string>) => {
-    const row = rowFromDialog(screen.columns, values)
+    const row = rowFromDialog(screen.columns, values, screen.newRow)
     setAdded((a) => [...a, row])
     setNewOpen(false)
     setCur(all.length)
@@ -114,6 +122,7 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
       <PBCommandRow
         commands={DESIGNER_COMMANDS.map((label) => ({
           label,
+          width: DESIGNER_COMMAND_WIDTH[label],
           onClick:
             label === 'New Record'
               /* two have no New Record dialog, captured or described (Paper
@@ -225,7 +234,8 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
 /* ---------------------------------------------------------------------------
    The New Record dialog.
 
-   Captured for five of the eight nodes. One shape: a `#DCD7D2` group band,
+   Captured for six of the eight nodes (Encounter Form's is user capture
+   2026-09-25 #51). One shape: a `#DCD7D2` group band,
    a short stack of fields, and a footer. The band caption is different on
    every one of them and is reproduced verbatim.
    ------------------------------------------------------------------------ */
@@ -241,6 +251,7 @@ function DesignerNewRecordDialog({
   useScreenReport({ dialog: pbSlug(dialog.title) })
 
   return (
+    <DesktopLayer>
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
       {/* PBWindow does not forward attributes, so the anchor rides a wrapper
           that shrink-wraps the frame — a lesson rings the window, not the layer */}
@@ -252,9 +263,16 @@ function DesignerNewRecordDialog({
         onClose={onClose}
         style={{ width: dialog.w, height: dialog.h }}
       >
+        {/* #51 insets the band and its fields in an outlined box, with the
+            buttons under the box; the older dialogs run the band edge to edge */}
+        <div style={dialog.boxed
+          ? { flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)', padding: '10px 18px 0' }
+          : { display: 'contents' }}
+        >
+        <div style={dialog.boxed ? { border: '1px solid #a0a0a0', display: 'flex', flexDirection: 'column', paddingBottom: 12 } : { display: 'contents' }}>
         <div className="pb-band">{dialog.band}</div>
 
-        <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
+        <div style={{ flex: dialog.boxed ? 'none' : '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
           <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', alignItems: 'start', padding: '8px 10px' }}>
             {dialog.fields.map((f) => (
               f.kind === 'radio'
@@ -302,6 +320,8 @@ function DesignerNewRecordDialog({
             ))}
           </div>
         </div>
+        </div>
+        </div>
 
         <div className="pb-footer">
           <span className="pb-footer__spacer" />
@@ -324,5 +344,6 @@ function DesignerNewRecordDialog({
       </PBWindow>
       </div>
     </div>
+    </DesktopLayer>
   )
 }

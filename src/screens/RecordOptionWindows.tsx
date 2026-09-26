@@ -14,7 +14,7 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    The three windows behind the provenance items of a chart record's
    right-click Option List (screens/RecordOptionList.tsx):
 
-     Acknowledge History → Workflow Summary     1802768 `13dd06a5…png`,
+     Workflow Summary    → Workflow Summary     1802768 `13dd06a5…png`,
                                                  `9a1ef52e…png`
      Audit Report        → MOIS Audit Report    304682, 303809 (text only)
      Access Control      → Access Control /     304682, 303809 (text only)
@@ -45,10 +45,13 @@ const nowTime = () => new Date().toTimeString().slice(0, 5)
 
    The right-click item in the v02.20 captures is "Acknowledge History"
    (302837 `2702f065…png`); 304682 says it "indicates if a record was
-   reviewed, by whom, and when". No capture shows a separate window for it,
-   and the v02.21+ menus replace the item with Workflow Summary (303741
-   `fee0d51c…png`) — whose Acknowledgements section and "Acknowledgement
-   History:" detail are exactly that. So the item opens this window.
+   reviewed, by whom, and when". The v02.21+ menus replace the item with
+   Workflow Summary (303741 `fee0d51c…png`), and the current build's Imaging,
+   Consults, Rx and Long Term Medication menus end on Workflow Summary with
+   no Acknowledge History at all (user capture 2026-09-25 #34, #35, #36, #45
+   (v02.31.23)) — its Acknowledgements section and "Acknowledgement
+   History:" detail are what the old item showed. The item, and the folder
+   rail's View Detail... link, open this window.
 
    Content: the chart export carries no workflow tables (no messages, tasks or
    acknowledgements hang off any record), which is why the folders' own

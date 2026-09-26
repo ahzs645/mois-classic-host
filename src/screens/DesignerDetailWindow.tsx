@@ -25,6 +25,7 @@ import {
 import { determinantTabs } from '../data/mois'
 import { useScreenReport } from '../host/screen-state'
 import { MoisViewerWindow } from './MoisViewerWindow'
+import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
    Administration ▸ Designer Section — the detail windows ("Skeleton D").
@@ -134,9 +135,18 @@ function BandB({ caption, buttons, h = 20 }: { caption: string; buttons: BandCom
   )
 }
 
-/** The window frame: title bar, optional navy band, body, centred footer. */
+/**
+ * The window frame: title bar, optional navy band, body, centred footer.
+ *
+ * A top-level window, not a sheet over the work area: user capture
+ * 2026-09-25 #52 / #53 (v02.31.23) show Encounter Documentation Form Detail
+ * floating over the whole MOIS frame, so the frame is portalled onto the
+ * desktop. `leftFooter` parks the first footer button at the window's left
+ * edge — #52 / #53 draw `Save (F2)` there, with Save and Close and Cancel
+ * centred.
+ */
 function DetailFrame({
-  title, navy, w, h, footer, onClose, children,
+  title, navy, w, h, footer, leftFooter, onClose, children,
 }: {
   title: string
   /** the `#004080` band caption, on the four windows that carry one */
@@ -144,16 +154,19 @@ function DetailFrame({
   w: number
   h: number
   footer: readonly string[]
+  leftFooter?: boolean
   onClose: () => void
   children: ReactNode
 }) {
   const host = usePBInstrumentation()
   useScreenReport({ dialog: pbSlug(title) })
+  const [left, ...centred] = leftFooter ? footer : [undefined, ...footer]
   return (
-    /* one track the size of the work area: without it the grid's implicit
-       track grows to the window's measured width, the `100%` maxima below
-       resolve against that, and a window measured wider or taller than the
-       stage (Paper Form, Panel Setup) runs off it with its footer */
+    <DesktopLayer>
+    {/* one track the size of the desktop: without it the grid's implicit
+        track grows to the window's measured width, the `100%` maxima below
+        resolve against that, and a window measured wider or taller than the
+        stage (Paper Form, Panel Setup) runs off it with its footer */}
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}>
       {/* PBWindow does not forward attributes, so the window's anchor rides a
           wrapper that shrink-wraps it rather than the whole modal layer. The
@@ -179,15 +192,19 @@ function DetailFrame({
             {children}
           </div>
           <div className="pb-footer">
+            {left && <FooterButton label={left} onClose={onClose} />}
             <span className="pb-footer__spacer" />
-            {footer.map((b) => (
-              <FooterButton key={b} label={b} onClose={onClose} />
+            {centred.map((b) => (
+              <FooterButton key={b} label={b!} onClose={onClose} />
             ))}
             <span className="pb-footer__spacer" />
+            {/* balances the left button so the pair stays centred */}
+            {left && <span style={{ visibility: 'hidden' }}><PBButton wide tabIndex={-1} aria-hidden="true">{left}</PBButton></span>}
           </div>
         </PBWindow>
       </div>
     </div>
+    </DesktopLayer>
   )
 }
 
@@ -211,12 +228,14 @@ function FooterButton({ label, onClose }: { label: string; onClose: () => void }
 
 /** A detail-window grid, at the family's 18px detail-band pitch. */
 function DetailGrid({
-  columns, rows, gutter = true, style,
+  columns, rows, gutter = true, style, empty,
 }: {
   columns: DesignerColumn[]
   rows: DesignerRow[]
   gutter?: boolean
   style?: Record<string, string>
+  /** what an empty grid paints; a PB DataWindow with no rows is blank (#52) */
+  empty?: string
 }) {
   const [cur, setCur] = useState(0)
   return (
@@ -225,6 +244,7 @@ function DetailGrid({
       current={cur}
       onCurrentChange={setCur}
       gutter={gutter}
+      empty={empty}
       style={{ ['--pb-dw-row-h' as string]: '18px', ...style }}
       columns={columns.map((c) => ({
         key: c.key,
@@ -361,55 +381,101 @@ function ConceptMappingDetail({ title, row, onClose }: DetailProps) {
 /* ---------------------------------------------------------------------------
    303093 · Encounter Documentation Form Detail — 1019 x 713, NO navy band.
    An 80px header form, then the only tab strip in the family.
+
+   HEADER: user capture 2026-09-25 #52 (a new form) and #53 (an existing
+   one), v02.31.23, x0.87 to 1:1.
+     - Name is grey and read-only once the record exists (bold on an existing
+       form); Version is a small box, with `New Version` beside it on an
+       existing form only.
+     - Description is a two-line edit with its own scroll arrows.
+     - Question Width and Answer Width both read 0 on both captures.
+     - `Try Me: Width = 850` is a light-blue sizing box, not a button, with
+       "Click corner and resize" under its right end.
+     - An existing form carries a full-width pink banner under the header:
+       "FORM LOCKED : If the form needs to be changed, please create a new
+       version." A new form does not. New Version (INFERRED: its window is
+       not captured) moves the form to the next version and lifts the lock.
+     - A new form opens with an empty Group List (#52).
+     - Footer: `Save (F2)` parked at the left, `Save and Close (Alt + S)` and
+       `Cancel (Alt + F4)` centred.
    ------------------------------------------------------------------------ */
 function EncounterFormDetail({ title, row, onClose }: DetailProps) {
   const [tab, setTab] = useState(ENCOUNTER_FORM_TABS[0]!)
+  const isNew = Boolean(row.__new)
+  const [version, setVersion] = useState(isNew ? 1 : 3)
+  const [locked, setLocked] = useState(!isNew)
+  const [groups, setGroups] = useState<DesignerRow[]>(() => (isNew ? [] : ENCOUNTER_GROUP_ROWS))
+  /* the grey read-only face the header's Name edit takes (#52, #53) */
+  const grey = { background: '#e8e8e8', fontWeight: isNew ? 400 : 700 }
 
   return (
-    <DetailFrame title={title} w={1019} h={713} footer={DETAIL_FOOTERS.saveAndClose} onClose={onClose}>
+    <DetailFrame title={title} w={1019} h={713} footer={DETAIL_FOOTERS.saveAndClose} leftFooter onClose={onClose}>
       {/* the 80px header form */}
-      <div className="pb-row" style={{ alignItems: 'flex-start', gap: 12, padding: '5px 8px', flex: 'none', background: '#f0f0f0', height: 80 }}>
-        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <div className="pb-row" style={{ gap: 6 }}>
-            <span className="pb-form__label">Name:</span>
-            <PBInput w={220} defaultValue={String(row.name ?? '')} data-tutorial-id={anchorField('Name')} />
-            <span className="pb-form__label" style={{ marginLeft: 10 }}>Version:</span>
-            <PBInput w={44} align="center" defaultValue="3" data-tutorial-id={anchorField('Version')} />
-          </div>
-          <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', marginTop: 3 }}>
-            <span className="pb-form__label">Description:</span>
-            {/* multiline with a spinner — a PB multi-line edit with its own
-                vertical scroll control */}
-            <PBTextArea rows={2} w={330} defaultValue={String(row.desc ?? '')} data-tutorial-id={anchorField('Description')} />
-          </div>
-        </div>
-
+      <div className="pb-row" style={{ alignItems: 'flex-start', gap: 12, padding: '5px 6px', flex: 'none', background: '#f0f0f0', height: 80 }}>
         <div style={{ flex: 'none' }}>
           <div className="pb-row" style={{ gap: 6 }}>
-            <span className="pb-form__label">Question Width:</span>
-            <PBInput w={54} align="right" defaultValue="1200" data-tutorial-id={anchorField('Question Width')} />
+            <span className="pb-form__label" style={{ width: 66 }}>Name:</span>
+            <PBInput w={285} value={String(row.name ?? '')} readOnly style={grey} data-tutorial-id={anchorField('Name')} />
+            <span className="pb-form__label" style={{ marginLeft: 20 }}>Version:</span>
+            <PBInput w={30} align="center" value={String(version)} readOnly data-tutorial-id={anchorField('Version')} />
+            {!isNew && (
+              <BandButton label="New Version" width={73} onPress={() => { setVersion((v) => v + 1); setLocked(false) }} />
+            )}
           </div>
-          <div className="pb-row" style={{ gap: 6, marginTop: 3 }}>
-            <span className="pb-form__label">Answer Width:</span>
-            <PBInput w={54} align="right" defaultValue="0" data-tutorial-id={anchorField('Answer Width')} />
+          <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', marginTop: 3 }}>
+            <span className="pb-form__label" style={{ width: 66 }}>Description:</span>
+            {/* a PB multi-line edit with its own vertical scroll arrows */}
+            <PBTextArea rows={2} w={380} defaultValue={String(row.desc ?? '')} style={{ overflowY: 'scroll', resize: 'none' }} data-tutorial-id={anchorField('Description')} />
           </div>
         </div>
 
-        <div style={{ flex: 'none', textAlign: 'center' }}>
-          {/* the one button in the family painted on a face of its own */}
-          <PBButton style={{ background: '#a6caf0' }}>Try Me: Width = 850</PBButton>
-          <div style={{ color: 'var(--pb-text-dim)' }}>Click corner and resize</div>
+        <div style={{ flex: '1 1 auto' }} />
+
+        <div style={{ flex: 'none', paddingTop: 20 }}>
+          <div className="pb-row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+            <span className="pb-form__label">Question Width:</span>
+            <PBInput w={74} align="center" defaultValue="0" data-tutorial-id={anchorField('Question Width')} />
+          </div>
+          <div className="pb-row" style={{ gap: 6, marginTop: 3, justifyContent: 'flex-end' }}>
+            <span className="pb-form__label">Answer Width:</span>
+            <PBInput w={74} align="center" defaultValue="0" data-tutorial-id={anchorField('Answer Width')} />
+          </div>
+        </div>
+
+        <div style={{ flex: 'none', paddingTop: 20, width: 190 }}>
+          {/* the sizing box: a light-blue panel whose corner is dragged */}
+          <div style={{ height: 21, lineHeight: '19px', padding: '0 8px', background: '#a8c4ec', border: '1px solid #3c3c3c', boxSizing: 'border-box' }}>
+            Try Me: Width = 850
+          </div>
+          <div style={{ textAlign: 'right', paddingTop: 4 }}>Click corner and resize</div>
         </div>
       </div>
+
+      {locked && (
+        <div
+          data-tutorial-id="host.mois.banner.form-locked"
+          style={{ flex: 'none', background: '#f0a0a0', borderTop: '1px solid #c07070', borderBottom: '1px solid #c07070', padding: '1px 6px', fontWeight: 700, color: '#000' }}
+        >
+          FORM LOCKED : If the form needs to be changed, please create a new version.
+        </div>
+      )}
 
       {/* no capture measures the tab widths, so they keep PowerBuilder's own
           fixed 96px rather than being sized to their captions */}
       <PBTabs tabs={ENCOUNTER_FORM_TABS} active={tab} onChange={setTab}>
         {tab === 'Groups' && (
           <>
-            <BandA caption="Group List" buttons={[{ label: 'New Group', width: 80 }, { label: 'Delete Group', width: 81 }]} />
+            <BandA
+              caption="Group List"
+              buttons={[
+                /* a new heading takes the next order in tens, the way the
+                   sample groups are numbered */
+                { label: 'New Group', width: 80, onPress: () => setGroups((g) => [...g, { order: String((g.length + 1) * 10), heading: '', note: '' }]) },
+                { label: 'Delete Group', width: 81, onPress: () => setGroups((g) => g.slice(0, -1)) },
+              ]}
+            />
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-              <DetailGrid columns={ENCOUNTER_GROUP_COLUMNS} rows={ENCOUNTER_GROUP_ROWS} />
+              <DetailGrid columns={ENCOUNTER_GROUP_COLUMNS} rows={groups} empty=" " />
             </div>
           </>
         )}

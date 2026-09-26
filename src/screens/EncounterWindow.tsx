@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useChartExport, useChartRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
 import { date, serviceEpisodes } from '../data/charts/relations'
-import { visitCodeRows } from '../data/daybook'
 import {
   selectFormRows,
   type EncounterFormRow, type FormListRow
@@ -22,8 +21,8 @@ import type { HostShellProps } from '../host/types'
 import {
   IconIdCard,
   PBBand, PBButton, PBCaption, PBCheckbox, PBDataWindow, PBDropDownDataWindow,
-  PBInput, PBInstrumentationProvider, PBLookup, PBMenuBar, PBMessageBox, PBPatientBannerBlue,
-  PBPatientBannerYellow, PBSelect, PBTabs, PBTextArea, PBWindow,
+  PBInput, PBInstrumentationProvider, PBLookup, PBMenuBar, PBPatientBannerBlue,
+  PBSelect, PBTabs, PBTextArea, PBWindow,
   pbSlug, usePBInstrumentation, type PBMenuBarEntry, type PBMenuItem,
 } from '../pb'
 import { AddAttachmentDialog } from './AddAttachmentDialog'
@@ -31,6 +30,7 @@ import { useOpenWindow } from './areaWindowRegistry'
 import { startLetter } from './LetterFlow'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
 import { ServiceCodeLookupDialog, UniversalSearchDialog } from './CodeLookupDialogs'
+import { EncounterBanner, MspAppointmentTimes, NewNoteConfirmation, encounterTitle } from './EncounterChrome'
 import {
   MeasureCalculatorDialog, MeasureCalculatorsDialog, MeasureTemplateGridDialog,
   MeasureTemplateSelectionDialog, MeasurementDetailDialog, defaultMeasureTemplate,
@@ -57,6 +57,18 @@ import { WcbFormWindow } from './WcbFormWindow'
      Close      — a command on the bar, Esc
    The bar's anchors are namespaced `host.mois.encounter.menu.*` so a lesson
    can ring this window's Print rather than the frame's.
+
+   The title, banner, MSP Appointment Time(s) strip, header form and tabs are
+   checked against user captures 2026-09-25 #21, #22 and #33 (v02.31.23),
+   three encounters of one chart: `[alias: …] NAME nn YEAR OLD s  chart no.:
+   … -  encounter no.: …`; the banner and strip in screens/EncounterChrome;
+   Date / time / Slots, Provider and Visit Code as greyed read-only boxes
+   (Visit Code a plain box, not a drop-down), Ser. Loc. and Appt Status
+   drop-downs, Visit Reason and Attending "…" editable; the Times column
+   (Arrived / In-Room / Seen / Discharge, Duration of Care (minutes)); Health
+   Issues · Services · Nbr. of · General Note; and the six tabs Progress
+   Note(s) · Measurements · Service(s) · Detail / Coding · Encounter Summary
+   · Encounter Forms.
    ========================================================================= */
 
 const TABS = ['Progress Note(s)', 'Measurements', 'Service(s)', 'Detail / Coding', 'Encounter Summary', 'Encounter Forms']
@@ -87,6 +99,11 @@ export type EncounterRecord = {
 
 /** The note band's pending note: New Note, or the first note of an empty encounter. */
 type Pending = { text: string; author: string; complete: boolean | null }
+
+/* a blank New Note is stamped Created when it appears, before it is saved
+   (#21/#22: "Created: 2026.09.25 10:41 JALIL, AHMAD" under an empty New
+   Note *of 0) */
+const stamp = () => `${MOIS_TODAY} ${new Date().toTimeString().slice(0, 5)}  ${DESKTOP_USER}`
 
 /** a dialog the window has open over it; its id is what the tutorial snapshot reports */
 type EncounterDialog =
@@ -141,6 +158,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
   const [noteIndex, setNoteIndex] = useState(() => Math.max(0, notes.length - 1))
   /* an encounter with no note opens on a blank one, the band reading New Note */
   const [pending, setPending] = useState<Pending | null>(() => (notes.length ? null : { text: '', author: '', complete: null }))
+  const [pendingCreated, setPendingCreated] = useState(stamp)
   const noteBox = useRef<HTMLTextAreaElement | null>(null)
 
   const [dialog, setDialog] = useState<EncounterDialog>(null)
@@ -201,10 +219,20 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
     }
   }
 
+  /* New Note asks every time, even over a blank New Note (#22), unless
+     "Always create new note" was ticked */
+  const createNote = () => {
+    /* a note typed but not yet saved is kept as the note before it */
+    if (pending?.text.trim()) {
+      setNotes([...notes, { key: `s${Date.now()}`, author: pending.author || DESKTOP_USER, text: pending.text, complete: false, createdBy: DESKTOP_USER, created: `${MOIS_TODAY}  ${DESKTOP_USER}` }])
+    }
+    if (!pending || pending.text.trim()) setPendingCreated(stamp())
+    setPending({ text: '', author: '', complete: null })
+    setTab('Progress Note(s)')
+  }
   const newNote = () => {
-    /* already on a blank note: nothing to add */
-    if (pending && !pending.text.trim()) return
-    setDialog({ id: 'new-note-prompt' })
+    if (area.session.alwaysNewNote) createNote()
+    else setDialog({ id: 'new-note-prompt' })
   }
 
   /* Print ▸ Selected Text: the highlight in the note box, or in whichever
@@ -290,7 +318,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
       tutorialId="host.mois.window.encounter"
       child
       icon={<IconIdCard />}
-      title={`${patient.short} ${patient.age} ${patient.sex}`}
+      title={encounterTitle(patient)}
       sub={<>chart no.: {patient.chart} -&nbsp;&nbsp;&nbsp;encounter no.: {enc.id}</>}
       onClose={onClose}
       /* 800 wide in every manual capture (d11b4456…, a02db6dd…), so the chart
@@ -300,13 +328,8 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
       <div ref={windowRef} style={{ display: 'contents' }} onKeyDown={onKeyDown}>
         <EncounterMenuBar items={menu} />
 
-        <PBPatientBannerYellow
-          name={patient.short}
-          bchn={patient.bchn ?? ''}
-          home={patient.phone}
-          dob={patient.dob}
-          sex={patient.sex}
-        />
+        <EncounterBanner patient={patient} />
+        <MspAppointmentTimes />
 
         {/* ---- the dense encounter header form ------------------------------
             Four visual columns: identity, times, coded links, general note. */}
@@ -315,14 +338,14 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
           <div className="pb-form" style={{ padding: 0, gridTemplateColumns: 'auto 1fr', width: 250, flex: 'none' }}>
             <span className="pb-form__label">Date:</span>
             <div className="pb-row">
-              <PBInput key={enc.id + 'd'} w={68} align="center" defaultValue={enc.date ?? ''} />
-              <PBInput key={enc.id + 't'} w={46} align="center" defaultValue={time} />
-              <span style={{ marginLeft: 6 }}>Slots:</span>
-              <PBInput w={26} align="center" defaultValue={record?.num_time_slots ?? ''} />
+              <PBInput key={enc.id + 'd'} w={62} align="center" readOnly defaultValue={enc.date ?? ''} />
+              <PBInput key={enc.id + 't'} w={42} align="center" readOnly defaultValue={time || '0 : 00'} />
+              <span style={{ marginLeft: 12 }}>Slots:</span>
+              <PBInput w={25} align="center" readOnly defaultValue={record?.num_time_slots ?? ''} />
             </div>
 
             <span className="pb-form__label">Provider:</span>
-            <PBInput defaultValue={record?.lkp_provider ?? enc.provider ?? ''} />
+            <PBInput w={182} readOnly defaultValue={record?.lkp_provider ?? enc.provider ?? ''} />
 
             <span className="pb-form__label">Ser. Loc.:</span>
             <PBDropDownDataWindow
@@ -335,38 +358,9 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
             />
 
             <span className="pb-form__label">Visit Code:</span>
-            <PBDropDownDataWindow
-              columns={[
-                { key: 'code', header: 'Code', width: 58 },
-                { key: 'description', header: 'Description', width: 264 },
-                { key: 'mode', header: 'Visit Mode', width: 126 },
-                {
-                  key: 'slots',
-                  header: '#',
-                  width: 46,
-                  /* the slot count is painted in the code's own colour — the
-                     same fill the day book books an appointment of it in */
-                  render: (r) => (
-                    <span
-                      style={{
-                        display: 'block',
-                        textAlign: 'center',
-                        background: r.slots === '' ? undefined : (r.fill ?? '#ffffff'),
-                      }}
-                    >
-                      {r.slots}
-                    </span>
-                  ),
-                },
-                { key: 'mhk', header: 'MHK', width: 44 },
-              ]}
-              rows={visitCodeRows}
-              value={record?.str_visit_code ?? enc.code ?? ''}
-              display="code"
-              w={68}
-              listW={538}
-              tutorialId="host.mois.lookup.visit-code"
-            />
+            {/* a greyed box in v02.31.23 (#21, #33), not the drop-down the
+                older manual captures show */}
+            <PBInput w={62} readOnly defaultValue={record?.str_visit_code ?? enc.code ?? ''} data-tutorial-id="host.mois.field.visit-code" />
 
             <span className="pb-form__label">Visit Reason:</span>
             <PBInput key={enc.id + 'r'} defaultValue={enc.reason ?? ''} />
@@ -455,6 +449,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
                 index={Math.min(noteIndex, Math.max(0, notes.length - 1))}
                 onIndex={(i) => { setPending(null); setNoteIndex(i) }}
                 pending={pending}
+                pendingCreated={pendingCreated}
                 onPending={setPending}
                 onNote={(n) => setNotes(notes.map((x) => (x.key === n.key ? n : x)))}
                 editable={editable}
@@ -521,26 +516,16 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
       )}
 
       {/* New Note: "press Yes when prompted to create another progress note"
-          (art. 2646482). That article's screenshots are missing from the
-          manual export, so the prompt's wording is not a transcription. */}
+          (art. 2646482); the prompt itself is user capture 2026-09-25 #22 */}
       {dialog?.id === 'new-note-prompt' && (
-        <PBMessageBox
-          title="MOIS"
-          icon="question"
-          buttons={[{ label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.new-note-yes' }, { label: 'No', value: 'no', tutorialId: 'host.mois.command.new-note-no' }]}
-          onClose={(v) => {
+        <NewNoteConfirmation
+          onAnswer={(yes, always) => {
             setDialog(null)
-            if (v !== 'yes') return
-            /* a note typed but not yet saved is kept as the note before it */
-            if (pending?.text.trim()) {
-              setNotes([...notes, { key: `s${Date.now()}`, author: pending.author || DESKTOP_USER, text: pending.text, complete: false, createdBy: DESKTOP_USER, created: `${MOIS_TODAY}  ${DESKTOP_USER}` }])
-            }
-            setPending({ text: '', author: '', complete: null })
-            setTab('Progress Note(s)')
+            if (!yes) return
+            if (always) area.update((s) => ({ ...s, alwaysNewNote: true }))
+            createNote()
           }}
-        >
-          <span data-tutorial-id="host.mois.dialog.new-note-prompt">Do you want to create another progress note for this encounter?</span>
-        </PBMessageBox>
+        />
       )}
       {dialog?.id === 'print-note-for-patient' && (
         <PrintNoteForPatientDialog
@@ -557,7 +542,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
           encounter={{ id: enc.id, date: enc.date ?? '', reason: enc.reason ?? record?.str_appt_note ?? '', provider: record?.lkp_provider ?? enc.provider ?? record?.str_attending ?? '' }}
           notes={notes}
           current={showing ?? null}
-          onOk={({ title, pages }) => { setDialog(null); openWindow('print-preview', { title, pages }) }}
+          onOk={({ title, pages }) => { setDialog(null); openWindow('print-preview', { title, pages, bare: true }) }}
           onClose={() => setDialog(null)}
         />
       )}
@@ -598,8 +583,12 @@ function EncounterMenuBar({ items }: { items: PBMenuBarEntry[] }) {
 
 /* The export stores a form's type and window by id; MOIS prints their names
    (301931 `268ad625…`: "ENCOUNTER FORMS / ASTHMA / DR. DEREK SHEPHERD").
-   Only the ids chart 87288 carries are named here. */
-const FORM_TYPES: Record<string, string> = { '1001': 'ENCOUNTER FORMS' }
+   Only the ids chart 87288 carries are named here. Form type 1001 is the
+   one its WCB REPORT form is filed under, and the current build lists WCB
+   REPORT as INSURANCE FORMS on this tab (user capture 2026-09-25 #33,
+   v02.31.23: ENCOUNTER FORMS / DIABETES, then INSURANCE FORMS / WCB REPORT);
+   data/charts/to-rows.ts `encforms` names it the same way. */
+const FORM_TYPES: Record<string, string> = { '1001': 'INSURANCE FORMS' }
 const FORM_WINDOWS: Record<string, string> = { WP_FORM_HEADER_WCB: 'WCB REPORT' }
 
 /* The built-in forms the Select Form list carries beside the registered
@@ -911,12 +900,14 @@ function EncounterSummaryPage({ encounter, encounterDate, notes }: {
    the v02.31 reference capture). The arrows either side walk the notes.
    ========================================================================= */
 function ProgressNotePage({
-  notes, index, onIndex, pending, onPending, onNote, editable, onNewNote, onPrintNote, onDelete, boxRef,
+  notes, index, onIndex, pending, pendingCreated, onPending, onNote, editable, onNewNote, onPrintNote, onDelete, boxRef,
 }: {
   notes: SessionNote[]
   index: number
   onIndex: (i: number) => void
   pending: Pending | null
+  /** the Created stamp a blank New Note shows before it is saved */
+  pendingCreated: string
   onPending: (p: Pending | null) => void
   onNote: (n: SessionNote) => void
   editable: (n: SessionNote) => boolean
@@ -993,7 +984,7 @@ function ProgressNotePage({
         />
       </div>
       <div className="pb-row" style={{ padding: '2px 6px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-        <span>Created: {note?.created ?? ''}</span>
+        <span>Created: {pending ? pendingCreated : note?.created ?? ''}</span>
         <span style={{ width: 90 }} />
         <span>Last Modified: {note?.modified ?? ''}</span>
       </div>
