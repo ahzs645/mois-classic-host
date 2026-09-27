@@ -33,7 +33,11 @@
 /* --- resize grips --------------------------------------------------------
    Drawn inside the frame so `overflow: hidden` cannot clip them. Invisible:
    the cursor is the whole affordance, the way a Windows frame works.       */
-.pb-window__grip { position: absolute; z-index: 30; }
+/* Above the frame's own content, but below an MDI window's sheet (z 11) and
+   the modal layers: a background window's grip must not sit over a child
+   window in front of it — the main frame's left grip took clicks meant for
+   the middle of the encounter window's Save.                              */
+.pb-window__grip { position: absolute; z-index: 10; }
 .pb-window__grip--n { top: 0; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
 .pb-window__grip--s { bottom: 0; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
 .pb-window__grip--w { left: 0; top: 6px; bottom: 6px; width: 5px; cursor: ew-resize; }

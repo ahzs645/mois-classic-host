@@ -96,11 +96,15 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   /* New Record (303588): a row at the top dated today, Ordered By the Desktop
      Provider, and an Order Type to pick — held until Save or Undo */
   const [draft, setDraft] = useState<OrderRow | null>(null)
-  useScreenReport({ draft: !!draft })
+
   const exportedOrders = draft ? [draft, ...exported] : exported
   const offset = draft ? 1 : 0
 
   const records = useNodeRecords('orders')
+  /* the current order, by the id its row is anchored on, so a lesson can
+     grade "that order is the one you are on" (host.screen.row) */
+  const currentOrderId = draft && cur === 0 ? null : records[cur - offset]?.id_order
+  useScreenReport({ draft: !!draft, row: draft && cur === 0 ? 'order-new' : currentOrderId ? `order-${currentOrderId}` : null })
   const r = records[cur - offset]
   /* a letter distributed from this order this session (screens/LetterWindows.tsx) */
   const sent = session.distributions.filter((d) => d.orderId && d.orderId === r?.id_order)

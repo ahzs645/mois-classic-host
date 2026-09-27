@@ -918,7 +918,8 @@ function Frame({
       report_(typed ? 'host.mois.fill' : 'host.mois.setField', { field: name })
     }
     /* …and the clicks a replay makes for itself: a banded folder's +/- box,
-       an Acknowledge tick, a top-level menu dropped, a row right-clicked.
+       an Acknowledge tick, a grid row, a top-level menu dropped, a row
+       right-clicked.
        Focus in a field is left out on purpose: the studio records every
        report, and a step per click into a box is noise. */
     const slugAfter = (el: Element, prefix: string) => {
@@ -932,6 +933,11 @@ function Frame({
       if (group) { report_('host.mois.openFolder', { group }); return }
       const patient = slugAfter(el, 'host.mois.check.')
       if (patient) { report_('host.mois.acknowledge', { patient }); return }
+      /* a grid row chosen by hand: a dialog's own grid (the Encounter Link
+         Service's encounters) keeps its current row to itself, so the report
+         is the only thing a Practice step can see it by */
+      const row = slugAfter(el, 'host.mois.row.')
+      if (row) { report_('host.mois.selectRow', { row }); return }
       const launcher = el.closest('.pb-menubar__item')?.getAttribute('data-tutorial-id')
       if (launcher && /^host\.mois\.menu\.[a-z0-9-]+$/.test(launcher)) {
         report_('host.mois.openMenu', { menu: launcher.slice('host.mois.menu.'.length) })
@@ -1141,7 +1147,17 @@ function Frame({
         case 'host.mois.selectModule': pickModule(slug('module')); return undefined
         case 'host.mois.selectNode': openNode(slug('node')); return undefined
         case 'host.mois.toggleNode': toggle(slug('node')); return undefined
-        case 'host.mois.command': await pressAnchor(`host.mois.command.${slug('command')}`); return undefined
+        case 'host.mois.command': {
+          /* a command acts on records the chart export supplies (Open
+             Selected Order opens the order the list is on); a replay that
+             presses as soon as the button is drawn can beat the export and
+             press on an empty list, so let it land and render first */
+          await loadChartExport(chart)
+          await nextFrame()
+          await nextFrame()
+          await pressAnchor(`host.mois.command.${slug('command')}`)
+          return undefined
+        }
         case 'host.mois.selectTab': clickAnchor(`host.mois.tab.${slug('tab')}`); return undefined
         /* a column title on a list that sorts (PBDataWindow onSort) */
         case 'host.mois.sort': clickAnchor(`host.mois.sort.${slug('column')}`); return undefined

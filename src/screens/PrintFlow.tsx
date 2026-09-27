@@ -4,7 +4,7 @@ import { usePatient } from '../data/patient-context'
 import type { PrintParams } from '../data/printPages'
 import type { PrintField, PrintReport } from '../data/printReports'
 import { CmdButton } from './CmdButton'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBSelect, PBWindow } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBSelect, PBWindow, usePBInstrumentation } from '../pb'
 
 /* ============================================================================
    The two windows every MOIS print goes through.
@@ -202,6 +202,7 @@ function SegmentGrid({ rows, values, set }: {
 /* 319686 `06e789f8…`: Select MAR Record(s) to Print — the patient across the
    top, then one tickable row per administration, Print / Cancel. */
 export function SelectMarRecordsWindow({ onPrint, onClose }: { onPrint: (ids: string[]) => void; onClose: () => void }) {
+  const host = usePBInstrumentation()
   const patient = usePatient()
   const data = useLoadedChart(patient.chart)
   const rows = useMemo(() => [...(data?.mar ?? [])]
@@ -245,7 +246,13 @@ export function SelectMarRecordsWindow({ onPrint, onClose }: { onPrint: (ids: st
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none' }}>
           <PBButton style={{ width: 78 }} data-tutorial-id="host.mois.command.print-selected-mar" onClick={() => onPrint([...picked])}>Print</PBButton>
-          <PBButton style={{ width: 78 }} onClick={onClose}>Cancel</PBButton>
+          {/* anchored and reported, so a lesson can send the learner back to the
+              parameter window through it */}
+          <PBButton
+            style={{ width: 78 }}
+            data-tutorial-id="host.mois.command.select-mar-cancel"
+            onClick={() => { host?.report('command', { command: 'select-mar-cancel' }); onClose() }}
+          >Cancel</PBButton>
         </div>
       </PBWindow>
     </div>
