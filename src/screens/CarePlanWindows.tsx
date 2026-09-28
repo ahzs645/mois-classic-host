@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useChartExport } from '../data/chart-records'
-import { carePlanRows, carePlanSnapshotText, CARE_PLAN_SECTIONS } from '../data/carePlanRows'
+import { carePlanSnapshotText } from '../data/carePlanRows'
+import { carePlanSummaryRows, carePlanSummarySections } from '../data/summarySettings'
 import { SESSION_USER, addCarePlanSnapshot, useChartSession } from '../data/chartSession'
 import { DESKTOP_PROVIDER, beginLetter, setLetterFlow } from '../data/letterFlow'
 import { usePatient } from '../data/patient-context'
@@ -103,7 +104,7 @@ function CarePlanSnapshotDialog({ args, close, open }: AreaWindowProps) {
   const [note, setNote] = useState(purpose === 'distribute' ? 'Sent to Care Team' : '')
   const letterhead = typeof args.letterhead === 'string' ? args.letterhead.split('\n').filter(Boolean) : CLINIC_LINES
   const save = () => {
-    const text = carePlanSnapshotText(carePlanRows(data, session.tags), p, MOIS_TODAY, letterhead)
+    const text = carePlanSnapshotText(carePlanSummaryRows(data, p.chart, session.tags), p, MOIS_TODAY, letterhead)
     addCarePlanSnapshot(p.chart, { date: MOIS_TODAY, createdBy: SESSION_USER, note, text, letterhead: letterhead.join('\n') })
     close()
     if (purpose === 'distribute') {
@@ -141,9 +142,10 @@ function CarePlanPrintPreview({ args, close }: AreaWindowProps) {
   const p = usePatient()
   const data = useChartExport()
   const session = useChartSession(p.chart)
-  const rows = carePlanRows(data, session.tags)
+  /* the summary's rows, in the chart's Summary Settings order (data/summarySettings.ts) */
+  const rows = carePlanSummaryRows(data, p.chart, session.tags)
   const letterhead = typeof args.letterhead === 'string' ? args.letterhead.split('\n').filter(Boolean) : CLINIC_LINES
-  const sections = CARE_PLAN_SECTIONS.filter((s) => rows.some((r) => r.section === s))
+  const sections = carePlanSummarySections(p.chart, session.tags, rows)
   const [zoom, setZoom] = useState('100%')
   const sex = p.sex
   return (

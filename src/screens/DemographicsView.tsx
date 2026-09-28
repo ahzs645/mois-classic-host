@@ -4,11 +4,16 @@ import { date } from '../data/charts/relations'
 import {
   chartFacilities, chartLocations,
   countries,
-  genders, incentiveRows, insuranceCarriers,
+  genders, insuranceCarriers,
   preferredPhones, serviceProviders
 } from '../data/mois'
 import { ChartHeaderIdentity, PatientOverride, usePatient, usePatientRoster } from '../data/patient-context'
-import type { AliasIdEntry, AssociatedPartyEntry, BenefitEntry, Patient, WcbClaimEntry } from '../data/patients'
+import type { AliasIdEntry, AssociatedPartyEntry, BenefitEntry, IncentiveClaimEntry, Patient, WcbClaimEntry } from '../data/patients'
+import { ALIAS_ID_CODES } from '../data/demographic-claim-lookups'
+import { IncentiveCodeLookupDialog, type IncentiveLookupKind } from './DemographicClaimLookupDialog'
+import { SENT_CLAIM_KEY, sentClaims, type SentClaim } from '../data/claims'
+import { useSessionState } from '../host/screen-windows'
+import { useOpenWindow } from './areaWindowRegistry'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBFixed, PBGroup,
   PBIdentityStrip, PBMessageBox,
@@ -25,21 +30,16 @@ import { PBDropDownDataWindow } from '../pb'
 import { AddressExpiryDialog, AddressWizardDialog, PatientPhotoDialog, MspEligibilityDialog, DemographicLookupDialog,
   DemographicModal, DialogButtons, geographicTerms, today } from './DemographicDialogs'
 
+/* The v02.31 strip (reference/demographics-full.png, v02.31.23), which art.
+   301149's own header capture `466eccb9…png` (v02.30.22) agrees with. The
+   article's older v02.20.18 captures (`0bba0443…png` and the rest) paint an
+   Occupation tab between Associated Parties and WCB Claims and caption
+   Incentives "Incentive Claims". The user's build wins: there is no
+   Occupation tab here — the current build keeps a chart's occupations
+   (tdt_occupation) on Determinants of Health ▸ Employment. */
 const TABS = [
   'Demographics', 'Patient Detail', 'ID Alias', 'Connections', 'Services',
   'Associated Parties', 'WCB Claims', 'Other Claims', 'Incentives', 'Settings', 'Benefits',
-]
-
-type Incentive = typeof incentiveRows[number]
-
-const incentiveCols: PBColumn<Incentive>[] = [
-  { key: 'start', header: 'Start', width: 84, align: 'center' },
-  { key: 'end', header: 'End', width: 84, align: 'center' },
-  { key: 'diag', header: 'Diag Code', width: 76, align: 'center' },
-  { key: 'd1', header: '', dots: true },
-  { key: 'fee', header: 'Fee Code Description' },
-  { key: 'd2', header: '', dots: true },
-  { key: 'freq', header: 'Freq. (mnth)', width: 82, align: 'center' },
 ]
 
 /** Live TRAINING client: about 800px of content inside the 1000px frame. */
@@ -52,11 +52,13 @@ const DESIGN_W = 800
    it is a row of that list (art. 301554 / 301555: New Record adds a party /
    a claim). The list tabs keep their current row here so the command row
    can add to and delete from the right list. */
-type ListKey = 'aliasIds' | 'associatedParties' | 'wcbClaims'
+type ListKey = 'aliasIds' | 'associatedParties' | 'wcbClaims' | 'otherClaims' | 'incentiveClaims'
 const LIST_TABS: Record<string, ListKey> = {
   'ID Alias': 'aliasIds',
   'Associated Parties': 'associatedParties',
   'WCB Claims': 'wcbClaims',
+  'Other Claims': 'otherClaims',
+  'Incentives': 'incentiveClaims',
 }
 type Cursors = { current: Partial<Record<ListKey, number>>; set: (key: ListKey, i: number) => void }
 const CursorContext = createContext<Cursors>({ current: {}, set: () => {} })
@@ -347,10 +349,31 @@ const cellEdit = (value: string, label: string, onChange: (v: string) => void, a
 /** A tick column cell that edits its row: Show On Demo., Default. */
 const tick = (checked: boolean | undefined, onChange: (v: boolean) => void) => <PBCheckbox checked={!!checked} onChange={onChange} />
 
-/* --- ID Alias ------------------------------------------------------------ */
+/* --- ID Alias ------------------------------------------------------------
+   Entry, art. 301149 "ID Alias" (`a634328f…png`, v02.20.18; the v02.31
+   columns are the field audit's tdt_alias_id set): New adds a row; Code is
+   a drop-down of the Alias ID selection list, and picking one fills an
+   empty Description with the list's own; Description, Value, Effective and
+   Note are typed in place; Show On Demo. puts the alias in Selected Items;
+   the Alias ID Detail Comment is the row's note. Cell anchors are
+   `host.mois.field.alias-<column>-<row>` (row 1 = the top row, which is
+   where New puts the new one). INFERRED: that Code fills Description — the
+   capture only shows the two agreeing. */
+const aliasCell = (field: string, i: string, value: string, onChange: (v: string) => void, align?: 'center') => (
+  <input aria-label={`Alias ${field}`} data-tutorial-id={`host.mois.field.alias-${field}-${Number(i) + 1}`} value={value}
+    onChange={(e) => onChange(e.target.value)}
+    style={{ border: 0, background: 'transparent', width: '100%', padding: 0, font: 'inherit', color: 'inherit', textAlign: align }} />
+)
+
 function IdAliasPage() {
   const list = useListTab('aliasIds')
   const row: AliasIdEntry = list.rows[list.cur] ?? {}
+  const edit = (i: string, patch: Partial<AliasIdEntry>) => list.setRows(list.rows.map((x, n) => (String(n) === i ? { ...x, ...patch } : x)))
+  const pickCode = (i: string, code: string) => {
+    const was = list.rows[Number(i)] ?? {}
+    const known = ALIAS_ID_CODES.find((c) => c.code === code)
+    edit(i, { code, ...(known && !was.desc ? { desc: known.desc } : {}) })
+  }
   return (
     <ListShell
       band="Alias Identification List"
@@ -360,11 +383,14 @@ function IdAliasPage() {
       onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
       filters={<><Gap w={91} /><PBInput w={190} /><FlexFilter /></>}
       columns={[
-        { key: 'code', header: 'Code', width: 91 },
-        { key: 'desc', header: 'Description', width: 190 },
-        { key: 'value', header: 'Value' },
-        { key: 'effective', header: 'Effective', width: 72, align: 'center' },
-        { key: 'note', header: 'Note', width: 156 },
+        { key: 'code', header: 'Code', width: 91, render: (r) => (
+          <PBSelect aria-label="Alias code" data-tutorial-id={`host.mois.field.alias-code-${Number(r._i) + 1}`} w="100%"
+            options={[...new Set(['', ...ALIAS_ID_CODES.map((c) => c.code), r.code])]} value={r.code} onChange={(e) => pickCode(r._i, e.target.value)} />
+        ) },
+        { key: 'desc', header: 'Description', width: 190, render: (r) => aliasCell('description', r._i, r.desc, (v) => edit(r._i, { desc: v })) },
+        { key: 'value', header: 'Value', render: (r) => aliasCell('value', r._i, r.value, (v) => edit(r._i, { value: v })) },
+        { key: 'effective', header: 'Effective', width: 72, align: 'center', render: (r) => aliasCell('effective', r._i, r.effective, (v) => edit(r._i, { effective: v }), 'center') },
+        { key: 'note', header: 'Note', width: 156, render: (r) => aliasCell('note', r._i, r.note, (v) => edit(r._i, { note: v })) },
         { key: 'demo', header: 'Show On Demo.', width: 82, align: 'center', render: (r) => tick(r.demo === 'Y', (v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, demo: v } : x)))) },
         { key: 'm', header: 'M', width: 25, align: 'center' },
         { key: 'clip', header: '\u{1F4CE}', width: 17, align: 'center' },
@@ -379,7 +405,9 @@ function IdAliasPage() {
             style={{ gridTemplateColumns: '108px 1fr', padding: '5px 8px', alignItems: 'start', flex: '1 1 auto', minHeight: 0 }}
           >
             <span className="pb-form__label">Comment:</span>
-            <PBTextArea rows={4} w="100%" style={{ height: '100%' }} value={row.note ?? ''} disabled={!list.rows.length} onChange={(e) => list.change({ note: e.target.value })} />
+            {/* tdt_alias_id carries Note (the grid column) and Comment (this memo) apart */}
+            <PBTextArea rows={4} w="100%" style={{ height: '100%' }} aria-label="Alias comment" data-tutorial-id="host.mois.field.alias-comment"
+              value={row.comment ?? ''} disabled={!list.rows.length} onChange={(e) => list.change({ comment: e.target.value })} />
           </div>
         </>
       }
@@ -714,16 +742,33 @@ function WcbClaimsPage() {
   )
 }
 
-/* --- Other Claims -------------------------------------------------------- */
+/* --- Other Claims --------------------------------------------------------
+   Art. 301149 "Other Claims" (`fa7212ff…png`, v02.20.18): New / Delete on the
+   Other Claim List band, and Date Issued · Claim Number · Description typed
+   in place (the capture's row: 2015.03.19 · 10-9994-555 · ICBC Claim Number
+   - MVA). No detail pane. The band's New / Delete and the command row's New
+   Record / Delete Record act on the same list. Cell anchors are
+   `host.mois.field.other-claim-<issued|number|description>-<row>`. */
 function OtherClaimsPage() {
+  const list = useListTab('otherClaims')
+  const edit = (i: string, patch: object) => list.setRows(list.rows.map((x, n) => (String(n) === i ? { ...x, ...patch } : x)))
+  const cell = (field: string, i: string, value: string, onChange: (v: string) => void, align?: 'center') => (
+    <input aria-label={`Other claim ${field}`} data-tutorial-id={`host.mois.field.other-claim-${field}-${Number(i) + 1}`} value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ border: 0, background: 'transparent', width: '100%', padding: 0, font: 'inherit', color: 'inherit', textAlign: align }} />
+  )
   return (
     <ListShell
       band="Other Claim List"
+      slug="other-claim"
+      rows={list.rows.map((r, i) => ({ issued: r.issued ?? '', claim: r.claim ?? '', desc: r.desc ?? '', _i: String(i) }))}
+      current={list.cur} onCurrentChange={list.setCur} onNew={list.add}
+      onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
       /* the strip is painted, but this list carries no filter boxes */
       columns={[
-        { key: 'issued', header: 'Date Issued', width: 90, align: 'center' },
-        { key: 'claim', header: 'Claim Number', width: 112 },
-        { key: 'desc', header: 'Description' },
+        { key: 'issued', header: 'Date Issued', width: 90, align: 'center', render: (r) => cell('issued', r._i, r.issued, (v) => edit(r._i, { issued: v }), 'center') },
+        { key: 'claim', header: 'Claim Number', width: 112, render: (r) => cell('number', r._i, r.claim, (v) => edit(r._i, { claim: v })) },
+        { key: 'desc', header: 'Description', render: (r) => cell('description', r._i, r.desc, (v) => edit(r._i, { desc: v })) },
       ]}
       empty="No other claims on file."
     />
@@ -906,11 +951,72 @@ function BenefitsPage() {
   )
 }
 
+/* --- Incentives -----------------------------------------------------------
+   Art. 301149 "Incentive Claims" (`a0c45e54…png`, v02.20.18, where the tab
+   is captioned "Incentive Claims"); the v02.31 tab caption, column set and
+   filter strip are the user capture `incentive-claim-populated.png`
+   (reference/NOTES.md) and win where the two disagree: v02.31 drops the Fee
+   Code column and picks the fee through the "…" beside Fee Code Description.
+
+   Entry: New (band, or the command row's New Record) adds a row at the top;
+   Start / End are typed; the Diag Code "…" (or F4 in the cell) opens the
+   ICD-9 lookup; the Fee Code Description "…" (or F4) opens the fee code
+   lookup, and the pick fills the description and the Freq. (mnth) the code
+   allows; Claim Detail is the row's memo. MSP Claim History lists the sent
+   MSP claims (data/claims `sentClaims`) for this patient billed under the
+   row's fee code; double-clicking one loads it and opens Sent Claim Detail
+   (`sent-claim-detail`). INFERRED: the lookups' window (see
+   DemographicClaimLookupDialog), Freq. being filled from the code, and the
+   history's double-click target — the article says only "open the MSP claim
+   in a detail window".
+
+   Anchors: band buttons `host.mois.command.new-incentive-claim` /
+   `delete-incentive-claim`; rows `host.mois.row.incentive-claim-<n>`; cells
+   `host.mois.field.incentive-<start|end|diag|freq>-<n>`; the two "…"
+   `host.mois.command.incentive-diag-lookup-<n>` /
+   `incentive-fee-lookup-<n>`; memo `host.mois.field.incentive-claim-detail`;
+   history rows `host.mois.row.msp-claim-history-<n>`. */
 function IncentivesPage() {
-  const [cur, setCur] = useState(0)
+  const list = useListTab('incentiveClaims')
+  const patient = usePatient()
+  const open = useOpenWindow()
+  const [, setSentClaim] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)
+  const [lookup, setLookup] = useState<{ kind: IncentiveLookupKind; i: string } | null>(null)
+  const row: IncentiveClaimEntry = list.rows[list.cur] ?? {}
+  const off = !list.rows.length
+  const edit = (i: string, patch: Partial<IncentiveClaimEntry>) => list.setRows(list.rows.map((x, n) => (String(n) === i ? { ...x, ...patch } : x)))
+  const cell = (field: 'start' | 'end' | 'diag' | 'freq', r: ListRow, align?: 'center') => (
+    <input aria-label={`Incentive ${field}`} data-tutorial-id={`host.mois.field.incentive-${field}-${Number(r._i) + 1}`} value={r[field] ?? ''}
+      onChange={(e) => edit(r._i!, { [field]: e.target.value })}
+      onKeyDown={(e) => { if (e.key === 'F4' && field === 'diag') { e.preventDefault(); e.stopPropagation(); setLookup({ kind: 'diag', i: r._i! }) } }}
+      style={{ border: 0, background: 'transparent', width: '100%', padding: 0, font: 'inherit', color: 'inherit', textAlign: align }} />
+  )
+  const dots = (kind: IncentiveLookupKind, r: ListRow) => (
+    <CmdButton command={`incentive-${kind}-lookup-${Number(r._i) + 1}`} className="pb-dw__dots" style={{ border: 0, padding: 0, minWidth: 0, background: 'none' }}
+      onClick={() => setLookup({ kind, i: r._i! })}>…</CmdButton>
+  )
+  const columns: PBColumn<ListRow>[] = [
+    { key: 'start', header: 'Start', width: 84, align: 'center', render: (r) => cell('start', r, 'center') },
+    { key: 'end', header: 'End', width: 84, align: 'center', render: (r) => cell('end', r, 'center') },
+    { key: 'diag', header: 'Diag Code', width: 76, align: 'center', render: (r) => cell('diag', r, 'center') },
+    { key: 'd1', header: '', width: 15, align: 'center', render: (r) => dots('diag', r) },
+    { key: 'feeDesc', header: 'Fee Code Description', render: (r) => (
+      <span tabIndex={0} aria-label="Incentive fee code description" data-tutorial-id={`host.mois.field.incentive-fee-${Number(r._i) + 1}`}
+        onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); e.stopPropagation(); setLookup({ kind: 'fee', i: r._i! }) } }}>{r.feeDesc}</span>
+    ) },
+    { key: 'd2', header: '', width: 15, align: 'center', render: (r) => dots('fee', r) },
+    { key: 'freq', header: 'Freq. (mnth)', width: 82, align: 'center', render: (r) => cell('freq', r, 'center') },
+  ]
+  const who = `${patient.last} ${patient.first}`.toUpperCase()
+  const history = row.fee
+    ? sentClaims.filter((c) => c.fee === row.fee && `${c.last} ${c.first}`.toUpperCase() === who)
+    : []
   return (
     <>
-      <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
+      <PBBand right={<>
+        <CmdButton command="new-incentive-claim" size="sm" onClick={list.add}>New</CmdButton>
+        <CmdButton command="delete-incentive-claim" size="sm" disabled={off} onClick={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}>Delete</CmdButton>
+      </>}>
         Incentive Claim List
       </PBBand>
 
@@ -919,7 +1025,10 @@ function IncentivesPage() {
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px' }}>
-        <PBDataWindow columns={incentiveCols} rows={[]} current={cur} onCurrentChange={setCur} />
+        <PBDataWindow columns={columns} current={list.cur} onCurrentChange={list.setCur}
+          rows={list.rows.map((r, i) => ({ start: r.start ?? '', end: r.end ?? '', diag: r.diag ?? '', feeDesc: r.feeDesc ?? '', freq: r.freq ?? '', _i: String(i) }))}
+          rowTutorialId={(_r, i) => `host.mois.row.incentive-claim-${i + 1}`}
+          empty="No incentive claims on file." />
       </div>
 
       <div style={{ padding: '4px 6px', flex: 'none' }}>
@@ -932,7 +1041,8 @@ function IncentivesPage() {
         <div className="pb-groupbox" style={{ width: 268, display: 'flex', flexDirection: 'column' }}>
           <PBBand>Claim Detail</PBBand>
           <div style={{ flex: '1 1 auto', minHeight: 0, padding: 4, display: 'flex' }}>
-            <PBTextArea style={{ flex: '1 1 auto', height: '100%' }} />
+            <PBTextArea style={{ flex: '1 1 auto', height: '100%' }} aria-label="Incentive claim detail" data-tutorial-id="host.mois.field.incentive-claim-detail"
+              disabled={off} value={row.detail ?? ''} onChange={(e) => list.change({ detail: e.target.value })} />
           </div>
         </div>
         <div className="pb-groupbox" style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -941,7 +1051,9 @@ function IncentivesPage() {
             <PBDataWindow
               flush
               gutter={false}
-              rows={[]}
+              rows={history.map((c) => ({ service: c.service, provider: c.doctor, diag: c.diag, net: c.paid, billed: c.sent, r1: c.r1, r2: c.r2 }))}
+              rowTutorialId={(_r, i) => `host.mois.row.msp-claim-history-${i + 1}`}
+              onActivate={(_r, i) => { const c = history[i]; if (c) { setSentClaim(c); open('sent-claim-detail') } }}
               columns={[
                 { key: 'service', header: 'Service', width: 72, align: 'center' },
                 { key: 'provider', header: 'Provider', width: 160 },
@@ -960,6 +1072,19 @@ function IncentivesPage() {
       <div style={{ padding: '2px 6px 4px', borderTop: '1px solid #d6d6d6', flex: 'none' }}>
         Created:
       </div>
+      {lookup && (
+        <IncentiveCodeLookupDialog
+          kind={lookup.kind}
+          initial={lookup.kind === 'diag' ? list.rows[Number(lookup.i)]?.diag ?? '' : ''}
+          onPick={(r) => {
+            edit(lookup.i, lookup.kind === 'diag'
+              ? { diag: r.code }
+              : { fee: r.code, feeDesc: r.description, ...(r.freq ? { freq: r.freq } : {}) })
+            setLookup(null)
+          }}
+          onClose={() => setLookup(null)}
+        />
+      )}
     </>
   )
 }

@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput, PBSelect, PBTabs, PBTextArea, pbSlug,
+  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
-  BASKET_CHARTS, BASKET_COMMAND_WIDTH, CHART_FOLDER_FOR_BASKET, basketCommands, basketFolderById,
-  type BasketFolder, type BasketRow,
+  BASKET_CHARTS, BASKET_COMMAND_WIDTH, BASKET_PANELS, CHART_FOLDER_FOR_BASKET, basketCommands, basketFolderById,
+  rowOwners, rowsForView, type BasketFolder, type BasketRow,
 } from '../data/basket'
+import { useChartRecords } from '../data/chart-records'
+import { date as chartDate } from '../data/charts/relations'
+import { usePatient } from '../data/patient-context'
 import { CURRENT_USER } from '../data/tasks'
+import { useWorkspaceExtras, workspaceExtras } from '../data/workspaceExtras'
+import { useEncounterSession } from '../host/encounterArea'
+import { BLEND_BANNER } from './WorkspaceBanner'
+import { SEARCH_FIELDS, matchesSearch } from '../data/workspaceSearch'
 import {
   basketKey, setCurrentWorkspaceRow, useWorkspaceStore, workspaceStore,
 } from '../data/workspaceStore'
@@ -44,6 +51,31 @@ import { WorkspaceBanner } from './WorkspaceBanner'
        opens the record's attachments (art. 303765)
      · the command row's Create Task / Create Message open those windows on
        the current row, Reassign Items / Copy Items and Change W/S theirs
+
+   Added for art. 1802749 "Basket" and the per-folder pages (1802756–1802763):
+     · Print (and a double-click on a row, "in the same manner as pressing
+       the Print button") opens the record's MOIS report; a right-click drops
+       the Basket's own menu (WorkspaceBasketWindows.tsx);
+     · Alt+Z once puts the cursor in Report, twice opens the Text Capture
+       Window (Zoom Text); so does a double-click on the Report box;
+     · the Report tab's Order # carries the "…" that opens the Order Linking
+       Service (every folder but Orders), and shows the order once linked;
+     · the Detail tab lists the folder page's own Detail fields where the page
+       has them; Measures has a Panel (n) tab (the panel's other results and
+       its note, with Graph) and, as of 2.24, a View: List View / Panel View
+       selector (Panel View is read-only, grouped by panel);
+     · Search For filters on the folder's default fields and the "…" opens
+       Advanced Search on the rest;
+     · the rows are the workspace view's: another user's appear only while
+       their workspace is blended in or viewed, and a record waiting for two
+       people in the blend is one row whose Assignee reads `*` (1802767); the
+       Acknowledgements panel paints the blend's names in the banner colour;
+     · View Detail… opens the record's Workflow Summary (1802768);
+     · Progress Notes also lists a note whose author was changed to someone
+       other than its creator on the open chart's encounters — "Progress
+       Notes are only entered into the Workspace if a note is created and
+       then the author is explicitly changed to another user" (1802762;
+       the resident → preceptor routing of art. 304078).
    ========================================================================= */
 
 /** Showing Records has exactly two entries in the capture. */
@@ -105,22 +137,47 @@ const rowSlug = (r: BasketRow) => `basket-${pbSlug(String(r.patient).split(',')[
 /* ---------------------------------------------------------------------------
    The lower half: Report / Detail form, Acknowledgements, Workflow Summary.
    ------------------------------------------------------------------------ */
-function ReportForm({ folder, r, tab }: { folder: BasketFolder; r: BasketRow | undefined; tab: string }) {
+function ReportForm({ folder, r, tab, orderNo, comment, onOrderLink, onZoom, reportRef }: {
+  folder: BasketFolder; r: BasketRow | undefined; tab: string
+  /** the order this record was linked to this session */
+  orderNo?: string
+  /** Show History's saved comment */
+  comment?: string
+  onOrderLink?: () => void
+  onZoom?: () => void
+  reportRef?: { current: HTMLTextAreaElement | null }
+}) {
+  const host = usePBInstrumentation()
   const value = (key: string): string => {
     if (!r) return ''
     if (key === 'valueUnits') return [r.value, r.units].filter(Boolean).join('  ')
+    if (key === 'orderNo' && orderNo) return orderNo
     return String(r[key] ?? '')
   }
   const layout = folder.report
+  const detail = tab === 'Detail' ? layout.detail : undefined
   /* Detail repeats the record's identity and adds where it came from */
-  const left = tab === 'Detail' ? [...layout.left.slice(0, 2), ['Facility:', 'facility'] as [string, string]] : layout.left
-  const right = tab === 'Detail' ? [['Facility Location:', 'facilityLoc'] as [string, string], ['Facility Reference:', 'facilityRef'] as [string, string]] : layout.right
+  const left = detail ? detail.left : tab === 'Detail' ? [...layout.left.slice(0, 2), ['Facility:', 'facility'] as [string, string]] : layout.left
+  const right = detail ? detail.right : tab === 'Detail' ? [['Facility Location:', 'facilityLoc'] as [string, string], ['Facility Reference:', 'facilityRef'] as [string, string]] : layout.right
   const cell = ([label, key]: [string, string]) => (
     <div key={label} className="pb-row" style={{ gap: 6, height: 22 }}>
       <span className="pb-form__label pb-form__label--dim" style={{ width: 92, flex: 'none' }}>{label}</span>
       <PBInput w="100%" readOnly value={value(key)} style={{ background: key === 'range' ? '#ffffcc' : undefined }} />
+      {key === 'orderNo' && layout.orderLink && tab === 'Report' && (
+        <button
+          type="button"
+          className="pb-inputgroup__btn pb-inputgroup__btn--dots"
+          title="Order Linking Service"
+          data-tutorial-id={host?.anchor('command', 'order-link-lookup')}
+          onClick={() => { host?.report('command', { command: 'order-link-lookup' }); onOrderLink?.() }}
+        >
+          …
+        </button>
+      )}
     </div>
   )
+  const memo = detail?.memo ?? layout.memo
+  const memoValue = detail ? (memo === 'Key Word' ? value('keyWord') : value('collectionNote')) : value('report')
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '4px 6px', gap: 3, background: 'var(--pb-face)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 16, flex: 'none' }}>
@@ -128,13 +185,23 @@ function ReportForm({ folder, r, tab }: { folder: BasketFolder; r: BasketRow | u
         <div>{right.map(cell)}</div>
       </div>
       <div className="pb-row" style={{ gap: 6, flex: '1 1 auto', minHeight: 0, alignItems: 'stretch' }}>
-        <span className="pb-form__label pb-form__label--dim" style={{ width: 92, flex: 'none' }}>{layout.memo}:</span>
-        <PBTextArea readOnly value={value('report')} style={{ flex: '1 1 auto', resize: 'none', minHeight: 40 }} />
+        <span className="pb-form__label pb-form__label--dim" style={{ width: 92, flex: 'none' }}>{memo}:</span>
+        {/* a plain textarea (PBTextArea's own markup) so Alt+Z can focus it */}
+        <textarea
+          rows={3}
+          className="pb-field"
+          readOnly
+          ref={detail ? undefined : (el: HTMLTextAreaElement | null) => { if (reportRef) reportRef.current = el }}
+          value={memoValue}
+          onDoubleClick={detail ? undefined : onZoom}
+          data-tutorial-id={detail ? undefined : 'host.mois.field.basket-report'}
+          style={{ flex: '1 1 auto', resize: 'none', minHeight: 40 }}
+        />
       </div>
-      {layout.comments && (
+      {layout.comments && !detail && (
         <div className="pb-row" style={{ gap: 6, flex: 'none', height: 40, alignItems: 'stretch' }}>
           <span className="pb-form__label pb-form__label--dim" style={{ width: 92, flex: 'none' }}>Comments:</span>
-          <PBTextArea readOnly value="" style={{ flex: '1 1 auto', resize: 'none' }} />
+          <PBTextArea readOnly value={comment ?? ''} style={{ flex: '1 1 auto', resize: 'none' }} />
         </div>
       )}
       {!layout.noFooter && (
@@ -151,10 +218,63 @@ function ReportForm({ folder, r, tab }: { folder: BasketFolder; r: BasketRow | u
   )
 }
 
-function SidePanels({ r, checked, review, tasks, messages }: {
+/** Measures ▸ Panel (n): the panel's other results and its Panel Notes
+    (1802756 "Panel Tab"); Graph plots the selected result. */
+function PanelTab({ r, onGraph }: { r: BasketRow | undefined; onGraph: (test: string, value: string, units: string, range: string) => void }) {
+  const panel = r?.panel ? BASKET_PANELS[`${String(r.patient)}|${String(r.panel)}`] : undefined
+  const [cur, setCur] = useState(0)
+  const results = panel?.results ?? []
+  const pick = results[cur]
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '4px 6px', gap: 4, background: 'var(--pb-face)' }} data-tutorial-id="host.mois.field.basket-panel">
+      <div className="pb-row" style={{ gap: 8, flex: 'none' }}>
+        <span className="pb-form__label pb-form__label--dim">Panel:</span><b>{String(r?.panel ?? '')}</b>
+        <span className="pb-row__spacer" />
+        <button
+          type="button"
+          className="pb-btn"
+          disabled={!pick}
+          data-tutorial-id="host.mois.command.panel-graph"
+          onClick={() => { if (pick) onGraph(pick.test, pick.value, pick.units, pick.range) }}
+        >
+          Graph
+        </button>
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <PBDataWindow
+          flush
+          rows={results}
+          current={cur}
+          onCurrentChange={setCur}
+          rowTutorialId={(x) => `host.mois.row.panel-${pbSlug(x.test).slice(0, 20)}`}
+          columns={[
+            { key: 'test', header: 'Test Name', width: 220 },
+            { key: 'value', header: 'Value', width: 60 },
+            { key: 'units', header: 'Units', width: 70 },
+            { key: 'flag', header: 'Flag', width: 40, align: 'center' },
+            { key: 'range', header: 'Ref. Range', width: 100 },
+            { key: 'status', header: 'Status', width: 50, align: 'center' },
+          ]}
+          empty="This result is not part of a panel."
+        />
+      </div>
+      <div className="pb-row" style={{ gap: 6, flex: 'none', height: 40, alignItems: 'stretch' }}>
+        <span className="pb-form__label pb-form__label--dim" style={{ width: 92, flex: 'none' }}>Panel Notes:</span>
+        <PBTextArea readOnly value={panel?.note ?? ''} style={{ flex: '1 1 auto', resize: 'none' }} />
+      </div>
+    </div>
+  )
+}
+
+function SidePanels({ r, checked, review, tasks, messages, people, fill, onDetail }: {
   r: BasketRow | undefined; checked: boolean; review: boolean; tasks: number; messages: number
+  /** whose workspace is on screen, and the banner colour their names take */
+  people: string[]; fill?: string
+  onDetail: () => void
 }) {
-  const others = r ? [...new Set([r.orderedBy, r.referredBy, r.recipient, r.attending].filter(Boolean).map(String))] : []
+  const host = usePBInstrumentation()
+  const owners = r ? rowOwners(r).filter((o) => o !== CURRENT_USER.name) : []
+  const others = r ? [...new Set([...owners, ...[r.orderedBy, r.referredBy, r.recipient, r.attending].filter(Boolean).map(String)])] : []
   const head = (text: string) => (
     <div style={{ textAlign: 'center', fontWeight: 'bold', background: 'linear-gradient(#f4f4f4, #dcdcdc)', borderBottom: '1px solid #a0a0a0', height: 20, lineHeight: '20px', flex: 'none' }}>
       {text}
@@ -164,18 +284,19 @@ function SidePanels({ r, checked, review, tasks, messages }: {
     <div style={{ width: 196, flex: 'none', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #a0a0a0', background: '#fff' }}>
       {head('Acknowledgements')}
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }} data-tutorial-id="host.mois.field.acknowledgements">
-        {r && (
+        {r && rowOwners(r).includes(CURRENT_USER.name) && (
           <div style={{ padding: '2px 6px', borderBottom: '1px solid #e0e0e0' }}>
             <div className="pb-row" style={{ gap: 4 }}>
               {checked && <span data-tutorial-id="host.mois.field.ack-green" style={{ width: 9, height: 12, background: '#2fb14a', flex: 'none' }} />}
               {review && <b style={{ color: '#000' }}>R</b>}
-              <b style={{ color: '#003c8f' }}>{CURRENT_USER.name}</b>
+              <b style={{ color: people.includes(CURRENT_USER.name) ? fill ?? '#003c8f' : '#9c9c9c' }}>{CURRENT_USER.name}</b>
+              {r.ir ? <span style={{ marginLeft: 'auto', color: '#606060' }}>IR:{String(r.ir)}</span> : null}
             </div>
             <div style={{ color: '#606060', paddingLeft: 10 }}>Initials: {CURRENT_USER.login}</div>
           </div>
         )}
         {others.map((o) => (
-          <div key={o} style={{ padding: '2px 6px', borderBottom: '1px solid #e0e0e0', color: '#9c9c9c' }}>
+          <div key={o} style={{ padding: '2px 6px', borderBottom: '1px solid #e0e0e0', color: people.includes(o) ? fill ?? '#003c8f' : '#9c9c9c' }}>
             <b>{o}</b>
             <div style={{ paddingLeft: 10 }}>Initials: {o.split(/[ ,]+/).filter(Boolean).map((p) => p[0]).join('').slice(0, 2)}</div>
           </div>
@@ -186,7 +307,17 @@ function SidePanels({ r, checked, review, tasks, messages }: {
         <span>Messages:</span><span>{messages}</span>
         <span>Tasks:</span><span>{tasks}</span>
         <span>Acknowledgements:</span><span>{r ? 1 + others.length : 0}</span>
-        <span style={{ gridColumn: 'span 2', textAlign: 'center' }}><u style={{ color: '#0000ee' }}>View Detail...</u></span>
+        <span style={{ gridColumn: 'span 2', textAlign: 'center' }}>
+          <button
+            type="button"
+            className="pb-link"
+            disabled={!r}
+            data-tutorial-id={host?.anchor('command', 'view-detail')}
+            onClick={() => { host?.report('command', { command: 'view-detail' }); onDetail() }}
+          >
+            View Detail...
+          </button>
+        </span>
       </div>
     </div>
   )
@@ -208,7 +339,20 @@ export function BasketFolderView({
 }) {
   const folder: BasketFolder | undefined = basketFolderById(node)
   const store = useWorkspaceStore()
+  const extras = useWorkspaceExtras()
   const openWindow = useOpenWindow()
+  const host = usePBInstrumentation()
+  const patient = usePatient()
+  const { session } = useEncounterSession()
+  const encounters = useChartRecords('encounter')
+  const [search, setSearch] = useState('')
+  const [criteria, setCriteria] = useState<Record<string, string>>({})
+  const reportRef = useRef<HTMLTextAreaElement | null>(null)
+  /* whose workspace is on screen (1802767's four banner cases) */
+  const people = store.blend === 'own' ? [CURRENT_USER.name]
+    : store.blend === 'blend-with-me' ? [CURRENT_USER.name, ...store.sharedWith]
+      : store.sharedWith
+  const peopleKey = people.join('|')
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [showing, setShowing] = useState(SHOWING[0]!)
@@ -222,14 +366,37 @@ export function BasketFolderView({
 
   /* the folder's rows as the session has left them: reassigned records gone,
      records marked for review this session added as R rows (art. 303764) */
+  /* a note whose author was changed to someone other than its creator goes
+     to that author's Progress Notes (1802762) — the open chart's encounters */
+  const routed = useMemo((): BasketRow[] => {
+    if (node !== 'ws-progress') return []
+    const name = `${patient.last}, ${patient.first}`.toUpperCase()
+    return Object.entries(session.notes).flatMap(([enc, notes]) => notes
+      .filter((n) => !n.exported && n.createdBy && n.author && n.author !== n.createdBy)
+      .map((n): BasketRow => {
+        const rec = encounters.find((e) => e.id_encounter === enc)
+        const saved = session.saved.find((e) => e.id === enc)
+        const when = saved?.date ?? chartDate(rec?.dtm_appoint)
+        const author = n.author.replace(/^[([][A-Z]+[)\]]\s*/, '')
+        return {
+          ra: '0', t: 'A', patient: name, age: patient.age ?? '', status: '',
+          apptDate: when ? when.slice(2) : '', provider: saved?.provider ?? String(rec?.lkp_provider ?? rec?.str_attending ?? ''),
+          note: (saved?.reason ?? String(rec?.str_appt_note ?? '')).toUpperCase(), author, creator: n.createdBy,
+          report: n.text, owners: author, recordId: n.key, assignee: '',
+        }
+      }))
+  }, [node, session.notes, session.saved, encounters, patient.first, patient.last, patient.age])
+
   const all = useMemo(() => {
     if (!folder) return [] as BasketRow[]
-    const base = folder.rows.filter((r) => !store.reassigned.includes(basketKey(folder.id, String(r.patient))))
+    const base = rowsForView([...routed, ...folder.rows], peopleKey.split('|'))
+      .filter((r) => !store.reassigned.includes(basketKey(folder.id, String(r.patient))))
     const reviews = folder.rows
       .filter((r) => r.t !== 'R' && seenReviews.includes(basketKey(folder.id, String(r.patient))))
       .map((r): BasketRow => ({ ...r, t: 'R', ra: '0', reviewOf: 'session' }))
-    return [...reviews, ...base]
-  }, [folder, store.reassigned, seenReviews])
+    const fields = SEARCH_FIELDS[folder.id] ?? []
+    return [...reviews, ...base].filter((r) => matchesSearch(r, search, criteria, fields))
+  }, [folder, store.reassigned, seenReviews, routed, peopleKey, search, criteria])
 
   const keyOf = (r: BasketRow) => `${r.t}:${String(r.patient)}:${String(r.test ?? r.description ?? r.note ?? r.reason ?? '')}`
   const wantChecked = showing === 'Checked'
@@ -253,7 +420,7 @@ export function BasketFolderView({
 
   /* the current row, for the frame and for the Action menu */
   const args = folder && current
-    ? { ...basketRowArgs(folder, current), attachments: basketAttachmentCount(folder, current, store.attachments) }
+    ? { ...basketRowArgs(folder, current), attachments: basketAttachmentCount(folder, current, store.attachments), row: current, checked: checked.has(keyOf(current)) }
     : null
   useEffect(() => {
     setCurrentWorkspaceRow(folder && current && args ? { node, row: rowSlug(current), args } : null)
@@ -278,8 +445,55 @@ export function BasketFolderView({
     setCur(0)
   }
 
+  const print = (r: BasketRow | undefined = current) => {
+    if (!r) return
+    openWindow('basket-print', { ...basketRowArgs(folder, r), row: r, attachments: basketAttachmentCount(folder, r, store.attachments) })
+  }
+  const rowWindowArgs = (r: BasketRow) => ({
+    ...basketRowArgs(folder, r),
+    row: r,
+    checked: checked.has(keyOf(r)),
+    attachments: basketAttachmentCount(folder, r, store.attachments),
+    openChart,
+  })
+  /* right-click: the row becomes current and the Basket's menu drops */
+  const onContextMenu = (e: ReactMouseEvent) => {
+    const tr = (e.target as HTMLElement).closest('tbody tr')
+    if (!tr) return
+    e.preventDefault()
+    const n = [...(tr.parentElement?.children ?? [])].indexOf(tr)
+    const r = shown[n]
+    if (!r) return
+    setCur(n)
+    openWindow('basket-row-menu', { ...rowWindowArgs(r), x: e.clientX, y: e.clientY })
+  }
+  /* Alt+Z: once to the Report box, twice to the Zoom Text window (1802749) */
+  const zoom = () => { if (current) openWindow('zoom-text', { text: String(current.report ?? '') }) }
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (!(e.altKey && (e.key === 'z' || e.key === 'Z'))) return
+    e.preventDefault()
+    if (document.activeElement === reportRef.current) { host?.report('command', { command: 'zoom-text' }); zoom() } else reportRef.current?.focus()
+  }
+  const graph = (test: string, value: string, units: string, range: string) => {
+    if (!current) return
+    const [lo, hi] = range.split(' to ')
+    const [y, m, d] = String(current.collected ?? '').split('.')
+    openWindow('basket-measure-graph', {
+      patient: String(current.patient), chart: BASKET_CHARTS[String(current.patient)] ?? '', test, units,
+      points: Number.isNaN(Number(value)) ? [] : [{ date: y && m && d ? `20${y}.${m}.${d}` : '', value: Number(value) }],
+      lower: lo && !Number.isNaN(Number(lo)) ? Number(lo) : undefined, upper: hi && !Number.isNaN(Number(hi)) ? Number(hi) : undefined,
+    })
+  }
+  const panelCount = folder.id === 'ws-measures' && current?.panel
+    ? (BASKET_PANELS[`${String(current.patient)}|${String(current.panel)}`]?.results.length ?? 0)
+    : 0
+  const tabs = folder.tabs.map((t) => (t.startsWith('Panel') ? `Panel (${panelCount})` : t))
+  const activeTab = tabs.find((t) => t === tab || (t.startsWith('Panel') && tab.startsWith('Panel'))) ?? tabs[0]!
+  const panelView = folder.id === 'ws-measures' && extras.measuresView === 'Panel View'
+
   const commandAction = (label: string): (() => void) | undefined => {
     switch (label) {
+      case 'Print': return () => print()
       case 'Refresh': return refresh
       case 'Open Chart': return openChart
       case 'Change W/S': return () => { openWindow('change-workspace') }
@@ -311,8 +525,29 @@ export function BasketFolderView({
           right, with a 1px #646464 rule between them */}
       <div className="pb-row" style={{ gap: 6, padding: '4px 6px', background: '#f0f0f0', flex: 'none', alignItems: 'center' }}>
         <span className="pb-form__label">Search For:</span>
-        <PBDropField w={420} />
-        <button className="pb-inputgroup__btn pb-inputgroup__btn--dots" type="button" title="Advanced search…">…</button>
+        <PBInput
+          w={420}
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCur(0) }}
+          onKeyDown={(e) => {
+            if (e.key !== 'F4') return
+            e.preventDefault()
+            openWindow('advanced-search', { fields: SEARCH_FIELDS[folder.id] ?? [], initial: criteria, onApply: (v: Record<string, string>) => { setCriteria(v); setCur(0) } })
+          }}
+          data-tutorial-id="host.mois.field.basket-search"
+        />
+        <button
+          className="pb-inputgroup__btn pb-inputgroup__btn--dots"
+          type="button"
+          title="Advanced search…"
+          data-tutorial-id={host?.anchor('command', 'basket-advanced-search')}
+          onClick={() => {
+            host?.report('command', { command: 'basket-advanced-search' })
+            openWindow('advanced-search', { fields: SEARCH_FIELDS[folder.id] ?? [], initial: criteria, onApply: (v: Record<string, string>) => { setCriteria(v); setCur(0) } })
+          }}
+        >
+          …
+        </button>
         <span style={{ width: 1, alignSelf: 'stretch', background: '#646464', margin: '0 8px' }} />
         <span className="pb-form__label">Showing Records:</span>
         <PBSelect
@@ -324,15 +559,31 @@ export function BasketFolderView({
         />
         <span className="pb-form__label" style={{ marginLeft: 8 }}>Since:</span>
         <PBInput w={96} disabled={!wantChecked} defaultValue={wantChecked ? '2026.03.01' : ''} />
+        {folder.id === 'ws-measures' && (
+          <>
+            {/* 2.24: List View / Panel View, top right (1802756 "Panel View") */}
+            <span className="pb-form__label" style={{ marginLeft: 'auto' }}>View:</span>
+            <PBSelect
+              w={96}
+              options={['List View', 'Panel View']}
+              value={extras.measuresView}
+              data-tutorial-id="host.mois.field.basket-view"
+              onChange={(e) => { workspaceExtras.setMeasuresView(e.target.value as 'List View' | 'Panel View'); setCur(0) }}
+            />
+          </>
+        )}
       </div>
 
-      <div style={{ flex: '1 1 auto', minHeight: 110, display: 'flex', padding: 3 }}>
+      <div style={{ flex: '1 1 auto', minHeight: 110, display: 'flex', padding: 3 }} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
         <PBDataWindow
           rows={shown}
           current={cur}
           onCurrentChange={setCur}
-          onActivate={openChart}
-          onSort={onSort}
+          /* a double-click prints, the same as the Print button (1802749) */
+          onActivate={(r) => print(r)}
+          onSort={panelView ? undefined : onSort}
+          groupBy={panelView ? (r) => String(r.panel || r.test || '') : undefined}
+          groupLabel={panelView ? (g) => <b>{g}</b> : undefined}
           rowClassName={(r) => (checked.has(keyOf(r)) ? 'pb-dw--checked' : undefined)}
           rowTutorialId={(r) => `host.mois.row.${rowSlug(r)}`}
           columns={folder.columns.map((c) => {
@@ -356,6 +607,20 @@ export function BasketFolderView({
             }
             if (c.key === 't') {
               return { ...c, render: (r: BasketRow) => (r.t === 'R' ? <b>R</b> : r.t) }
+            }
+            if (c.key === 'assignee') {
+              /* a blended record reads *, and says so on hover (1802767) */
+              return {
+                ...c,
+                render: (r: BasketRow) => (
+                  <span
+                    data-tutorial-id={r.assignee === '*' ? `host.mois.cell.blended-${rowSlug(r)}` : undefined}
+                    title={r.assignee === '*' ? `Blended record: acknowledgements for ${String(r.blendedFor ?? '')} are combined in this row. Checking it checks it for all of them.` : undefined}
+                  >
+                    {String(r.assignee ?? '')}
+                  </span>
+                ),
+              }
             }
             if (c.key === 'clip') {
               /* the paperclip cell is a control: a double-click opens the
@@ -403,10 +668,23 @@ export function BasketFolderView({
       </div>
 
       {/* Report / Detail beside Acknowledgements and Workflow Summary */}
-      <div style={{ height: 262, flex: 'none', display: 'flex', padding: '0 3px 3px', minHeight: 0 }} data-tutorial-id="host.mois.field.basket-detail">
+      <div style={{ height: 262, flex: 'none', display: 'flex', padding: '0 3px 3px', minHeight: 0 }} data-tutorial-id="host.mois.field.basket-detail" onKeyDown={onKeyDown}>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <PBTabs tabs={folder.tabs} active={folder.tabs.includes(tab) ? tab : folder.tabs[0]!} onChange={setTab} compact face>
-            <ReportForm folder={folder} r={current} tab={tab} />
+          <PBTabs tabs={tabs} active={activeTab} onChange={setTab} compact face>
+            {activeTab.startsWith('Panel')
+              ? <PanelTab key={current ? rowSlug(current) : ''} r={current} onGraph={graph} />
+              : (
+                <ReportForm
+                  folder={folder}
+                  r={current}
+                  tab={activeTab}
+                  orderNo={current ? extras.orderLinks[basketKey(folder.id, String(current.patient))]?.order : undefined}
+                  comment={current ? extras.comments[basketKey(folder.id, String(current.patient))] : undefined}
+                  onOrderLink={() => { if (current) openWindow('basket-order-link', basketRowArgs(folder, current)) }}
+                  onZoom={zoom}
+                  reportRef={reportRef}
+                />
+              )}
           </PBTabs>
         </div>
         <SidePanels
@@ -415,6 +693,9 @@ export function BasketFolderView({
           review={current?.t === 'R'}
           tasks={tasksFor(current)}
           messages={messagesFor(current)}
+          people={people}
+          fill={BLEND_BANNER[store.blend].fill}
+          onDetail={() => { if (current) openWindow('basket-workflow-summary', rowWindowArgs(current)) }}
         />
       </div>
     </>

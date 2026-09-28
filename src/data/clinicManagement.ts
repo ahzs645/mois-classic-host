@@ -1,3 +1,4 @@
+import { MSP_LOCATION_ROWS } from './mspLocations'
 /* ============================================================================
    Administration ▸ Clinic Management (and the two list screens that sit
    beside it: Address Book ▸ Contact List and External Service Providers ▸
@@ -645,6 +646,8 @@ const CONTACT_LIST: ClinicListSpec = {
     { group: 'PHARMACY', list: 'SHOPPERS DRUG MART #2187', desc: 'Victoria Street', type: 'STANDARD' },
     { group: 'PHARMACY', list: 'HALLIWELL COMPOUNDING', desc: 'Compounding pharmacy', type: 'STANDARD' },
     { group: 'REGIONAL', list: 'NORTHERN HEALTH PUBLIC HEALTH', desc: 'Communicable disease reporting', type: 'STANDARD' },
+    /* the Address Book's own "Regional ▸ quesnel" (user capture 2026-09-25 #4, #5) */
+    { group: 'REGIONAL', list: 'quesnel', desc: 'Quesnel', type: 'STANDARD' },
     { group: 'UHNBC', list: 'UHNBC AMBULATORY CARE', desc: 'Ambulatory clinic booking', type: 'STANDARD' },
   ],
   anchorPrefix: 'contact',
@@ -711,11 +714,14 @@ const ORGANIZATIONS: ClinicListSpec = {
   /* Organization Type values come from Administration ▸ Codeset Management ▸
      Value Sets ▸ EXTERNAL ORGANIZATION TYPE. */
   rows: [
-    { name: 'LIFELABS - PRINCE GEORGE', orgType: 'LABORATORY', city: 'PRINCE GEORGE', phone: '250-555-0188' },
-    { name: 'NORTHERN HEALTH PUBLIC HEALTH', orgType: 'PUBLIC HEALTH', city: 'PRINCE GEORGE', phone: '250-555-0120' },
-    { name: 'UHNBC MEDICAL IMAGING', orgType: 'DIAGNOSTIC IMAGING', city: 'PRINCE GEORGE', phone: '250-555-0177' },
-    { name: 'PRINCE GEORGE HOSPICE SOCIETY', orgType: 'COMMUNITY AGENCY', city: 'PRINCE GEORGE', phone: '250-555-0165' },
-    { name: 'BURNS LAKE HOME SUPPORT', orgType: 'HOME AND COMMUNITY CARE', city: 'BURNS LAKE', phone: '250-555-0199' },
+    /* each row carries its own contact block (`0b83bdf1…`: the detail pane
+       follows the current row, "Edit the Contact Information below"); the
+       types are EXTERNAL ORGANIZATION TYPE values (data/codesets.ts) */
+    { name: 'LIFELABS - PRINCE GEORGE', orgType: 'LABS', city: 'PRINCE GEORGE', phone: '250-555-0188', address1: '1488 VICTORIA STREET', address2: '', province: 'BC', postal: 'V2L 2L2', country: 'CANADA', fax: '250-555-0187', note: '', created: '2020.10.13  10:32' },
+    { name: 'NORTHERN HEALTH PUBLIC HEALTH', orgType: 'PUBLIC HEALTH', city: 'PRINCE GEORGE', phone: '250-555-0120', address1: '1444 EDMONTON STREET', address2: '', province: 'BC', postal: 'V2M 6W5', country: 'CANADA', fax: '250-555-0121', note: 'Communicable disease reporting', created: '2020.10.13  10:32' },
+    { name: 'UHNBC MEDICAL IMAGING', orgType: 'IMAGING', city: 'PRINCE GEORGE', phone: '250-555-0177', address1: '1475 EDMONTON STREET', address2: '', province: 'BC', postal: 'V2M 1S2', country: 'CANADA', fax: '250-555-0178', note: '', created: '2021.02.02  09:15' },
+    { name: 'PRINCE GEORGE HOSPICE SOCIETY', orgType: 'COMMUNITY AGENCY', city: 'PRINCE GEORGE', phone: '250-555-0165', address1: '1506 FERRY AVENUE', address2: '', province: 'BC', postal: 'V2L 5H2', country: 'CANADA', fax: '250-555-0166', note: '', created: '2022.05.19  14:40' },
+    { name: 'BURNS LAKE HOME SUPPORT', orgType: 'HOME AND COMMUNITY CARE', city: 'BURNS LAKE', phone: '250-555-0199', address1: '741 CENTRE STREET', address2: '', province: 'BC', postal: 'V0J 1E0', country: 'CANADA', fax: '250-555-0198', note: '', created: '2023.03.07  11:05' },
   ],
   detail: {
     /* the capture gives no splitter y for this window, so the pane is sized
@@ -870,16 +876,20 @@ export const ALIAS_SOURCES: { code: string; desc: string }[] = [
   { code: 'PROVIDERGROUP', desc: 'CDX Provider Group' },
 ]
 
-/** Billing ▸ Payment Mode: blank (normal), AP or PP — `303054`'s field list. */
-export const PAYMENT_MODES = ['', 'AP', 'PP']
+/** Billing ▸ Payment Mode: blank (normal), AP or PP — `303054`'s field list —
+    and LFP, the Longitudinal Family Physician payment model 2069798's Billing
+    tab lists in the same drop-down ("LFP, alternative pay or patient pay"). */
+export const PAYMENT_MODES = ['', 'AP', 'PP', 'LFP']
 
 /**
  * Billing ▸ MSP Location. The codes are the claim window's Location list
  * (screens/BillingViews.tsx); `6e1c13abe6e8…` prints the description beside
  * the drop-down, and only G's is captured.
  */
-export const MSP_LOCATIONS = ['', 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'T', 'U', 'V', 'W']
-export const MSP_LOCATION_TEXT: Record<string, string> = { G: 'Hospital - Day Care (surgery)' }
+/* The sixteen rows `707d1e64` (3295094) drops, with every description;
+   data/mspLocations.ts, shared with Billing. */
+export const MSP_LOCATIONS = ['', ...MSP_LOCATION_ROWS.map((r) => r.code)]
+export const MSP_LOCATION_TEXT: Record<string, string> = Object.fromEntries(MSP_LOCATION_ROWS.map((r) => [r.code, r.desc]))
 
 /**
  * The Master Provider List LOOKUP — the modal the Letter Writer's "…" and
@@ -896,6 +906,41 @@ export const MASTER_LOOKUP_COLUMNS: ClinicColumn[] = [
   { key: 'primary', header: 'Phone', width: 110, align: 'center' },
   { key: 'fax', header: 'Fax', width: 110, align: 'center' },
 ]
+
+/* ===========================================================================
+   C.13  External Service Providers ▸ Clinics — headed "Clinic List"
+
+   `303117` / `fba93559…` (v02.19.04 b151217, 1:1): New Record / Delete
+   Record / Edit Record / Close Window; three filter boxes over Code,
+   Description and City; Code · Description · City · Primary # · Secondary #
+   · Fax #. The one row is the capture's own (UHNBC). "Clinics added to this
+   list DO NOT show in the address lookup prompt" — it is a quick reference.
+   New Record and Edit Record open New Clinic / Clinic Detail
+   (screens/ExternalServiceWindows.tsx; Clinic Detail is `80ce364e…`).
+   ======================================================================== */
+const CLINIC_LIST: ClinicListSpec = {
+  node: 'ad-clinics',
+  label: 'Clinics',
+  header: 'Clinic List',
+  dialect: 'edit-record',
+  source: '303117 / fba935595faa (1022x748, 1:1, v02.19.04)',
+  filter: { kind: 'columns', boxes: [{ col: 0, w: 139 }, { col: 1, w: 258 }, { col: 2, w: 129 }] },
+  columns: [
+    { key: 'code', header: 'Code', width: 141 },
+    { key: 'desc', header: 'Description', width: 260 },
+    { key: 'city', header: 'City', width: 131 },
+    { key: 'primary', header: 'Primary #', width: 87, align: 'center' },
+    { key: 'secondary', header: 'Secondary #', width: 87, align: 'center' },
+    { key: 'fax', header: 'Fax #', width: 87, align: 'center' },
+  ],
+  rows: [
+    { code: 'UHNBC', desc: 'UNIVERSITY HOSPITAL OF NORTHERN BC', city: 'Prince George', primary: '250-565-2000', secondary: '', fax: '' },
+    /* `80ce364e…`'s example, the walk-in / Native Health Center 303117 names */
+    { code: 'NATIVE', desc: 'Native Health Center', city: 'Prince George', primary: '', secondary: '', fax: '' },
+  ],
+  anchorPrefix: 'clinic',
+  anchorKey: 'code',
+}
 
 /* ===========================================================================
    The table the screen is driven from.
@@ -915,6 +960,7 @@ export const clinicListSpecs: ClinicListSpec[] = [
   CONTACT_LIST,
   MASTER_PROVIDERS,
   ORGANIZATIONS,
+  CLINIC_LIST,
 ]
 
 const BY_NODE = new Map(clinicListSpecs.map((v) => [v.node, v]))

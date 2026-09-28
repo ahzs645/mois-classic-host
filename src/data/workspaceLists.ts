@@ -1,6 +1,7 @@
-import { basketFolders } from './basket'
+import { basketFolders, rowOwners } from './basket'
 import { CURRENT_USER, taskScreenByNode, type TaskRow } from './tasks'
 import { basketKey, type WorkspaceState } from './workspaceStore'
+import { workspaceExtras } from './workspaceExtras'
 
 /* ============================================================================
    The Workspace's lists as the session has left them, and the counts every
@@ -16,7 +17,14 @@ export function taskListRows(node: string, ws: WorkspaceState): TaskRow[] {
   const base = screen.rows.map((r) => (
     node === 'ws-msg-inbox' && ws.ackedMessages.includes(String(r.subject)) ? { ...r, ack: true } : r
   ))
-  if (node === 'ws-task-inbox') return [...ws.tasks.filter((t) => t.box === 'inbox'), ...base]
+  /* Break Glass alerts land in the note owner's inbox: shown while that
+     owner's workspace is the one on screen (yours, a blend, or theirs) */
+  const people = ws.blend === 'own' ? [CURRENT_USER.name] : ws.blend === 'blend-with-me' ? [CURRENT_USER.name, ...ws.sharedWith] : ws.sharedWith
+  const alerts = (box: 'messages' | 'tasks') => workspaceExtras.get().alerts
+    .filter((a) => a.box === box && people.includes(String(a.box === 'tasks' ? a.user : a.sentTo)))
+    .map(({ box: _box, ...r }) => r as TaskRow)
+  if (node === 'ws-msg-inbox') return [...alerts('messages'), ...base]
+  if (node === 'ws-task-inbox') return [...alerts('tasks'), ...ws.tasks.filter((t) => t.box === 'inbox'), ...base]
   if (node === 'ws-task-sent') return [...ws.tasks.filter((t) => t.box === 'sent'), ...base]
   if (node === 'ws-msg-sent') return [...ws.messages, ...base]
   return base
@@ -46,7 +54,8 @@ function byPriority(rows: TaskRow[]): PriorityCounts {
 /** Workspace Summary (art. 301166; 303599 image `74b97af2`). */
 export function workspaceSummary(ws: WorkspaceState) {
   const basket = basketFolders.map((f) => {
-    const rows = f.rows.filter((r) => !ws.reassigned.includes(basketKey(f.id, String(r.patient))))
+    /* your own workspace's rows: another user's show only in a blend */
+    const rows = f.rows.filter((r) => rowOwners(r).includes(CURRENT_USER.name) && !ws.reassigned.includes(basketKey(f.id, String(r.patient))))
     const reviews = rows.filter((r) => r.t === 'R').length
       + f.rows.filter((r) => r.t !== 'R' && ws.reviews.includes(basketKey(f.id, String(r.patient)))).length
     const acks = rows.filter((r) => r.t !== 'R').length

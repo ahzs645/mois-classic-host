@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { TaskRow } from './tasks'
+import { resetWorkspaceExtras } from './workspaceExtras'
 
 /* ============================================================================
    What the learner has done to the Workspace this session.
@@ -58,6 +59,7 @@ function set(next: Partial<WorkspaceState>) {
 export function resetWorkspaceStore() {
   state = initial()
   currentRow = null
+  resetWorkspaceExtras()
 }
 
 export function useWorkspaceStore(): WorkspaceState {

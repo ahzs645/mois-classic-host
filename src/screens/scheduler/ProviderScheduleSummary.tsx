@@ -1,8 +1,8 @@
 import { Fragment, useState } from 'react'
-import { PBBand, PBButton, PBWindow } from '../../pb'
+import { PBBand, PBButton, PBWindow, pbSlug } from '../../pb'
 import { VISIT_CODE_FILL, weekdayOf } from '../../data/daybook'
 import { daybookProviders } from '../../data/mois'
-import { dayRows, schedulerBridge, stampOf, useSchedulerStore } from '../../data/schedulerStore'
+import { dayRows, schedulerBridge, schedulerStore, stampOf, useSchedulerStore } from '../../data/schedulerStore'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 
 /* ============================================================================
@@ -16,12 +16,20 @@ import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
    two bookings carries the numeral `2`; the solid line along the top of a
    quarter says a booking is present. The current day book's line is bold on
    the blue current-row fill. PgUp / Select / Cancel / PgDwn across the foot.
+
+   View Appointment Details (art. 303820, the lesson's steps): hovering a
+   booked quarter names the booking(s) in it (time, patient, visit code), and
+   a double-click on one opens its Appointment Detail (the Day / Week views'
+   window, AppointmentDetail.tsx) — INFERRED, the capture shows neither. Each
+   line is anchored `host.mois.row.schedule-{provider}-{yyyymmdd}`, its first
+   double-booked quarter `host.mois.cell.schedule-double-…`, and the current
+   day book's first booked quarter `host.mois.cell.schedule-booked`.
    ========================================================================= */
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16]
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function ProviderScheduleSummary({ args, close }: AreaWindowProps) {
+function ProviderScheduleSummary({ args, close, open }: AreaWindowProps) {
   const s = useSchedulerStore()
   const here = s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
   const multi = args.multi !== false
@@ -62,12 +70,15 @@ function ProviderScheduleSummary({ args, close }: AreaWindowProps) {
                 {HOURS.map((h) => <span key={h} style={{ ...head, gridColumn: 'span 4', textAlign: 'left' }}>{h}:00</span>)}
                 {lines.map((l, n) => {
                   const rows = dayRows(s, l.provider, l.offset)
+                  const lineId = `${pbSlug(l.provider)}-${stampOf(l.offset).replace(/\./g, '')}`
+                  let doubled = false
+                  let booked = false
                   const current = l.provider === here.provider && l.offset === here.offset
                   const fill = n === pick ? '#c7d9f3' : n % 2 ? '#fbfaf5' : '#f4f1e6'
                   const cell = { background: fill, fontWeight: current ? 700 : 400, borderBottom: '1px dashed #d7d2c0', padding: '3px 4px', cursor: 'default' } as const
                   return (
                     <Fragment key={`${l.provider}${l.offset}`}>
-                      <span style={cell} onClick={() => setPick(n)}>{stampOf(l.offset)}</span>
+                      <span style={cell} onClick={() => setPick(n)} data-tutorial-id={`host.mois.row.schedule-${lineId}`}>{stampOf(l.offset)}</span>
                       <span style={cell} onClick={() => setPick(n)}>{l.provider}</span>
                       <span style={{ ...cell, textAlign: 'right' }} onClick={() => setPick(n)}>{WD[weekdayOf(l.offset)]}</span>
                       {HOURS.flatMap((h) => [0, 15, 30, 45].map((q) => {
@@ -77,10 +88,22 @@ function ProviderScheduleSummary({ args, close }: AreaWindowProps) {
                           return t >= start && t < start + (Number(r.n) || 3) * 5
                         })
                         const top = inQ[0]
+                        const firstDouble = inQ.length > 1 && !doubled
+                        if (firstDouble) doubled = true
+                        const firstBooked = !!top && current && !booked
+                        if (firstBooked) booked = true
+                        const anchor = firstDouble ? `host.mois.cell.schedule-double-${lineId}` : firstBooked ? 'host.mois.cell.schedule-booked' : undefined
                         return (
                           <span
                             key={`${h}${q}`}
+                            data-tutorial-id={anchor}
+                            title={inQ.map((r) => `${r.hr}:${r.mn}  ${r.last}, ${r.first}  (${r.code})  ${r.reason}`).join('\n') || undefined}
                             onClick={() => setPick(n)}
+                            onDoubleClick={() => {
+                              if (!top) return
+                              schedulerStore.setCurrent(l.provider, l.offset, top.key)
+                              if (!open('appointment-detail')) close()
+                            }}
                             style={{
                               ...cell, padding: 0, fontSize: 10, textAlign: 'center',
                               borderLeft: q === 0 ? '1px solid #bdb8a6' : undefined,

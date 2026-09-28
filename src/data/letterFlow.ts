@@ -25,7 +25,19 @@ import type { ChartPatient } from './patient-context'
 import { MOIS_TODAY } from './patients'
 import { SESSION_USER } from './chartSession'
 
+/* 'misc' · 'note' · 'notification' · 'patient-summary' are the Send
+   window's other document types (2961349 `0480d274…`, `9a83e429…`): an
+   Information Request's response, or a Notification from Documents. */
 export type LetterDocId = 'referral' | 'consult' | 'information-request' | 'care-plan'
+  | 'misc' | 'note' | 'notification' | 'patient-summary'
+
+/** the Send window's Document Type caption for each letter kind */
+export const DOC_TYPE_OF: Record<LetterDocId, string> = {
+  referral: 'REFERRAL', consult: 'CONSULTATION', 'information-request': 'INFORMATION REQUEST', 'care-plan': 'SHARED CARE PLAN',
+  misc: 'MISC', note: 'NOTE', notification: 'NOTIFICATION', 'patient-summary': 'PATIENT SUMMARY',
+}
+export const docOfType = (type: string): LetterDocId =>
+  (Object.keys(DOC_TYPE_OF) as LetterDocId[]).find((d) => DOC_TYPE_OF[d] === type) ?? 'misc'
 
 /** the Desktop For: provider the frame shows — MOIS's default Author */
 export const DESKTOP_PROVIDER = 'TECHNICAL SUPPORT'
@@ -44,11 +56,22 @@ export type LetterFlowState = {
   note: string
   /** set once Distribute (F2) has sent it */
   distributed: boolean
+  /** the attached letter being continued or corrected (data/letterDocs.ts) */
+  letterId: string | null
+  /** Correct a Distributed Letter: the letter this copy replaces */
+  correctionOf: string | null
+  /** an Information Request Order this letter answers (Respond) */
+  responseTo: string | null
+  /** a Documents record distributed on its own (303445) */
+  documentId: string | null
+  /** Use Plain Text Report: the Send window's Report text */
+  plainText: string
 }
 
 const initial = (): LetterFlowState => ({
   doc: 'referral', template: '', orderId: null, selected: {}, author: DESKTOP_PROVIDER,
   recipient: '', note: '', distributed: false,
+  letterId: null, correctionOf: null, responseTo: null, documentId: null, plainText: '',
 })
 
 let state: LetterFlowState = initial()
@@ -75,6 +98,7 @@ export const DEFAULT_TEMPLATE: Record<LetterDocId, string> = {
   consult: 'CONSULT NOTE - CARDIOLOGY',
   'information-request': 'INFORMATION REQUEST LETTER',
   'care-plan': '',
+  misc: '', note: '', notification: '', 'patient-summary': '',
 }
 
 /** which LETTER_TEMPLATES `type` a document type is authored with */
@@ -83,7 +107,16 @@ export const TEMPLATE_TYPE: Record<LetterDocId, string> = {
   consult: 'CONSULTATION',
   'information-request': 'INFORMATION REQUEST',
   'care-plan': 'CARE PLAN',
+  misc: 'MISC', note: 'NOTE', notification: 'NOTIFICATION', 'patient-summary': 'PATIENT SUMMARY',
 }
+
+/* ---- the Order the Orders folder is on -----------------------------------
+   Standard Mode's Create Referral Note opens Order Detail on the order the
+   Orders grid has current (303589 `a6252ce4…`), and Respond answers it; the
+   Orders window publishes it here as its current row moves. */
+let currentOrder: string | null = null
+export const setCurrentOrder = (id: string | null) => { currentOrder = id }
+export const currentOrderId = () => currentOrder
 
 /* ---- the linked Order ---------------------------------------------------- */
 
@@ -117,7 +150,7 @@ export type LetterHeader = {
 const codeOf = (r?: MoisRecord) => (r?.str_code ? `${r.str_code_system ? `${r.str_code_system}: ` : ''}${r.str_code}` : '')
 
 export function letterHeader(doc: LetterDocId, data: MoisChartExport | null, flow: LetterFlowState): LetterHeader {
-  const order = doc === 'information-request' || doc === 'care-plan' ? undefined : letterOrder(data, flow.orderId)
+  const order = doc === 'referral' || doc === 'consult' ? letterOrder(data, flow.orderId) : undefined
   const reason = order?.str_description ?? order?.str_code_term ?? ''
   const recipient = flow.recipient || order?.str_performed_by || ''
   const left = [
@@ -148,6 +181,30 @@ export function letterHeader(doc: LetterDocId, data: MoisChartExport | null, flo
         ],
         loinc: 'LOINC X10916', loincName: '- Information Request', date: MOIS_TODAY, created,
       }
+    case 'misc':
+    case 'note':
+    case 'notification':
+    case 'patient-summary': {
+      /* 2961349 `d7d34094…` (PATIENT SUMMARY: <Not Coded>, Service Event,
+         LOINC 60591-5). The other three codes are INFERRED from their
+         document types; no capture prints them. */
+      const type = DOC_TYPE_OF[doc]
+      const loinc: Record<string, [string, string]> = {
+        'patient-summary': ['LOINC 60591-5', '- Patient Summary'],
+        notification: ['LOINC X10917', '- Notification'],
+        note: ['LOINC 34109-9', '- Note'],
+        misc: ['LOINC 34109-9', '- General Medicine Note'],
+      }
+      return {
+        title: type,
+        left: left.map((f) => (f.label === 'Attending:' ? { ...f, value: DESKTOP_PROVIDER } : f)),
+        right: [
+          { label: 'Type:', value: type }, { label: 'Code:', value: '<Not Coded>' },
+          { label: 'Service Event:', value: '' }, { label: 'Copies To:', value: '' },
+        ],
+        loinc: loinc[doc]![0], loincName: loinc[doc]![1], date: MOIS_TODAY, created,
+      }
+    }
     case 'care-plan':
       return {
         title: 'SHARED CARE PLAN',
@@ -207,7 +264,7 @@ export function letterBody(doc: LetterDocId, p: ChartPatient, header: LetterHead
     { runs: [B('Insurance: '), S(p.insuranceBy ?? ''), P(' '), S(p.insurance ?? '')] },
     { runs: [B('H: '), S(p.home ?? ''), B(' W: '), S(p.work ?? ''), B(' C: '), S(p.cell ?? '')], gap: 14 },
   ]
-  if (doc === 'information-request') {
+  if (doc === 'information-request' || doc === 'misc' || doc === 'note' || doc === 'notification' || doc === 'patient-summary') {
     return [
       ...letterhead,
       { runs: [S(dash(header.date))], gap: 14 },

@@ -3,6 +3,7 @@ import {
   AUTO_UPDATE_ROWS, DOBC_UPDATE, PREPARE_BILLS, RECONCILE, TELEPLAN_LOGIN, TELEPLAN_OPTIONS, TELEPLAN_RESULTS,
 } from '../data/exchange'
 import { useScreenReport } from '../host/screen-state'
+import { billingPrograms } from '../data/billingPrograms'
 import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBTextArea, PBViewHeader, PBWindow, pbSlug,
 } from '../pb'
@@ -32,7 +33,8 @@ export function PrepareBillsView() {
     <>
       <PBViewHeader title={PREPARE_BILLS.title} />
       <PBCommandRow commands={[
-        { label: 'Run', onClick: () => setAt(PREPARE_BILLS.status.length - 1) },
+        /* sends the LFP registration and PBF enrolment claims too (A2) */
+        { label: 'Run', onClick: () => { setAt(PREPARE_BILLS.status.length - 1); billingPrograms.prepareBills() } },
         { label: 'Close Window' },
       ]} />
       <Body>
@@ -69,7 +71,8 @@ export function ReconcileRemittanceView() {
     <>
       <PBViewHeader title={RECONCILE.title} />
       <PBCommandRow commands={[
-        { label: 'Run', onClick: () => setAt(RECONCILE.status.length - 1) },
+        /* MSP's answers to the LFP / PBF claims (A2) */
+        { label: 'Run', onClick: () => { setAt(RECONCILE.status.length - 1); billingPrograms.reconcile() } },
         { label: 'Close Window' },
       ]} />
       <Body>

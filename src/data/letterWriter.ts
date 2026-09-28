@@ -150,36 +150,157 @@ export const TEMPLATE_DESIGN_COMMANDS: LetterCommand[] = [
 /* --- menu bar ------------------------------------------------------------
    Seven captions. Only `File` has been captured expanded (304687/a9e28c40990d)
    and the capture is authoritative over the prose beside it: the prose lists a
-   `Fax` item that the capture does not have. Fax survives only as a value of
-   the `Method` column in Create Distribution.
+   `Fax` item that the capture does not have. Fax survives as a value of the
+   `Method` column in Create Distribution, which is also how SRFax e-faxes a
+   letter (2616562 `c6bfdd98…`).
 
-   Edit / View / Insert / Format / Table / Action are referenced in the same
-   article but were never opened, so their items are unknown and they are left
-   as bare captions here rather than invented.                              */
-export type LetterMenu = { label: string; menu?: { label?: string; key?: string; sep?: boolean }[] }
+   Edit / View / Insert / Format / Table are 304687's prose glossaries, item
+   for item, in the order the article lists them. No capture shows them
+   dropped, so their separators and accelerators past the ones the prose
+   names are INFERRED. `Action` is never described anywhere: it carries the
+   command row's six commands (INFERRED).
+
+   A `window` names what the item opens (screens/LetterEditorDialogs.tsx);
+   `act` names what it does to the page (screens/LetterWriterWindow.tsx). */
+export type LetterMenuItem = {
+  label?: string
+  key?: string
+  sep?: boolean
+  menu?: LetterMenuItem[]
+  /** an editor dialog, by id */
+  window?: string
+  /** a page action, by id */
+  act?: string
+}
+export type LetterMenu = { label: string; menu?: LetterMenuItem[] }
+
+const SEP: LetterMenuItem = { sep: true }
 
 export const LETTER_MENUS: LetterMenu[] = [
   {
     label: 'File',
     menu: [
-      { label: 'Save Letter', key: 'F2' },
-      { label: 'Load Template / File...' },
-      { sep: true },
-      { label: 'Page Setup...' },
-      { label: 'Print Preview' },
-      { label: 'Print', key: 'Ctrl+P' },
-      { label: 'Print To...', key: 'Ctrl+Shift+P' },
-      { label: 'Distribute...' },
-      { sep: true },
-      { label: 'Close' },
+      { label: 'Save Letter', key: 'F2', act: 'save' },
+      { label: 'Load Template / File...', window: 'new-letter' },
+      SEP,
+      { label: 'Page Setup...', window: 'page-setup' },
+      { label: 'Print Preview', window: 'print-preview' },
+      { label: 'Print', key: 'Ctrl+P', window: 'print' },
+      { label: 'Print To...', key: 'Ctrl+Shift+P', window: 'print' },
+      { label: 'Distribute...', act: 'distribute' },
+      SEP,
+      { label: 'Close', act: 'close' },
     ],
   },
-  { label: 'Edit' },
-  { label: 'View' },
-  { label: 'Insert' },
-  { label: 'Format' },
-  { label: 'Table' },
-  { label: 'Action' },
+  {
+    label: 'Edit',
+    menu: [
+      { label: 'Undo', key: 'Ctrl+Z', act: 'undo' },
+      { label: 'Redo', key: 'Ctrl+Y', act: 'redo' },
+      SEP,
+      { label: 'Cut', key: 'Ctrl+X', act: 'cut' },
+      { label: 'Copy', key: 'Ctrl+C', act: 'copy' },
+      { label: 'Paste', key: 'Ctrl+V', act: 'paste' },
+      { label: 'Delete', key: 'Del', act: 'delete' },
+      SEP,
+      { label: 'Select All', key: 'Ctrl+A', act: 'select-all' },
+      SEP,
+      { label: 'Find...', window: 'find' },
+      { label: 'Replace...', window: 'replace' },
+      SEP,
+      { label: 'Hyperlink...', window: 'hyperlink' },
+      { label: 'Target...', window: 'target' },
+    ],
+  },
+  {
+    label: 'View',
+    menu: [
+      { label: 'Page View', act: 'page-view' },
+      { label: 'Outline View', act: 'outline-view' },
+      SEP,
+      { label: 'Control Characters', act: 'control-characters' },
+      SEP,
+      {
+        label: 'Zoom',
+        menu: ['10%', '25%', '50%', '75%', '90%', '100%', '150%', '200%', '300%', '400%'].map((z) => ({ label: z, act: `zoom-${z.replace('%', '')}` })),
+      },
+    ],
+  },
+  {
+    label: 'Insert',
+    menu: [
+      { label: 'First Page Header', act: 'first-page-header' },
+      { label: 'Header', act: 'header' },
+      { label: 'First Page Footer', act: 'first-page-footer' },
+      { label: 'Footer', act: 'footer' },
+      { label: 'Page Number', act: 'page-number' },
+      SEP,
+      { label: 'Image...', window: 'insert-image' },
+      { label: 'Object...', window: 'insert-object' },
+      { label: 'Break...', window: 'break' },
+    ],
+  },
+  {
+    label: 'Format',
+    menu: [
+      { label: 'Character...', window: 'font' },
+      { label: 'Paragraph...', window: 'paragraph' },
+      { label: 'Tabs...', window: 'tabs' },
+      { label: 'Bullets and Numbers...', window: 'bullets' },
+      { label: 'Columns...', window: 'columns' },
+      { label: 'Styles...', window: 'styles' },
+      { label: 'Header and Footer...', window: 'header-footer' },
+      SEP,
+      { label: 'Image...', window: 'image-attributes' },
+      SEP,
+      { label: 'Text Color...', window: 'text-color' },
+      { label: 'Background Color...', window: 'background-color' },
+    ],
+  },
+  {
+    label: 'Table',
+    menu: [
+      {
+        label: 'Insert',
+        menu: [
+          { label: 'Table...', window: 'insert-table' },
+          SEP,
+          { label: 'Rows Above', act: 'rows-above' },
+          { label: 'Rows Below', act: 'rows-below' },
+          { label: 'Columns Left', act: 'columns-left' },
+          { label: 'Columns Right', act: 'columns-right' },
+        ],
+      },
+      {
+        label: 'Delete',
+        menu: [
+          { label: 'Table', act: 'delete-table' },
+          { label: 'Columns', act: 'delete-column' },
+          { label: 'Rows', act: 'delete-row' },
+        ],
+      },
+      SEP,
+      { label: 'Merge Cells', act: 'merge-cells' },
+      { label: 'Split Cells', act: 'split-cells' },
+      { label: 'Split', menu: [{ label: 'Above', act: 'split-above' }, { label: 'Below', act: 'split-below' }] },
+      SEP,
+      { label: 'Select', menu: [{ label: 'Table', act: 'select-table' }] },
+      { label: 'Gridlines', act: 'gridlines' },
+      SEP,
+      { label: 'Properties...', window: 'table-properties' },
+    ],
+  },
+  {
+    label: 'Action',
+    menu: [
+      { label: 'Save', act: 'save' },
+      { label: 'Link to Order', act: 'link-to-order' },
+      { label: 'Create Message', act: 'create-message' },
+      { label: 'Create Task', act: 'create-task' },
+      { label: 'Distribute...', act: 'distribute' },
+      { label: 'Spelling...', window: 'spelling' },
+    ],
+  },
 ]
 
 /* --- header fields -------------------------------------------------------
@@ -345,7 +466,7 @@ export const LW_STATUS: { text: string; width: number }[] = [
    it, and no prose, dialog or result capture exists for what it does.      */
 export type ToolboxGroup =
   | { kind: 'link'; title: string; label: string }
-  | { kind: 'source'; title: string; label: string; options: string[]; button: string; note: string }
+  | { kind: 'source'; title: string; label: string; options: string[]; button: string; note: string; showNote?: boolean }
   | { kind: 'buttons'; title: string; buttons: { label: string; hint?: string }[] }
   | { kind: 'text'; title: string; text: string; button?: string; note?: string }
   | { kind: 'fields'; title: string; fields: { label: string; options: string[] }[]; button: string }
@@ -437,25 +558,31 @@ export const ADD_TAG_LIST = [
   'BPMH', 'Consults', 'Document List', 'Encounter List', 'Facility Admission',
   'Family History', 'Goals List', 'Health Issue List', 'Imaging', 'Interventions',
   'Long Term Meds List', 'Measurements', 'Message List', 'Preferences List',
-  'Prescription List', 'Procedures', 'Reaction Risks (Allergies)', 'Social History',
+  'Prescription List', 'Procedures', 'Reaction Risks', 'Social History',
   'Task List',
 ]
 
+/* The rail's wording is the Letter Writer (v2) captures' (303101
+   `d273caae…`, `57c54992…`, `a885b995…`), which differ from the older
+   prose: Remove Field and Remove Tag each carry a sentence, Add Tag a
+   sentence under its Source, and a Help? link heads the rail. The
+   Add Database Field drop-downs open empty; the Field list follows the
+   Source (data/letterDocs.ts FIELD_CATALOGUE). */
 export const TEMPLATE_TOOLBOX: ToolboxGroup[] = [
+  { kind: 'link', title: 'Help?', label: 'Help?' },
   {
     kind: 'fields',
     title: 'Add Database Field',
     fields: [
-      { label: 'Source:', options: ADD_FIELD_SOURCES },
-      { label: 'Field:', options: ADD_FIELD_FIELDS },
+      { label: 'Source:', options: ['', ...ADD_FIELD_SOURCES] },
+      { label: 'Field:', options: [''] },
     ],
     button: 'Add Field',
   },
   {
     kind: 'text',
     title: 'Remove Field',
-    text: 'Place your cursor in the yellow field and press Delete Field. '
-      + '(Delete and backspace will not operate on these fields.)',
+    text: "Remove a field from the document by placing the cursor in the field and press the 'Delete Field' button.",
     button: 'Delete Field',
     note: '(New: Double-Click field for prompt)',
   },
@@ -463,15 +590,16 @@ export const TEMPLATE_TOOLBOX: ToolboxGroup[] = [
     kind: 'source',
     title: 'Add Tag',
     label: 'Source:',
-    options: ADD_TAG_LIST,
+    options: ['', ...ADD_TAG_LIST],
     button: 'Add Tag',
-    note: 'A tag on the line below a header leaves one blank line before the table.',
+    note: "A tag allows you to insert common tables of data from a patient's chart.",
+    showNote: true,
   },
   {
     kind: 'text',
     title: 'Remove Tag',
     /* the only group in the rail with no button at all */
-    text: 'Select the whole tag, including the angle brackets, and cut it.',
+    text: 'To remove a tag, highlight the text and press the delete key.',
   },
 ]
 
@@ -576,6 +704,91 @@ export type SelectionList = {
 }
 
 export const SELECTION_LISTS: Record<string, SelectionList> = {
+  /* 3785340: "To allow verified medication information from the LTM to be
+     automatically inserted into letters in a structured format." No capture
+     of the BPMH selection list or table exists (both images in the article
+     are missing), so these columns are INFERRED from the LTM folder's. */
+  'BPMH LIST': {
+    title: 'Best Possible Medication History',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Start', width: 80 },
+      { key: 'medication', header: 'Medication', width: 300 },
+      { key: 'dose', header: 'Dose / Frequency', width: 150 },
+      { key: 'prescriber', header: 'Prescriber', width: 140 },
+    ],
+    rows: [],
+  },
+  /* the other record lists the Table Source drop-down names: a Table/Detail
+     pair then the folder's own leading columns (INFERRED — only the Measures
+     and Facility Admissions lists are captured) */
+  'HEALTH ISSUE LIST': {
+    title: 'Health Issue List',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Start', width: 80 },
+      { key: 'resolved', header: 'Resolved', width: 80 },
+      { key: 'problem', header: 'Problem Name', width: 360 },
+    ],
+    rows: [],
+  },
+  'ALLERGY LIST': {
+    title: 'Allergy List',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Start', width: 80 },
+      { key: 'substance', header: 'Substance', width: 240 },
+      { key: 'reactions', header: 'Reaction(s)', width: 200 },
+    ],
+    rows: [],
+  },
+  'LT MEDS LIST': {
+    title: 'Long Term Medication List',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Start', width: 80 },
+      { key: 'medication', header: 'Medication', width: 320 },
+      { key: 'dose', header: 'Dose / Frequency', width: 160 },
+    ],
+    rows: [],
+  },
+  'CONSULT LIST': {
+    title: 'Consult List',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Referred', width: 80 },
+      { key: 'description', header: 'Description', width: 280 },
+      { key: 'to', header: 'Referred To', width: 180 },
+    ],
+    rows: [],
+  },
+  'DOCUMENT LIST': {
+    title: 'Document List',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Date', width: 80 },
+      { key: 'type', header: 'Document Type', width: 150 },
+      { key: 'note', header: 'Note', width: 300 },
+    ],
+    rows: [],
+  },
+  'ENCOUNTER LIST': {
+    title: 'Encounter List',
+    columns: [
+      { key: 'table', header: 'Table', width: 40, check: true },
+      { key: 'detail', header: 'Detail', width: 42, check: true },
+      { key: 'date', header: 'Date', width: 80 },
+      { key: 'provider', header: 'Provider', width: 180 },
+      { key: 'reason', header: 'Visit Reason', width: 280 },
+    ],
+    rows: [],
+  },
   'MEASURE LIST': {
     title: 'Measures List',
     columns: [

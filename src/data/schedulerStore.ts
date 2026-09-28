@@ -8,6 +8,7 @@ import {
   initialReservationBlocks, initialResourceBlocks, initialResourceShiftRows, initialShiftRows,
   type ReservationBlock, type ShiftRow,
 } from './schedulerSetup'
+import { resetSchedulerExtras } from './schedulerExtras'
 
 /* ============================================================================
    What the learner has done to the Scheduler this session.
@@ -96,6 +97,7 @@ function set(next: Partial<SchedulerState>) {
 export function resetSchedulerStore() {
   state = initial()
   serial = 0
+  resetSchedulerExtras()
   emit()
 }
 
@@ -253,6 +255,33 @@ export const schedulerStore = {
     const row = bookedAppointment(draft)
     const key = newKey()
     set({ added: [...state.added, { key, provider, offset, row, kind: 'booked' }], current: { provider, offset, key }, last: 'booked', prefill: null })
+  },
+
+  /** Create Appointment Series ▸ Continue, Create Series (art. 3266635):
+      many rows at once, their keys returned so the series can own them */
+  bookMany(items: { provider: string; offset: number; draft: Parameters<typeof bookedAppointment>[0]; extra?: Partial<Appointment> }[], last = 'series-booked'): string[] {
+    const added: Added[] = items.map((x) => ({ key: newKey(), provider: x.provider, offset: x.offset, row: { ...bookedAppointment(x.draft), ...x.extra }, kind: 'booked' as const }))
+    set({ added: [...state.added, ...added], last })
+    return added.map((a) => a.key)
+  },
+
+  /** Delete Recurring Appointment ▸ Select from series ▸ Ok ▸ Yes */
+  deleteAppointments(keys: string[]) {
+    set({ removed: [...new Set([...state.removed, ...keys])], last: 'deleted' })
+  },
+
+  /** Action ▸ Paste Encounter Data (Ctrl+Shift+P): the copied appointment's
+      encounter detail replaces the selected one's (art. 303239) */
+  pasteEncounter(target: string, source: string) {
+    const from = findRow(source)
+    if (!from) return
+    const issues = { ...state.issues }
+    if (state.issues[source] || from.row.issue) issues[target] = state.issues[source] ?? from.row.issue
+    const billed = { ...state.billed }
+    if (state.billed[source]) billed[target] = true
+    const noted = { ...state.noted }
+    if (state.noted[source]) noted[target] = true
+    set({ issues, billed, noted, last: 'encounter-pasted' })
   },
 
   /** MSP Bill (Ctrl+B) on the current row */

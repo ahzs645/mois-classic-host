@@ -27,6 +27,9 @@ export const REPORT_WINDOWS: Record<string, string> = {
   'complete-unsent-records': 'report-params-complete-unsent-records',
   'scorecard-clinical-value': 'clinical-value-scorecard',
   'advanced-medical-report-builder': 'advanced-report-builder-list',
+  /* screens/ReportBuilderTools.tsx (304055 `1e32f7d0`, `8ca735c0`) */
+  'cohort-selection-tool': 'cohort-selection-tool',
+  'medical-report-builder': 'medical-report-builder',
   /* screens/PatientsByProcedureWindow.tsx (303122 `5bf91e6d…png`) */
   'patients-by-procedure': 'report-params-patients-by-procedure',
 }
@@ -196,26 +199,105 @@ export const pct = (num: number, den: number) => (den ? `${((num / den) * 100).t
 
 /* --- Advanced Medical Report Builder (304055 `d2fba889`) --------------------
    The reports the list opens on, as the capture lists them, plus whatever
-   this session saves. */
-export type BuilderReport = { name: string; group: string; description: string; access: 'Private' | 'Limited' | 'Public' }
+   this session saves. A report carries its owner, the Business Units a
+   Limited report is shared with (304055 "Business Units Only"), the criteria
+   the editor saved, and its two histories (304055 "Report History": Run
+   History — who ran it, when, how; Change History — what changed in its
+   setup). The histories of the shipped reports are synthetic. */
+export type BuilderReport = {
+  name: string; group: string; description: string; access: 'Private' | 'Limited' | 'Public'
+  owner?: string
+  businessUnits?: string[]
+  /** the editor's criteria, as it saved them (screens/ReportBuilderWindow) */
+  criteria?: unknown
+}
+export type BuilderRun = { when: string; user: string; output: string; patients: number }
+export type BuilderChange = { when: string; user: string; change: string; detail: string }
+
+/** the user this stage is signed in as, and their Business Unit */
+export const BUILDER_USER = 'ADMIN, MOIS'
+export const BUILDER_BUSINESS_UNIT = 'PRIMARY CARE - DAWSON CREEK'
+export const BUSINESS_UNITS = [BUILDER_BUSINESS_UNIT, 'PUBLIC HEALTH - FORT ST. JOHN', 'MENTAL HEALTH - PRINCE GEORGE', 'HOME HEALTH - QUESNEL']
 
 const SHIPPED_BUILDER_REPORTS: BuilderReport[] = [
-  { name: 'ASTHMA PATIENTS - DECLINED INFLUENZA', group: '', description: 'Active patients, last contact in last 3 years, with Asthma and declined Influenza', access: 'Public' },
-  { name: 'AVERAGE AGE', group: '', description: '', access: 'Public' },
-  { name: 'BP DONE IN LAST 1 MONTH', group: '', description: '', access: 'Public' },
-  { name: 'CERVICAL CANCER SCREENING / PAP', group: '', description: "Women 25-69 who don't have a Diagnosis of Cervical Cancer and who have not had a complete hysterectomy or cervical cancer screening", access: 'Public' },
-  { name: 'COLORECTAL CANCER', group: '', description: '', access: 'Public' },
-  { name: 'CVD', group: '', description: '', access: 'Public' },
-  { name: 'CVD NO FRAMINGHAM', group: '', description: '', access: 'Public' },
-  { name: 'CVD PATIENTS ON ASA', group: '', description: 'Patients with a Health Issue of CVD that have a Long Term Med entry for ASA', access: 'Public' },
-  { name: 'CVD PATIENTS WITHOUT ASA', group: '', description: 'Patients with a Health issue of CVD without an entry for ASA in their Long Term Meds', access: 'Public' },
-  { name: 'CVD RISK', group: '', description: '', access: 'Public' },
+  { name: 'ASTHMA PATIENTS - DECLINED INFLUENZA', group: '', description: 'Active patients, last contact in last 3 years, with Asthma and declined Influenza', access: 'Public', owner: 'LEOPPKY, KLUHANE' },
+  { name: 'AVERAGE AGE', group: '', description: '', access: 'Public', owner: 'LEOPPKY, KLUHANE' },
+  { name: 'BP DONE IN LAST 1 MONTH', group: '', description: '', access: 'Public', owner: 'BEARDWOOD, WALTER' },
+  { name: 'CERVICAL CANCER SCREENING / PAP', group: '', description: "Women 25-69 who don't have a Diagnosis of Cervical Cancer and who have not had a complete hysterectomy or cervical cancer screening", access: 'Public', owner: 'LEOPPKY, KLUHANE' },
+  { name: 'COLORECTAL CANCER', group: '', description: '', access: 'Public', owner: 'LEOPPKY, KLUHANE' },
+  { name: 'CVD', group: '', description: '', access: 'Limited', owner: 'DUCHARME, AMARILYS', businessUnits: [BUILDER_BUSINESS_UNIT, 'HOME HEALTH - QUESNEL'] },
+  { name: 'CVD NO FRAMINGHAM', group: '', description: '', access: 'Public', owner: 'DUCHARME, AMARILYS' },
+  { name: 'CVD PATIENTS ON ASA', group: '', description: 'Patients with a Health Issue of CVD that have a Long Term Med entry for ASA', access: 'Public', owner: 'DUCHARME, AMARILYS' },
+  { name: 'CVD PATIENTS WITHOUT ASA', group: '', description: 'Patients with a Health issue of CVD without an entry for ASA in their Long Term Meds', access: 'Public', owner: 'DUCHARME, AMARILYS' },
+  { name: 'CVD RISK', group: '', description: '', access: 'Public', owner: 'HOWSER, DOOGIE' },
+  /* Limited to another Business Unit: never listed for this user */
+  { name: 'DEPRESSION SCREENING PHQ-9', group: 'MENTAL HEALTH', description: 'Adults with depression and no PHQ-9 in the last year', access: 'Limited', owner: 'HOWSER, DOOGIE', businessUnits: ['MENTAL HEALTH - PRINCE GEORGE'] },
 ]
 
 let savedBuilderReports: BuilderReport[] = []
+/** 304055 "Report Access Levels": Private — the owner only; Limited — users
+    in a Business Unit the report is shared with; Public — everyone */
+const visibleToUser = (r: BuilderReport) => r.access === 'Public'
+  || (r.owner ?? BUILDER_USER) === BUILDER_USER
+  || (r.access === 'Limited' && (r.businessUnits ?? []).includes(BUILDER_BUSINESS_UNIT))
+const deletedBuilderReports = new Set<string>()
 export const builderReports = (): BuilderReport[] =>
-  [...SHIPPED_BUILDER_REPORTS, ...savedBuilderReports].sort((a, b) => a.name.localeCompare(b.name))
-/** Save Changes: a new name adds a row, an existing one is replaced */
+  [...SHIPPED_BUILDER_REPORTS.filter((r) => !savedBuilderReports.some((s) => s.name === r.name)), ...savedBuilderReports]
+    .filter((r) => !deletedBuilderReports.has(r.name) && visibleToUser(r))
+    .sort((a, b) => a.name.localeCompare(b.name))
+export const builderReport = (name: string): BuilderReport | undefined =>
+  [...savedBuilderReports, ...SHIPPED_BUILDER_REPORTS].find((r) => r.name === name && !deletedBuilderReports.has(name))
+/** Save Changes: a new name adds a row, an existing one is replaced. A
+    regular user's save adds their Business Unit to a Limited report. */
 export function saveBuilderReport(report: BuilderReport) {
-  savedBuilderReports = [...savedBuilderReports.filter((r) => r.name !== report.name), report]
+  const owner = report.owner ?? BUILDER_USER
+  const units = report.access === 'Limited'
+    ? [...new Set([...(report.businessUnits ?? []), BUILDER_BUSINESS_UNIT])]
+    : report.businessUnits ?? []
+  deletedBuilderReports.delete(report.name)
+  savedBuilderReports = [...savedBuilderReports.filter((r) => r.name !== report.name), { ...report, owner, businessUnits: units }]
+}
+/** Delete: removes a report this Business Unit owns, or only this unit's
+    access to another unit's Limited report (304055) */
+export function deleteBuilderReport(name: string): 'deleted' | 'unshared' {
+  const r = builderReport(name)
+  if (r && r.access === 'Limited' && r.owner !== BUILDER_USER && (r.businessUnits ?? []).includes(BUILDER_BUSINESS_UNIT)) {
+    const units = (r.businessUnits ?? []).filter((u) => u !== BUILDER_BUSINESS_UNIT)
+    savedBuilderReports = [...savedBuilderReports.filter((x) => x.name !== name), { ...r, businessUnits: units }]
+    return 'unshared'
+  }
+  deletedBuilderReports.add(name)
+  return 'deleted'
+}
+/** a system administrator adds a Business Unit to a Limited report */
+export function shareBuilderReport(name: string, unit: string) {
+  const r = builderReport(name)
+  if (!r) return
+  savedBuilderReports = [...savedBuilderReports.filter((x) => x.name !== name), { ...r, businessUnits: [...new Set([...(r.businessUnits ?? []), unit])] }]
+}
+
+const runs = new Map<string, BuilderRun[]>([
+  ['CVD', [
+    { when: '2026.08.31 09:12', user: 'DUCHARME, AMARILYS', output: 'Report', patients: 18 },
+    { when: '2026.07.31 08:47', user: 'DUCHARME, AMARILYS', output: 'CSV', patients: 17 },
+  ]],
+  ['CERVICAL CANCER SCREENING / PAP', [
+    { when: '2026.09.01 13:05', user: 'FRONT DESK, MOA', output: 'Mail Merge', patients: 42 },
+  ]],
+])
+const changes = new Map<string, BuilderChange[]>([
+  ['CVD', [
+    { when: '2025.11.14 10:20', user: 'DUCHARME, AMARILYS', change: 'Report created', detail: 'Name: CVD\nAccess: Private' },
+    { when: '2025.11.20 15:02', user: 'DUCHARME, AMARILYS', change: 'Health Conditions: 1 rule(s)', detail: 'Health Conditions\n  + CARDIOVASCULAR DISEASE  Has' },
+    { when: '2026.01.08 11:44', user: 'DUCHARME, AMARILYS', change: 'Access: Private -> Limited', detail: 'Access Level changed from Private to Limited.\nBusiness Unit added: HOME HEALTH - QUESNEL' },
+  ]],
+])
+export const builderRunHistory = (name: string): BuilderRun[] => runs.get(name) ?? []
+export const builderChangeHistory = (name: string): BuilderChange[] => changes.get(name) ?? []
+export function recordBuilderRun(name: string, output: string, patients: number, when: string) {
+  runs.set(name, [{ when, user: BUILDER_USER, output, patients }, ...(runs.get(name) ?? [])])
+}
+export function recordBuilderChange(name: string, list: { change: string; detail: string }[], when: string) {
+  if (!list.length) return
+  changes.set(name, [...(changes.get(name) ?? []), ...list.map((c) => ({ ...c, when, user: BUILDER_USER }))])
 }

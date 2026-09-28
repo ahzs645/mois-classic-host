@@ -16,15 +16,18 @@ import {
   FLOWSHEET_ELEMENT_COLUMNS, FLOWSHEET_ELEMENT_ROWS, FLOWSHEET_SOURCES,
   FLOWSHEET_SOURCE_TYPES,
   MEASUREMENT_ELEMENT_COLUMNS, MEASUREMENT_ELEMENT_ROWS,
-  NEW_LETTER_OPTIONS,
   PANEL_ITEM_COLUMNS, PANEL_ITEMS,
   PAPER_FIELD_COLUMNS, PAPER_FIELD_ROWS, PAPER_IMPORT_COLUMNS, PAPER_IMPORT_ROWS,
-  TASK_DUE_UNITS, TASK_PRIORITIES, TASK_SET_ROWS,
   type DesignerColumn, type DesignerListScreen, type DesignerRow,
 } from '../data/designerSection'
+import { TaskSetTemplateWindow } from './TaskSetTemplateWindow'
 import { determinantTabs } from '../data/mois'
 import { useScreenReport } from '../host/screen-state'
 import { MoisViewerWindow } from './MoisViewerWindow'
+import { useTemplateBodies } from '../data/letterDocs'
+import { useOpenWindow } from './areaWindowRegistry'
+import { NewLetterDialog } from './LetterEditorDialogs'
+import { TemplatePreview } from './LetterTemplateCanvas'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -46,8 +49,10 @@ import { DesktopLayer } from './StageWindow'
    `Preview Form` opens the MOIS Viewer (screens/MoisViewerWindow.tsx), from
    article 304734's captures and 303327's field-numbered preview.
 
+   The MOIS Letter Writer behind `New Letter`'s Continue is the template
+   designer (screens/LetterTemplateWindows.tsx, 303101 `d273caae…`).
+
    NOT BUILT, deliberately:
-     - The MOIS Letter Writer behind `New Letter`. Never visually read.
      - `Import Concepts` / `Export Concepts` / `Import Flowsheets` /
        `Export Flowsheets` / `Export Forms`. No dialog capture exists for any
        of the five; only `Import Paper Forms` was captured.
@@ -291,7 +296,7 @@ export function DesignerDetailWindow({
     case 'measurement': return <MeasurementDetail title={title} row={row} onClose={onClose} />
     case 'paper-form': return <PaperFormDetail title={title} row={row} onClose={onClose} />
     case 'care-plan': return <CarePlanDetail title={title} row={row} onClose={onClose} />
-    case 'task-set': return <TaskSetDetail title={title} row={row} onClose={onClose} />
+    case 'task-set': return <TaskSetTemplateWindow title={title} row={row} onClose={onClose} />
     case 'letter': return <LetterTemplateDetail title={title} row={row} onClose={onClose} />
     case 'panel-setup': return <PanelSetupDetail title={title} row={row} onClose={onClose} />
   }
@@ -715,6 +720,12 @@ function PaperFormDetail({ title, row, onClose }: DetailProps) {
   /* 303327: "Click 'Preview Form' · The form will open, with the field number
      in each fillable field … Close the form preview" */
   const [previewing, setPreviewing] = useState(false)
+  /* 303112 Paper Form Registration: a newly registered PDF lists its own
+     text fields with nothing assigned yet — "To assign data to a field, you
+     must select a populator and a property" */
+  const fields = row.__new
+    ? PAPER_FIELD_ROWS.map((f) => ({ ...f, populator: '', property: '', valueType: '', default: '' }))
+    : PAPER_FIELD_ROWS
 
   return (
     <>
@@ -747,12 +758,12 @@ function PaperFormDetail({ title, row, onClose }: DetailProps) {
       <BandA caption="Field Data Assignment" />
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-        <DetailGrid columns={PAPER_FIELD_COLUMNS} rows={PAPER_FIELD_ROWS} />
+        <DetailGrid columns={PAPER_FIELD_COLUMNS} rows={fields} />
       </div>
     </DetailFrame>
     {/* over the detail window, not inside it: a separate top-level window */}
     {previewing && (
-      <MoisViewerWindow form={String(row.name ?? '')} fields={PAPER_FIELD_ROWS} onClose={() => setPreviewing(false)} />
+      <MoisViewerWindow form={String(row.name ?? '')} fields={fields} onClose={() => setPreviewing(false)} />
     )}
     </>
   )
@@ -831,87 +842,9 @@ function CarePlanGrid() {
   )
 }
 
-/* ---------------------------------------------------------------------------
-   1802764 · Task Set Detail — navy band `Task Set`.
-
-   MEASURED AT 1.25x ONLY (0ffe065f893e). The band (25px capture -> 20px
-   normalised) and the button widths divide cleanly; the sub-control widths
-   do not, so none are claimed here — the row is laid out to the described
-   order (left block, then a `Detail:` memo on the right) rather than to
-   measured x offsets. The window size below is the capture's 1224 x 911
-   divided by 1.25 and is therefore derived, not measured.
-
-   The grid is not columnar: it is a free-form multi-line DataWindow, so it
-   is built out of rows rather than out of `PBDataWindow`.
-   ------------------------------------------------------------------------ */
-function TaskSetDetail({ title, row, onClose }: DetailProps) {
-  const [cur, setCur] = useState(0)
-  const [priority, setPriority] = useState(TASK_SET_ROWS.map((r) => r.priority))
-
-  return (
-    <DetailFrame title={title} navy="Task Set" w={979} h={729} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}>
-      <div style={{ flex: 'none', background: '#f0f0f0', padding: '5px 8px' }}>
-        <div className="pb-row" style={{ gap: 6 }}>
-          <span className="pb-form__label">Description:</span>
-          <PBInput w={320} defaultValue={String(row.desc ?? '')} data-tutorial-id={anchorField('Description')} />
-        </div>
-        <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', marginTop: 4 }}>
-          <span className="pb-form__label">Detail:</span>
-          <PBTextArea rows={3} w={560} defaultValue={String(row.detail ?? '')} data-tutorial-id={anchorField('Detail')} />
-        </div>
-      </div>
-
-      <BandB caption="Task List" buttons={[{ label: 'New Row', width: 82 }, { label: 'Delete Row', width: 80 }]} />
-
-      <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff' }}>
-        {TASK_SET_ROWS.map((t, i) => (
-          <div
-            key={t.task}
-            className="pb-row"
-            style={{
-              alignItems: 'flex-start',
-              gap: 10,
-              padding: '3px 6px',
-              /* the current row fills #E89C84 across the whole multi-line row */
-              background: i === cur ? 'var(--pb-dw-select)' : i % 2 ? '#e8e8e8' : '#ffffff',
-              borderBottom: '1px solid var(--pb-dw-line-soft)',
-            }}
-            data-tutorial-id={`host.mois.row.${pbSlug(t.task.slice(0, 32))}`}
-            onMouseDown={() => setCur(i)}
-          >
-            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-              <div className="pb-row" style={{ gap: 10, flexWrap: 'wrap' }}>
-                <span className="pb-form__label">Priority:</span>
-                {TASK_PRIORITIES.map((p) => (
-                  <PBRadio
-                    key={p}
-                    name={`task-priority-${i}`}
-                    label={p}
-                    checked={priority[i] === p}
-                    onChange={() => setPriority(priority.map((v, j) => (j === i ? p : v)))}
-                  />
-                ))}
-              </div>
-              <div className="pb-row" style={{ gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                <span className="pb-form__label">Task:</span>
-                <PBInput w={230} defaultValue={t.task} />
-                <span className="pb-form__label">Group:</span>
-                <PBSelect w={110} options={['', 'RECALL', 'LAB', 'REFERRAL']} defaultValue={t.group} />
-                <span className="pb-form__label">Due After:</span>
-                <PBInput w={40} align="right" defaultValue={t.dueAfter} />
-                <PBSelect w={78} options={TASK_DUE_UNITS} defaultValue={t.dueUnit} />
-              </div>
-            </div>
-            <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', flex: 'none' }}>
-              <span className="pb-form__label">Detail:</span>
-              <PBTextArea rows={2} w={300} defaultValue={t.detail} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </DetailFrame>
-  )
-}
+/* 1802764 · Task Set Detail now lives in TaskSetTemplateWindow.tsx, where
+   New Row / Delete Row and Save Changes (F2) work and a template's tasks
+   are kept for the stage session. */
 
 /* ---------------------------------------------------------------------------
    303101 · Letter Template Detail — 975 x 697.
@@ -922,6 +855,10 @@ function TaskSetDetail({ title, row, onClose }: DetailProps) {
 function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
   const [editing, setEditing] = useState(false)
   const host = usePBInstrumentation()
+  const openWindow = useOpenWindow()
+  /* the body the designer saved for this template (data/letterDocs.ts) */
+  const [bodies] = useTemplateBodies()
+  const name = String(row.name ?? '')
 
   return (
     <>
@@ -934,7 +871,7 @@ function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
               <div className="pb-row" style={{ gap: 6 }}>
                 <span className="pb-form__label">Name:</span>
                 {/* static text, not an edit */}
-                <span>{String(row.name ?? '')}</span>
+                <span>{name}</span>
               </div>
               <div className="pb-row" style={{ gap: 6, marginTop: 4 }}>
                 <span className="pb-form__label">Description:</span>
@@ -966,68 +903,33 @@ function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
               </button>
             </div>
             <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#808080', padding: 10 }}>
-              {/* the page-shaped white preview */}
-              <div style={{ width: 360, minHeight: 466, margin: '0 auto', background: '#fff', border: '1px solid #404040' }} />
+              {/* the page-shaped white preview: the saved template, small */}
+              <div data-tutorial-id="host.mois.field.letter-preview" style={{ width: 360, minHeight: 466, margin: '0 auto', background: '#fff', border: '1px solid #404040' }}>
+                <TemplatePreview body={bodies[name]} />
+              </div>
             </div>
           </div>
         </div>
       </DetailFrame>
 
-      {editing && <NewLetterDialog onClose={() => setEditing(false)} />}
+      {/* 303101: "Before the Letter Writer opens, MOIS will ask you to choose
+          whether you would like to create a new blank letter, create a new
+          letter from an existing template, or to create a new letter from an
+          existing file" — New Letter, then the Letter Writer in template
+          mode (screens/LetterTemplateWindows.tsx) */}
+      {editing && (
+        <NewLetterDialog
+          onClose={() => setEditing(false)}
+          onContinue={(choice) => {
+            setEditing(false)
+            openWindow('letter-template-designer', {
+              template: name, type: String(row.type ?? 'MISC'), description: String(row.desc ?? ''),
+              option: choice.option, from: choice.template, file: choice.file,
+            })
+          }}
+        />
+      )}
     </>
-  )
-}
-
-/* ---------------------------------------------------------------------------
-   `New Letter` (01d1c6ccb84c / d4e452efb29c) — the dialog behind `Edit`.
-   Choosing the third option reveals a Browse control. The MOIS Letter Writer
-   it opens onto was never visually read, so nothing is built behind
-   `Continue`.
-   ------------------------------------------------------------------------ */
-function NewLetterDialog({ onClose }: { onClose: () => void }) {
-  const [option, setOption] = useState(NEW_LETTER_OPTIONS[0]!)
-  const host = usePBInstrumentation()
-  const fromFile = option === NEW_LETTER_OPTIONS[2]
-
-  return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <div data-tutorial-id={host?.anchor('dialog', 'new-letter')}>
-        <PBWindow child controls={false} title="New Letter" onClose={onClose} style={{ width: 460, height: 420 }}>
-          <div style={{ flex: 'none', padding: '8px 10px', background: 'var(--pb-face)' }}>
-            <div className="pb-form__label" style={{ marginBottom: 4 }}>Options:</div>
-            {NEW_LETTER_OPTIONS.map((o) => (
-              <div key={o} style={{ padding: '2px 0' }}>
-                <PBRadio name="new-letter-option" label={o} checked={option === o} onChange={() => setOption(o)} />
-              </div>
-            ))}
-            {fromFile && (
-              <div className="pb-row" style={{ gap: 6, marginTop: 6 }}>
-                <PBInput w={300} readOnly />
-                <PBButton data-tutorial-id={host?.anchor('command', 'browse')}>Browse</PBButton>
-              </div>
-            )}
-          </div>
-
-          {/* the large empty list area under the options */}
-          <div style={{ flex: '1 1 auto', minHeight: 0, margin: '0 10px 8px', border: '1px solid var(--pb-border)', background: '#fff' }} />
-
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {['Continue', 'Cancel'].map((b) => (
-              <PBButton
-                key={b}
-                wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => { host?.report('command', { command: pbSlug(b) }); onClose() }}
-              >
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
-        </PBWindow>
-      </div>
-    </div>
   )
 }
 

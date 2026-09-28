@@ -1,0 +1,525 @@
+article_id,title,manual_path,words,status,screen,tutorials,note
+299937,MOIS User Manual,,608,n/a,,,Manual landing page: list of links to popular topics.
+2616562,SRFax,Add-Ons,1030,partial,partial,print-a-prescription-in-mois create-a-requisition-from-an-encounter-in-mois,"Sign and Fax and Print History are shown. Missing: enabling SRFax, eFax Accounts setup, QUEUED fax status, the Viewer Fax button and Letter Writer e-fax."
+2873865,Address Book - Contact Lists,Administration,919,gap,partial,,"Enable Address Book, External Organization Types and Contact List Groups (Value Sets), build Standard/Connection Role/Auxiliary contact lists, favourites. Contact List view exists; Value Sets doesn't."
+303377,Administration Contents,Administration,1288,partial,,limit-encounter-windows-in-mois use-the-action-menus-in-mois reassign-a-doctors-patients-in-mois,"Admin tree and DEACON are covered. The Views menu and Utilities (address-to-clipboard, SQL Editor, Intervention to MAR Converter) aren't toured."
+303084,Auto-Update Utilities,Administration,191,covered,,update-code-lists-in-mois update-msp-fee-codes-in-mois,
+303115,Care Plan Templates,Administration,187,gap,yes,,"Building a Care Plan template and applying it with Add from Template in chart Summary Settings isn't taught. The list, detail and command exist."
+303160,Chart Summaries,Administration,412,covered,,edit-a-chart-summary-in-mois add-a-benefit-source-in-mois,
+303074,Clinic Favourite Meds,Administration,119,covered,,add-a-clinic-favourite-med-in-mois add-a-favourite-medication-from-the-workspace-in-mois,
+303117,Clinics,Administration,218,gap,no,,Adding an external clinic to the Clinics quick-reference list isn't taught; the node has no view. Low value.
+2069355,Codeset Management,Administration,1677,partial,,create-a-reference-set-in-mois use-the-ellipsis-in-mois,"Reference Sets and Lookup Settings are covered. Missing: Sources, Systems, Codes (alternate terms/quick codes), Value Sets, Mapping. Those nodes have no views."
+303060,Computer Registration,Administration,331,covered,,register-a-computer-in-mois change-form-printer-in-mois,
+302269,Concept Mapping,Administration,638,partial,,create-a-concept-in-mois add-a-rule-to-a-concept-in-mois add-a-concept-rule-in-mois map-a-concept-in-mois,Creating concepts and adding rules is covered. The Import/Export Concepts buttons (already on the emulator's command row) aren't taught.
+3258362,"DEACON - Data Extraction,",Administration,443,covered,,reassign-a-doctors-patients-in-mois deactivate-a-user-in-mois,"Opening DEACON (Utilities menu), the Special Functions permission and the no-Undo warning are taught; the function list is only an index."
+303093,Encounter Form,Administration,840,covered,,create-a-custom-encounter-form-in-mois,
+303057,Facility List,Administration,138,covered,,add-a-facility-in-mois,
+303163,Field Audit Setup,Administration,128,gap,no,,Adding a table/field to Field Audit Setup (needs the Field Audit special function) isn't taught; there's no setup view. Low value.
+303098,Flowsheet,Administration,346,covered,,build-a-flow-sheet-in-mois run-a-flow-sheet-in-mois,
+303071,Global Reminders,Administration,226,covered,,use-global-reminders-in-mois,
+303075,Immunization Inventory,Administration,303,covered,,stock-the-immunization-inventory-in-mois share-the-immunization-inventory-in-mois,
+303101,Letter Templates,Administration,1338,gap,yes,,"No lesson authors a letter template (document type for CDX, Letter Writer Add Database Field/Add Tag/Remove Tag, Import). Screens exist."
+303100,Measurement Input,Administration,160,covered,,build-a-measurement-template-in-mois enter-measurements-from-a-template,
+2594035,Measures - Panel Setup,Administration,482,covered,,read-a-measure-panel-in-mois enter-measurements-from-a-template,"Panel Setup, panel vs template and Panel View are covered."
+303121,Organizations,Administration,252,gap,partial,,"Editing an external organization (fax, type) and adding Organization Types via Value Sets isn't taught. Organization List exists; Value Sets has no view."
+2069411,Organizations and Organizational Roles,Administration,218,partial,,convert-a-provider-to-an-org-role-in-mois,Org Roles and Organizations are explained in prose only; creating an org/org role and adding members isn't practised.
+303112,Paper (PDF) Forms,Administration,1019,partial,,import-a-paper-form-in-mois edit-a-paper-form-in-mois,"Import and field mapping are covered. Missing: Export Forms package, registering your own fillable PDF, custom format, signing paper forms."
+303053,Password Policy,Administration,119,covered,,set-a-password-policy-in-mois,
+3768907,Printer Configuations,Administration,192,n/a,,,OS/driver-specific label and Rx printer customisation: IT hardware configuration.
+3768908,Printer Profiles,Administration,234,gap,no,,Create per-location Printer Profiles and switch profile under Maintenance ▸ Computer Settings. It's only a tree node; no window.
+303078,Prompt List,Administration,278,covered,,edit-a-prompt-list-in-mois,
+303054,Provider List,Administration,2082,partial,,add-a-provider-in-mois convert-a-provider-to-an-org-role-in-mois deactivate-a-user-in-mois,"New provider, tabs, name and visit mode are covered. Missing: Payment Mode change, Billing tab defaults, BCP/LFP, making a provider inactive."
+303119,Providers,Administration,488,covered,,add-a-provider-to-the-master-list-in-mois,
+303056,Resource List,Administration,188,covered,,add-a-resource-in-mois,
+302641,Security Profiles,Administration,752,covered,,assign-security-profiles-in-mois override-user-access-in-mois,"Profile tabs, access levels, special functions, report access and assignment are taught. Creating a brand-new profile isn't practised."
+303081,Selection Lists,Administration,322,covered,,edit-a-selection-list-in-mois default-a-city-from-postal-code-in-mois add-a-benefit-source-in-mois,"Visit code duration and colours, grace period, postal code and benefit source are covered."
+303058,Service Centers,Administration,71,covered,,add-a-service-centre-in-mois,
+303059,Service Location,Administration,111,gap,yes,,"The Service Location list (make available on Scheduler, Service Delivery Location, start/end dates) isn't taught. An editable list exists at ad-locations."
+303089,Snippet,Administration,138,covered,,create-a-snippet-in-mois,
+303124,System Settings,Administration,5413,partial,,set-global-settings-in-mois limit-encounter-windows-in-mois set-label-name-format-in-mois change-label-font-in-mois create-a-lockout-in-mois change-report-information-in-mois add-text-to-appointment-cards-in-mois look-up-the-claim-file-in-mois change-refresh-time-in-mois turn-off-log-messages-in-mois change-form-printer-in-mois change-rx-character-limit-in-mois change-print-margins-in-mois default-a-city-from-postal-code-in-mois,"All ten listed how-tos are covered. Most App Setting bands (Address Book, SRFAX, Telehealth, Notification, Scheduler and others) are reference only."
+1802764,Task Set Templates,Administration,318,partial,,create-a-task-from-a-basket-item-in-mois,"Using a task set (Ctrl+K twice) is covered. Creating or editing a Task Set Template isn't, though the list, New dialog and detail exist."
+303086,Text/Labels,Administration,150,covered,,create-a-text-label-in-mois,
+302650,User Accounts,Administration,1825,covered,,add-a-user-account-in-mois assign-security-profiles-in-mois override-user-access-in-mois set-a-password-policy-in-mois configure-lab-downloads-in-mois manage-a-workspace-in-mois deactivate-a-user-in-mois,All the article's how-tos are covered. Service Group and Subscription tabs are only described.
+3363428,User Agreements,Administration,828,gap,no,,"Set up a PDF user agreement (version, expiry), accept/decline at login, view responses on the account and in a report. No screen."
+303052,User Groups,Administration,224,covered,,create-a-user-group-in-mois,
+3179351,How To add External Organizations and Providers from the address lookup window,Administration > Address Book - Contact Lists,655,gap,partial,send-a-cdx-information-request-in-mois create-a-requisition-from-an-encounter-in-mois,Address Book is only used as a lookup. Enabling quick-add (E/R) and adding an external provider/org at point of care isn't taught.
+3258363,DEACON - Advanced Report Builder,"Administration > DEACON - Data Extraction,",11,n/a,,,Stub: function name only (Move Intervention Rules to MAR rules).
+3258365,DEACON - Care Plan,"Administration > DEACON - Data Extraction,",11,n/a,,,Stub: function name only.
+3258366,DEACON - Chart - Patient Status,"Administration > DEACON - Data Extraction,",15,n/a,,,Stub: function name only.
+3258367,DEACON - Chart - Recall Stop,"Administration > DEACON - Data Extraction,",13,n/a,,,Stub: function name only.
+3258369,DEACON - Chart - Service Provider,"Administration > DEACON - Data Extraction,",327,partial,,reassign-a-doctors-patients-in-mois,"Find/Replace Provider and Replace Blank Service Providers are taught. Missing: Delete Future Daybook, Update Patient Status for Provider, Last Seen."
+3258370,DEACON - Drug Frequency Addition,"Administration > DEACON - Data Extraction,",9,n/a,,,Stub: function name only.
+3258371,DEACON - MSP - LFP Patient Panel,"Administration > DEACON - Data Extraction,",19,n/a,,,Stub: function names only (bulk LFP registration claims).
+3258372,DEACON - System - Document Investigation,"Administration > DEACON - Data Extraction,",9,n/a,,,Stub: function name only.
+3258373,DEACON - System - Encounter Form,"Administration > DEACON - Data Extraction,",11,n/a,,,Stub: function name only.
+3258374,DEACON - System: Delete,"Administration > DEACON - Data Extraction,",14,n/a,,,Stub: function names only (delete chart/encounter).
+3258376,DEACON - System: Enhanced Access Audit,"Administration > DEACON - Data Extraction,",11,n/a,,,Stub: function name only.
+3258377,DEACON - System: MCS Code Lookup Configuration,"Administration > DEACON - Data Extraction,",12,n/a,,,Stub: function name only.
+3258378,DEACON - System: Report Rollup,"Administration > DEACON - Data Extraction,",45,n/a,,,"Stub: list of five Report Rollup function names, no procedure."
+3258379,DEACON - Workspace Items,"Administration > DEACON - Data Extraction,",20,covered,,deactivate-a-user-in-mois,"Both functions (items blocking deactivation, reassigning tasks/messages) are taught in the deactivation lesson."
+303356,Acknowledge Backlog,Administration > How Do I...,114,covered,,manage-a-workspace-in-mois,"Acknowledge Backlog date range, reason, folders taught."
+1787512,Add Chart Benefits to the Patient Summary or Care Plan Summary,Administration > How Do I...,159,covered,,add-a-benefit-source-in-mois,BENEFIT section filters str_include_demo / str_include_care_plan taught.
+3179392,Add Default Diagnostic Codes to Service Codes,Administration > How Do I...,146,covered,,edit-a-prompt-list-in-mois,
+303183,Add New User,Administration > How Do I...,436,covered,,add-a-user-account-in-mois,"New User window, naming convention, profiles, reset password, User Account tabs taught."
+303369,Add Text to Appointment Cards,Administration > How Do I...,76,covered,,add-text-to-appointment-cards-in-mois,Appointment Card F1-F3 footnotes and card type taught.
+303213,Add a Clinic Wide Favorite Med,Administration > How Do I...,59,covered,,add-a-clinic-favourite-med-in-mois,"Identifier, CDIC ellipsis, dose wizard F4, Save taught."
+303209,Add a Facility,Administration > How Do I...,85,covered,,add-a-facility-in-mois,"New Facility, default flag, Facility Detail locations taught."
+303184,Add a New Provider from Provider List,Administration > How Do I...,679,partial,yes,add-a-provider-in-mois,"Tabs only named; Workspace associated-user assign, Alias ID copy, Service tab entry, Scheduling defaults not practised."
+303204,Add a New Resouce,Administration > How Do I...,100,covered,,add-a-resource-in-mois,New Resource dialog and Resource Detail window taught.
+303335,Add a Provider to the Master List,Administration > How Do I...,220,covered,,add-a-provider-to-the-master-list-in-mois,"Given/Last names, Create Provider, Apply Changes, refresh caveat taught."
+303173,Add a Rule to a concept,Administration > How Do I...,300,covered,,add-a-rule-to-a-concept-in-mois,Coded and text rules via New Rule on Concept Mapping Detail taught.
+303211,Add a Service Centre,Administration > How Do I...,74,covered,,add-a-service-centre-in-mois,New Service Center and detail dates/notes taught.
+3134339,Add or Update Private Fee Codes,Administration > How Do I...,192,covered,,update-code-lists-in-mois,The DOBC Private Fee Codes update utility is taught.
+303214,Add to the Immunization Inventory,Administration > How Do I...,125,covered,,stock-the-immunization-inventory-in-mois,"CDIC pick, dose, Lot Numbers tab, restart taught."
+303367,Assign All of One Doctor’s Patients to Another Doctor,Administration > How Do I...,165,covered,,reassign-a-doctors-patients-in-mois,DEACON Find and Replace / Replace Blank provider and results sheet taught.
+303189,Assign Security Profiles,Administration > How Do I...,103,covered,,assign-security-profiles-in-mois,"Change, tick profiles, Change Privileges, Apply, restart taught."
+303348,Change Margins for Printing,Administration > How Do I...,44,covered,,change-print-margins-in-mois,RXPRINTER - WINDOWS margins taught.
+303188,Change Password,Administration > How Do I...,77,covered,,set-a-password-policy-in-mois,Admin Change Password with next-login option taught.
+303338,Change Refresh Time for Tasks and Messages,Administration > How Do I...,59,covered,,change-refresh-time-in-mois,NOTIFICATION SERVICE refresh seconds taught.
+303346,Change Your Form Printer,Administration > How Do I...,38,covered,,change-form-printer-in-mois,PRINTER/PRINTERS Form printer change taught.
+303178,Change a Provider's Signature,Administration > How Do I...,85,covered,,add-a-provider-in-mois,Change Name window and Synchronize with Name Fields taught.
+303347,Change the Character Limit on a Prescription,Administration > How Do I...,45,covered,,change-rx-character-limit-in-mois,RXPRINTER - DOT MATRIX character limit taught.
+303349,Change the Font on Labels,Administration > How Do I...,44,covered,,change-label-font-in-mois,LABEL PRINTING Font Name taught.
+303350,Change the Information that Appears on Reports,Administration > How Do I...,66,covered,,change-report-information-in-mois,REPORT OPTIONS rows for cards and referral report taught.
+303351,Configure for Lab Downloads,Administration > How Do I...,104,covered,,configure-lab-downloads-in-mois set-up-a-lab-interface-in-mois,NHA user alias and Setup/Registration interface plus default inbox taught.
+303194,Create Text/Label,Administration > How Do I...,178,covered,,create-a-text-label-in-mois,"New Record, two saves, underscore F7/F8 jump points taught."
+302639,Create a Concept,Administration > How Do I...,161,covered,,create-a-concept-in-mois,
+303174,Create a Custom Encounter Forms,Administration > How Do I...,83,covered,,create-a-custom-encounter-form-in-mois,"New Record, name, Create Record, Detail window tabs taught."
+303224,Create a Flow Sheet,Administration > How Do I...,137,covered,,build-a-flow-sheet-in-mois,"New Record, New Element, order, Data Source binding, Save and Close taught."
+303352,Create a Lockout,Administration > How Do I...,202,covered,,create-a-lockout-in-mois,"LOCKOUT message/end, save, login view, Release Lock taught."
+1784166,Create a New Benefit Source and Service,Administration > How Do I...,253,covered,,add-a-benefit-source-in-mois,"Benefit source, services, edit/inactivate taught."
+303228,Create a New Measurement Template,Administration > How Do I...,307,covered,,build-a-measurement-template-in-mois enter-measurements-from-a-template,"Template build plus Template/Other Template, Measures Template Entry use taught."
+2069798,Create a New Organization or Organizational Role,Administration > How Do I...,1455,partial,partial,convert-a-provider-to-an-org-role-in-mois,"Only summarised; New Org Role Profile, Scheduling/access, Membership add users, Service, Location, Subscriptions tabs not taught; lists only on stage."
+303203,Create a New User Group,Administration > How Do I...,144,covered,,create-a-user-group-in-mois,"New group, members, any-member completion rule taught."
+2069356,Create a Reference Set,Administration > How Do I...,344,covered,,create-a-reference-set-in-mois,"New set, Code Source, Add codes, save-per-code, inactive codes taught."
+303195,Create a Snippet,Administration > How Do I...,154,covered,,create-a-snippet-in-mois,"Code/Value, CDIC for meds, backtick trigger taught."
+303193,Creating a Password Policy,Administration > How Do I...,69,covered,,set-a-password-policy-in-mois,"Edit Policy, length, categories, recycle, expiry taught."
+303222,Download the Latest MSP Code List,Administration > How Do I...,129,covered,,update-msp-fee-codes-in-mois update-code-lists-in-mois,"Teleplan download, Yes prompt, manual Auto-Update Utilities route taught."
+303223,Download the Latest MSP Explanatory Code List,Administration > How Do I...,106,covered,,update-code-lists-in-mois update-msp-fee-codes-in-mois,Download Explanatory Codes and manual route taught.
+303181,Edit Printer Settings,Administration > How Do I...,72,covered,,register-a-computer-in-mois,"Computer Registration record, exact Windows printer name, Maintenance route mentioned."
+303198,Edit Visit Code Colours,Administration > How Do I...,211,covered,,edit-a-selection-list-in-mois,"Row/Block Color, colour window, Add to Custom Colours taught."
+303327,Edit a Paper Form,Administration > How Do I...,200,covered,,edit-a-paper-form-in-mois,"Preview numbers, Populator/Property/Value Type, Default Value, duplicate check taught."
+303353,Edit the Chart Summary,Administration > How Do I...,706,partial,yes,edit-a-chart-summary-in-mois,Section options and Red Flag taught; adding a new specific-Measures section via New Record + code/description Record Filter missing.
+303219,Edit/Add to Prompt List,Administration > How Do I...,226,covered,,edit-a-prompt-list-in-mois,Selection List Manager and Service Code default diagnostic taught.
+366807,Export an Immunization Inventory,Administration > How Do I...,149,covered,,share-the-immunization-inventory-in-mois,Export Immunization List selection and contents taught.
+303355,Forward an Inbox,Administration > How Do I...,349,covered,,manage-a-workspace-in-mois,"Inbox Forwarding rule, Reassign vs Copy, loop caveat taught."
+2090817,How to Convert a Provider to an Org Role or Organization,Administration > How Do I...,178,covered,,convert-a-provider-to-an-org-role-in-mois,Utilities Convert to Different Provider Type and conversion options taught.
+303237,Import a Paper Form,Administration > How Do I...,1015,covered,,import-a-paper-form-in-mois,In-MOIS Import Forms/Duplicate/Select taught; Exchange website and Cloud Files steps are external.
+366809,Import an Immunization Inventory,Administration > How Do I...,211,covered,,share-the-immunization-inventory-in-mois,Import overwrite/no-merge behaviour taught.
+303171,Limit Number of Encounter Popup Windows,Administration > How Do I...,112,covered,,limit-encounter-windows-in-mois,
+303336,Look up Your Claim File Number,Administration > How Do I...,42,covered,,look-up-the-claim-file-in-mois,MSP band ClaimFile row taught.
+303186,Make a User/Provider Inactive,Administration > How Do I...,993,covered,,deactivate-a-user-in-mois,"Full checklist: Active, aliases, memberships, forwarding, workspace, Clean List, DEACON taught."
+303366,Make “Heart Failure Combined Systolic/Diastolic” Appear on the Health Maintenance,Administration > How Do I...,67,covered,,add-a-concept-rule-in-mois,"CHF Admissions Heart/Failure include, Acute exclude rule taught."
+3174433,Manage User/Provider Accounts,Administration > How Do I...,69,n/a,,,Index page of links only; the targets are covered by the user-admin lessons.
+2069358,Modify the Universal Search Window (USW) Lookup Settings,Administration > How Do I...,391,covered,,create-a-reference-set-in-mois,"Lookup Settings, Configure Code Lookup Setting, Save My Default Settings taught."
+303191,Override Access Settings,Administration > How Do I...,249,covered,,override-user-access-in-mois,Module Access Override on Data Exchange and keep-ticked warning taught.
+303358,Reassign a Backlog,Administration > How Do I...,139,covered,,manage-a-workspace-in-mois,Reassign Backlog Select Users and confirm taught.
+311254,Remove Stopped Recalls from the Care Plan Summary,Administration > How Do I...,65,covered,,edit-a-chart-summary-in-mois,Care Plan NOTIFICATION Record Filter for stopped recalls taught.
+303182,Scheduler Refresh Rate,Administration > How Do I...,72,covered,,register-a-computer-in-mois,Other Settings Scheduler Refresh field taught.
+303175,Set Default Visit Code Duration,Administration > How Do I...,134,covered,,edit-a-selection-list-in-mois,"Visit Code # of Slots, restart, provider override all taught."
+303168,Set Global Settings,Administration > How Do I...,60,covered,,set-global-settings-in-mois,
+303172,Set Label Configurations,Administration > How Do I...,153,covered,,set-label-name-format-in-mois,
+303177,Set a Default City According to Postal Code,Administration > How Do I...,106,covered,,default-a-city-from-postal-code-in-mois,Postal Code selection list plus APP SETTING Postal Code Service taught.
+303360,Set a Default Visit Mode,Administration > How Do I...,568,covered,,add-a-provider-in-mois,Default Visit Mode on Scheduling tab taught; full code list is reference only.
+303176,Set the Reminder Grace Period Default,Administration > How Do I...,101,covered,,edit-a-selection-list-in-mois,Reminder/Recall Code Grace Period (Days) column taught.
+303196,Trigger a Snippet,Administration > How Do I...,112,covered,,create-a-snippet-in-mois,Backtick trigger and both failure rules taught.
+303339,Turn Off Log Messages,Administration > How Do I...,42,covered,,turn-off-log-messages-in-mois,NOTIFICATION Log Message OFF taught.
+303197,Use Global Reminders,Administration > How Do I...,181,covered,,use-global-reminders-in-mois,"Reminder line, Detail trigger and Condition(s) rows taught; Detail tab only described."
+303225,Use a Flow Sheet,Administration > How Do I...,154,covered,,run-a-flow-sheet-in-mois flow-sheet-a-chronic-disease-in-mois,HMR Flow Sheet button and encounter-form Flow Sheet routes taught.
+3076723,Update Local Printer Settings In MOIS,Administration > How Do I... > Edit Printer Settings,192,partial,partial,register-a-computer-in-mois change-form-printer-in-mois,Windows printer install is out of scope; Maintenance > Computer Settings printer picker/Set as default/Select Printer not taught.
+3785340,Best Possible Medication History (BPMH),Administration > Letter Templates,131,gap,yes,,BPMH table tag in a letter template or letter isn't taught; the tag exists in letterWriter data. Fold it into a letter-template lesson.
+3797326,Encounter Lite,Alternate Launch Modes,1962,gap,no,,"Encounter Lite streamlined launch mode: chart, demographics, notes, discharge time, tasks. Only a launch-mode column in user admin."
+3103943,MyEncounters,Alternate Launch Modes,659,gap,no,,"MyEncounters launch mode: quick encounter note, search by timeframe, continue a previous note, default fee code. No launch-mode screens."
+304068,AIHS Resources,Appendices,425,n/a,,,External BHSS website and resource forum.
+304070,Archived - Automated Notifications,Appendices,2609,n/a,,,"Archived, outdated Inphonite third-party call-list service."
+1776677,BC PCPC Provider Compensation Project,Appendices,1374,partial,yes,enrol-a-patient-in-pbf-in-mois unenrol-a-patient-from-pbf-in-mois add-a-benefit-source-in-mois,"Enrolment via Benefits is taught. Missing: PCPC settings (Global/Protected, provider PCPC code) and billing 96198 in-basket claims with their validation."
+304061,Basic Lab Codes,Appendices,738,n/a,,,Reference table of lab quick codes; code entry itself is taught in input-a-lab-code-in-mois.
+304753,CDX Secure Messaging,Appendices,2032,partial,partial,set-up-a-lab-interface-in-mois configure-lab-downloads-in-mois download-electronic-results-in-mois match-an-unmatched-lab-in-mois work-the-quality-review-in-mois write-a-referral-letter-in-mois write-a-consult-note-in-mois,"Setup, download, inbound, QR and sending are taught. Missing: authoring Referral/Consult letter templates (header, populators, tags) in Designer > Letter Templates."
+304058,Dependencies Required to Run MOIS,Appendices,449,n/a,,,IT: workstation component dependencies.
+1849083,How to Custom Format a Paper Form,Appendices,445,n/a,,,"Edit form XML outside MOIS with 7zip, Acrobat and Notepad++."
+2469338,How to Select and Use COVID-19 Fee Codes,Appendices,1123,covered,yes,update-msp-fee-codes-in-mois create-a-reference-set-in-mois,Fee download and Lookup Settings are taught; the rest is a dated code table.
+304078,How to Set Up Residents in MOIS,Appendices,865,partial,yes,write-a-second-progress-note-in-mois use-the-resource-day-book-in-mois add-a-user-account-in-mois add-a-provider-in-mois,"Building blocks are taught. Missing: the three resident setups (provider with preceptor alias, preceptor day book, resident as resource) and workspace sharing."
+304389,Protecting your Patients' Information,Appendices,530,n/a,,,Support policy on redacting screenshots; not a MOIS procedure.
+304059,SSL Connectivity,Appendices,703,n/a,,,IT: SSL connectivity (duplicate).
+304126,Teleplan Web Service Availability Schedule,Appendices,105,n/a,,,Reference: MSP maintenance-window schedule.
+304076,Updating MSP Codes,Appendices,223,covered,yes,update-msp-fee-codes-in-mois update-code-lists-in-mois,Download fee and explanatory codes and apply.
+1776678,BC PCPC In Basket Fee Codes,Appendices > BC PCPC Provider Compensation Project,1169,n/a,,,Reference table of in-basket fee codes.
+2401462,Burden of Care Complexity Index Calculator,Appendices > BC PCPC Provider Compensation Project,656,gap,yes,,"Run the PCPC Complexity Index Calculator (options, Run Calculator, Load Previous Results into Chart Navigator). The calculator screen exists."
+304756,Send a Consult Note,Appendices > CDX Secure Messaging > How Do I...,1105,covered,yes,write-a-consult-note-in-mois,"Ctrl+Shift+R, template, order linking, distribution."
+304755,Send a Referral Letter,Appendices > CDX Secure Messaging > How Do I...,950,covered,yes,write-a-referral-letter-in-mois,"Ctrl+R, order, template, Letter Setup, distribution."
+304757,Send an AD HOC Letter,Appendices > CDX Secure Messaging > How Do I...,98,covered,yes,enter-a-document-in-mois add-an-attachment-in-mois write-a-consult-note-in-mois,"Documents New Record, then attach a letter template, then the same distribution as a consult."
+304754,Use the Quality Review,Appendices > CDX Secure Messaging > How Do I...,359,covered,yes,work-the-quality-review-in-mois use-the-quality-review-in-mois,"Errors and warnings, Tear Off and Record Navigator."
+303600,Billing Contents,Billing,316,partial,,find-a-claim-in-mois print-a-day-sheet-in-mois visit-every-mois-module,Module overview; Views hotkeys (Alt+9/0/I) and Billing Print menu (all-provider day sheets etc.) not taught.
+2069402,Billing With the Integration of Multiple Code Sets (MCS),Billing,187,partial,,use-the-ellipsis-in-mois bill-off-the-scheduler-in-mois,"SNOMED-to-ICD-9 swap mentioned; not taught: seeing swapped code on the unsent claim, viewing Associated Mappings in Codeset Management > Codes."
+303603,Invoices,Billing,1536,partial,yes,pay-an-invoice-in-mois,"Only payment taught; missing create invoice, third-party invoice, statements, receipts, payor labels, GST/PST rates, invoice heading."
+3166420,Longitudinal Family Physician (LFP)Payment Model,Billing,2222,gap,partial,,"LFP enablement, provider registration, payment mode, time logging, time summary, ICBC/WCB interplay. LFP Setup/Registration/Time Summary views exist; no Time Logger."
+3788178,Patient Attachment System,Billing,210,gap,partial,,PAS Management: Patient Changes filters and Panel Review registrations. Panel Review view exists; Patient Changes node not rendered.
+3258361,Patient Panel - How to Assign to Providers,Billing,329,covered,,reassign-a-doctors-patients-in-mois edit-a-patient-chart-in-mois,DEACON Find and Replace / Replace Blank taught; per-chart Service Provider is ordinary demographics editing.
+3295289,Patient Panel - How to: Bulk Patient Panel Registration for LFP,Billing,593,gap,partial,,"LFP panel registration claims in bulk; LFP views and Bulk Claim Creation Wizard menu item exist, wizard itself not built."
+2257761,Population Based Funding,Billing,2581,partial,yes,enrol-a-patient-in-pbf-in-mois unenrol-a-patient-from-pbf-in-mois,"Enrol/unenrol taught; eligibility request, unsent/unack/failed enrolment claims, MSP CR review, history, complexity index, configuration not."
+303602,Sent Claims,Billing,2424,partial,yes,find-a-claim-in-mois reconcile-a-remittance-in-mois,"Lookup, explanatory codes, resubmit taught; missing delete, write-off, debit, remittance history, adjustment summary, Claim Review Wizard."
+303601,Unsent Claims,Billing,3909,partial,yes,find-a-claim-in-mois bill-an-inmate-in-mois bill-off-the-scheduler-in-mois create-a-wcb-form-in-mois,"Missing: manual MSP claim end to end, hospital/out-of-province/baby claims, time-dependent claims, pay mode, Claim Review and Bulk Claim wizards."
+3852837,LFP FAQ,Billing > Longitudinal Family Physician (LFP)Payment Model,257,gap,partial,,Duplicate LFP time claims: set Options Sub Code D and resubmit. Fold into an LFP lesson; LFP time claims not modelled.
+2258278,PBF Administrator Role,Billing > Population Based Funding,1272,partial,yes,enrol-a-patient-in-pbf-in-mois unenrol-a-patient-from-pbf-in-mois,"CR approval taught; admin dashboard, failed/unack claims, MSP CR errors, bypass enrolment, overriding start/stop dates not."
+3786544,Billing How To's,Billing > Sent Claims,1225,partial,partial,reconcile-a-remittance-in-mois find-a-claim-in-mois,"Resubmit and explanatory code covered; Mark for Delete, write-off, debit claim, remittance history, Claim Review Wizard not taught."
+3447346,How to Bill Inmates,Billing > Unsent Claims,43,covered,,bill-an-inmate-in-mois,Insured By IN and CS number in PHN field taught exactly.
+303382,Attachment Utilities,Data Exchange,1639,covered,,scan-files-in-mois attach-a-scanned-document-in-mois view-an-attachment-in-mois,"Scan Files, rotate/merge/split, Attach Files with OCR text taught."
+303385,Automated Notifications,Data Exchange,1807,partial,partial,notify-a-secondary-contact-in-mois read-the-data-exchange-module-in-mois,"Proxy contact preferences taught; NRS setup, Call List generation, patient SMS/email responses not. Tree nodes exist, no views."
+303387,Chart Export,Data Exchange,749,covered,,export-a-chart-in-mois import-a-chart-in-mois exchange-a-chart-with-a-non-mois-clinic-in-mois,Export/import folders and logs covered.
+303388,Data Exchange Contents,Data Exchange,598,covered,,read-the-data-exchange-module-in-mois,"Module purpose, folders, toolbar and taskbar all taught."
+303384,Electronic Interfaces,Data Exchange,2656,covered,,read-the-data-exchange-module-in-mois download-electronic-results-in-mois match-an-unmatched-lab-in-mois set-up-a-lab-interface-in-mois work-the-quality-review-in-mois,"Send/Receive, Lab Results, Quality Review, Setup, Matching History, Data Audit covered; Inbox Distribution only named."
+3797121,Inbound Documents,Data Exchange,324,gap,no,,"Document Center inbound: folder registration, scan/attach/fax from one window. No Document Center in emulator."
+303383,MSP,Data Exchange,618,covered,,submit-claims-to-teleplan-in-mois reconcile-a-remittance-in-mois update-msp-fee-codes-in-mois,"Prepare Bills, Launch Teleplan, Reconcile Remittance all taught."
+303381,Manual Entry,Data Exchange,740,covered,,enter-lab-work-in-mois enter-an-imaging-report-in-mois enter-a-consult-report-in-mois enter-a-procedure-report-in-mois enter-a-facility-admission-in-mois enter-a-document-in-mois enter-a-result-in-mois,All seven Manual Entry folders have a lesson.
+3797120,Outbound Documents,Data Exchange,154,gap,no,,Document Center outbound fax log with status filters; requires integrated eFax. Low value; no screen.
+303386,Scorecard Export,Data Exchange,184,gap,partial,,"AMCARE scorecard export run window (version, provider, XML). Tree node only; low value, dated 2014 indicators."
+303488,Attach Scanned Documents,Data Exchange > How do I...,553,covered,,attach-a-scanned-document-in-mois enter-a-document-in-mois add-an-attachment-in-mois,"Both routes (Manual Entry attachment, Attachment Utility) taught."
+303506,Configure for Lab Downloads (NH),Data Exchange > How do I...,104,covered,,configure-lab-downloads-in-mois,
+333106,Correct a Pap Result,Data Exchange > How do I...,167,covered,,correct-a-pap-result-in-mois,
+303491,Download Electronic Results,Data Exchange > How do I...,105,covered,,download-electronic-results-in-mois,
+303483,Enter Consultations,Data Exchange > How do I...,90,covered,,enter-a-consult-report-in-mois,
+303487,Enter Documents,Data Exchange > How do I...,84,covered,,enter-a-document-in-mois,
+303485,Enter Facility Admissions,Data Exchange > How do I...,121,covered,,enter-a-facility-admission-in-mois,Distribute To and History panel included.
+303482,Enter Images,Data Exchange > How do I...,95,covered,,enter-an-imaging-report-in-mois,
+303480,Enter Lab Work,Data Exchange > How do I...,127,covered,,enter-lab-work-in-mois,Includes F3 save-and-duplicate and Alt+Z.
+303486,Enter Orders,Data Exchange > How do I...,105,covered,,enter-a-result-in-mois,Tutorial is the Manual Entry Orders procedure.
+303484,Enter Procedures,Data Exchange > How do I...,95,covered,,enter-a-procedure-report-in-mois,
+303493,Export Patients,Data Exchange > How do I...,897,covered,,export-a-chart-in-mois,Disc/USB burning is outside MOIS.
+303494,Export Patients to a Non-MOIS Clinic,Data Exchange > How do I...,1290,covered,,exchange-a-chart-with-a-non-mois-clinic-in-mois,
+303497,Import Patients Charts,Data Exchange > How do I...,464,covered,,import-a-chart-in-mois,
+303499,Import Patients from a Non-MOIS Clinic,Data Exchange > How do I...,179,covered,,exchange-a-chart-with-a-non-mois-clinic-in-mois,
+303490,Link Orders,Data Exchange > How do I...,214,covered,,link-a-result-to-its-order-in-mois use-the-order-linking-service-in-mois,Manual Entry route covered; Inbound Documents route absent with Document Center.
+303492,Match Unmatched Labs,Data Exchange > How do I...,3203,partial,partial,match-an-unmatched-lab-in-mois,"Core matching taught; v2.31.41 enhancements (activity record, User Alias Review, unmatched workspace folder, routing/delegation) not."
+303501,Reconcile Remittance,Data Exchange > How do I...,422,covered,,reconcile-a-remittance-in-mois,
+303508,Record all Measurements,Data Exchange > How do I...,254,covered,,catch-a-measure-in-a-report-in-mois catch-a-missing-measure-in-mois enter-an-ejection-fraction-in-mois,
+1826262,Scan in MOIS,Data Exchange > How do I...,168,covered,,scan-files-in-mois,Including scanning best practice.
+303481,Set Up Lab Downloads,Data Exchange > How do I...,347,n/a,,,"External registration with Excelleris/health authorities: forms, phone numbers, data centre numbers."
+303504,Setup MOIS for Electronic Lab Downloads,Data Exchange > How do I...,280,covered,,set-up-a-lab-interface-in-mois configure-lab-downloads-in-mois,"Default inbox, CIX alias, interface credentials taught."
+303500,Submit to Teleplan,Data Exchange > How do I...,154,covered,,submit-claims-to-teleplan-in-mois,
+303502,Update MSP Fee Codes,Data Exchange > How do I...,219,covered,,update-msp-fee-codes-in-mois update-code-lists-in-mois,Automatic and manual routes taught.
+303509,Use OmniPage 18 and MOIS OCR,Data Exchange > How do I...,846,n/a,,,Third-party OmniPage configuration; the MOIS OCR step is already in attach-a-scanned-document.
+303507,Use The Quality Review,Data Exchange > How do I...,485,covered,,work-the-quality-review-in-mois use-the-quality-review-in-mois,
+303489,View Attached Documents,Data Exchange > How do I...,124,covered,,view-an-attachment-in-mois,
+303590,View Export Logs,Data Exchange > How do I...,80,covered,,export-a-chart-in-mois,Export log covered within export lesson.
+303496,View Import Logs,Data Exchange > How do I...,75,covered,,import-a-chart-in-mois,Import log re-print covered within import lesson.
+1828207,End User License Agreement,Getting Started,3667,n/a,,,Legal: EULA.
+304652,Computer Settings,Getting Started > Initial Setup,187,covered,yes,register-a-computer-in-mois change-form-printer-in-mois change-refresh-time-in-mois,Covers the Computer Settings printers and refresh settings.
+300579,Running MOIS Successfully,Getting Started > Initial Setup,407,n/a,,,IT: registering dependent components on a workstation.
+300583,SSL Connectivity,Getting Started > Initial Setup,749,n/a,,,IT: SSL certificates and Database.ini configuration.
+304730,Configure MOIS to Find a Fax Printer,Getting Started > Initial Setup > How To articles,42,covered,yes,change-form-printer-in-mois register-a-computer-in-mois,Setting a printer in Maintenance > Computer Settings is taught.
+304684,Code Lists in MOIS,Getting Started > Windows and Navigation,642,covered,yes,use-the-ellipsis-in-mois enter-a-health-problem-in-mois,"Why to code, and the codesets."
+304741,Common Windows Described,Getting Started > Windows and Navigation,3417,covered,yes,find-a-chart-in-mois move-between-charts-in-mois print-a-label-in-mois create-a-task-in-mois use-the-message-board-in-mois create-a-recall-in-mois use-the-prescription-wizard-in-mois view-an-attachment-in-mois write-a-progress-note-in-mois create-a-reference-set-in-mois,"Each common window (lookup, label, preview, task/message/recall, USW, dose wizard, attachments, spell check) is taught somewhere."
+300924,Keyboard Navigation,Getting Started > Windows and Navigation,281,covered,yes,use-tabs-and-hot-keys-in-mois,"Hot keys, accelerators, radio buttons and checkboxes."
+300528,MOIS Glossary,Getting Started > Windows and Navigation,5335,n/a,,,Glossary: a reference list of terms.
+304734,MOIS Viewer,Getting Started > Windows and Navigation,1459,partial,yes,view-an-attachment-in-mois create-a-requisition-from-an-encounter-in-mois edit-a-paper-form-in-mois,"The Viewer opens in tutorials. Missing: Viewer Mode setting (S,E,SI), filling and saving PDF fields, and a tour of the toolbars and markup."
+303240,MOIS Window Tour,Getting Started > Windows and Navigation,636,covered,yes,take-the-mois-window-tour visit-every-mois-module,Six areas plus top and bottom bars.
+2122622,Searching and Filtering Content in MOIS,Getting Started > Windows and Navigation,1533,partial,partial,read-the-measures-folder-in-mois,"Same content as 304711. Missing: default search field, history, negative, synonym and wildcard searching."
+304721,Standardized and Consistent Data Entry,Getting Started > Windows and Navigation,522,n/a,,,"Data-entry guidelines table, to post as a reference."
+304394,How to Change the MSP Teleplan Password,Getting Started > Windows and Navigation > How To articles,361,covered,yes,change-the-teleplan-password-in-mois,Utilities > Change Teleplan Password.
+1738554,How to Install and Use a Care Card Reader in MOIS,Getting Started > Windows and Navigation > How To articles,293,n/a,,,"Hardware install. The one MOIS step, Swipe Identification Card (F12), needs a physical card reader."
+2128358,Search and Filter Using the Universal Search Window,Getting Started > Windows and Navigation > MOIS Window Tour,469,partial,yes,create-a-reference-set-in-mois enter-a-health-problem-in-mois,"Lookup Settings are taught, but not using the USW: checkboxes, Parameters, history, F6/Esc, Alternate Terms, editing the preferred term."
+304711,Search for Records within a Chart and Filter Codes within Code Lists,Getting Started > Windows and Navigation > MOIS Window Tour,1464,partial,partial,read-the-measures-folder-in-mois find-a-chart-in-mois,"Only Search For and Advanced Search in Measures. Missing: default field, history, negative, synonym and wildcard searches, code-list filtering. Search For band unwired."
+304683,Using the Ellipsis,Getting Started > Windows and Navigation > MOIS Window Tour,134,covered,yes,use-the-ellipsis-in-mois,Three ways to open the list and the colour codes.
+304682,Using the Option Lists,Getting Started > Windows and Navigation > MOIS Window Tour,200,covered,yes,tag-a-record-to-the-care-plan-in-mois see-who-signed-a-record-in-mois,"Right-click Option List items, Tag to Care Plan and Audit Report."
+304686,Using the Tabs,Getting Started > Windows and Navigation > MOIS Window Tour,92,covered,yes,use-tabs-and-hot-keys-in-mois,Ctrl+tab number navigation.
+304655,Using the Taskbar,Getting Started > Windows and Navigation > MOIS Window Tour,116,covered,yes,use-the-task-bar-in-mois,All the common Taskbar buttons and their keys.
+304393,Using the Toolbar,Getting Started > Windows and Navigation > MOIS Window Tour,1912,covered,yes,use-the-mois-toolbar-in-mois use-the-action-menus-in-mois,"Every Toolbar menu, Alt hot keys and Desktop Provider."
+3295094,Default Billing Location,MOIS User Manual,176,gap,yes,,Set a provider's default MSP billing location from the day book MSP Loc field or Provider List > Billing. Neither route is taught.
+3318194,Launch Care Connect,MOIS User Manual,110,gap,partial,,"Utilities > Launch CareConnect from Demographics, plus enabling it in System Settings. Only the settings band exists; no menu item."
+3268648,Tasks and Messages,MOIS User Manual,383,partial,yes,read-the-task-list-in-mois create-a-task-in-mois use-the-message-board-in-mois create-a-task-from-the-chart-in-mois read-the-workspace-in-mois,"Hot keys, flashing footer and Workspace routes are taught. Missing: day book TK/MG columns (double-click to view or create) and right-click create options."
+3246147,Newsletter - Bright Health - Summer 2022,Newsletters - Bright Health,14,n/a,,,Newsletter.
+3246148,Newsletter - Bright Health - Spring 2023,Newsletters - Bright Health,14,n/a,,,Newsletter.
+3458100,Newsletter - Bright Health - Summer 2024,Newsletters - Bright Health,7,n/a,,,Newsletter.
+3386552,Newsletter - Bright Health - Winter 2023-24,Newsletters - Bright Health,14,n/a,,,Newsletter.
+303529,Alerts,Patient Chart,164,covered,,make-an-alert-in-mois,
+303131,Allergy/Intolerances,Patient Chart,1967,partial,yes,enter-a-reaction-risk-in-mois read-a-signed-adverse-event-in-mois,Reaction risk entry taught; recording No Known allergies and entering/linking an Adverse Event record not.
+303472,Care Plan,Patient Chart,1112,covered,,tag-a-record-to-the-care-plan-in-mois create-a-care-plan-snapshot-in-mois print-a-care-plan-in-mois distribute-a-care-plan-in-mois,
+303127,Consults,Patient Chart,644,covered,,enter-a-consult-report-in-mois print-a-consultation-in-mois write-a-consult-note-in-mois,
+301149,Demographics,Patient Chart,4458,partial,yes,register-a-patient-in-mois edit-a-patient-chart-in-mois use-tabs-and-hot-keys-in-mois record-a-next-of-kin-in-mois enter-wcb-information-in-mois enrol-a-patient-in-pbf-in-mois notify-a-secondary-contact-in-mois,"Most tabs taught; ID Alias entry, Occupation, Other Claims and Incentive Claims tabs not walked through."
+2593946,Determinants of Health,Patient Chart,373,gap,yes,,Employment/Education/Housing/Socioeconomic tabs and Update panel entry untaught; DeterminantsView exists in emulator.
+303445,Documents,Patient Chart,568,partial,yes,enter-a-document-in-mois view-an-attachment-in-mois add-an-attachment-in-mois,Document entry taught; distributing a paper form via CDX from Documents (change type to Misc) not.
+301931,Encounters,Patient Chart,3751,covered,,open-an-encounter-in-mois create-an-encounter-in-mois write-a-progress-note-in-mois edit-appointment-timestamps-in-mois link-a-measurement-to-an-encounter add-a-service-to-an-encounter show-a-review-on-the-encounter-summary fill-a-dynamic-form-in-mois,"Encounter list, detail window tabs and all How-Tos have tutorials."
+303527,Facility Admissions,Patient Chart,422,covered,,enter-a-facility-admission-in-mois print-an-admissions-list-in-mois,
+303130,Family History,Patient Chart,177,covered,,link-a-family-member-chart-in-mois print-a-family-history-in-mois,
+303523,Forms,Patient Chart,1937,covered,,fill-a-dynamic-form-in-mois find-dynamic-forms-in-mois create-a-requisition-from-an-encounter-in-mois score-a-pain-assessment-in-mois add-an-attachment-in-mois,"Paper, dynamic and encounter forms, drawing/signing on paper forms taught."
+303447,Health Issues,Patient Chart,1058,partial,yes,enter-a-health-problem-in-mois document-smoking-status-in-mois print-a-problem-list-in-mois,"Conditions taught; Risks for Conditions, Needs for Care entry and No Known not practised."
+304722,Health Maintenance Review,Patient Chart,2464,partial,yes,run-a-flow-sheet-in-mois document-smoking-status-in-mois create-a-concept-in-mois,"Opened only in passing; reading red/blue items, three tabs, tear-off/clipboard, HM rules untaught. HealthMaintenanceReviewWindow exists."
+303125,Imaging,Patient Chart,447,covered,,enter-an-imaging-report-in-mois print-a-radiology-report-in-mois,
+303129,Interventions,Patient Chart,231,covered,,enter-an-intervention-in-mois print-a-report-in-mois,
+303132,Long Term Medication,Patient Chart,1079,covered,,renew-a-long-term-medication-in-mois duplicate-a-long-term-medication-in-mois review-long-term-medications-in-mois print-a-medication-list-in-mois,
+304687,MOIS Letter Writer,Patient Chart,2449,partial,yes,write-a-referral-letter-in-mois write-a-consult-note-in-mois,"Referral/consult flows taught; Letter Writer editor menus, toolbox, detail reports, adding graphs not."
+302837,Measures,Patient Chart,3187,partial,partial,read-the-measures-folder-in-mois use-the-measures-taskbar-in-mois graph-a-measurement-in-mois read-a-measure-panel-in-mois calculate-bmi-in-mois enter-measurements-from-a-template,"List, panel view, history, graphing, calculators taught; sending PHQ-9 patient questionnaire and dynamic measure calculators not."
+303427,Medication Administration Record,Patient Chart,3811,partial,yes,create-a-mar-record-in-mois delete-a-mar-record-in-mois cancel-a-mar-parent-order-in-mois print-a-mar-history-in-mois,"Only Administer is practised; medication order, reschedule, not given, witness, history, self-admin, series/drug lookup only listed."
+303528,Notifications,Patient Chart,1259,covered,,read-notifications-in-mois create-a-reminder-in-mois create-a-recall-in-mois create-a-task-from-the-chart-in-mois send-a-message-from-the-chart-in-mois,
+303526,Orders,Patient Chart,1619,covered,,create-a-patient-order-in-mois write-a-referral-letter-in-mois link-a-result-to-its-order-in-mois send-a-cdx-information-request-in-mois,
+303741,Patient Chart Contents,Patient Chart,7502,covered,,read-a-patient-chart-in-mois take-the-mois-window-tour use-the-mois-toolbar-in-mois use-the-action-menus-in-mois use-the-task-bar-in-mois use-the-ellipsis-in-mois see-who-signed-a-record-in-mois,"Folders, toolbar menus, taskbar, ellipsis colours, right-click, acknowledgements/workflow summary all taught across the tour tutorials."
+303745,Patient Summary,Patient Chart,461,covered,,read-the-patient-summary-in-mois,
+3445223,Photo Upload,Patient Chart,33,n/a,,,"Stub pointing to smartphone mobile photo upload, outside the desktop MOIS client."
+303227,Prescriptions,Patient Chart,2730,partial,partial,create-a-prescription-in-mois use-the-prescription-wizard-in-mois print-a-prescription-in-mois void-a-prescription-in-mois use-a-favourite-medication-in-mois,"Core Rx taught; controlled prescriptions (enable + create), pharmacy selection and electronic signatures not."
+303128,Procedures,Patient Chart,370,covered,,enter-a-procedure-report-in-mois print-a-procedure-list-in-mois,
+3071982,Quick Entry Templates,Patient Chart,2961,gap,partial,,"Admin set-up and chart use of Quick Entry templates (preference, goal, order, reaction risk, MSP secondary) untaught; Quick Entry buttons exist, no windows."
+3073634,Requisitions - Embedded Mode,Patient Chart,516,partial,yes,create-a-requisition-from-an-encounter-in-mois,Embedded viewer use is taught; turning on MOIS Viewer Mode = E in System Settings is not.
+2069403,Service Episodes,Patient Chart,1103,covered,,add-a-service-to-an-encounter,"Episode vs event, Services tab and encounter Service(s) tab taught."
+304732,Signed Records,Patient Chart,220,covered,,see-who-signed-a-record-in-mois,
+303438,Social History,Patient Chart,383,covered,,enter-social-history-in-mois print-a-social-history-in-mois,
+304702,Superfind,Patient Chart,235,covered,,find-patients-by-prescription-in-mois,
+303512,Barriers to Care,Patient Chart > Care Plan,242,gap,yes,,Entering barriers to care untaught; CarePlanView barrier screen exists.
+2070138,Care Plan/ Plan of Care Distribution,Patient Chart > Care Plan,179,covered,,distribute-a-care-plan-in-mois,
+303498,Goals,Patient Chart > Care Plan,1423,gap,yes,,"Creating goals, quantitative goals, evaluation, linking health issues/actions untaught; GoalsView/GoalDialog exist."
+303513,Patient Resources,Patient Chart > Care Plan,136,gap,yes,,Entering patient resources untaught; screen defined in chartScreens.
+303511,Planned Actions,Patient Chart > Care Plan,194,gap,yes,,Adding planned actions and linking goals untaught; CarePlanView renders actions.
+300925,Preferences,Patient Chart > Care Plan,1820,gap,yes,,"Recording consent preferences (declined, not indicated, DNR, Pharmanet consent) untaught; PreferencesDetail/PreferenceChoice screens exist."
+303514,Summary Settings,Patient Chart > Care Plan,747,gap,partial,tag-a-record-to-the-care-plan-in-mois,"Care Plan Sections/Elements, relative tagging, Add From Template only mentioned; Summary Settings screen shell exists."
+356048,Asthma,Patient Chart > Encounters > Encounter Forms,236,partial,partial,create-a-chronic-disease-template-in-mois flow-sheet-a-chronic-disease-in-mois,"Starting the Asthma form and flow sheet taught; form tabs (Bring Forward, Investigations reminders, Review/HMR, Information) not. Form window absent."
+356049,CHF,Patient Chart > Encounters > Encounter Forms,208,partial,partial,create-a-chronic-disease-template-in-mois flow-sheet-a-chronic-disease-in-mois,"Starting the CHF form and flow sheet taught; form tabs (Bring Forward, Investigations reminders, Review/HMR, Information) not. Form window absent."
+356050,COPD,Patient Chart > Encounters > Encounter Forms,206,partial,partial,create-a-chronic-disease-template-in-mois flow-sheet-a-chronic-disease-in-mois,"Starting the COPD form and flow sheet taught; form tabs (Bring Forward, Investigations reminders, Review/HMR, Information) not. Form window absent."
+356051,Diabetes,Patient Chart > Encounters > Encounter Forms,236,partial,partial,create-a-chronic-disease-template-in-mois flow-sheet-a-chronic-disease-in-mois,"Starting the Diabetes form and flow sheet taught; form tabs (Bring Forward, Investigations reminders, Review/HMR, Information) not. Form window absent."
+356055,First Assessment,Patient Chart > Encounters > Encounter Forms,606,partial,partial,fill-a-dynamic-form-in-mois,Named as worked example but form's sections and buttons never opened; emulator has read-only legacy dynamic-form window.
+356053,HTN,Patient Chart > Encounters > Encounter Forms,224,partial,partial,create-a-chronic-disease-template-in-mois flow-sheet-a-chronic-disease-in-mois,"Starting the HTN form and flow sheet taught; form tabs (Bring Forward, Investigations reminders, Review/HMR, Information) not. Form window absent."
+356052,Hep C,Patient Chart > Encounters > Encounter Forms,190,partial,partial,create-a-chronic-disease-template-in-mois flow-sheet-a-chronic-disease-in-mois,"Starting the Hep C form and flow sheet taught; form tabs (Bring Forward, Investigations reminders, Review/HMR, Information) not. Form window absent."
+356056,Osteoarthritis Follow-Up,Patient Chart > Encounters > Encounter Forms,403,gap,partial,,OA follow-up dynamic form sections untaught; catalog entry + read-only legacy form window exist.
+356058,Pain Assessment,Patient Chart > Encounters > Encounter Forms,533,covered,,score-a-pain-assessment-in-mois,
+356057,Rheumatoid Arthritis Follow-Up,Patient Chart > Encounters > Encounter Forms,407,gap,partial,,RA follow-up dynamic form sections untaught; catalog entry + read-only legacy form window exist.
+356054,WCB Report,Patient Chart > Encounters > Encounter Forms,567,covered,,create-a-wcb-form-in-mois populate-wcb-claim-information-in-mois assign-a-progress-note-to-a-form,
+361951,Assign a Progress Note,Patient Chart > Encounters > How Do I,86,covered,,assign-a-progress-note-to-a-form,
+2646482,Create a Sick Note from an Encounter,Patient Chart > Encounters > How Do I,138,covered,,write-a-sick-note-in-mois write-a-second-progress-note-in-mois,
+361789,Populate the Claim Information,Patient Chart > Encounters > How Do I,233,covered,,populate-wcb-claim-information-in-mois enter-wcb-information-in-mois,
+359179,Print a Flow Sheet,Patient Chart > Encounters > How Do I,85,covered,,flow-sheet-a-chronic-disease-in-mois run-a-flow-sheet-in-mois,
+303793,Add Attachments,Patient Chart > How do I...,1025,partial,partial,add-an-attachment-in-mois view-an-attachment-in-mois,Missing Active Encounter association (ENC# ellipsis) and adding 2nd+ attachments via Attachment List.
+304699,Add Graphs to the MOIS Letter Writer,Patient Chart > How do I...,83,covered,,graph-a-measurement-in-mois,"Options > Copy to Clipboard, paste into letter."
+303519,Add Paper Forms,Patient Chart > How do I...,155,covered,,create-a-requisition-from-an-encounter-in-mois,Action > Create Order for Lab/Image/Procedure/Misc Requisition.
+303234,Add a Prescription to Favourites List,Patient Chart > How do I...,125,covered,,use-a-favourite-medication-in-mois,Right-click Add to My Favourites with identifier.
+301176,Archive an Address,Patient Chart > How do I...,37,covered,,archive-an-address-in-mois,
+303065,Calculate Body Mass Index (BMI),Patient Chart > How do I...,182,covered,,calculate-bmi-in-mois,Both calculator/Populate and auto-calculated BMI code routes taught.
+1741600,Cancel a MAR Parent Order,Patient Chart > How do I...,184,covered,,cancel-a-mar-parent-order-in-mois,"Open Parent Order, Cancel Order, reason, warning."
+301556,Change Patient Address Using the Wizard,Patient Chart > How do I...,74,covered,,change-an-address-with-the-wizard-in-mois,
+301177,Change a Name,Patient Chart > How do I...,54,covered,,change-a-patient-name-in-mois,
+301174,Change the Patient Photo,Patient Chart > How do I...,76,covered,,change-the-patient-photo-in-mois,
+303588,Create Patient Orders,Patient Chart > How do I...,152,covered,,create-a-patient-order-in-mois,"Order type, Order To, code, referral text, attachments."
+1673065,Create a Care Plan Snapshot,Patient Chart > How do I...,89,covered,,create-a-care-plan-snapshot-in-mois,"Create Snapshot, letterhead, note, paste."
+303099,Create a Consultation Report,Patient Chart > How do I...,1067,covered,,write-a-consult-note-in-mois,New Referral Mode walked through; Standard Mode Response Window explained.
+303105,Create a Dynamic Form,Patient Chart > How do I...,177,partial,partial,fill-a-dynamic-form-in-mois find-dynamic-forms-in-mois,"Stops at selection list; filling Musculoskeletal First Assessment, tender/swollen joint pickers, signing not practised."
+1927481,Create a MAR Record,Patient Chart > How do I...,438,covered,,create-a-mar-record-in-mois,"All eight MAR actions (administer, history, order, witness, not given...)."
+303102,Create a PHQ 9 Form,Patient Chart > How do I...,158,gap,partial,,"PHQ-9 quick code then F4 questionnaire in Value; mirrors BP form tutorial. PHQ-9 data exists, no questionnaire window."
+303107,Create a Pain Assessment Form,Patient Chart > How do I...,455,covered,,score-a-pain-assessment-in-mois,"Sections, red/yellow flags, opioid checklist colours, Delete clears radio."
+303229,Create a Prescription,Patient Chart > How do I...,1189,covered,,create-a-prescription-in-mois print-a-prescription-in-mois use-a-favourite-medication-in-mois renew-a-long-term-medication-in-mois,"New Rx, drug lookup, wizard, print/reprint, interactions split across tutorials."
+303235,Create a Prescription From Favourites List,Patient Chart > How do I...,123,covered,,use-a-favourite-medication-in-mois,"Rx Favourite/Shift+F4, My vs Clinic source."
+303063,Create a Progress Note,Patient Chart > How do I...,71,covered,,write-a-progress-note-in-mois,"Open encounter, Progress Note tab, type, F2."
+303595,Create a Recall,Patient Chart > How do I...,123,covered,,create-a-recall-in-mois,"Recalls tab, due date, triggers, Repeat every."
+303589,Create a Referral Letter,Patient Chart > How do I...,1854,partial,yes,write-a-referral-letter-in-mois,New Referral Mode fully taught; editing undistributed/correcting distributed letters and Standard Mode only mentioned.
+303594,Create a Reminder,Patient Chart > How do I...,71,covered,,create-a-reminder-in-mois,"Reminders tab, start date, triggering events."
+303062,Create a Requisition Order or Special Authority Order from the Encounter Detail Window,Patient Chart > How do I...,204,covered,,create-a-requisition-from-an-encounter-in-mois,
+303596,Create a Task,Patient Chart > How do I...,343,covered,,create-a-task-in-mois create-a-task-from-the-chart-in-mois,"Ctrl+K, fields, default assignees, team-task rule."
+303118,Create a WCB Form,Patient Chart > How do I...,310,covered,,create-a-wcb-form-in-mois populate-wcb-claim-information-in-mois,"WCB Report form, F4 claim, Update Patient Chart, Create MSP Claim."
+303061,Create an Encounter,Patient Chart > How do I...,55,covered,,create-an-encounter-in-mois,
+1664605,Delete a MAR Record,Patient Chart > How do I...,131,covered,,delete-a-mar-record-in-mois,"Delete with reason, grouped views, security profile."
+303111,Document Smoking Status and Tobacco Use,Patient Chart > How do I...,884,covered,,document-smoking-status-in-mois,"Packs/day, pack-years, smokeless, non/former/current smoker."
+303521,Draw on a Paper Form,Patient Chart > How do I...,123,covered,,create-a-requisition-from-an-encounter-in-mois,MOIS Viewer Pencil/markup tools taught.
+303215,Duplicate Long Term Medication,Patient Chart > How do I...,53,covered,,duplicate-a-long-term-medication-in-mois,Duplicate (Ctrl+D) from Long Term Meds.
+301172,Edit Patient Charts,Patient Chart > How do I...,54,covered,,edit-a-patient-chart-in-mois,
+303122,Ensure All Measurements are Recorded Properly After Importing from the Lab Interface (Example of Ejection Fraction),Patient Chart > How do I...,351,covered,,catch-a-missing-measure-in-mois catch-a-measure-in-a-report-in-mois enter-an-ejection-fraction-in-mois,Patients by Procedure report and Quality Review workarounds.
+303104,Enter Blood Pressure,Patient Chart > How do I...,157,covered,,enter-blood-pressure-in-mois,"Quick code BP, F4 form in Value, Save/Close Form."
+303144,Enter Interventions,Patient Chart > How do I...,40,covered,,enter-an-intervention-in-mois,New record in Interventions folder.
+303440,Enter Social History/Risk Records,Patient Chart > How do I...,56,covered,,enter-social-history-in-mois,New record in Social History/Risk folder.
+301555,Enter WCB Information,Patient Chart > How do I...,173,covered,,enter-wcb-information-in-mois,
+303455,Enter a Health Problem,Patient Chart > How do I...,97,covered,,enter-a-health-problem-in-mois,"Conditions new record, ICD9, certainty, severity, sensitive."
+303210,Enter a New Reaction Risk,Patient Chart > How do I...,201,covered,,enter-a-reaction-risk-in-mois,"Allergy vs intolerance, agent type, onset, reactions, severity."
+2194399,Entering Cardiac Ejection Fraction,Patient Chart > How do I...,55,covered,,enter-an-ejection-fraction-in-mois,"Average in Value, range in comments."
+303067,Graph Lab Codes,Patient Chart > How do I...,63,covered,,graph-a-measurement-from-the-day-book-in-mois graph-a-measurement-in-mois,Graph from encounter Measurements tab plus graph Options menu.
+303109,How to Add a GAD 7 Form,Patient Chart > How do I...,124,covered,,score-a-pain-assessment-in-mois,"GAD-7 ellipsis in Pain Assessment Tools, score written back and to Measures."
+2069406,How to Add and Modify Services,Patient Chart > How do I...,424,covered,,add-a-service-to-an-encounter,Service event phases plus episode from Demographics Services tab.
+303789,How to Create a Flow Sheet,Patient Chart > How do I...,205,covered,,run-a-flow-sheet-in-mois,"Utilities > Flow Sheet Review, date range, type."
+303803,"How to Create a Task, Message, or Reminder when Adding an Attachment",Patient Chart > How do I...,104,covered,,add-an-attachment-in-mois,After Attaching list and Save Choice.
+2070139,How to Distribute a Care Plan/Plan of Care,Patient Chart > How do I...,234,covered,,distribute-a-care-plan-in-mois,"Distribute, letterhead, Letter Writer, Plan of Care types."
+2951102,How to Enroll a patient in Population Based Funding,Patient Chart > How do I...,356,covered,,enrol-a-patient-in-pbf-in-mois,
+303788,How to Paste Patient Text,Patient Chart > How do I...,257,covered,,paste-patient-text-in-mois,"Utilities > Paste Patient Text, new/select text."
+319687,How to Print a Patient's Demographics,Patient Chart > How do I...,25,covered,,print-patient-demographics-in-mois,Ctrl+D on Demographics.
+2961349,How to Send and Respond to a CDX Information Request,Patient Chart > How do I...,1218,partial,partial,send-a-cdx-information-request-in-mois,"Sending taught; responding to a received request (Respond) only mentioned, and Sending a Notification not taught."
+3445237,How to Take a Photo With Your Smartphone,Patient Chart > How do I...,25,n/a,,,Stub linking to external smartphone photo guide.
+2951461,How to Unenroll a patient in Population Based Funding,Patient Chart > How do I...,316,covered,,unenrol-a-patient-from-pbf-in-mois,
+301562,How to Use the Taskbar&#039;s Search Item,Patient Chart > How do I...,216,covered,,advance-chart-search-in-mois,
+303791,How to Use the Taskbar's Review Item,Patient Chart > How do I...,230,covered,,review-a-chart-folder-in-mois,"Review on Reaction Risks/LTM/Conditions, Mark Reviewed."
+301554,Identify the Next of Kin or Emergency Contact,Patient Chart > How do I...,74,covered,,record-a-next-of-kin-in-mois,
+303116,Include Reviewing on the Encounter Summary,Patient Chart > How do I...,109,covered,,show-a-review-on-the-encounter-summary,Review with open encounter appears on Encounter Summary.
+303066,Input Lab Codes,Patient Chart > How do I...,79,covered,,input-a-lab-code-in-mois,"New Record, F4 code, value, units, flag."
+303147,Link Family Member Charts,Patient Chart > How do I...,83,covered,,link-a-family-member-chart-in-mois,"Family History new record, chart F4, relationship, condition."
+303069,Link a Measurement to an Encounter,Patient Chart > How do I...,105,covered,,link-a-measurement-to-an-encounter,"Action > Link to Encounter, Encounter Link Service, Link Select Items."
+303598,Make Alerts,Patient Chart > How do I...,95,covered,,make-an-alert-in-mois,"Alerts folder new record, sensitive flag."
+301557,Merge a Chart,Patient Chart > How do I...,247,covered,,merge-a-chart-in-mois,
+303158,Print Family History List,Patient Chart > How do I...,59,covered,,print-a-family-history-in-mois,Family Hx for Patient report.
+303092,Print Selected Text,Patient Chart > How do I...,132,covered,,print-selected-text-in-mois,"Ctrl+Shift+N, Save and Attach, contrast with Print Note."
+303518,Print a Care Plan,Patient Chart > How do I...,145,covered,,print-a-care-plan-in-mois,"Print, letterhead choice, Print All."
+303134,Print a Consultation,Patient Chart > How do I...,136,covered,,print-a-consultation-in-mois,Consultations for Patient report and printing a row from Consults incl. sensitive warning.
+303591,Print a Facility Admissions List,Patient Chart > How do I...,80,covered,,print-an-admissions-list-in-mois,Facility Admission for Patient report.
+303457,Print a Health Problems List,Patient Chart > How do I...,58,covered,,print-a-problem-list-in-mois,Problem List for Patient report.
+301175,Print a Label,Patient Chart > How do I...,241,covered,,print-a-label-in-mois,
+303082,Print a List of Encounters,Patient Chart > How do I...,116,covered,,print-a-list-of-encounters-in-mois,"Clinical History Segment, Exclude All, Encounter Include, Print and Attach."
+319686,Print a Patient's MAR History,Patient Chart > How do I...,118,covered,,print-a-mar-history-in-mois,"MAR History parameters, concept, Select Records to Print."
+303142,Print a Procedure List,Patient Chart > How do I...,78,covered,,print-a-procedure-list-in-mois,Procedure List for Patient with date range.
+303120,Print a Radiology Report,Patient Chart > How do I...,78,covered,,print-a-radiology-report-in-mois,"Radiology Reports for Patient, date range, Print and Attach."
+303444,Print a Social History/Risk List,Patient Chart > How do I...,60,covered,,print-a-social-history-in-mois,Social History for Patient report.
+303146,Print an Interventions List,Patient Chart > How do I...,152,covered,,print-a-report-in-mois,"Interventions for Patient, Performed Date Range, Print and Attach."
+303233,Record Adapted Prescriptions,Patient Chart > How do I...,183,covered,,void-a-prescription-in-mois,"Void then duplicate, Office Note, scan pharmacy fax."
+301171,Register a Patient,Patient Chart > How do I...,80,covered,,register-a-patient-in-mois,
+303217,Renew Long Term Medication,Patient Chart > How do I...,347,covered,,renew-a-long-term-medication-in-mois,"F/S renewals, Renew/Print vs Renew/Print Direct."
+303218,Review Long Term Medications,Patient Chart > How do I...,136,covered,,review-long-term-medications-in-mois,"Review button, note, create record."
+2069363,Search and Filter in the Universal Search Window (USW),Patient Chart > How do I...,441,partial,partial,create-a-reference-set-in-mois,"Only admin-side lookup settings; user search/filter in USW (code system ticks, F6, Esc, recent searches) untaught."
+301170,Select a Chart Using Filtering,Patient Chart > How do I...,71,covered,,find-a-chart-in-mois edit-a-patient-chart-in-mois,
+303800,Sent Automated Notifications to a Secondary Contact,Patient Chart > How do I...,173,covered,,notify-a-secondary-contact-in-mois,Associated Parties then Patient Contact Preferences.
+304679,Set a Default Value,Patient Chart > How do I...,81,covered,,set-a-default-value-in-mois,"Maintenance > Default Value, Save Value."
+304731,Tag Data to a Care Plan,Patient Chart > How do I...,244,covered,,tag-a-record-to-the-care-plan-in-mois,Absolute (right-click Tag to Care Plan) and relative tagging.
+301558,Un-Merge a Chart,Patient Chart > How do I...,106,covered,,un-merge-a-chart-in-mois,
+301173,Update Patient Status,Patient Chart > How do I...,62,covered,,update-patient-status-in-mois,
+303070,Use a Template to Enter Measurements,Patient Chart > How do I...,235,covered,,enter-measurements-from-a-template build-a-measurement-template-in-mois,Template/Other Template plus Measures and Encounter Form entry points.
+332748,Use the Advanced Gender Designation Window,Patient Chart > How do I...,144,covered,,set-an-advanced-gender-designation-in-mois,Administrative/preferred/genotypic gender window.
+303794,Use the Chart Navigator From a File,Patient Chart > How do I...,1136,covered,,load-the-chart-navigator-in-mois,"Single-column CSV/TXT, Utilities > Chart Navigator Load from File."
+303597,Use the Internal Message Board,Patient Chart > How do I...,147,covered,,send-a-message-from-the-chart-in-mois use-the-message-board-in-mois,"Messages tab, Create New Message, Ctrl+M."
+303799,Use the MSP Eligibility Checker,Patient Chart > How do I...,464,covered,,check-msp-eligibility-in-mois,"Check button, Teleplan login, date of service."
+303236,Use the Prescription Wizard,Patient Chart > How do I...,359,covered,,use-the-prescription-wizard-in-mois,Rx Wizard dose/route/frequency and Multi-Step Dose.
+303787,Use the Superfind Option,Patient Chart > How do I...,185,covered,,find-patients-by-prescription-in-mois,"Record > Superfind, Find Patient, Patient List."
+303790,Use the Taskbar's Attachment Option,Patient Chart > How do I...,540,covered,,add-an-attachment-in-mois,"Taskbar Attachment, form/letter vs file, After Attaching."
+303792,Use the Taskbar's Link to Order Item,Patient Chart > How do I...,170,covered,,use-the-order-linking-service-in-mois link-a-result-to-its-order-in-mois,"Link to Order, Order Linking Service, status, unlink."
+301560,View Patient Claim History,Patient Chart > How do I...,72,covered,,view-patient-claim-history-in-mois,
+303090,View a Chronic Disease Management Flow Sheet,Patient Chart > How do I...,83,covered,,flow-sheet-a-chronic-disease-in-mois create-a-chronic-disease-template-in-mois,Flow Sheet from an encounter form with date range.
+303221,View a Current Medication List,Patient Chart > How do I...,69,covered,,print-a-medication-list-in-mois,"Medications for Patient, leave Show Stopped unticked."
+301561,View a Family Summary,Patient Chart > How do I...,92,covered,,view-a-family-summary-in-mois,
+301559,View a Merge Log,Patient Chart > How do I...,69,covered,,view-a-merge-log-in-mois,
+303212,View the Entire Comment for a Signed Adverse Event Recommendation,Patient Chart > How do I...,104,covered,,read-a-signed-adverse-event-in-mois,Click cut-off comment to open Text Viewer.
+303232,Void a Prescription,Patient Chart > How do I...,226,covered,,void-a-prescription-in-mois,"Void vs delete, reason, right-click void/unvoid."
+303064,Write Multiple Progress Notes,Patient Chart > How do I...,116,covered,,write-a-second-progress-note-in-mois keep-several-notes-on-one-encounter,"New Note, note counter 1 of 2, save."
+1625529,Zoom on a Graph,Patient Chart > How do I...,73,covered,,graph-a-measurement-in-mois,"Right-drag zoom, P reset, G lines."
+3799750,Private Progress Notes - Administrative Setup Guide,Patient Chart > How do I... > Private Progress Notes,660,gap,partial,,Admin permissions for private notes/Break Glass untaught; emulator only lists Break Glass special function.
+3799725,Private Progress Notes - Introduction,Patient Chart > How do I... > Private Progress Notes,251,gap,no,,Private notes/Break Glass concept untaught; fold into a Private Notes user tutorial.
+3799734,Private Progress Notes - User Guide,Patient Chart > How do I... > Private Progress Notes,1047,gap,no,,"Make Private, allowed users, Break Glass, workspace management, transfer untaught; no encounter Make Private UI in emulator."
+680492,Print Menu,Patient Chart > Patient Chart Contents,1388,partial,yes,print-a-report-in-mois print-a-day-book-in-mois print-a-day-sheet-in-mois print-a-problem-list-in-mois print-a-medication-list-in-mois print-a-list-of-encounters-in-mois print-selected-text-in-mois print-a-mar-history-in-mois,"General print flow + ~15 reports taught; lab reports (cumulative/lab code/lab profile), clinical history/summary, access list, reminder list not."
+304042,Accounts- General,Reports,778,gap,partial,,"Aging, Detailed Activity and Sales Tax reports. Catalogue rows exist; no parameter windows."
+304043,Accounts- MSP,Reports,2545,gap,partial,,"Sixteen MSP A/R, payment, refusal and write-off reports. Catalogue rows only."
+304044,Accounts- Private Invoices,Reports,1371,gap,partial,,"Private invoice A/R, statements for overdue range, overpayment reports. Catalogue rows only."
+304045,Accounts- Private Transaction,Reports,600,gap,partial,,"Private transaction, payments, debit memo and write-off reports. Catalogue rows only."
+304046,Bills- By Diagnosis,Reports,304,gap,partial,,MSP/private bills by ICD-9 diagnosis. Catalogue rows only.
+304047,Bills- Fee Code,Reports,509,gap,partial,,Bills by fee code (incentive billing review). Catalogue rows only.
+304048,Clinical- Audits,Reports,4814,partial,partial,use-the-clinical-value-scorecard-in-mois run-a-monthly-registry-report-in-mois,Scorecard and Diabetes audit taught; other condition/screening audits and AMCARE scorecard never run.
+304049,Clinical- Main,Reports,6100,partial,partial,run-a-report-in-mois find-undiagnosed-patients-in-mois clean-up-patient-data-with-reports-in-mois catch-a-missing-measure-in-mois,"Several reports taught; % wildcard, Unresulted Orders, Measure Change Velocity, Order Status, Vaccinations etc. not."
+304050,Clinical- Problem/Observations,Reports,3462,gap,partial,,"Clinical Problem/Observation multi-problem reports (ER visits, lab combinations). Catalogue rows only."
+304051,Dynamic Forms,Reports,600,gap,partial,,"Dynamic Form reports (AEFI, ASQ, NOB, births). Catalogue rows only; niche."
+304052,MSP Billing,Reports,659,covered,,print-the-unsent-claims-list-in-mois,Complete Unsent Records and both Previous MSP reprints taught.
+304053,Practice Management,Reports,4643,partial,partial,clean-up-patient-data-with-reports-in-mois,"Only Patient List taught; daily appointments, message/task audit, incentive claim, visit status, wait list reports not."
+304054,Practice Management- Access,Reports,2118,gap,partial,,"Access reports: Advance Appointment Search, Same/Next Day, Third Soonest, Wait/Appt Duration. Catalogue rows only."
+304358,Recalls/Reminders,Reports,619,covered,,run-a-recall-list-for-mail-merge-in-mois,Recall List and Reminder List both explained.
+304055,Report Builders,Reports,3876,partial,partial,build-a-report-in-the-mois-report-builder find-undiagnosed-patients-in-mois run-a-monthly-registry-report-in-mois,"New/Clone/access, Patient and Measures tabs taught; other criteria tabs, Extended Output, history, Cohort Selection Tool not."
+304057,Reports Content,Reports,281,covered,,run-a-report-in-mois assign-security-profiles-in-mois,Catalogue navigation and data-quality framing covered.
+304056,Security/Access Audit,Reports,259,gap,partial,,"Chart Access, User Access, User Profile audit reports. Catalogue rows only; valuable for privacy audits."
+304029,"Clean Up Data Based on Patients Not Identified as Moved Away, Deceased, Transient or Inactive",Reports > How do I...,255,covered,,clean-up-patient-data-with-reports-in-mois,
+304028,Clean up Data Based on Unknown Sex or Age,Reports > How do I...,193,covered,,clean-up-patient-data-with-reports-in-mois use-the-clinical-value-scorecard-in-mois,
+304027,Create a PAP Recall for Patients Who Have Not Had a Hysterectomy,Reports > How do I...,212,covered,,build-a-report-in-the-mois-report-builder,
+304025,Create a Recall List Using Mail Merge,Reports > How do I...,211,covered,,run-a-recall-list-for-mail-merge-in-mois,
+304021,Edit User Roles for Accessing Reports,Reports > How do I...,77,partial,yes,assign-security-profiles-in-mois override-user-access-in-mois,"Report Access tab on user account (Access/Print ticks, Override) not walked; screen exists."
+304030,Find Unidentified Patients with Chronic Disease or Specific Conditions,Reports > How do I...,216,covered,,find-undiagnosed-patients-in-mois,
+304033,Identify the Number or List of Chronic Disease Patients,Reports > How do I...,215,covered,,run-a-complex-care-report-in-mois,Fee items 14050-14053 self-audit taught.
+304022,Pull a Report for Two or More Health Isssues,Reports > How do I...,102,covered,,run-a-report-in-mois,Min Problems 2 example taught.
+304026,Run a Complex Care Report,Reports > How do I...,401,covered,,run-a-complex-care-report-in-mois,
+304023,Scorecard - Clinical Value - How to Use,Reports > How do I...,277,covered,,use-the-clinical-value-scorecard-in-mois,
+304381,Send a Generic Template to Multiple Patients,Reports > How do I...,110,covered,,run-a-recall-list-for-mail-merge-in-mois load-the-chart-navigator-in-mois,Chart Navigator exclude + Mail Merge template taught.
+304020,Submit to Teleplan,Reports > How do I...,285,covered,,print-the-unsent-claims-list-in-mois,
+304034,Use Concept Mapping for Chronic Disease,Reports > How do I...,331,covered,,map-a-concept-in-mois,
+3852833,Advanced Report Builder Examples,Reports > Report Builders,790,covered,,run-a-monthly-registry-report-in-mois,The diabetes registry example is the tutorial.
+3852834,Advanced Report Builder Tips,Reports > Report Builders,353,covered,,build-a-report-in-the-mois-report-builder,"Clone-first, patient-tab-first advice included."
+3266635,Appointment Series,Scheduler,302,gap,partial,,"Appointment Series (patient and group recurrence, confirmation, delete from series) untaught; Appt Series buttons exist but open nothing."
+303239,General Information,Scheduler,1516,partial,partial,use-the-action-menus-in-mois move-the-mois-day-book copy-a-day-sheet-in-mois bill-off-the-scheduler-in-mois,"Menus reference; Summary All Visit, Copy/Paste Encounter Data, Time Entry/Logger, Print Encounter (offset/cumulative), Daybook as Slate untaught."
+303808,Group Bookings,Scheduler,1190,partial,partial,schedule-a-group-visit-in-mois,"Booking taught; Prepare for Meeting (group notes, name tags), Batch MSP Claims and Clone Appt missing. Prepare button exists, no window."
+2604582,Integrated Telehealth,Scheduler,546,n/a,,,Third-party telehealth platform and admin/provider configuration; external system.
+303795,Provider Schedules,Scheduler,2334,partial,partial,move-the-mois-day-book tune-the-mois-day-book read-the-view-only-schedules-in-mois hide-appointment-status-in-mois,"Day book options mostly taught; Service Location/Show Only, MSP Loc, Comment, Open Call List, Patient Detail slide missing."
+303812,Reservation Blocks,Scheduler,334,covered,,make-a-reservation-block-in-mois,
+303807,Resource Schedules,Scheduler,289,covered,,use-the-resource-day-book-in-mois,
+303813,Shift Manager,Scheduler,331,covered,,create-a-provider-shift-in-mois copy-provider-shifts-in-mois,
+303809,Waiting List,Scheduler,1253,covered,,use-the-wait-list-in-mois,Wait List Report and provider search bar not emphasised (minor).
+303858,Bill off the Scheduler,Scheduler > How do I...,167,covered,,bill-off-the-scheduler-in-mois,
+303836,Change Column Size in the Day Book,Scheduler > How do I...,156,covered,,arrange-day-book-columns-in-mois,
+303826,Change the Date on the Day Book,Scheduler > How do I...,132,covered,,move-the-mois-day-book,Option 2 (Daybook Bar visual navigation) not taught; screen now exists.
+303837,Change the Position of a Column in the Day Book,Scheduler > How do I...,110,covered,,arrange-day-book-columns-in-mois,
+303844,Copy Provider Shifts,Scheduler > How do I...,76,covered,,copy-provider-shifts-in-mois,
+303834,Copy/Move a Single Appointment,Scheduler > How do I...,74,covered,,copy-or-move-an-appointment-in-mois,Copy/Move utility window not on stage.
+303835,Copy/Move an Entire Day Sheet,Scheduler > How do I...,94,covered,,copy-a-day-sheet-in-mois,
+303846,Create Multiple Progress Notes,Scheduler > How do I...,108,covered,,keep-several-notes-on-one-encounter,
+303850,Create a Chronic Disease Template,Scheduler > How do I...,160,covered,,create-a-chronic-disease-template-in-mois,
+303845,Create a Progress Note,Scheduler > How do I...,103,covered,,note-an-encounter-from-the-day-book write-a-progress-note-in-mois,
+303843,Create a Provider Shift Schedule,Scheduler > How do I...,109,covered,,create-a-provider-shift-in-mois,
+303815,Create a Recall from the Scheduler,Scheduler > How do I...,88,covered,,create-a-recall-from-the-scheduler-in-mois,
+303852,Create a WCB Form,Scheduler > How do I...,276,covered,,create-a-wcb-form-in-mois,
+303847,Delete an Encounter,Scheduler > How do I...,242,covered,,delete-an-encounter-in-mois,
+3075361,"Edit the Timestamp from the Week View or Day View (1, 3, or 8 Provider)",Scheduler > How do I...,72,covered,,edit-appointment-timestamps-in-mois,Edit Appointment timestamp window not on stage; tutorial describes it.
+303827,Enter Appointment Status,Scheduler > How do I...,279,covered,,set-appointment-status-in-mois,
+303828,Filter the Day Book,Scheduler > How do I...,54,covered,,tune-the-mois-day-book,
+303849,Graph Lab Codes,Scheduler > How do I...,94,covered,,graph-a-measurement-from-the-day-book-in-mois,
+303821,Identify a Locum,Scheduler > How do I...,41,covered,,tune-the-mois-day-book,
+303839,Make Reservation Blocks,Scheduler > How do I...,175,covered,,make-a-reservation-block-in-mois,
+303848,Open a Current Patient's Chart,Scheduler > How do I...,108,covered,,open-a-chart-from-the-day-book-in-mois,
+2477059,Pre-Slot Wizard,Scheduler > How do I...,739,covered,,use-the-pre-slot-wizard-in-mois,
+303825,Print Appointment Cards,Scheduler > How do I...,59,covered,,print-appointment-cards-in-mois add-text-to-appointment-cards-in-mois,
+303823,Print a Day Book,Scheduler > How do I...,116,covered,,print-a-day-book-in-mois,
+303824,Print a Day Sheet,Scheduler > How do I...,144,covered,,print-a-day-sheet-in-mois,
+3074458,Quick Appointment Creation,Scheduler > How do I...,191,covered,,quick-appointment-creation-in-mois,
+303855,Register a Patient,Scheduler > How do I...,96,covered,,register-a-patient-from-the-scheduler-in-mois,
+303840,Schedule Group Appointments,Scheduler > How do I...,153,covered,,schedule-a-group-visit-in-mois,
+303814,Schedule an Appointment,Scheduler > How do I...,174,covered,,book-an-appointment-in-mois,
+303822,Use the Hide Status Option,Scheduler > How do I...,74,covered,,hide-appointment-status-in-mois,
+303841,Use the Wait List,Scheduler > How do I...,119,covered,,use-the-wait-list-in-mois,
+303820,View Appointment Details,Scheduler > How do I...,87,partial,yes,view-appointment-details-in-mois,"Tutorial substitutes Day View 8; emulator now has Daybook Bar - Multi (Alt+F2) window, so tutorial can use the real screen."
+303818,View Recalls from the Scheduler,Scheduler > How do I...,76,covered,,view-recalls-in-mois,
+303819,View a Different Provider’s Day Book,Scheduler > How do I...,53,covered,,switch-provider-in-mois,
+3073641,Quick Appointment Creation,Tips and Tricks - Misc.,298,covered,yes,quick-appointment-creation-in-mois,Create Appointment link and New Appointment window.
+3246150,"Virtual Workshop - Address Book & SRFax - July 20, 2022",Workshops,190,n/a,,,Workshop page: recording and handouts only.
+3246124,"Virtual Workshop - CDX Information Request - September 28, 2022",Workshops,132,n/a,,,Workshop page: recording and handouts only.
+3246104,"Virtual Workshop - LFP Billing Model Review - April 26, 2023",Workshops,94,n/a,,,Workshop page: superseded recording.
+3246024,"Virtual Workshop - LFP Billing Model Review - June 7, 2023",Workshops,128,n/a,,,Workshop page: recording and handouts only.
+3511511,"Virtual Workshop - MOIS Settings &amp; New Enhancements - October 24th, 2024",Workshops,269,n/a,,,Workshop page: recording and links only.
+3246105,"Virtual Workshop - MOIS Tips & Tricks - January 18, 2023",Workshops,202,n/a,,,Workshop page: recording and links only.
+3331735,"Virtual Workshop - Release Notes - November 21, 2023",Workshops,209,n/a,,,Workshop page: release-notes recording.
+3375505,"Virtual Workshop - Unsent/Sent Claim Review - February 28, 2024",Workshops,104,n/a,,,Workshop page: recording and links only.
+3246107,"Virtual Workshop - myhealthkey - November 30, 2022",Workshops,155,n/a,,,Workshop page: recording and handouts only.
+3402689,"Virtual Workshop - myhealthkey Patient Messaging Review - April 24, 2024",Workshops,86,n/a,,,Workshop page: recording and links only.
+1802749,Basket,Workspace,3121,partial,yes,clear-the-basket-in-mois filter-a-basket-folder-in-mois sort-a-basket-folder-in-mois mark-a-basket-item-for-review-in-mois reassign-or-copy-basket-items-in-mois attach-a-file-to-a-basket-item-in-mois,"Core basket workflow taught; missing Zoom text, link-to-order from basket, Show History, right-click menu, print reports."
+1802767,Blended Workspaces,Workspace,1429,partial,partial,change-workspaces-in-mois,"Blend + colours taught; Workgroups (create/modify/delete), saved default blend, expired/inactive sharing rules, Org Role blending, temporary membership missing."
+303744,Favourite Medications,Workspace,161,covered,,add-a-favourite-medication-from-the-workspace-in-mois use-a-favourite-medication-in-mois,
+1802746,Message Inbox,Workspace,788,covered,,use-the-message-board-in-mois read-the-task-list-in-mois,Auto-Refresh/Auto-Save option and Advanced Search not mentioned (minor).
+1802747,Sent Messages,Workspace,305,covered,,use-the-message-board-in-mois create-a-message-from-a-basket-item-in-mois,
+1802745,Sent Tasks,Workspace,584,covered,,create-a-task-in-mois read-the-task-list-in-mois,
+1802744,Task Inbox,Workspace,1122,partial,partial,read-the-task-list-in-mois create-a-task-in-mois create-a-task-from-a-basket-item-in-mois,"List, filters, task sets taught; Follow Up Notes tab (add/read notes), View 1/View 2, Advanced Search missing."
+1802768,Workflow Summary,Workspace,974,partial,yes,see-who-signed-a-record-in-mois mark-a-basket-item-for-review-in-mois manage-a-workspace-in-mois,"Window opened only briefly; reading Messages/Tasks/Acknowledgements sections, acknowledgement history and reassign/copy notes not taught."
+303599,Workspace Contents,Workspace,1131,partial,partial,read-the-workspace-in-mois visit-every-mois-module clear-the-basket-in-mois,"Overview/arrival taught; Clean List, address-to-clipboard utilities and Basket Statistics reports (Ack Forwarding, Intended Recipient) not taught."
+303743,Workspace Settings,Workspace,918,covered,,share-your-workspace-in-mois manage-a-workspace-in-mois,Sharing and inbox forwarding both taught.
+301166,Workspace Summary,Workspace,591,covered,,read-the-workspace-in-mois,
+1802758,Consults,Workspace > Basket,813,partial,yes,clear-the-basket-in-mois,"Generic acknowledgement taught; basket Consults folder (Reason vs consultant diagnosis, Report/Detail tabs) never opened."
+1802760,Documents,Workspace > Basket,460,covered,,filter-a-basket-folder-in-mois clear-the-basket-in-mois,Folder column reference; Documents folder used in filter tutorial.
+1802761,Facility Admissions,Workspace > Basket,603,partial,yes,clear-the-basket-in-mois,"Generic acknowledgement taught; basket Facility Admissions folder (ADT records, columns) never opened."
+1802757,Imaging,Workspace > Basket,672,covered,,create-a-message-from-a-basket-item-in-mois clear-the-basket-in-mois,Folder column reference; opened and used in message tutorial.
+1802756,Measures,Workspace > Basket,1217,partial,yes,sort-a-basket-folder-in-mois clear-the-basket-in-mois create-a-task-from-a-basket-item-in-mois,"Columns/IR/flags taught; workspace Panel tab, Show History and graphing from the basket Measures folder not taught."
+1802763,Orders,Workspace > Basket,659,partial,yes,clear-the-basket-in-mois,"Basket Orders folder (Src column, referral letters) never opened in a tutorial."
+1802759,Procedures,Workspace > Basket,562,covered,,attach-a-file-to-a-basket-item-in-mois clear-the-basket-in-mois,Folder column reference; Procedures folder used in attachment tutorial.
+1802762,Progress Notes,Workspace > Basket,375,partial,yes,mark-a-basket-item-for-review-in-mois,Resident/preceptor routing (author change sends note to workspace) and the Progress Notes basket folder not taught.
+303756,Acknowledge Manual Entries,Workspace > How do I...,302,covered,,clear-the-basket-in-mois filter-a-basket-folder-in-mois,'Why multiple acknowledgements' explanation not taught (minor).
+303765,Add Attachments to the Basket Folder Items,Workspace > How do I...,198,covered,,attach-a-file-to-a-basket-item-in-mois,
+303772,Add a Medication to the Favourite Medication List,Workspace > How do I...,103,covered,,add-a-favourite-medication-from-the-workspace-in-mois,
+303749,Change Workspaces,Workspace > How do I...,213,covered,,change-workspaces-in-mois,
+303754,Create a Message from a Task,Workspace > How do I...,75,covered,,create-a-message-from-a-task-in-mois,
+303767,Create a Message from an Item in the Basket,Workspace > How do I...,89,covered,,create-a-message-from-a-basket-item-in-mois,
+303746,Create a Task,Workspace > How do I...,444,covered,,create-a-task-in-mois create-a-task-from-the-chart-in-mois,
+303753,Create a Task from a Message,Workspace > How do I...,130,covered,,create-a-task-from-a-message-in-mois,
+303766,Create a Task from an Item in the Basket,Workspace > How do I...,147,covered,,create-a-task-from-a-basket-item-in-mois,
+3797338,Create an Appointment From the Workspace,Workspace > How do I...,157,covered,,create-an-appointment-from-the-workspace-in-mois,
+303763,Filter Basket Folders,Workspace > How do I...,135,covered,,filter-a-basket-folder-in-mois,
+303768,Find a Basket Item in the Patient Chart Module,Workspace > How do I...,135,covered,,clear-the-basket-in-mois see-who-signed-a-record-in-mois,
+303758,How to reassign or copy items from your Workspace,Workspace > How do I...,289,covered,,reassign-or-copy-basket-items-in-mois,
+2124334,How to reassign or copy items from your Workspace,Workspace > How do I...,289,covered,,reassign-or-copy-basket-items-in-mois,Duplicate of 303758.
+303764,Mark Basket Items for Review,Workspace > How do I...,233,covered,,mark-a-basket-item-for-review-in-mois,
+303774,Print Select Tasks/Messages,Workspace > How do I...,154,covered,,print-a-selected-task-list-in-mois,
+303771,Print a Complete List of Tasks or Messages,Workspace > How do I...,132,covered,,print-a-full-task-list-in-mois,
+303769,Select a List of Tasks or Messages to Print,Workspace > How do I...,201,covered,,print-a-selected-task-list-in-mois,
+303747,Share a Workspace,Workspace > How do I...,224,covered,,share-your-workspace-in-mois,Includes Share W/S on Behalf Of and Administration route.
+303755,Sort Acknowledged and Completed Tasks,Workspace > How do I...,151,covered,,read-the-task-list-in-mois,
+303750,Sort Measurements,Workspace > How do I...,148,covered,,sort-a-basket-folder-in-mois,
+303757,Use the Internal Message Board,Workspace > How do I...,138,covered,,use-the-message-board-in-mois,
+3001611,How to Prescribe Paxlovid Using eFORMs,eFORMs,293,gap,partial,,"Paxlovid eForm: Rx New Record, drug lookup, double-click the paper-clip dash, choose the PHSA eForm, submit. No PHSA eForms list or form."
+3001613,How to Use the Special Authority eForms,eFORMs,401,gap,partial,,"Special Authority eForm, from a prescription or via encounter Attachments > PHSA eFORMs. The prescription and attachment windows exist; the eForms don't."
+2280708,myhealthkey,myhealthkey (MHK),5591,partial,partial,use-the-pre-slot-wizard-in-mois,"Only the Pre-Slot Wizard is taught. Missing: MHK admin (settings, bulk invite, registration activity), registering/deregistering patients, patient messaging, visit codes. Folder stubbed."
+2634129,myhealthkey E-mail Templates,myhealthkey (MHK),188,n/a,,,Reference gallery of patient-facing myhealthkey emails.

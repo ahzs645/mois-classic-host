@@ -61,9 +61,23 @@
 
    The band list itself is `00d2c33d…` (current build) for the APP SETTING
    run: it has STARTUP and no PATIENT SUMMARY band, so neither does this.
-   303124's jump list also names an `App Setting - CPSBC` that no capture
-   shows; it is left out rather than drawn empty.
+   303124's jump list also names an `App Setting - CPSBC`. 3318194's
+   current-build capture (`197c5a32…`, Halliwell Medical Clinic) paints the
+   band — collapsed, between CARECONNECT and DESKTOP PROVIDER — so it is here
+   now, but no capture opens it: its one row is INFERRED (see the band).
+
+   APP SETTING past the 25 captured rows (E2 stream, 2026-09-28):
+     303124's prose documents another 32 APP SETTING rows the `fabe5d8f…`
+     crop stops before. They follow the captured 25, in the prose's order.
+     `Enable Create Appointment Feature` is transcribed from `0f26ee79…`
+     (value Y and its description as printed). For the rest the NAME is
+     the manual's heading, but the VALUE and the DESCRIPTION column are
+     INFERRED from the prose (the grid's description text is the manual's
+     sentence, shortened) — no capture shows them. MOIS's spellings in the
+     headings are kept ("Apppt.").
    ========================================================================= */
+
+import { useSessionState } from '../host/screen-windows'
 
 export type SystemSetting = {
   band: string
@@ -114,6 +128,41 @@ export const SYSTEM_SETTINGS: SystemSetting[] = [
     ['OCR Enabled', 'Y', 'Determines whether the OCR feature is available (Y/N)'],
     ['Referral Mode', 'N', 'Use (S)tandard or (N)ew Referral Mode (When CDX-E2E is on)'],
     ['Electronic Interfaces Lookback', '90', 'Default number of days to look back in Electronic Interfaces'],
+    /* 0f26ee79… (current build): transcribed */
+    ['Enable Create Appointment Feature', 'Y', '(Y)es or (N)o to turn on or off the global create appointment hyper link'],
+    /* INFERRED values and descriptions — 303124's prose, see the header */
+    ['MOIS Customizations', 'BC,Cloud', 'Which provinces to display content for ("OnPrem" / "Cloud" to record MOIS instance type: Do not remove this)'],
+    ['Filename As Note For Attachments', 'N', '(Y)es to use the filename as the record Note for file attachments'],
+    ['Billing Include Enc Times', 'N', "(Y) fills a fee code's start / end time from the Encounter's Seen and Discharge times"],
+    ['City Lookup Provinces', 'BC', 'Provinces to perform automatic City lookups for'],
+    ['MOIS Viewer Initialize Printer', 'N', "(Y) initializes the PDF viewer printer to the session's report printer"],
+    ['MAR Immunization Validation', 'N', 'Require Lot Number, Site, Route, Reason and Consent for Immunizations (Y/N)'],
+    ['Teleplan System', 'v2', 'Method for accessing Teleplan: v1 (legacy) or v2'],
+    ['Letter Writer', 'v2', 'Letter Writer version to use'],
+    ['Chart Filter Style', 'Filter', 'Filter (one bar per column) or Search (one bar, Advanced Search)'],
+    ['MSP/WCB PHNs', '9842719596,9152416049', 'MSP pseudo-PHNs allowed on multiple charts for out of province WCB claims'],
+    ['Status History - Orders', 'Y', "Log history of Order 'Status' changes (Y/N)"],
+    ['Assigned To History - Orders', 'Y', "Log history of Order 'Assigned To' changes (Y/N)"],
+    ['Encourage Coded Entries', 'N', 'Encourage coded entries through the Universal Search Window (Y/N)'],
+    ['Enable Daybook Secondary Sort', 'N', '(Y) sort a shared time slot by first name; (N) by order entered'],
+    ['Enable Provider Selection Prompt', 'Y', '(Y) Provider Selection prompt window; (N) drop down list'],
+    ['Enable Resource Selection Prompt', 'Y', '(Y) Resource Selection prompt window; (N) drop down list'],
+    ['Enable User Selection Prompt', 'Y', '(Y) User Selection prompt window; (N) drop down list with Hot Keys'],
+    ['Letter Writer Document Locking', 'Y', 'Only one user may view a Letter Writer file at a time (Y/N)'],
+    ['Order Record Default Author', 'Context', 'Context (from the Encounter) or Sessional (the desktop provider)'],
+    ['Maximum History Search', '365', 'Maximum allowable history search (Universal Search Windows)'],
+    ['Attach Note to Document on Save', 'N', 'Creates Document record for Printed Note (Y/N)'],
+    ['Default Care Plan Type', 'CARE PLAN', 'Default document type when distributing a Care Plan'],
+    ['Exclude Visit Codes', '', 'Visit codes to exclude from the Mandatory Service Event Option'],
+    ['Excluded Apppt. Status Codes', '', 'Appt. status codes to exclude from the Mandatory Service Event Option'],
+    ['Branding', 'MOIS', 'Branding for the Site'],
+    ['Encounter Summary - Chart', 'v2', 'Style of Encounter Summary in Chart - Encounters'],
+    ['Encounter Summary - Detail Popup', 'v2', 'Style of Encounter Summary in Encounter Detail Window'],
+    ['CDX - Hide Invalid Locations', 'N', 'Hide CDX locations that do not accept the document type being sent (Y/N)'],
+    ['CDX - Consume MRN Aliases', 'N', 'When Y, NHA MRN Aliases are consumed into matched charts'],
+    ['Attending Participant', 'v1', 'v1 - overwrite attending; v2 - do not overwrite if already set'],
+    ['Distribution - Include Demographics', 'USER', 'Demographics on distributed documents: ALWAYS / NEVER / USER'],
+    ['Enable Field Indicator Service', 'N', 'Enable field highlighting while navigating (Y/N)'],
   ]),
   ...band('APP SETTING - ADDRESS BOOK', [
     ['Enable Address Book', 'Y', YN],
@@ -129,6 +178,11 @@ export const SYSTEM_SETTINGS: SystemSetting[] = [
   ...band('APP SETTING - CPP RX', [
     ['Enable Controlled Prescriptions Feature', 'Y', '(Y)es or (N)o to turn on or off the controlled prescriptions feature'],
     ['Who can create controlled prescriptions', 'P', '(E)verybody or Requires (P)ermission'],
+  ]),
+  /* `197c5a32…` (3318194) paints the band shut; its row is INFERRED from
+     Help ▸ CPSBC Library (HELP MENU's `helper|nvo_cpsbc`) */
+  ...band('APP SETTING - CPSBC', [
+    ['Enabled', 'Y', 'Is the CPSBC Library service enabled (Y)es/(N)o'],
   ]),
   ...band('APP SETTING - DESKTOP PROVIDER', [
     ['Exclude Private Schedules', 'N', '(Y)es to exclude private schedules; (N) to include private schedules'],
@@ -463,4 +517,65 @@ export function lockoutOf(saved: Record<string, string>, today: string): Lockout
   if (!message || !m) return null
   if (`${m[1]}.${m[2]}.${m[3]}` < today) return null
   return { message, ends }
+}
+
+/* ============================================================================
+   Reading a setting from elsewhere in the emulator (E2 stream, 2026-09-28).
+
+   Other screens behave by a System Settings row: the MOIS Viewer by its
+   Mode (S / E / SI), the eFax windows by APP SETTING - SRFAX ▸ Enabled,
+   Utilities ▸ Launch CareConnect by APP SETTING - CARECONNECT ▸ Enabled
+   (3318194: "perhaps it isn't enabled … To enable Launch CareConnect …
+   don't forget to click Save"). A value is what Save committed this session
+   (SYSTEM_SETTINGS_KEY), else the row's value as transcribed.
+
+   - In a component: `useSystemSetting(ROW)`; it re-renders when a Save
+     commits.
+   - Outside React (a menu being built): `systemSettingValue(ROW)`, which
+     reads the mirror System Settings' Save writes. The frame resets the
+     mirror when it mounts, so a new stage starts on the transcribed values.
+   - `isYes(value)` reads Y / YES / ON the way the rows' "(Y)es" means.
+   ========================================================================= */
+
+/** APP SETTING ▸ MOIS Viewer Mode — `S`, `E` or `SI` */
+export const VIEWER_MODE_ROW = 'mois-viewer-mode'
+/** APP SETTING - SRFAX ▸ Enabled — Y / N */
+export const SRFAX_ENABLED_ROW = 'app-setting-srfax--enabled'
+/** APP SETTING - CARECONNECT ▸ Enabled — Y / N */
+export const CARECONNECT_ENABLED_ROW = 'app-setting-careconnect--enabled'
+/** APP SETTING - CARECONNECT ▸ URL */
+export const CARECONNECT_URL_ROW = 'app-setting-careconnect--url'
+/** APP SETTING - TELEHEALTH ▸ Enabled — Y / N */
+export const TELEHEALTH_ENABLED_ROW = 'app-setting-telehealth--enabled'
+/** APP SETTING - ADDRESS BOOK ▸ Enable Address Book — Y / N */
+export const ADDRESS_BOOK_ENABLED_ROW = 'enable-address-book'
+/** APP SETTING ▸ Billing Include Enc Times — Y / N (Encounter Lite, MyEncounters) */
+export const BILLING_ENC_TIMES_ROW = 'billing-include-enc-times'
+/** APP SETTING - STARTUP ▸ Alternate Launch Enabled — Y / N */
+export const ALTERNATE_LAUNCH_ROW = 'alternate-launch-enabled'
+
+const DEFAULTS = new Map(SYSTEM_SETTINGS.map((s) => [settingRowId(s), s.value]))
+
+/** The transcribed value of a row, before any Save. */
+export const defaultSettingValue = (rowId: string): string => DEFAULTS.get(rowId) ?? ''
+
+/** A row's value in a committed-settings record (SYSTEM_SETTINGS_KEY). */
+export const settingValueIn = (saved: Record<string, string>, rowId: string): string =>
+  saved[rowId] ?? defaultSettingValue(rowId)
+
+/** "(Y)es" — Y, YES, ON — case-insensitive. */
+export const isYes = (value: string): boolean => /^(y|yes|on)$/i.test(value.trim())
+
+let mirror: Record<string, string> = {}
+
+/** System Settings' Save copies what it committed here, for non-React readers. */
+export function mirrorSystemSettings(saved: Record<string, string>) { mirror = { ...saved } }
+export function resetSystemSettingsMirror() { mirror = {} }
+/** A row's value for code that cannot use a hook (menus). */
+export const systemSettingValue = (rowId: string): string => settingValueIn(mirror, rowId)
+
+/** A row's value — committed this session, else as transcribed. */
+export function useSystemSetting(rowId: string): string {
+  const [saved] = useSessionState<Record<string, string>>(SYSTEM_SETTINGS_KEY, {})
+  return settingValueIn(saved, rowId)
 }

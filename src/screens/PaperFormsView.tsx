@@ -12,6 +12,7 @@ import { MoisViewerWindow, paperFormPageSize } from './MoisViewerWindow'
 import { useRecordOptionList } from './RecordOptionList'
 import { SignatureLink, recordKeyOf, useReportRecordEdits } from './reportRecordEdits'
 import { DesktopLayer } from './StageWindow'
+import { useSystemSetting } from '../data/accessSettings'
 
 /* ============================================================================
    Patient Chart ▸ Forms ▸ Paper Forms.
@@ -135,6 +136,7 @@ function PaperDetail({ record }: { record: MoisRecord | undefined }) {
 
 export function PaperFormsView({ screen, node = 'paper' }: { screen: ReportScreen; node?: string }) {
   const patient = usePatient()
+  const viewerMode = useSystemSetting('MOIS Viewer Mode').toUpperCase()
   const records = useNodeRecords(node)
   const [cur, setCur] = useState(0)
   const edits = useReportRecordEdits(node, screen.rows, records, cur, setCur)
@@ -211,7 +213,13 @@ export function PaperFormsView({ screen, node = 'paper' }: { screen: ReportScree
         <DesktopLayer>
           <MoisViewerWindow
             key={record.id_document ?? cur}
-            embedded
+            /* 3073634: System Settings ▸ APP SETTING ▸ MOIS Viewer Mode — E
+               (Embedded) or SI (both) open the embedded viewer with its Find
+               bar; S (Standalone) opens the plain viewer. The row belongs to
+               the System Settings window (data/systemSettings.ts); the
+               restart the article asks for is not modelled — the next form
+               opened reads the saved value. */
+            embedded={viewerMode !== 'S'}
             form={record.str_note ?? record.str_source_code ?? ''}
             fileName={record.str_link}
             pageSize={paperFormPageSize(record.str_note ?? '')}

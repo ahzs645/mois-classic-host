@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBWindow, usePBInstrumentation, type PBColumn } from '../pb'
 import {
-  claimFromRow, sentClaims, unsentClaims, SENT_CLAIM_KEY, UNSENT_ADDED_KEY, UNSENT_CLAIM_KEY,
+  claimFromRow, SENT_CLAIM_KEY, UNSENT_CLAIM_KEY,
   type ClaimForm, type SentClaim, type UnsentClaim,
 } from '../data/claims'
+import { useSentClaims, useUnsentClaims } from '../data/billingStore'
+import { usePatientRoster } from '../data/patient-context'
 import { useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
 
@@ -172,7 +174,11 @@ export function ClaimPromptDialog({
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [, setClaim] = useSessionState<ClaimForm | null>(UNSENT_CLAIM_KEY, null)
   const [, setSentClaim] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)
-  const [added] = useSessionState<UnsentClaim[]>(UNSENT_ADDED_KEY, [])
+  /* the live lists: the training rows with this session's saves, bulk
+     claims, day-book bills, deletions and toggles (data/billingStore.ts) */
+  const roster = usePatientRoster()
+  const unsentStore = useUnsentClaims(roster)
+  const sentStore = useSentClaims()
 
   const unsent = prompt === 'patient' || prompt === 'doctor' || prompt === 'service'
   const columns: Col[] = unsent
@@ -181,8 +187,8 @@ export function ClaimPromptDialog({
 
   const rows = useMemo(() => {
     let source: Row[] = unsent
-      ? [...unsentClaims, ...added].sort(SORT[prompt as 'patient' | 'doctor' | 'service'])
-      : (sentClaims as unknown as Row[])
+      ? [...unsentStore.rows].sort(SORT[prompt as 'patient' | 'doctor' | 'service'])
+      : (sentStore.rows as unknown as Row[])
     if (sortKey) source = [...source].sort((a, b) => String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? '')))
     if (!filters) return source
     const active = Object.entries(filters).filter(([k, v]) => v.trim() || (k === 'r1' && prompt === 'recon'))
@@ -195,7 +201,7 @@ export function ClaimPromptDialog({
       if (k === 'r1' && prompt === 'recon') return includeR1 ? String(r.r1 ?? '').toLowerCase() === want : true
       return String(r[k] ?? '').toLowerCase().includes(want)
     }))
-  }, [added, filters, includeR1, prompt, sortKey, unsent])
+  }, [unsentStore.rows, sentStore.rows, filters, includeR1, prompt, sortKey, unsent])
 
   useScreenReport({ rows: rows.length, row: `claim-${String(rows[Math.min(current, Math.max(0, rows.length - 1))]?.last ?? '').toLowerCase()}` })
 

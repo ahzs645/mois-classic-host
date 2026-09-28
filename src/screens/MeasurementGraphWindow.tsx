@@ -2,6 +2,7 @@ import {
   useEffect, useLayoutEffect, useMemo, useRef, useState,
   type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode, type RefObject,
 } from 'react'
+import { setLetterClipboard } from '../data/letterDocs'
 import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
 import {
@@ -572,6 +573,8 @@ export function MeasurementGraphWindow({
   const copyToClipboard = () => {
     const svg = svgRef.current?.outerHTML
     if (!svg) return
+    /* 304699: the Letter Writer's Edit ▸ Paste reads it back (data/letterDocs.ts) */
+    setLetterClipboard({ kind: 'graph', svg, title: 'Measurement graph' })
     try {
       void navigator.clipboard?.writeText(svg).catch(() => { /* denied */ })
     } catch { /* no clipboard in this context */ }

@@ -10,6 +10,7 @@ import {
   type PBColumn, type PBCommand,
 } from '../pb'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
+import { addedSummaryBands, useSavedSummary, withAddedBands } from '../data/chartSummaryConfig'
 import { nameInRed } from './DemographicsView'
 
 /* ============================================================================
@@ -40,14 +41,18 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
   const [lastDays, setLastDays] = useState('60')
   const [requiredDays, setRequiredDays] = useState('90')
   const [genderOpen, setGenderOpen] = useState(false)
+  /* Administration ▸ Chart Summaries: the bands a saved PATIENT SUMMARY
+     configuration adds (art. 303353, "Last 3 INR Values") */
+  const config = useSavedSummary('patient')
+  const bands = (lastDays: string) => withAddedBands(summarySections(patient, data, lastDays), addedSummaryBands(config, data?.measure ?? []))
   /* MOIS opens the summary with every section collapsed but the first; the
      frame remounts this window per chart, so the state starts over there */
   const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(summarySections(patient, data, lastDays).filter((s) => !s.open).map((s) => s.id)),
+    () => new Set(bands(lastDays).filter((s) => !s.open).map((s) => s.id)),
   )
 
   const { rows, captions, accents, order, counts } = useMemo(() => {
-    const sections = summarySections(patient, data, lastDays)
+    const sections = bands(lastDays)
     const rows: Row[] = []
     const captions = new Map<string, string>()
     const accents = new Map<string, string>()
@@ -63,7 +68,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
       for (const r of s.rows) rows.push({ ...r, section: s.id })
     }
     return { rows, captions, accents, order, counts }
-  }, [lastDays, patient, requiredDays, data])
+  }, [lastDays, patient, requiredDays, data, config])
 
   const commands: PBCommand[] = [
     { label: 'New Chart' },
@@ -93,6 +98,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
     { key: 'description', header: 'Description', width: 345, render: (r) => <>
       {r.description}
       {r.instructionComment && <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>Instruction Comment:<br />{r.instructionComment}</div>}
+      {r.note && <div style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}>{r.note}</div>}
     </> },
     /* Detail's caption is left-aligned on its own data, not centred */
     { key: 'detail', header: 'Detail', width: 287, align: 'left' },

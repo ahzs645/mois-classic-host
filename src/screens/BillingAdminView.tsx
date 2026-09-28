@@ -1,9 +1,34 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput, PBLookup, PBRadio,
   PBSelect, PBTabs, PBViewHeader, pbSlug,
 } from '../pb'
 import { billingAdminView, type AdminField, type AdminView } from '../data/billingAdmin'
+import { LfpRegistrationView, LfpSetupView, LfpTimeSummaryView, registerLfpWindows } from './LfpViews'
+import { registerLfpTimeWindows } from './LfpTimeWindows'
+import { PasChangesView, PasPanelView } from './PasViews'
+import { PBF_VIEWS, type PbfViewProps } from './PbfViews'
+import { registerPbfWindows } from './PbfWindows'
+import { registerBillingProgramMenus } from '../data/menus/billing-programs'
+
+/* The PBF / LFP / PAS folders that are working screens rather than the
+   generic grid below (screens/Pbf*.tsx, Lfp*.tsx, PasViews.tsx). Their
+   windows register again here: the frame imports this file for its export,
+   which keeps the registrations alive where a bundler drops side-effect
+   imports (see WorkspaceSettingsView.tsx). */
+registerLfpWindows()
+registerLfpTimeWindows()
+registerPbfWindows()
+registerBillingProgramMenus()
+
+const PROGRAM_VIEWS: Record<string, (p: PbfViewProps) => ReactNode> = {
+  ...PBF_VIEWS,
+  'bl-lfp-setup': ({ onClose }) => <LfpSetupView onClose={onClose} />,
+  'bl-lfp-reg': ({ onClose }) => <LfpRegistrationView onClose={onClose} />,
+  'bl-lfp-time': ({ onClose }) => <LfpTimeSummaryView onClose={onClose} />,
+  'bl-pas-changes': ({ onClose }) => <PasChangesView onClose={onClose} />,
+  'bl-pas-panel': ({ onClose }) => <PasPanelView onClose={onClose} />,
+}
 
 /* ============================================================================
    The fifteen PBF / LFP / PAS views under Billing.
@@ -48,10 +73,19 @@ function Field({ f }: { f: AdminField }) {
   )
 }
 
-export function BillingAdminView({ node }: { node: string }) {
+export function BillingAdminView({ node, onClose, onOpenNode, onOpenChart }: {
+  node: string
+  onClose?: () => void
+  /** the frame's openNode — the PBF dashboard's lines open their folders */
+  onOpenNode?: (node: string) => void
+  /** open a chart (Open Chart / Tear Off) in the Patient Chart module */
+  onOpenChart?: (chart: string) => void
+}) {
   const view: AdminView | undefined = billingAdminView(node)
   const [tab, setTab] = useState('')
   const [cur, setCur] = useState(0)
+  const Program = PROGRAM_VIEWS[node]
+  if (Program) return <Program node={node} onClose={onClose} onOpenNode={onOpenNode} onOpenChart={onOpenChart} />
   if (!view) return null
 
   return (

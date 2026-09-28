@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { ToggleCell } from './AdminExchangeKit'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea,
   PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
@@ -10,11 +11,13 @@ import {
   MANAGED_LISTS, PROMPT_LISTS, REFERENCE_SETS, REFERENCE_SET_COMMANDS, SELECTION_LISTS,
   SERVICE_CODE_WINDOW, SNIPPETS, SNIPPET_COMMANDS, SUMMARY_SECTIONS, TEXT_LABELS, TEXT_LABEL_BODY,
   TEXT_LABEL_COMMANDS,
-  type AdminColumn, type AdminRow, type ManagedList, type SummarySection,
+  type AdminColumn, type AdminRow, type ManagedList,
 } from '../data/adminLists'
 import { MOIS_TODAY } from '../data/patients'
+import { filterKind, pbColour, saveSummary, savedSummary, type ConfigSection } from '../data/chartSummaryConfig'
 import { useScreenReport } from '../host/screen-state'
 import { AdminLanding } from './AdminLandingViews'
+import { CodesetManagementView } from './CodesetManagementViews'
 
 /* ============================================================================
    Administration list windows with no Clinic Management twin:
@@ -62,7 +65,10 @@ function toColumns(columns: AdminColumn[]): PBColumn<AdminRow>[] {
     align: c.align,
     headAlign: 'center',
     render: c.check
-      ? (r: AdminRow) => <PBCheckbox checked={Boolean(r[c.key])} />
+      /* a tick column the learner can set — Visit Codes' MHK (2280708
+         `0e1890d4…`: "Simply check off the Visit Codes which you want to
+         'talk' to myhealthkey"); held for the window's life */
+      ? (r: AdminRow) => <ToggleCell initial={Boolean(r[c.key])} anchor={`host.mois.cell.${c.key}-${pbSlug(String(r.code ?? ''))}`} />
       : c.swatch
         ? (r: AdminRow) => {
           const fill = c.swatch === 'row' ? rgb(r.r, r.g, r.b) : rgb(r.br ?? r.r, r.bg ?? r.g, r.bb ?? r.b)
@@ -156,6 +162,9 @@ export function AdminListsView({ node, onClose }: { node: string; onClose?: () =
     case 'ad-chart-summaries': return <ChartSummaryConfiguration />
     case 'ad-reference-sets': return <CodeReferenceSets />
     case 'ad-lookup-settings': return <CodeLookupConfiguration />
+    /* Sources, Systems, Codes, Value Sets, Mapping (CodesetManagementViews.tsx) */
+    case 'ad-code-sources': case 'ad-code-systems': case 'ad-codes': case 'ad-value-sets': case 'ad-code-mapping':
+      return <CodesetManagementView key={node} node={node} onClose={close} />
     case 'ad-designer':
     case 'ad-clinic-mgt': return <AdminLanding node={node} />
     default: return null
@@ -604,7 +613,33 @@ function SnippetList({ onClose }: { onClose: () => void }) {
                                           `eaed1b34…`, `09798532…`
    Change Summary lists the five summaries 303353 names; the list it drops
    is not captured, so it is a plain drop-down under the button.
+
+   New Record / Save (303353 "How To Add Specific Measures", `c5c22b00…`,
+   `b8f6ce26…`): New Record adds a section after the current row, rank 0,
+   Hide Sensitive ticked, and makes it current; its Section Code is a
+   drop-down ("select the type of record you would like to add" — MEASURE)
+   until Save. Every Section Detail field edits the current row. Save (or F2)
+   keeps the list for the session (data/chartSummaryConfig) and the Patient
+   Summary then paints each added section's Record Filter as a band of its
+   own; Undo returns to the last save; Delete Record removes the current row.
+   INFERRED: where New Record puts the row (the captures show the new MEASURE
+   0 near the top, under TASK / DEMO) and the drop-down's list, which is the
+   section codes the captured configurations carry.
+
+   Anchors: the grid's rows keep their `host.mois.row.section-<code>` ids; an
+   added row is `section-new-<n>` (n counts added rows, from 1). Section
+   Detail fields are `host.mois.field.section-code`, `expand-node`, `rank`,
+   `banner-colour`, `banner-title`, `include-all-records`, `hide-sensitive`,
+   `record-filter`, `red-flag`. Reported: `host.screen.window` (the summary),
+   `row`, `code` (the current section's code, slugged), `filter` (none / code
+   / description / other — the kind, never the text), `added` (sections a
+   learner has added), `saved`.
    ======================================================================== */
+
+const SECTION_CODES = [...new Set([
+  ...Object.values(SUMMARY_SECTIONS).flatMap((list) => list.map((s) => s.code)),
+  'TASK',
+])].sort()
 
 function ChartSummaryConfiguration() {
   const host = usePBInstrumentation()
@@ -612,24 +647,49 @@ function ChartSummaryConfiguration() {
   const [picking, setPicking] = useState(false)
   const [cur, setCur] = useState(0)
   const [saved, setSaved] = useState(false)
-  const sections: SummarySection[] = SUMMARY_SECTIONS[summary] ?? []
+  const stored = (key: string): ConfigSection[] => savedSummary(key) ?? SUMMARY_SECTIONS[key] ?? []
+  const [sections, setSections] = useState<ConfigSection[]>(() => stored('patient'))
   const section = sections[cur]
   const caption = CHART_SUMMARIES.find((s) => s.key === summary)?.caption ?? ''
-  const rowId = (s: SummarySection, i: number) => `section-${pbSlug(s.code)}${sections.findIndex((x) => x.code === s.code) === i ? '' : `-${i}`}`
-  useScreenReport({ window: summary, row: section ? rowId(section, cur) : null, saved })
+  const base = sections.filter((s) => !s.added)
+  const rowId = (s: ConfigSection, i: number) => {
+    if (s.added) return `section-new-${sections.slice(0, i + 1).filter((x) => x.added).length}`
+    const at = base.indexOf(s)
+    return `section-${pbSlug(s.code)}${base.findIndex((x) => x.code === s.code) === at ? '' : `-${i}`}`
+  }
+  useScreenReport({
+    window: summary, row: section ? rowId(section, cur) : null, saved,
+    code: section?.code ? pbSlug(section.code) : null, filter: filterKind(section?.filter),
+    added: sections.filter((s) => s.added).length,
+  })
+  const change = (patch: Partial<ConfigSection>) => {
+    setSections((list) => list.map((s, i) => (i === cur ? { ...s, ...patch } : s)))
+    setSaved(false)
+  }
+  const save = () => {
+    const kept = sections.map(({ pending: _pending, ...s }) => s)
+    saveSummary(summary, kept); setSections(kept); setSaved(true)
+  }
+  const command = (label: string) => {
+    if (label === 'Change Summary') { setPicking((p) => !p); return }
+    if (label === 'New Record') {
+      const at = sections.length ? cur + 1 : 0
+      setSections((list) => [...list.slice(0, at), { code: '', rank: 0, hideSensitive: true, added: true, pending: true }, ...list.slice(at)])
+      setCur(at); setSaved(false)
+    }
+    if (label === 'Delete Record' && section) {
+      setSections((list) => list.filter((_, i) => i !== cur)); setCur((c) => Math.max(0, c - 1)); setSaved(false)
+    }
+    if (label === 'Save') save()
+    if (label === 'Undo' || label === 'Refresh') { setSections(stored(summary)); setCur(0); setSaved(false) }
+  }
 
   return (
     <>
+      {/* F2 is the frame's hot key for the command row's Save (host/hotkeys) */}
       <PBViewHeader title={`Chart Summary Configuration ${caption}`} />
       <div style={{ position: 'relative', flex: 'none' }}>
-        <PBCommandRow
-          commands={CHART_SUMMARY_COMMANDS.map((label) => ({
-            label,
-            onClick: label === 'Change Summary' ? () => setPicking((p) => !p)
-              : label === 'Save' ? () => setSaved(true)
-                : label === 'Undo' ? () => setSaved(false) : undefined,
-          }))}
-        />
+        <PBCommandRow commands={CHART_SUMMARY_COMMANDS.map((label) => ({ label, onClick: () => command(label) }))} />
         {picking && (
           <div className="pb-menu" style={{ position: 'absolute', left: 405, top: 22, zIndex: 20, background: '#fff', border: '1px solid #808080', minWidth: 190 }} data-tutorial-id="host.mois.dialog.change-summary">
             {CHART_SUMMARIES.map((s) => (
@@ -641,7 +701,7 @@ function ChartSummaryConfiguration() {
                 data-tutorial-id={host?.anchor('command', `summary-${s.key}`)}
                 onClick={() => {
                   host?.report('command', { command: `summary-${s.key}` })
-                  setSummary(s.key); setCur(0); setPicking(false); setSaved(false)
+                  setSummary(s.key); setSections(stored(s.key)); setCur(0); setPicking(false); setSaved(false)
                 }}
               >
                 {s.label}
@@ -652,10 +712,10 @@ function ChartSummaryConfiguration() {
       </div>
       <div className="pb-row" style={{ flex: '1 1 auto', minHeight: 0, alignItems: 'stretch', gap: 0 }}>
         <div style={{ width: 360, flex: 'none', display: 'flex', padding: 3, background: '#fff', borderRight: '1px solid #a0a0a0' }}>
-          <PBDataWindow<SummarySection>
+          <PBDataWindow<ConfigSection>
             rows={sections}
             current={cur}
-            onCurrentChange={(i) => { setCur(i); setSaved(false) }}
+            onCurrentChange={(i) => { setCur(i) }}
             rowTutorialId={(s, i) => `host.mois.row.${rowId(s, i)}`}
             columns={[
               { key: 'code', header: 'Section Code', width: 246, headAlign: 'center' },
@@ -666,40 +726,50 @@ function ChartSummaryConfiguration() {
         </div>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)' }} data-tutorial-id="host.mois.field.section-detail">
           <div style={{ background: '#a7c9ed', padding: '3px 6px' }}>Section Detail</div>
-          {section && <SectionDetail key={`${summary}:${cur}`} section={section} />}
+          {section && <SectionDetail key={`${summary}:${cur}`} section={section} unsaved={Boolean(section.pending)} onChange={change} />}
         </div>
       </div>
     </>
   )
 }
 
-function SectionDetail({ section }: { section: SummarySection }) {
+function SectionDetail({ section, unsaved, onChange }: {
+  section: ConfigSection
+  /** an added row not saved yet: its Section Code is still a drop-down */
+  unsaved: boolean
+  onChange: (patch: Partial<ConfigSection>) => void
+}) {
   const label = (text: string) => <span style={{ width: 128, flex: 'none' }}>{text}</span>
   const row = (children: ReactNode, style?: React.CSSProperties) => (
     <div className="pb-row" style={{ gap: 6, padding: '3px 0', alignItems: 'flex-start', ...style }}>{children}</div>
   )
+  const swatch = pbColour(section.colour) ?? section.swatch
   return (
     <div style={{ padding: '6px 10px', overflow: 'auto', flex: '1 1 auto' }}>
-      {row(<>{label('Section Code:')}<span>{section.code}</span></>, { paddingBottom: 12 })}
+      {row(<>{label('Section Code:')}{unsaved
+        ? <PBSelect w={200} aria-label="Section code" data-tutorial-id="host.mois.field.section-code" options={['', ...SECTION_CODES]} value={section.code} onChange={(e) => onChange({ code: e.target.value })} />
+        : <span data-tutorial-id="host.mois.field.section-code">{section.code}</span>}</>, { paddingBottom: 12 })}
       {row(<>
-        {label('Expand Node:')}<span data-tutorial-id="host.mois.field.expand-node"><PBCheckbox label="Yes" checked={Boolean(section.expand)} /></span>
-        <span style={{ marginLeft: 'auto' }}>Rank:</span><PBInput w={74} align="center" defaultValue={String(section.rank)} />
+        {label('Expand Node:')}<span data-tutorial-id="host.mois.field.expand-node"><PBCheckbox label="Yes" checked={Boolean(section.expand)} onChange={(v) => onChange({ expand: v })} /></span>
+        <span style={{ marginLeft: 'auto' }}>Rank:</span>
+        <PBInput w={74} align="center" aria-label="Section rank" data-tutorial-id="host.mois.field.rank" value={String(section.rank)}
+          onChange={(e) => onChange({ rank: Number(e.target.value.replace(/\D/g, '')) || 0 })} />
       </>)}
       {row(<>
         {label('Banner Colour:')}
-        <span data-tutorial-id="host.mois.field.banner-colour"><PBLookup w={150} defaultValue={section.colour ?? ''} /></span>
-        {section.swatch && <span style={{ background: section.swatch, padding: '0 14px', marginLeft: 16 }}>...Banner Colour...</span>}
+        <span data-tutorial-id="host.mois.field.banner-colour"><PBLookup w={150} name="banner-colour" value={section.colour ?? ''} onChange={(v) => onChange({ colour: v })} /></span>
+        {swatch && <span style={{ background: swatch, padding: '0 14px', marginLeft: 16 }}>...Banner Colour...</span>}
       </>)}
-      {row(<>{label('Banner Title:')}<PBInput w={360} defaultValue={section.title ?? ''} data-tutorial-id="host.mois.field.banner-title" /></>, { paddingBottom: 18 })}
+      {row(<>{label('Banner Title:')}<PBInput w={360} aria-label="Banner title" value={section.title ?? ''} onChange={(e) => onChange({ title: e.target.value })} data-tutorial-id="host.mois.field.banner-title" /></>, { paddingBottom: 18 })}
       {row(<>
-        {label('Include All Records:')}<span data-tutorial-id="host.mois.field.include-all-records"><PBCheckbox label="Yes" checked={Boolean(section.includeAll)} /></span>
+        {label('Include All Records:')}<span data-tutorial-id="host.mois.field.include-all-records"><PBCheckbox label="Yes" checked={Boolean(section.includeAll)} onChange={(v) => onChange({ includeAll: v })} /></span>
         <span style={{ marginLeft: 12 }}>(this will include records with Stop Dates)</span>
       </>)}
-      {row(<>{label('Hide Sensitive:')}<span data-tutorial-id="host.mois.field.hide-sensitive"><PBCheckbox label="Yes" checked={Boolean(section.hideSensitive)} /></span></>)}
+      {row(<>{label('Hide Sensitive:')}<span data-tutorial-id="host.mois.field.hide-sensitive"><PBCheckbox label="Yes" checked={Boolean(section.hideSensitive)} onChange={(v) => onChange({ hideSensitive: v })} /></span></>)}
       {row(<>
         {label('Record Filter:')}
         <div>
-          <PBTextArea rows={4} w={360} defaultValue={section.filter ?? ''} data-tutorial-id="host.mois.field.record-filter" />
+          <PBTextArea rows={4} w={360} aria-label="Record filter" value={section.filter ?? ''} onChange={(e) => onChange({ filter: e.target.value })} data-tutorial-id="host.mois.field.record-filter" />
           <div style={{ width: 360, whiteSpace: 'normal', paddingTop: 2 }}>RECENT: will be replaced with an expression that includes the recent date parameter.</div>
           <div style={{ width: 360, whiteSpace: 'normal', paddingTop: 8 }}>REQUIRED: will be replaced with an expression that includes the required by date parameter.</div>
         </div>
@@ -707,7 +777,7 @@ function SectionDetail({ section }: { section: SummarySection }) {
       {row(<>
         {label('Red Flag:')}
         <div>
-          <PBTextArea rows={3} w={360} defaultValue={section.redFlag ?? ''} data-tutorial-id="host.mois.field.red-flag" />
+          <PBTextArea rows={3} w={360} aria-label="Red flag" value={section.redFlag ?? ''} onChange={(e) => onChange({ redFlag: e.target.value })} data-tutorial-id="host.mois.field.red-flag" />
           <div style={{ paddingTop: 2 }}>ERROR, WARNING, DISABLE:</div>
           <div>if (str_field_name = "","NOTHING","DISABLE")</div>
         </div>

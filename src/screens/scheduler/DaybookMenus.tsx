@@ -1,10 +1,11 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { PBMessageBox, pbSlug, usePBInstrumentation, type PBMenuItem } from '../../pb'
 import {
-  currentRow, encounterOf, schedulerBridge, schedulerStore, useSchedulerStore,
+  currentRow, encounterOf, schedulerBridge, schedulerStore, stampOf, useSchedulerStore,
 } from '../../data/schedulerStore'
 import { UniversalSearchDialog } from '../CodeLookupDialogs'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
+import { currentSeriesId, DeleteRecurringAppointment } from './AppointmentSeriesWindows'
 
 /* ============================================================================
    The day book's right-click menus, and the two small windows its commands
@@ -115,7 +116,14 @@ function RowMenu({ args, close, open }: AreaWindowProps) {
     { label: 'View Recalls', disabled: !charted, onSelect: go('patient-recall-list') },
     { label: 'Tag to Care Plan', disabled: !charted },
     { sep: true },
-    { label: 'Workflow Summary', disabled: !charted },
+    {
+      /* the Workflow Summary of the appointment's encounter (303239) */
+      label: 'Workflow Summary', disabled: !charted,
+      onSelect: go('workflow-summary', {
+        recordKey: `encounter:${row?.key ?? ''}`, category: 'ENCOUNTER',
+        date: schedulerStore.get().current ? stampOf(schedulerStore.get().current!.offset) : '', description: row?.reason ?? '',
+      }),
+    },
     { label: 'Create Appointment', onSelect: go('new-appointment') },
     { label: 'Delete Appointment', disabled: !row, onSelect: go('delete-appointment') },
     { label: 'Copy / Move Appointment', disabled: !row, onSelect: go('copy-move-appointment') },
@@ -163,7 +171,13 @@ function HeaderMenu({ args, close }: AreaWindowProps) {
   return <ContextMenu menu="header" items={items} args={args} close={close} />
 }
 
-function DeleteAppointment({ close }: AreaWindowProps) {
+function DeleteAppointment(props: AreaWindowProps) {
+  /* an appointment in a series asks which to delete (art. 3266635 `e5a94a62…`) */
+  if (currentSeriesId()) return <DeleteRecurringAppointment {...props} />
+  return <DeleteSingleAppointment {...props} />
+}
+
+function DeleteSingleAppointment({ close }: AreaWindowProps) {
   const row = currentRow()
   return (
     <PBMessageBox

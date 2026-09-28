@@ -29,6 +29,7 @@ import { AddAttachmentDialog } from './AddAttachmentDialog'
 import { useOpenWindow } from './areaWindowRegistry'
 import { startLetter } from './LetterFlow'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
+import { Phq9FormWindow } from './Phq9FormWindow'
 import { ServiceCodeLookupDialog, UniversalSearchDialog } from './CodeLookupDialogs'
 import { EncounterBanner, MspAppointmentTimes, NewNoteConfirmation, encounterTitle } from './EncounterChrome'
 import {
@@ -40,6 +41,7 @@ import { PrintEncounterNoteDialog } from './PrintEncounterNoteDialog'
 import { PrintNoteForPatientDialog } from './PrintNoteForPatientDialog'
 import { ServiceEventDialog } from './ServiceEventDialog'
 import { WcbFormWindow } from './WcbFormWindow'
+import { usePrivateNoteBand, usePrivateNoteMask } from './PrivateNoteWindows'
 
 /* ============================================================================
    The Encounter Detail Window (Ctrl+Z on an encounter, art. 301931).
@@ -164,6 +166,9 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
   const [dialog, setDialog] = useState<EncounterDialog>(null)
 
   const showing = pending ? null : notes[Math.min(noteIndex, notes.length - 1)]
+  /* private notes print and summarise as their private line (3799734,
+     screens/PrivateNoteWindows.tsx) */
+  const maskPrivate = usePrivateNoteMask(enc.id)
   /* only the creator or the author may change a note (the Encounter Note User
      Lock, on by default); the chart's other users' notes open read-only */
   const editable = (n: SessionNote) => !n.exported || n.createdBy === DESKTOP_USER || n.author === DESKTOP_USER
@@ -455,6 +460,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
                 editable={editable}
                 onNewNote={newNote}
                 onPrintNote={() => setDialog({ id: 'print-encounter-note' })}
+                encounter={enc}
                 onDelete={() => {
                   if (pending) { if (notes.length) setPending(null); else setPending({ text: '', author: '', complete: null }); return }
                   if (!showing || !editable(showing)) return
@@ -482,7 +488,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
                 docuStatus={area.session.notes[enc.id] ? (notes.some((n) => n.complete) ? 'C' : 'I') : undefined}
               />
             )}
-            {tab === 'Encounter Summary' && <EncounterSummaryPage encounter={enc.id} encounterDate={enc.date ?? ''} notes={notes} />}
+            {tab === 'Encounter Summary' && <EncounterSummaryPage encounter={enc.id} encounterDate={enc.date ?? ''} notes={maskPrivate(notes)} />}
             <div style={{ display: tab === 'Encounter Forms' ? 'flex' : 'none', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
               <EncounterFormsPage encounterId={enc.id} encounterDate={enc.date ?? ''} notes={notes} attendingFallback={record?.str_attending ?? ''} loadEncounterForms={loadEncounterForms} encounterFormSlot={encounterFormSlot} />
             </div>
@@ -540,7 +546,7 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
       {dialog?.id === 'print-encounter-note' && (
         <PrintEncounterNoteDialog
           encounter={{ id: enc.id, date: enc.date ?? '', reason: enc.reason ?? record?.str_appt_note ?? '', provider: record?.lkp_provider ?? enc.provider ?? record?.str_attending ?? '' }}
-          notes={notes}
+          notes={maskPrivate(notes)}
           current={showing ?? null}
           onOk={({ title, pages }) => { setDialog(null); openWindow('print-preview', { title, pages, bare: true }) }}
           onClose={() => setDialog(null)}
@@ -900,8 +906,10 @@ function EncounterSummaryPage({ encounter, encounterDate, notes }: {
    the v02.31 reference capture). The arrows either side walk the notes.
    ========================================================================= */
 function ProgressNotePage({
-  notes, index, onIndex, pending, pendingCreated, onPending, onNote, editable, onNewNote, onPrintNote, onDelete, boxRef,
+  notes, index, onIndex, pending, pendingCreated, onPending, onNote, editable, onNewNote, onPrintNote, onDelete, boxRef, encounter,
 }: {
+  /** the encounter the notes belong to — for a note's private status */
+  encounter: EncounterRecord
   notes: SessionNote[]
   index: number
   onIndex: (i: number) => void
@@ -919,7 +927,11 @@ function ProgressNotePage({
 }) {
   const instrumentation = usePBInstrumentation()
   const note = pending ? null : notes[index]
-  const locked = note ? !editable(note) : false
+  /* Private Progress Notes (3799734): the band's Make Private / View Access /
+     Break Glass button, the yellow band, and the line a reader without
+     access sees in place of the note */
+  const priv = usePrivateNoteBand(encounter, note)
+  const locked = note ? !editable(note) || !!priv.hidden : false
   const author = pending ? pending.author : note?.author ?? ''
   const complete = pending ? pending.complete ?? false : note?.complete ?? false
   const authors = [...new Set(['', DESKTOP_USER, ...providerSearchRows.map((p) => p.name), author])]
@@ -927,7 +939,14 @@ function ProgressNotePage({
   const counter = pending ? `*of ${notes.length}` : `${index + 1}of ${notes.length}`
   return (
     <>
+      <div style={priv.private ? { ['--pb-band' as string]: '#fbf59f' } : undefined} data-tutorial-id={priv.private ? 'host.mois.group.private-note-band' : undefined}>
       <PBBand right={<>
+        {priv.button && (
+          <PBButton size="sm" data-tutorial-id={`host.mois.command.${priv.button.id}`}
+            onClick={() => { instrumentation?.report('command', { command: priv.button!.id }); priv.button!.onClick() }}>
+            {priv.button.label}
+          </PBButton>
+        )}
         <PBButton
           size="sm"
           data-tutorial-id="host.mois.command.print-note"
@@ -939,7 +958,9 @@ function ProgressNotePage({
         <PBButton size="sm" data-tutorial-id="host.mois.command.delete-note" onClick={onDelete}>Delete Note</PBButton>
       </>}>
         <span data-tutorial-id="host.mois.field.note-caption">{caption}</span>
+        {priv.private && <span style={{ marginLeft: 60, fontWeight: 400, color: '#9a9a9a' }}>This is a private note.</span>}
       </PBBand>
+      </div>
       <div className="pb-row" style={{ padding: '3px 6px' }}>
         <span>Author:</span>
         <PBSelect
@@ -970,7 +991,7 @@ function ProgressNotePage({
         style={{ flex: '1 1 auto', minHeight: 0, padding: '0 6px 4px', display: 'flex' }}
       >
         <PBTextArea
-          value={pending ? pending.text : note?.text ?? ''}
+          value={pending ? pending.text : priv.hidden ?? note?.text ?? ''}
           readOnly={locked}
           data-tutorial-id="host.mois.field.progress-note"
           /* a highlight is what Print ▸ Selected Text prints; the frame hears
@@ -1005,7 +1026,7 @@ function ProgressNotePage({
    narrow unnamed marker column (a dash, or the "…" that opens a measure's
    dynamic form), Flag, Units.
    ========================================================================= */
-type MeasurementCommand = 'detail' | 'template' | 'other-template' | 'calculators' | 'bp-form'
+type MeasurementCommand = 'detail' | 'template' | 'other-template' | 'calculators' | 'bp-form' | 'phq9-form'
 
 /** Folder-shaped rows (Measures' own keys) → the encounter grid's. */
 function useEncounterMeasures(encounter: string, encounterDate: string): MeasurementRow[] {
@@ -1021,7 +1042,7 @@ function useEncounterMeasures(encounter: string, encounterDate: string): Measure
     }))
   const filed = (area.session.measureRows ?? [])
     .filter((r) => r.encounter === encounter)
-    .map((r): MeasurementRow => ({ code: r.code ?? '', name: r.test ?? '', value: r.value ?? '', flag: r.flag ?? '-', units: r.units ?? '', collected: r.collected || encounterDate, fresh: true }))
+    .map((r): MeasurementRow => ({ code: r.code ?? '', name: r.test ?? '', value: r.value ?? '', flag: r.flag ?? '-', units: r.units ?? '', collected: r.collected || encounterDate, fresh: true, marker: r.marker }))
   return [...own, ...filed]
 }
 
@@ -1045,7 +1066,8 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
     : open === 'template' ? 'measure-template'
     : open === 'other-template' ? 'measure-template-selection'
     : open === 'calculators' ? 'measure-calculators'
-    : open === 'bp-form' ? 'blood-pressure-form' : undefined
+    : open === 'bp-form' ? 'blood-pressure-form'
+    : open === 'phq9-form' ? 'phq9-form' : undefined
   useScreenReport(dialog ? { dialog, measurements: rows.length } : { measurements: rows.length })
 
   /* filing writes the Measures folder's row; this grid reads it back */
@@ -1056,6 +1078,8 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
       measureRows: [...added.map((r) => ({
         collected: encounterDate || MOIS_TODAY, by: DESKTOP_USER, code: r.code, test: r.name, value: r.value,
         flag: r.flag || '-', units: r.units, status: '', clip: '-', encounter,
+        /* a PHQ-9 saved from its form carries the form's report and `.*.` (303102) */
+        ...(r.report ? { report: r.report } : {}), ...(r.marker ? { marker: r.marker } : {}),
       })), ...s.measureRows],
     }))
     setCur(rows.length + added.length - 1)
@@ -1115,7 +1139,10 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
               align: 'center',
               /* a blood pressure's value has a form behind it: F4 in Value, or
                  this "…" (303104; 302837 `17afb92b…`) */
-              render: (r) => (r.code === '1950' || r.code === 'BP'
+              render: (r) => (r.code === '43894'
+                /* PHQ-9 TOTAL SCORE: the PATIENT HEALTH QUESTIONNAIRE (303102) */
+                ? <button className="pb-link" data-tutorial-id="host.mois.command.measure-form-43894" onClick={() => { setEditing(r); setOpen('phq9-form') }}>{r.marker === '.*.' ? '.*.' : '…'}</button>
+                : r.code === '1950' || r.code === 'BP'
                 ? <button className="pb-link" data-tutorial-id={`host.mois.command.measure-form-${pbSlug(r.code)}`} onClick={() => { setEditing(r); setOpen('bp-form') }}>…</button>
                 : '-'),
             },
@@ -1133,6 +1160,18 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
             if (editing.fresh && !editing.code && !editing.value) file([{ ...row, fresh: true }])
             setOpen(null)
             setEditing(null)
+          }}
+          onClose={() => { setOpen(null); setEditing(null) }}
+        />
+      )}
+      {open === 'phq9-form' && (
+        <Phq9FormWindow
+          onSave={(r) => {
+            if (editing?.fresh && !editing.value) {
+              file([{ code: '43894', name: 'PHQ-9 TOTAL SCORE', value: r.total, flag: r.flag, units: '', report: r.report, marker: '.*.', fresh: true }])
+              /* a second Save Form updates the form, it does not file again */
+              setEditing({ ...editing, value: r.total })
+            }
           }}
           onClose={() => { setOpen(null); setEditing(null) }}
         />

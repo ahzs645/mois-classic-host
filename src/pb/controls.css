@@ -409,6 +409,14 @@ textarea.pb-field {
 /* the hairline survives under the selection, lightened rather than hidden */
 .pb-dddw__table tbody tr.is-current td { border-right-color: rgba(255, 255, 255, .8); }
 
+/* A Dynamic Form's drop-down (dddw_dform_field, Early Childhood Assessment's
+   Method of Contact, 2026-09-28 capture) is another DataWindow: its rows are
+   ruled off by a pale hairline, a little taller than the Gender list's, and
+   it has no empty row — a field with no answer drops the list with nothing
+   selected. */
+.pb-dddw__list--dform .pb-dddw__table td { height: 19px; border-bottom: 1px solid #efefec; }
+.pb-dddw__list--dform .pb-dddw__table tbody tr[data-value=""] { display: none; }
+
 /* --- flagged field -------------------------------------------------------
    MOIS marks a control that needs the reader's attention by painting its
    *label* yellow. Seen on Preferred Gender in Demographics > Patient Detail

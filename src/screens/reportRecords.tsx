@@ -7,6 +7,11 @@ import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow, useSessionState } from '../host/screen-windows'
 import type { PBCommand } from '../pb'
 import { practiceRecords } from '../data/practiceRecords'
+import { setNoKnown, storedItems, useAllergySession } from '../data/allergySession'
+import { SESSION_USER } from '../data/chartSession'
+import { ADVERSE_WINDOWS } from './AdverseEventWindows'
+import { useOpenWindow } from './areaWindowRegistry'
+import { applyQuickEntry, type QuickEntryApplied } from './quickEntryApply'
 
 /* ============================================================================
    New Record / Delete Record / Save / Undo on the ClinicalReportView folders.
@@ -28,7 +33,17 @@ import { practiceRecords } from '../data/practiceRecords'
    record — so the row arrives already saved.
 
    Committed rows live in the frame's session store, so a record saved here is
-   still listed after the learner moves to another folder and back.
+   still listed after the learner moves to another folder and back. Reaction
+   Risks and Adverse Events filed through a window (New Reaction Risk, New
+   Adverse Event, Elevate To Risk, Quick Entry) live in data/allergySession.ts
+   instead, which every window that files or links one shares; they are listed
+   above the export's rows.
+
+   Two Allergy / Intolerances commands are also wired here (art. 303131):
+   Reaction Risks' `No Known` files the `** NO KNOWN **` assertion when the
+   list is empty (and says why not when it is not — INFERRED, the article only
+   gives the empty case), and Adverse Events' `Elevate To Risk` opens the
+   Elevate Event To a Reaction Risk window for the current event.
 
    Measures and Preferences have their own handlers and are left alone.
    ========================================================================= */
@@ -62,8 +77,10 @@ export function useReportRecords({
   const active = node !== 'prefs' && node !== 'measures' && node !== ''
   const { chart } = usePatient()
   const win = useScreenWindow()
+  const openWindow = useOpenWindow()
   const [reviews] = useFolderReviews(node)
   const [session, setSession] = useSessionState<Session>(`report:${chart}:${node}`, { added: [], removed: [] })
+  const allergy = useAllergySession(chart)
   const [draft, setDraft] = useState<Row | null>(null)
   const [pendingRemove, setPendingRemove] = useState<string | null>(null)
   const [record, setRecord] = useState('')
@@ -71,10 +88,12 @@ export function useReportRecords({
   /* the export's rows, then any practice record this folder carries (see
      data/practiceRecords.ts), keyed so a removal survives re-ordering */
   const seeded = (active && practiceRecords[node]) || NONE
+  const stored = useMemo(() => (active ? storedItems(node, allergy) : []), [active, node, allergy])
   const base = useMemo(() => [
+    ...stored,
     ...seeded.map((s, i) => ({ row: { ...s.row, __key: `practice-${i}` }, record: s.record })),
     ...rows.map((r, i) => ({ row: { ...r, __key: rowKey(r, i) }, record: records[i] })),
-  ], [rows, records, seeded])
+  ], [rows, records, seeded, stored])
 
   const list = useMemo(() => {
     if (!active) return base
@@ -110,6 +129,14 @@ export function useReportRecords({
       setDraft(null); setPendingRemove(null)
     },
     undo: () => { setDraft(null); setPendingRemove(null); setRecord('') },
+    /** a window filed or linked a record: report it, onto the new top row */
+    mark: (what: string, top = false) => { if (top) setCur(0); setRecord(what) },
+    /* 303131 No Known: only with no Reaction Risks on the list */
+    noKnown: () => {
+      if (list.length) { win.open(ADVERSE_WINDOWS.noKnownBlocked); return }
+      setNoKnown(chart, 'reaction', SESSION_USER)
+      setRecord('no-known')
+    },
     /** a record another window filed (New Reaction Risk's Save) */
     file: (row: Row) => {
       setSession((s) => ({ ...s, added: [{ __key: `new-${Date.now()}`, ...row }, ...s.added] }))
@@ -127,6 +154,21 @@ export function useReportRecords({
          edited (see DIS in data/reportScreens.tsx) */
       case 'Save': return { ...c, onClick: act.save }
       case 'Undo': return { ...c, onClick: act.undo }
+      case 'No Known': return node === 'reaction' || node === 'allergy' ? { ...c, onClick: act.noKnown } : c
+      /* art. 3071982 "Using Quick Entry in Reaction Risks": the Quick Entry -
+         Reaction Risks window (screens/QuickEntryWindows.tsx); Continue files
+         the templated risk and reports it as saved on the new top row */
+      case 'Quick Entry': return node === 'reaction' || node === 'allergy' ? {
+        ...c,
+        onClick: () => openWindow('quick-entry-chart', {
+          group: 'Reaction Risk',
+          onApply: (applied: QuickEntryApplied) => { applyQuickEntry(applied); act.mark('saved', true) },
+        }),
+      } : c
+      case 'Elevate To Risk': return node !== 'events' ? c : {
+        ...c, disabled: !list[cur],
+        onClick: () => { const r = list[cur]; if (r) win.open(ADVERSE_WINDOWS.elevate, { event: r.record?.id_adverse_event ?? r.row.__key ?? '' }) },
+      }
       default: return c
     }
   }))
@@ -138,6 +180,7 @@ export function useReportRecords({
     recordAt: (i: number) => list[i]?.record,
     commands,
     file: act.file,
+    mark: act.mark,
     reviewed: reviews[0],
   }
 }

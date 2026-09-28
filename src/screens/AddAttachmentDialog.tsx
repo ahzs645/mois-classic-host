@@ -1,5 +1,11 @@
 import { useState } from 'react'
+import { chartRowsFor } from '../data/chart-records'
+import { usePatient } from '../data/patient-context'
+import { MOIS_TODAY } from '../data/patients'
 import { useEncounterSession } from '../host/encounterArea'
+import { useOpenWindow } from './areaWindowRegistry'
+import { AttachmentListWindow, useAttachmentLog } from './AttachmentListWindow'
+import { PHSA_EFORM_WINDOW, phsaFormFor } from './PhsaEformWindows'
 import {
   AFTER_ATTACHING, ATTACH_FILE_MODES, FORM_LETTER_GROUPS, FORM_LETTER_WIDTHS,
   formLetterRows,
@@ -35,6 +41,19 @@ import {
    (the filter row is the only header), the Location `...` file picker is not
    shown, and the separate `Document / Attachment List` window that a second
    attachment opens is a different window and is not built here.
+
+   Added for 303793 / 3001611 / 3001613 (stream C2):
+   · A record that already carries an attachment opens the Document /
+     Attachment List first (screens/AttachmentListWindow.tsx, 303793
+     `0f6603c1…png`); its Add Attachment comes back here.
+   · The PHSA eFORMS band (data/chartUtilities.ts): Ok on one of its rows
+     opens the eForm Browser (screens/PhsaEformWindows.tsx) instead of
+     filing a template, the way 3001613 `4399305d…png` and 3001611
+     `17e72105…png` go on to the form.
+   · An attachment filed on a chart record while an encounter is active (the
+     identity strip's Active ENC#, screens/ActiveEncounterWindow.tsx) is
+     associated with that encounter (303793 "These files will now be
+     associated with the Active Encounter selected").
    ========================================================================= */
 
 const W = 930
@@ -70,11 +89,14 @@ function FilterRow() {
   )
 }
 
-function AttachFormTab({ recentLimit, onRecentLimit }: {
+function AttachFormTab({ recentLimit, onRecentLimit, onPick }: {
   recentLimit: number
   onRecentLimit: (v: number) => void
+  /** the row the cursor is on, for Ok */
+  onPick?: (row: FormLetterRow | undefined) => void
 }) {
-  const [current, setCurrent] = useState(0)
+  const [current, setCurrentRow] = useState(0)
+  const setCurrent = (i: number) => { setCurrentRow(i); onPick?.(formLetterRows[i]) }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   /* which rows carry the heart is not shown in any capture, so none do */
   const [favourites, setFavourites] = useState<Set<string>>(new Set())
@@ -244,8 +266,37 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
      (303793) — kept in the frame's session copy (host/encounterArea) */
   const encounters = useEncounterSession()
   const attachTo = target ?? encounters.session.attachTarget
+  const { chart } = usePatient()
+  const openWindow = useOpenWindow()
+  const [log, setLog] = useAttachmentLog(attachTo)
+  const [picked, setPicked] = useState<FormLetterRow | undefined>(formLetterRows[0])
+  /* what the chart export already counts on an encounter row's paper clip */
+  const exported = attachTo?.startsWith('encounter:')
+    ? Number(chartRowsFor(chart, 'encounters').find((r) => `encounter:${r.id}` === attachTo)?.attach) || 0
+    : 0
+  const existing = exported + (attachTo ? encounters.session.attachments[attachTo] ?? 0 : 0)
+  const [stage, setStage] = useState<'list' | 'add'>(() => (existing > 0 ? 'list' : 'add'))
   const file = () => {
-    if (attachTo) encounters.update((s) => ({ ...s, attachments: { ...s.attachments, [attachTo]: (s.attachments[attachTo] ?? 0) + 1 } }))
+    /* a PHSA eFORM is filled in the eForm Browser, which files it on Submit */
+    if (tab === TAB_FORM && picked?.group === 'PHSA eFORMS') {
+      openWindow(PHSA_EFORM_WINDOW, { form: phsaFormFor(picked.description), target: attachTo })
+      onOk?.(after)
+      return
+    }
+    if (attachTo) {
+      const active = encounters.activeEncounter
+      encounters.update((s) => ({
+        ...s,
+        attachments: { ...s.attachments, [attachTo]: (s.attachments[attachTo] ?? 0) + 1 },
+        ...(active && !attachTo.startsWith('encounter:')
+          ? { attachmentEncounters: { ...(s.attachmentEncounters ?? {}), [attachTo]: active } }
+          : {}),
+      }))
+      setLog([...log, {
+        date: MOIS_TODAY, author: '', docType: tab === TAB_FORM ? 'PAPER FORM' : 'ATTACHMENT',
+        note: tab === TAB_FORM ? picked?.description ?? '' : '', file: '',
+      }])
+    }
     onOk?.(after)
   }
   const [tab, setTab] = useState(TAB_FORM)
@@ -253,6 +304,10 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
   const [mode, setMode] = useState<AttachFileMode>('Copy Original File(s)')
   const [after, setAfter] = useState(AFTER_ATTACHING[0])
   const [saveChoice, setSaveChoice] = useState(false)
+
+  if (stage === 'list') {
+    return <AttachmentListWindow target={attachTo} exported={exported} onAddAttachment={() => setStage('add')} onClose={onClose} />
+  }
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -274,7 +329,7 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
         >
           <PBTabs tabs={[TAB_FORM, TAB_FILE]} active={tab} onChange={setTab} face>
             {tab === TAB_FORM
-              ? <AttachFormTab recentLimit={recentLimit} onRecentLimit={setRecentLimit} />
+              ? <AttachFormTab recentLimit={recentLimit} onRecentLimit={setRecentLimit} onPick={setPicked} />
               : <AttachFileTab mode={mode} onMode={setMode} />}
           </PBTabs>
 

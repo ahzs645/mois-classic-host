@@ -227,6 +227,10 @@ export type Patient = {
   associatedParties?: AssociatedPartyEntry[]
   /** WCB Claims ▸ WCB Claim List */
   wcbClaims?: WcbClaimEntry[]
+  /** Other Claims ▸ Other Claim List (tdt_claim_other) */
+  otherClaims?: OtherClaimEntry[]
+  /** Incentives ▸ Incentive Claim List (tdt_claim_incentive) */
+  incentiveClaims?: IncentiveClaimEntry[]
   /** Benefits — one row per benefit source / service */
   benefits?: BenefitEntry[]
   /** Settings ▸ Patient Contact Preferences (art. 303800): who the clinic's
@@ -239,7 +243,9 @@ export type Patient = {
 export type ContactPreferenceEntry = { reason?: string; order?: string; method?: string; source?: string; contact?: string }
 
 /** One ID Alias row: Code / Description / Value / Effective / Note / Show On Demo. */
-export type AliasIdEntry = { code?: string; desc?: string; value?: string; effective?: string; note?: string; demo?: boolean }
+export type AliasIdEntry = { code?: string; desc?: string; value?: string; effective?: string; note?: string; demo?: boolean
+  /** Alias ID Detail ▸ Comment — its own column on tdt_alias_id, apart from Note */
+  comment?: string }
 
 /** One Associated Party. `type` is the Detail pane's Type — art. 301554
     (`4eeb5e4f…png`) and art. 301149 (`0e1c7555…png`) list exactly two:
@@ -258,6 +264,17 @@ export type WcbClaimEntry = {
   employer?: string; isDefault?: boolean
   company?: string; address?: string; city?: string; postal?: string; province?: string; country?: string
   phone?: string; note?: string
+}
+
+/** One Other Claims row (art. 301149 `fa7212ff…png`): Date Issued / Claim
+    Number / Description, e.g. an ICBC claim number for an MVA. */
+export type OtherClaimEntry = { issued?: string; claim?: string; desc?: string }
+
+/** One Incentive Claims row (art. 301149 `a0c45e54…png`): the fee code and
+    its description, the ICD-9 diagnostic code, the allowable billing
+    frequency in months and the Claim Detail memo. */
+export type IncentiveClaimEntry = {
+  start?: string; end?: string; fee?: string; feeDesc?: string; diag?: string; freq?: string; detail?: string
 }
 
 /** One Benefits row (art. 2951102 / 2257761): source, service, dates, and the

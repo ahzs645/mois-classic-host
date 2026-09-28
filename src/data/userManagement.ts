@@ -540,6 +540,15 @@ export const WINDOW_ACCESS_ROWS: WindowAccessRow[] = [
   { node: 'Administration', depth: 0, access: false, level: 'Read Only' },
   { node: 'User Management', depth: 1, access: false, level: 'Read Only' },
   { node: 'Clinic Management', depth: 1, access: false, level: 'Read Only' },
+  /* 3799750 `3aa5c0ee…png` / `ed3a6269…png`: the private-note nodes, unticked
+     until an administrator grants them */
+  { node: 'Chart Access Control', depth: 1, access: true, level: 'Read/Write' },
+  { node: 'Management', depth: 2, access: true, level: 'Read/Write' },
+  { node: 'Break Glass Audit', depth: 2, access: true, level: 'Read/Write' },
+  { node: 'Private Notes', depth: 2, access: false, level: 'Read/Write' },
+  { node: 'Workspace', depth: 0, access: true, level: 'Administrator' },
+  { node: 'Other', depth: 1, access: false, level: 'Read/Write' },
+  { node: 'My Private Notes', depth: 2, access: false, level: 'Read/Write' },
 ]
 
 /* --- tab 3: `Special Functions` -------------------------------------------
@@ -570,8 +579,17 @@ export const SPECIAL_FUNCTION_ROWS: SpecialFunctionRow[] = [
   { fn: 'MAR Lock Override', desc: 'Ability to edit MAR records regardless of lock setting and MAR creator' },
   { fn: 'Access Control - Break Glass', desc: 'Ability to Break Glass when chart access is denied.' },
   { fn: 'Access Control - Manage Chart Access', desc: 'Ability to add / delete chart access control records (ie connections or named users).' },
+  /* 3799750 `dd646cfd…png` (Security Profile Settings) and 303227
+     `51c5bd38…png` (User Account): the two private-note functions sit here,
+     the two prescribing ones after "Alert user of new version". Ticked as
+     the User Account capture shows them, so the stage's desktop user starts
+     able to use them (data/accessSettings.ts reads the ticks). */
+  { fn: 'Access Control - Make Private Notes', desc: 'Ability to make a progress note private.', execute: true },
+  { fn: 'Access Control - Break Glass Private Notes', desc: 'Ability to break glass to access a private progress note.', execute: true },
   { fn: 'Workspace - can create temporary memberships', desc: 'Ability to create temporary memberships from the workspace module.' },
   { fn: 'Alert user of new version', desc: 'When starting mois, alert the user that mois has been updated.' },
+  { fn: 'Can create controlled prescriptions', desc: 'Ability to create controlled prescription records (Rx/LTM/Favourites).', execute: true },
+  { fn: 'OAT Prescribing', desc: 'Ability to create OAT prescriptions', execute: true },
 ]
 
 /* The names, the descriptions and the two red rows are all `e361c4e01d11`'s
@@ -805,6 +823,9 @@ export const OTHER_SETTINGS: OtherSetting[] = [
       { kind: 'drop', label: 'Default eFax Account:', w: 220, options: [''], disabled: true },
     ],
   },
+  /* 3363428 `c4de1672…`: the user's responses to User Agreements; the pane
+     is drawn by screens/UserAgreementWindows.tsx (UserAgreementResponses) */
+  { name: 'User Agreements', fields: [] },
 ]
 
 /* ===========================================================================

@@ -10,4 +10,5 @@ import './chart-demographics'
 import './chart-summary'
 import './reports'
 import './scheduler'
+import './billing-programs'
 export {}

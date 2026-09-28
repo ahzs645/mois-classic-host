@@ -112,10 +112,10 @@ export const TRAINING_CHART = '87288'
 /** TECHNICAL SUPPORT's day, 2026.08.11 — the day book the Scheduler opens on. */
 export const daybookAppointments: Appointment[] = [
   a('08', '30', 'O', TRAINING_CHART, 'PATCH', 'AADAMS', 'Office visit', { enc: '535349' }),
-  a('09', '00', 'SA', '10121', 'GEORGE', 'ADAM', 'Same day — sore throat'),
+  a('09', '00', 'SA', '10121', 'GEORGE', 'ADAM', 'Same day — sore throat', { resource: 'RESIDENT A' }),
   a('09', '30', 'C', '10088', 'MARGARET', 'HALE', 'Counselling', { n: '12' }),
   a('10', '00', 'U', '10204', 'PRIYA', 'RAO', 'Urgent — chest pain', { room: '2' }),
-  a('10', '30', 'FP', '10247', 'SAM', 'OKONKWO', 'Full physical', { n: '6' }),
+  a('10', '30', 'FP', '10247', 'SAM', 'OKONKWO', 'Full physical', { n: '6', resource: 'RESIDENT A' }),
   a('11', '00', 'TR', '10312', 'DALE', 'FONTAINE', 'Treatment room — dressing'),
   a('11', '30', 'R', TRAINING_CHART, 'PATCH', 'AADAMS', 'Diabetes follow-up', { enc: '531588', tm: '5' }),
   a('13', '00', 'R', TRAINING_CHART, 'PATCH', 'AADAMS', 'Wound care', { enc: '530216', ds: 'C', m: '1' }),
@@ -154,6 +154,11 @@ const PROVIDER_DAYS: Record<string, Appointment[]> = {
     a('14', '00', 'R', '10823', 'OMAR', 'HADDAD', 'Follow-up — asthma'),
   ],
   'SHEWCHUK, LEAH': [],
+  /* art. 304078 scenario 1: the resident booked under their own day book */
+  'RESIDENT A': [
+    a('09', '00', 'R', '10266', 'TOBY', 'WEST', 'Follow-up — earache'),
+    a('10', '00', 'R', '10458', 'HELEN', 'MARCHAND', 'Blood pressure check'),
+  ],
 }
 
 /* Any other day: a deterministic spread of the same synthetic patients, so
@@ -208,7 +213,9 @@ export function knownPatient(chart: string): { first: string; last: string } | n
    art. 303807 `9c17a65e…`: the resource day book lists a resource's bookings
    with a Provider column where the provider book has Resource. The capture's
    resource is called `1`; its three rows are its day. */
-export const RESOURCES = ['1', '2', 'TREATMENT ROOM', 'GROUP ROOM']
+/* RESIDENT A: art. 304078 scenario 3, a resident set up as a Resource so the
+   preceptor's patients split between them by the Resource column */
+export const RESOURCES = ['1', '2', 'TREATMENT ROOM', 'GROUP ROOM', 'RESIDENT A']
 
 export function resourceDayFor(resource: string, offset: number): Appointment[] {
   if (offset !== 0) return []
@@ -217,6 +224,12 @@ export function resourceDayFor(resource: string, offset: number): Appointment[] 
       a('09', '30', 'R', '10026', 'ASHLEE', 'MORRISON', '', { provider: 'BEARDWOOD, WALTER' }),
       a('10', '00', 'R', '10037', 'DORA', 'EXPLORER', '', { provider: 'HOWSER, DOOGIE' }),
       a('10', '15', 'R', '10023', 'MARY', 'COMPLEX', '', { provider: 'FAIRCHILD, NESRIN L' }),
+    ]
+  }
+  if (resource === 'RESIDENT A') {
+    return [
+      a('09', '00', 'SA', '10121', 'GEORGE', 'ADAM', 'Same day — sore throat', { provider: 'TECHNICAL SUPPORT', resource: 'RESIDENT A' }),
+      a('10', '30', 'FP', '10247', 'SAM', 'OKONKWO', 'Full physical', { provider: 'TECHNICAL SUPPORT', resource: 'RESIDENT A', n: '6' }),
     ]
   }
   if (resource === 'TREATMENT ROOM') {

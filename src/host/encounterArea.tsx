@@ -72,6 +72,14 @@ export type EncounterSession = {
   /** "Always create new note" ticked on the New Note confirmation: New Note
       stops asking (screens/EncounterChrome `NewNoteConfirmation`) */
   alwaysNewNote: boolean
+  /** the encounter picked with the identity strip's Active ENC# "…" (303793,
+      303427): what attachments and MAR records made in the chart folders are
+      associated with while no Encounter Detail Window is open
+      (screens/ActiveEncounterWindow.tsx) */
+  activeEnc?: string | null
+  /** an attachment filed while an encounter was active: the record it hangs
+      from → that encounter */
+  attachmentEncounters?: Record<string, string>
 }
 
 export const EMPTY_SESSION: EncounterSession = {
@@ -97,6 +105,9 @@ export function useEncounterSession() {
     /** the encounter the most recently opened Encounter Detail Window holds —
         the active encounter, in the one-window mode MOIS recommends (301931) */
     active: full.open.length ? full.open[full.open.length - 1]! : null,
+    /** what the identity strip's Active ENC# shows: the open Encounter Detail
+        Window's encounter, else the one picked with its "…" */
+    activeEncounter: full.open.length ? full.open[full.open.length - 1]! : full.activeEnc ?? null,
   }
 }
 

@@ -31,19 +31,34 @@ export type UnsentClaim = {
   last: string; first: string; service: string; doctor: string; fee: string
   dob: string; insrBy: string; insrNbr: string; billed: string
   compl: boolean; hold: boolean; sub: string
+  /* --- carried by the live list (data/billingStore.ts), not the captures --- */
+  /** a stable id: `u1`… for the training rows, `n1`… for one made this session */
+  id?: string
+  /** the Claim Review Wizard's columns (303601 `e974131a`) */
+  payee?: string; facility?: string; clar?: string; location?: string
+  diag?: string
+  /** the SNOMED-CT code a mapped ICD-9 diagnosis came from (2069402) */
+  mappedFrom?: string
+  /** where the claim came from: saved in Unsent MSP, billed off the day book,
+      the Bulk Claim Creation Wizard, a resubmit / debit / duplicate */
+  origin?: 'training' | 'saved' | 'daybook' | 'bulk' | 'resubmit' | 'debit' | 'duplicate'
+  /** the whole claim window as Save left it, so a pick reloads every field */
+  form?: ClaimForm
 }
 
 export const unsentClaims: UnsentClaim[] = [
-  { chart: '10035', last: 'BROWN', first: 'FARMER', service: '2026.03.18', doctor: 'BEARDWOOD, WALTER', fee: '13060', dob: '1990.10.23', insrBy: 'BC', insrNbr: '9151259051', billed: '71.50', compl: true, hold: false, sub: 'R' },
-  { chart: '10012', last: 'ADAM', first: 'GEORGE', service: '2026.03.18', doctor: 'BEARDWOOD, WALTER', fee: '00100', dob: '1978.02.04', insrBy: 'BC', insrNbr: '9151251882', billed: '33.05', compl: true, hold: false, sub: 'R' },
-  { chart: '10041', last: 'HALE', first: 'MARGARET', service: '2026.03.18', doctor: 'SHEWCHUK, LEAH', fee: '00120', dob: '1955.07.19', insrBy: 'BC', insrNbr: '9151253340', billed: '46.20', compl: true, hold: true, sub: 'R' },
-  { chart: '10057', last: 'RAO', first: 'PRIYA', service: '2026.03.17', doctor: 'HOWSER, DOOGIE', fee: '00101', dob: '1984.12.02', insrBy: 'BC', insrNbr: '9151257712', billed: '52.80', compl: true, hold: false, sub: 'R' },
-  { chart: '10063', last: 'OKONKWO', first: 'SAM', service: '2026.03.17', doctor: 'BEARDWOOD, WALTER', fee: '14070', dob: '1969.05.28', insrBy: 'BC', insrNbr: '', billed: '125.00', compl: false, hold: false, sub: 'R' },
-  { chart: '10078', last: 'FONTAINE', first: 'DALE', service: '2026.03.16', doctor: 'FAIRCHILD, NESRIN L', fee: '13005', dob: '2001.09.11', insrBy: 'BC', insrNbr: '9151258003', billed: '18.40', compl: true, hold: false, sub: 'R' },
-  { chart: '10084', last: 'CASTILLO', first: 'JUNE', service: '2026.03.16', doctor: 'DUCHARME, AMARILYS', fee: '00110', dob: '1947.01.30', insrBy: 'BC', insrNbr: '9151250264', billed: '39.95', compl: true, hold: false, sub: 'R' },
+  { id: 'u1', chart: '10035', last: 'BROWN', first: 'FARMER', service: '2026.03.18', doctor: 'BEARDWOOD, WALTER', fee: '13060', dob: '1990.10.23', insrBy: 'BC', insrNbr: '9151259051', billed: '71.50', compl: true, hold: false, sub: 'R' },
+  { id: 'u2', chart: '10012', last: 'ADAM', first: 'GEORGE', service: '2026.03.18', doctor: 'BEARDWOOD, WALTER', fee: '00100', dob: '1978.02.04', insrBy: 'BC', insrNbr: '9151251882', billed: '33.05', compl: true, hold: false, sub: 'R' },
+  { id: 'u3', chart: '10041', last: 'HALE', first: 'MARGARET', service: '2026.03.18', doctor: 'SHEWCHUK, LEAH', fee: '00120', dob: '1955.07.19', insrBy: 'BC', insrNbr: '9151253340', billed: '46.20', compl: true, hold: true, sub: 'R' },
+  { id: 'u4', chart: '10057', last: 'RAO', first: 'PRIYA', service: '2026.03.17', doctor: 'HOWSER, DOOGIE', fee: '00101', dob: '1984.12.02', insrBy: 'BC', insrNbr: '9151257712', billed: '52.80', compl: true, hold: false, sub: 'R' },
+  { id: 'u5', chart: '10063', last: 'OKONKWO', first: 'SAM', service: '2026.03.17', doctor: 'BEARDWOOD, WALTER', fee: '14070', dob: '1969.05.28', insrBy: 'BC', insrNbr: '', billed: '125.00', compl: false, hold: false, sub: 'R' },
+  { id: 'u6', chart: '10078', last: 'FONTAINE', first: 'DALE', service: '2026.03.16', doctor: 'FAIRCHILD, NESRIN L', fee: '13005', dob: '2001.09.11', insrBy: 'BC', insrNbr: '9151258003', billed: '18.40', compl: true, hold: false, sub: 'R' },
+  { id: 'u7', chart: '10084', last: 'CASTILLO', first: 'JUNE', service: '2026.03.16', doctor: 'DUCHARME, AMARILYS', fee: '00110', dob: '1947.01.30', insrBy: 'BC', insrNbr: '9151250264', billed: '39.95', compl: true, hold: false, sub: 'R' },
 ]
 
 export type SentClaim = {
+  /** a stable id (`s1`…) the session's toggles are kept against */
+  id: string
   service: string; diag: string; fee: string; ins: string
   billed: string; paid: string; doctor: string; sent: string
   r1: string; r2: string; wo: string; e1: string; e2: string; e3: string
@@ -57,13 +72,13 @@ export type SentClaim = {
    CODES below), so the Sent Claim Detail window (Ctrl+E) never shows a code
    with an invented description. */
 export const sentClaims: SentClaim[] = [
-  { service: '2026.02.11', diag: '780', fee: '13060', ins: 'BC', billed: '71.50', paid: '71.50', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'BROWN', first: 'FARMER', m: '', payee: '00001' },
-  { service: '2026.02.11', diag: '401', fee: '00100', ins: 'BC', billed: '33.05', paid: '33.05', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'ADAM', first: 'GEORGE', m: '', payee: '00001' },
-  { service: '2026.02.04', diag: '250', fee: '14050', ins: 'BC', billed: '98.60', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.02.05', r1: '', r2: 'R', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'X', pract: '22781', last: 'HALE', first: 'MARGARET', m: '', payee: '00001' },
-  { service: '2026.01.28', diag: '300', fee: '00120', ins: 'BC', billed: '46.20', paid: '41.58', doctor: 'HOWSER, DOOGIE', sent: '2026.01.29', r1: 'A', r2: 'X', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'T', pract: '30117', last: 'RAO', first: 'PRIYA', m: '', payee: '00001' },
-  { service: '2026.01.21', diag: '724', fee: '00101', ins: 'BC', billed: '52.80', paid: '-', doctor: 'BEARDWOOD, WALTER', sent: '2026.01.22', r1: '', r2: 'U', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'OKONKWO', first: 'SAM', m: '', payee: '00001' },
-  { service: '2026.01.14', diag: '466', fee: '00110', ins: 'BC', billed: '39.95', paid: '39.95', doctor: 'FAIRCHILD, NESRIN L', sent: '2026.01.15', r1: 'R', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '41903', last: 'FONTAINE', first: 'DALE', m: '', payee: '00001' },
-  { service: '2026.01.07', diag: '780', fee: '00100', ins: 'BC', billed: '33.05', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.01.08', r1: 'R', r2: 'F', wo: 'N', e1: 'P9', e2: '', e3: '', ref: 'X', pract: '22781', last: 'CASTILLO', first: 'JUNE', m: '', payee: '00001' },
+  { id: 's1', service: '2026.02.11', diag: '780', fee: '13060', ins: 'BC', billed: '71.50', paid: '71.50', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'BROWN', first: 'FARMER', m: '', payee: '00001' },
+  { id: 's2', service: '2026.02.11', diag: '401', fee: '00100', ins: 'BC', billed: '33.05', paid: '37.22', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'ADAM', first: 'GEORGE', m: '', payee: '00001' },
+  { id: 's3', service: '2026.02.04', diag: '250', fee: '14050', ins: 'BC', billed: '98.60', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.02.05', r1: '', r2: 'R', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'X', pract: '22781', last: 'HALE', first: 'MARGARET', m: '', payee: '00001' },
+  { id: 's4', service: '2026.01.28', diag: '300', fee: '00120', ins: 'BC', billed: '46.20', paid: '41.58', doctor: 'HOWSER, DOOGIE', sent: '2026.01.29', r1: 'A', r2: 'X', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'T', pract: '30117', last: 'RAO', first: 'PRIYA', m: '', payee: '00001' },
+  { id: 's5', service: '2026.01.21', diag: '724', fee: '00101', ins: 'BC', billed: '52.80', paid: '-', doctor: 'BEARDWOOD, WALTER', sent: '2026.01.22', r1: '', r2: 'U', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'OKONKWO', first: 'SAM', m: '', payee: '00001' },
+  { id: 's6', service: '2026.01.14', diag: '466', fee: '00110', ins: 'BC', billed: '39.95', paid: '39.95', doctor: 'FAIRCHILD, NESRIN L', sent: '2026.01.15', r1: 'R', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '41903', last: 'FONTAINE', first: 'DALE', m: '', payee: '00001' },
+  { id: 's7', service: '2026.01.07', diag: '780', fee: '00100', ins: 'BC', billed: '33.05', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.01.08', r1: 'R', r2: 'F', wo: 'N', e1: 'P9', e2: '', e3: '', ref: 'X', pract: '22781', last: 'CASTILLO', first: 'JUNE', m: '', payee: '00001' },
 ]
 
 /* ============================================================================
@@ -101,6 +116,30 @@ export type ClaimForm = {
   diag3: string
   payMode: 'Normal' | 'Alternate'
   afterHour: 'Normal' | 'Night' | 'Even' | 'W/end'
+  /* --- the rest of the window, so Save keeps what was typed (303601
+     "Unsent Window Description"); all optional, a claim from an older
+     session store simply lacks them --- */
+  /** Time(s) Received / Start / Finish, `hh:mm` */
+  received?: string; start?: string; finish?: string
+  /** REFER: the two Ref To/By rows */
+  ref1?: 'N/A' | 'To' | 'By'; ref1Pract?: string
+  ref2?: 'N/A' | 'To' | 'By'; ref2Pract?: string
+  /** OPTIONS */
+  mva?: 'Yes' | 'No'; icbc?: string; memo?: string; sub?: string; claimNote?: string; mspNote?: string
+  /** OPTIONS' lower block: the patient details an out-of-province or newborn
+      claim carries (303601 cloud capture `fa0339f2`: DoB, Sex, Address 1–4,
+      Postal Code) */
+  oopDob?: string; oopSex?: string; addr1?: string; addr2?: string; addr3?: string; addr4?: string; postal?: string
+  /** WCB */
+  wcbNo?: string; injury?: string
+  /** OTHER */
+  facility?: string; subFacility?: string
+  /** Action ▸ Set as Pay Patient (PP) Claim (Ctrl+P) */
+  payPatient?: boolean
+  /** Diag Code 1 is an ICD-9 code MOIS mapped from this SNOMED-CT code (2069402) */
+  mappedFrom?: string
+  /** the live list's id of the claim on screen, once it has one */
+  id?: string
   hold: boolean
   holdReason: string
   /** what Save decided; a claim that has never been saved reads Incomplete */
@@ -125,6 +164,10 @@ export function blankClaim(today: string, doctor = DOCTORS[0]!): ClaimForm {
     serviceDate: today, location: 'A', serviceTo: '', noService: '1.0000',
     clarification: 'PG', fee: '00100', unit: '29.97', diag1: '', diag2: '', diag3: '',
     payMode: 'Normal', afterHour: 'Normal', hold: false, holdReason: '',
+    received: '', start: '', finish: '', ref1: 'N/A', ref1Pract: '', ref2: 'N/A', ref2Pract: '',
+    mva: 'No', icbc: '', memo: '', sub: '0', claimNote: '', mspNote: '',
+    oopDob: '', oopSex: '', addr1: '', addr2: '', addr3: '', addr4: '', postal: '',
+    wcbNo: '', injury: '', facility: '00000', subFacility: '00000', payPatient: false,
     status: 'Incomplete', state: 'new', created: '',
   }
 }
@@ -133,11 +176,24 @@ export function blankClaim(today: string, doctor = DOCTORS[0]!): ClaimForm {
     claim is selected, the information will automatically populate the MOIS
     Unsent Claims screen"). */
 export function claimFromRow(row: UnsentClaim): ClaimForm {
+  /* a claim Save stored whole reloads as it was, under the list's current
+     values (the Claim Review Wizard may have changed provider or fee since) */
+  if (row.form) {
+    return {
+      ...row.form,
+      id: row.id, doctor: row.doctor, fee: row.fee, unit: row.billed,
+      clarification: row.clar ?? row.form.clarification, location: row.location ?? row.form.location,
+      facility: row.facility ?? row.form.facility, hold: row.hold,
+      status: row.compl ? 'Complete' : 'Incomplete', state: 'picked',
+    }
+  }
   return {
     ...blankClaim(row.service, row.doctor),
+    id: row.id,
     chart: row.chart, first: row.first, last: row.last,
     insuredBy: row.insrBy, insurance: row.insrNbr, dob: row.dob,
-    fee: row.fee, unit: row.billed, diag1: '780',
+    fee: row.fee, unit: row.billed, diag1: row.diag ?? '780', mappedFrom: row.mappedFrom,
+    clarification: row.clar ?? 'PG', location: row.location ?? 'A', facility: row.facility ?? '00000',
     hold: row.hold, status: row.compl ? 'Complete' : 'Incomplete',
     state: 'picked', created: `${row.service} 15:38 ADMINISTRATOR`,
   }

@@ -130,8 +130,13 @@ export function dispatchLearnerChange(el: HTMLElement) {
 export type PBSelectOption = string | { value: string; label: string }
 
 export function PBSelect({
-  options: entries, w, className, style, value, defaultValue, onChange, onKeyDown, onClick, onMouseDown, onBlur, disabled, ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { options: readonly PBSelectOption[]; w?: number | string }) {
+  options: entries, w, className, listClassName, style, value, defaultValue, onChange, onKeyDown, onClick, onMouseDown, onBlur, disabled, ...rest
+}: SelectHTMLAttributes<HTMLSelectElement> & {
+  options: readonly PBSelectOption[]
+  w?: number | string
+  /** a variant of the dropped list: `pb-dddw__list--dform` is a Dynamic Form's DDDW */
+  listClassName?: string
+}) {
   const items = entries.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
   const options = items.map((o) => o.value)
   const labelOf = (v: string) => items.find((o) => o.value === v)?.label ?? v
@@ -212,13 +217,14 @@ export function PBSelect({
       </button>
 
       {open && (
-        <PBPopup id={listId} anchorRef={ref} owner={owner} className="pb-dddw__list" minWidth="anchor">
+        <PBPopup id={listId} anchorRef={ref} owner={owner} className={cx('pb-dddw__list', listClassName)} minWidth="anchor">
           <table className="pb-dddw__table" role="listbox">
             <tbody>
               {items.map((o) => (
                 <tr
                   key={o.value}
                   role="option"
+                  data-value={o.value}
                   aria-selected={o.value === current}
                   className={o.value === current ? 'is-current' : undefined}
                   /* mousedown, and default prevented, so focus stays on the field */

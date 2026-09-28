@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
-  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput, PBRadio,
-  PBDropDownDataWindow, PBSelect, PBSummaryBand, PBTextArea, PBViewHeader,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio,
+  PBDropDownDataWindow, PBSelect, PBTextArea, PBViewHeader,
   pbSlug, usePBInstrumentation, type PBColumn, type PBCommand,
 } from '../pb'
 import { daybookProviders } from '../data/mois'
@@ -13,7 +13,11 @@ import {
   type DayRow, type EncounterOpen,
 } from '../data/schedulerStore'
 import { shiftMinutes } from '../data/schedulerSetup'
+import { schedulerExtras, useSchedulerExtras } from '../data/schedulerExtras'
+import { useWorkspaceStore } from '../data/workspaceStore'
 import { useOpenWindow } from './areaWindowRegistry'
+import { commitDaybookMspLoc, DaybookMspLoc } from './billing/DaybookMspLoc'
+import { PatientDetailSlide } from './scheduler/PatientDetailSlide'
 
 type Appt = DayRow & Record<string, string>
 
@@ -45,6 +49,18 @@ type Appt = DayRow & Record<string, string>
      the blue title bar: Turn Editor - On / Save Layout / Reset Layout
      (art. 303836 `07221e59…`).
    - The time bar greys the hours outside the provider's shift (art. 303843).
+   - Appt Series opens Create Appointment Series and a series row carries the
+     circling glyph in the gutter (art. 3266635 `259086eb…`); Print Encounter
+     opens the Print Encounter Note window (art. 303239).
+   - The form's Service Location + Show Only filter the rows to that location;
+     "or Show Only: AS / DS" keep only rows with that status; MSP Loc., Alias,
+     Comment ("see more") and Do Not Auto-Generate a Call List are kept per
+     provider and day; Open Call List opens the day's Call List (art. 303795).
+     The Alias is the preceptor a resident's claims bill under (art. 304078).
+   - TK / MG count the tasks and messages raised for the row's patient; a
+     double-click on either opens that patient's list, with New (art.
+     3268648 `e528187d…`).
+   - The foot is the Patient Detail Slide (scheduler/PatientDetailSlide.tsx).
    ========================================================================= */
 
 const identityColumns: PBColumn<Appt>[] = [
@@ -169,6 +185,14 @@ const resourceColumns: PBColumn<Appt>[] = [
   ...flagColumns.filter((c) => c.key !== 'issueDots'),
 ]
 
+/* the circling glyph a series row carries in the gutter */
+const SeriesGlyph = () => (
+  <svg width="11" height="11" viewBox="0 0 11 11" aria-label="series">
+    <path d="M9 5.5a3.5 3.5 0 1 1-1-2.5" fill="none" stroke="#1f3f7a" strokeWidth="1.4" />
+    <path d="M8.2 1.2v2.4h-2.4" fill="none" stroke="#1f3f7a" strokeWidth="1.4" />
+  </svg>
+)
+
 /** 0:00 to 20:00: the v02.30.22 time bar opens scrolled to the morning */
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7)
 
@@ -231,11 +255,15 @@ export function SchedulerView({
   apptStatuses?: unknown; booked?: unknown; billedRows?: unknown; onBill?: unknown; onNewAppt?: unknown
 }) {
   const sched = useSchedulerStore()
+  const extras = useSchedulerExtras()
+  const ws = useWorkspaceStore()
   const openWindow = useOpenWindow()
   const [view, setView] = useState('Scheduler')
   const [hide, setHide] = useState({ noshow: true, rebooked: true, cancelled: true, discharged: false })
   const [resource, setResource] = useState('1')
   const [jump, setJump] = useState({ first: '', last: '' })
+  /* or Show Only: AS / DS */
+  const [only, setOnly] = useState({ as: '', ds: '' })
   /* the column the editor has picked up (art. 303837: "The column will
      highlight black") */
   const [picked, setPicked] = useState<string | null>(null)
@@ -253,9 +281,13 @@ export function SchedulerView({
     (code === 'N' && hide.noshow) || (code === 'R' && hide.rebooked)
     || (code === 'C' && hide.cancelled) || (code === 'D' && hide.discharged)
   )
+  const locOnly = !isResource && extras.showOnly && extras.serviceLocation
   const shown = all
     .map((row, i) => ({ row, i }))
     .filter(({ row }) => !hidden(row.as))
+    .filter(({ row }) => !locOnly || row.loc === extras.serviceLocation)
+    .filter(({ row }) => isResource || !only.as.trim() || row.as === only.as.trim().toUpperCase())
+    .filter(({ row }) => isResource || !only.ds.trim() || row.ds === only.ds.trim().toUpperCase())
   const count = shown.length
   const curRow = Math.max(0, shown.findIndex(({ i }) => i === apptRow))
   const current = shown[curRow]?.row
@@ -365,9 +397,34 @@ export function SchedulerView({
   }))
   useEffect(() => { if (!sched.editor) setPicked(null) }, [sched.editor])
 
+  /* TK / MG: what this session raised for the row's patient, over the
+     training count; a double-click opens that patient's list (3268648) */
+  const countFor = (row: Appt, kind: 'tk' | 'mg') => {
+    const list = kind === 'tk' ? ws.tasks : ws.messages
+    const n = list.filter((t) => (row.chart ? t.chart === row.chart : t.patient === `${row.last}, ${row.first}`)).length
+    const base = Number(row[kind]) || 0
+    return n + base ? String(n + base) : '-'
+  }
+  const itemCell = (kind: 'tk' | 'mg') => (row: Appt) => (
+    <span
+      data-tutorial-id={`host.mois.cell.${kind}-${row.hr}${row.mn}`}
+      style={{ display: 'block', minHeight: '1em' }}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        host?.report('command', { command: `daybook-${kind}` })
+        openWindow(kind === 'tk' ? 'appointment-tasks' : 'appointment-messages', { chart: row.chart, patient: `${row.last}, ${row.first}` })
+      }}
+    >
+      {countFor(row, kind)}
+    </span>
+  )
+  const withItems = (cols: PBColumn<Appt>[]) => cols.map((c) => (c.key === 'tk' || c.key === 'mg' ? { ...c, render: itemCell(c.key) } : c))
   const columns = isResource
     ? resourceColumns
-    : decorate(headed, shown, curRow, setStatus, () => openWindow('daybook-health-issue'))
+    : withItems(decorate(headed, shown, curRow, setStatus, () => openWindow('daybook-health-issue')))
+  const form = schedulerExtras.daybookForm(provider, offset)
+  const setForm = (patch: Parameters<typeof schedulerExtras.setDaybookForm>[2]) => schedulerExtras.setDaybookForm(provider, offset, patch)
+  const LOCATIONS = ['', ...new Set([...all.map((r) => r.loc).filter(Boolean), ...daybookProviders.map((p) => p.loc)])]
 
   /* the time bar: shift hours clear, the rest grey, and a bar per booking */
   const shifts = isResource ? [] : shiftMinutes(sched.shifts, provider, weekdayOf(offset))
@@ -377,13 +434,13 @@ export function SchedulerView({
     ? [{ label: 'New Appt', onClick: () => openWindow('new-appointment') }, { label: 'Delete Appt' }, { label: 'Save' }, { label: 'Undo' }, { label: 'Refresh' }]
     : [
       { label: 'New Appt', onClick: () => openWindow('new-appointment') },
-      { label: 'Appt Series' },
-      { label: 'Save' },
+      { label: 'Appt Series', onClick: () => openWindow('appointment-series', { kind: 'patient' }) },
+      { label: 'Save', onClick: commitDaybookMspLoc },
       { label: 'Delete Appt', disabled: !current, onClick: () => openWindow('delete-appointment') },
       { label: 'Undo' },
       { label: 'Refresh' },
       { label: 'Print List', onClick: () => openWindow('print-current-daybook') },
-      { label: 'Print Encounter', width: 81 },
+      { label: 'Print Encounter', width: 81, disabled: !current, onClick: () => openWindow('scheduler-print-encounter') },
       { label: 'MSP Bill', onClick: () => { if (current) schedulerStore.bill(current.key) } },
       { label: 'Pre-Slot Wizard', width: 81, onClick: () => openWindow('pre-slot-wizard') },
     ]
@@ -464,9 +521,20 @@ export function SchedulerView({
           </div>
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '14px' }}>Service<br />Location:</span>
-          <div className="pb-row">
-            <PBDropField w={188} />
-            <PBCheckbox label="Show Only" />
+          <div className="pb-row" data-tutorial-id="host.mois.field.daybook-service-location">
+            <PBSelect
+              w={188}
+              options={LOCATIONS}
+              value={extras.serviceLocation}
+              onChange={(e) => schedulerExtras.setServiceLocation(e.target.value, extras.showOnly)}
+              data-tutorial-id="host.mois.field.daybook-location"
+            />
+            <PBCheckbox
+              label="Show Only"
+              checked={extras.showOnly}
+              onChange={(v) => schedulerExtras.setServiceLocation(extras.serviceLocation, v)}
+              tutorialId="host.mois.check.daybook-show-only"
+            />
           </div>
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>View Type:</span>
@@ -488,8 +556,8 @@ export function SchedulerView({
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>or Show Only:</span>
           <div className="pb-row pb-row--gap-lg">
-            <span className="pb-row">AS:<PBInput w={78} /></span>
-            <span className="pb-row">DS:<PBInput w={78} /></span>
+            <span className="pb-row">AS:<PBInput w={78} value={only.as} onChange={(e) => setOnly({ ...only, as: e.target.value })} data-tutorial-id="host.mois.field.daybook-only-as" /></span>
+            <span className="pb-row">DS:<PBInput w={78} value={only.ds} onChange={(e) => setOnly({ ...only, ds: e.target.value })} data-tutorial-id="host.mois.field.daybook-only-ds" /></span>
           </div>
         </div>
 
@@ -498,18 +566,26 @@ export function SchedulerView({
         {/* MSP / comment panel */}
         <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: 'none', width: 296, alignItems: 'start' }}>
           <span className="pb-form__label" style={{ lineHeight: '19px' }}>MSP Loc.:</span>
-          <div className="pb-row"><PBInput w={60} /><span style={{ marginLeft: 6 }}>Alias:</span>
-            <span data-tutorial-id="host.mois.field.daybook-alias"><PBDropField w={120} /></span>
+          <div className="pb-row">
+            {/* 3295094: the Code | Description list, and Save makes the pick the
+                provider's default billing location (billing/DaybookMspLoc) */}
+            <DaybookMspLoc provider={provider} value={form.mspLoc} onChange={(v) => setForm({ mspLoc: v })} />
+            <span style={{ marginLeft: 6 }}>Alias:</span>
+            <span data-tutorial-id="host.mois.field.daybook-alias">
+              <PBSelect w={120} options={['', ...daybookProviders.map((p) => p.provider).filter((p) => p !== provider)]} value={form.alias} onChange={(e) => setForm({ alias: e.target.value })} />
+            </span>
           </div>
 
           <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-          <PBTextArea rows={2} w="100%" />
+          <PBTextArea rows={2} w="100%" value={form.comment} onChange={(e) => setForm({ comment: e.target.value })} data-tutorial-id="host.mois.field.daybook-comment" />
 
-          <button className="pb-link" style={{ justifySelf: 'end' }}>see more</button>
-          <button className="pb-link" style={{ justifySelf: 'start' }}>Create Call List</button>
+          <button className="pb-link" style={{ justifySelf: 'end' }} data-tutorial-id="host.mois.command.see-more" onClick={() => { host?.report('command', { command: 'see-more' }); openWindow('daybook-comment') }}>see more</button>
+          <button className="pb-link" style={{ justifySelf: 'start' }} data-tutorial-id="host.mois.command.open-call-list" onClick={() => { host?.report('command', { command: 'open-call-list' }); openWindow('daybook-call-list') }}>
+            {form.noCallList || !all.some((r) => r.chart) ? 'Create Call List' : 'Open Call List'}
+          </button>
 
           <span />
-          <PBCheckbox label="Do Not Auto-Generate a Call List" />
+          <PBCheckbox label="Do Not Auto-Generate a Call List" checked={form.noCallList} onChange={(v) => setForm({ noCallList: v })} tutorialId="host.mois.check.no-call-list" />
         </div>
         </>
         )}
@@ -598,6 +674,8 @@ export function SchedulerView({
           onCurrentChange={(n) => onApptRow?.(shown[n]?.i ?? 0)}
           onActivate={(row) => openEncounter(row)}
           rowFill={(row) => VISIT_CODE_FILL[row.code]}
+          /* a series booking's circling glyph (art. 3266635 `259086eb…`) */
+          rowIcon={isResource ? undefined : (row) => (extras.seriesOf[row.key] ? <SeriesGlyph /> : null)}
           rowClassName={(row) => {
             const code = row.as
             if (code === 'A' || code === 'I' || code === 'S') return 'pb-dw--arrived'
@@ -610,9 +688,7 @@ export function SchedulerView({
         />
       </div>
 
-      {!isResource && (
-        <PBSummaryBand title="Patient - DAYBOOK SUMMARY" links={['Change View', 'Summary/Detail', 'Hide']} />
-      )}
+      {!isResource && <PatientDetailSlide row={current} />}
     </>
   )
 }

@@ -2,7 +2,7 @@ import { useState, type ComponentType, type CSSProperties, type ReactNode } from
 import { useScreenReport } from '../host/screen-state'
 import { MOIS_TODAY, patients } from '../data/patients'
 import {
-  diagnosisReportPage, loadReportNavigator, recallNavigatorRows, RECALL_NAVIGATOR_CHARTS, unsentClaimsPages,
+  diagnosisReportPage, loadReportNavigator, recallNavigatorRows, RECALL_NAVIGATOR_CHARTS, unsentClaimsPages, yearsOld,
 } from '../data/reportParams'
 import { PBBand, PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, usePBInstrumentation } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
@@ -48,7 +48,12 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
      Include ▸ Include Mark for Hold claims (greyed in the capture).
 
    Ok: a report sent to Excel closes its window — the spreadsheet opens in
-   Excel, outside MOIS, which the stage does not paint. The Recall List sent
+   Excel, outside MOIS, which the stage does not paint. (The generic windows in
+   screens/ReportSpecWindow.tsx open the stage's Excel sheet instead; these
+   six keep closing, which their lessons grade on.) Printed pages follow the
+   article captures: Age/Sex Register 304049 `f63a33b2` (AGE / SEX REGISTRY),
+   Patients by Age `3a5a2015` (LIST OF PATIENTS BY AGE RANGE AND SEX), Patient
+   List 304053 `299f5d11` (PATIENT LIST AS OF …, Chart Range filtering). The Recall List sent
    to the Chart Navigator loads the navigator and opens it. Anything else
    prints into the Print Preview (`print-preview`).
 
@@ -228,6 +233,37 @@ function DiagnosisFeeParams({ args, close, open }: AreaWindowProps) {
 /* ===========================================================================
    Clinical - Main ▸ Age/Sex Register
    ======================================================================== */
+/** 304049 `f63a33b2`: AGE / SEX REGISTRY — ten-year bands, contacts and
+    patients per sex, totals, and the unknowns under them. Contacts are
+    synthetic (the roster carries no encounter counts). */
+function ageSexPage(asOf: string, years: string, all: boolean, includeTr: boolean): string {
+  const pts = patients.filter((p) => p.status === 'A' || (includeTr && p.status === 'TR'))
+  const known = pts.filter((p) => p.dob && (p.gender === 'M' || p.gender === 'F'))
+  const contacts = (chart: string) => (Number(chart) || chart.length) % 11
+  const side = (sex: string, lo: number, hi: number) => {
+    const list = known.filter((p) => { const a = Number(yearsOld(p.dob)); return p.gender === sex && a >= lo && a <= hi })
+    return { n: list.length, c: list.reduce((t, p) => t + contacts(p.chart), 0) }
+  }
+  const cp = (c: number, n: number) => (n ? (c / n).toFixed(2) : '0.00')
+  const bands = Array.from({ length: 10 }, (_, i) => [i * 10, i === 9 ? 200 : i * 10 + 9] as const)
+  const m = side('M', 0, 200)
+  const f = side('F', 0, 200)
+  return [
+    '**MOIS TEST CLINIC**',
+    '%TITLE%AGE / SEX REGISTRY',
+    `%LINE:33,40,27%As Of Date:  **${asOf}**|Patients Seen in Last:  **${years || '3'}**  years|For Provider(s): **${all ? 'ALL PROVIDERS' : 'CURRENT DESKTOP'}**`,
+    '%COLS:14,15,15,12,15,15,14%',
+    '%TH%Contacts / Pt|No. of Contacts|No. of Patients|AGE|No. of Patients|No. of Contacts|Contacts / Pt',
+    ...bands.map(([lo, hi]) => {
+      const a = side('M', lo, hi)
+      const b = side('F', lo, hi)
+      return `%TR%${cp(a.c, a.n)}|${a.c}|${a.n}|${lo} - ${hi === 200 ? '100+' : hi}|${b.n}|${b.c}|${cp(b.c, b.n)}`
+    }),
+    `%TR%**${cp(m.c, m.n)}**|**${m.c}**|**${m.n}**|**TOTALS**|**${f.n}**|**${f.c}**|**${cp(f.c, f.n)}**`,
+    `%TR%||UNKNOWN AGE OR SEX:|${pts.length - known.length}||**TOTAL PATIENTS:**|**${known.length}**`,
+  ].join('\n')
+}
+
 function AgeSexParams({ args, close, open }: AreaWindowProps) {
   const [asOf, setAsOf] = useState(MOIS_TODAY)
   const [period, setPeriod] = useState('3')
@@ -237,19 +273,7 @@ function AgeSexParams({ args, close, open }: AreaWindowProps) {
   useScreenReport({ report: 'age-sex-register', output: csv ? 'excel' : 'print' })
   const ok = () => {
     if (csv) { close(); return }
-    const bands = [[0, 19], [20, 44], [45, 64], [65, 120]] as const
-    const age = (dob: string) => (dob ? Number(MOIS_TODAY.slice(0, 4)) - Number(dob.slice(0, 4)) : -1)
-    open('print-preview', {
-      title: 'Age/Sex Register',
-      heading: `AGE / SEX REGISTER AS OF ${asOf}`,
-      columns: [{ key: 'band', header: 'AGE' }, { key: 'm', header: 'MALE' }, { key: 'f', header: 'FEMALE' }, { key: 't', header: 'TOTAL' }],
-      rows: bands.map(([lo, hi]) => {
-        const inBand = patients.filter((p) => p.status === 'A' && age(p.dob) >= lo && age(p.dob) <= hi)
-        const m = inBand.filter((p) => p.gender === 'M').length
-        const f = inBand.filter((p) => p.gender === 'F').length
-        return { band: `${lo} - ${hi}`, m: String(m), f: String(f), t: String(inBand.length) }
-      }),
-    })
+    open('print-preview', { title: 'Age/Sex Register', pages: [ageSexPage(asOf || MOIS_TODAY, period, providers === 'all', includeTr)] })
   }
   return (
     <ParamFrame report="age-sex-register" prefix="agesex" title="Report: Clinical - Main - Age/Sex Register" width={640} height={505} onOk={ok} close={close}>
@@ -288,19 +312,27 @@ function PatientsByAgeParams({ args, close, open }: AreaWindowProps) {
   useScreenReport({ report: 'patients-by-age', ageFrom, ageTo, output: csv ? 'excel' : 'print' })
   const ok = () => {
     if (csv) { close(); return }
-    const lo = Number(ageFrom) || 0
-    const hi = Number(ageTo) || 200
+    const lo = ageFrom ? Number(ageFrom) || 0 : 0
+    const hi = ageTo ? Number(ageTo) || 200 : 200
     const rows = patients
       .filter((p) => !active || p.status === 'A')
       .filter((p) => p.dob && (gender === 'all' || p.gender === gender.toUpperCase()))
-      .map((p) => ({ p, age: Number(MOIS_TODAY.slice(0, 4)) - Number(p.dob.slice(0, 4)) }))
+      .map((p) => ({ p, age: Number(yearsOld(p.dob)) }))
       .filter(({ age }) => age >= lo && age <= hi)
-      .map(({ p, age }) => ({ chart: p.chart, name: `${p.last}, ${p.first}`, dob: p.dob, age: String(age), sex: p.gender ?? '' }))
+      .sort((a, b) => a.p.last.localeCompare(b.p.last) || a.p.first.localeCompare(b.p.first))
+    /* 304049 `3a5a2015`: LIST OF PATIENTS BY AGE RANGE AND SEX */
     open('print-preview', {
       title: 'Patients by Age',
-      heading: `PATIENTS BY AGE${ageFrom || ageTo ? ` ${ageFrom || '0'} TO ${ageTo || '120'}` : ''}`,
-      columns: [{ key: 'chart', header: 'CHART', width: 60 }, { key: 'name', header: 'PATIENT', width: 200 }, { key: 'dob', header: 'DOB', width: 90 }, { key: 'age', header: 'AGE', width: 50 }, { key: 'sex', header: 'SEX', width: 40 }],
-      rows,
+      pages: [[
+        '**MOIS TEST CLINIC**',
+        '%TITLE%LIST OF PATIENTS BY AGE RANGE AND SEX',
+        `%SUB%Ages Between: ${ageFrom || ageTo ? `${ageFrom || '0'} AND ${ageTo || '120'}` : 'ALL AGES'}   Sex: ${gender === 'all' ? 'ALL' : gender.toUpperCase()}   Include Only Active Patients: ${active ? 'Y' : 'N'}`,
+        '%COLS:15,15,6,6,12,8,13,12,13%',
+        '%TH%LAST NAME|FIRST NAME|AGE|SEX|DATE OF BIRTH|CHART NO|HOME|WORK|CELL/OTHER',
+        ...rows.map(({ p, age }) => `%TR%${p.last}|${p.first}|${age}|${p.gender}|${p.dob}|${p.chart}|${p.home ?? ''}|${p.work ?? ''}|${p.cell ?? ''}`),
+        '',
+        `Records Printed: ${rows.length}`,
+      ].join('\n')],
     })
   }
   return (
@@ -332,15 +364,37 @@ function PatientsByAgeParams({ args, close, open }: AreaWindowProps) {
 /* ===========================================================================
    Practice Management ▸ Patient List
    ======================================================================== */
-function PatientListParams({ args, close }: AreaWindowProps) {
+function PatientListParams({ args, close, open }: AreaWindowProps) {
   const [lastContact, setLastContact] = useState(str(args.lastContact, '0000.00.00'))
   const [when, setWhen] = useState<'prior' | 'after'>(args.when === 'prior' ? 'prior' : 'after')
   const [csv, setCsv] = useState(bool(args.csv, true))
   useScreenReport({ report: 'patient-list', lastContactWhen: when, output: csv ? 'excel' : 'print' })
+  const [chartFrom, setChartFrom] = useState('')
+  const [chartTo, setChartTo] = useState('')
+  /* Excel closes the window (the sheet opens outside MOIS); otherwise the
+     printed list, 304053 `299f5d11`: PATIENT LIST AS OF … */
+  const ok = () => {
+    if (csv) { close(); return }
+    const lo = Number(chartFrom) || 0
+    const hi = Number(chartTo) || Number.MAX_SAFE_INTEGER
+    const rows = patients.filter((p) => Number(p.chart) >= lo && Number(p.chart) <= hi)
+    open('print-preview', {
+      title: 'Patient List',
+      pages: [[
+        '**MOIS TEST CLINIC**',
+        `%TITLE%PATIENT LIST AS OF ${MOIS_TODAY}`,
+        `%SUB%LIST OF PATIENT WITH CHART NUMBERS BETWEEN ${chartFrom || 'FIRST'} AND ${chartTo || 'LAST'}`,
+        `%SUB%${when === 'after' ? 'AFTER' : 'PRIOR TO'} LAST CONTACT DATE OF   ${lastContact && lastContact !== '0000.00.00' ? lastContact : '<ALL PATIENTS>'}`,
+        '%COLS:13,13,8,10,15,13,12,7,9%',
+        '%TH%LAST NAME|FIRST NAME|MIDDLE NAME|DOB|ADDRESS 1|CITY|HOME PHONE|STATUS|CHART NO',
+        ...rows.map((p) => `%TR%${p.last}|${p.first}|${p.middle}|${p.dob}|${p.address ?? ''}|${p.city ?? ''}|${p.home ?? ''}|${p.status}|${p.chart}`),
+      ].join('\n')],
+    })
+  }
   return (
-    <ParamFrame report="patient-list" prefix="patientlist" title="Report: Practice Management - Patient List" width={640} height={420} onOk={close} close={close}>
+    <ParamFrame report="patient-list" prefix="patientlist" title="Report: Practice Management - Patient List" width={640} height={420} onOk={ok} close={close}>
       <Section>Patient Information</Section>
-      <Line label="Chart Range:"><PBInput w={62} /> to <PBInput w={62} /><Hint>(Inclusive)</Hint></Line>
+      <Line label="Chart Range:"><PBInput w={62} value={chartFrom} data-tutorial-id="host.mois.field.rp-chart-from" onChange={(e) => setChartFrom(e.target.value)} /> to <PBInput w={62} value={chartTo} data-tutorial-id="host.mois.field.rp-chart-to" onChange={(e) => setChartTo(e.target.value)} /><Hint>(Inclusive)</Hint></Line>
       <Line label="Last Contact:">
         <span data-tutorial-id="host.mois.field.rp-last-contact" className="pb-row" style={{ gap: 12 }}>
           <PBInput w={74} align="center" value={lastContact} onChange={(e) => setLastContact(e.target.value)} />

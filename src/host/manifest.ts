@@ -17,9 +17,45 @@ export const MOIS_CLASSIC_FIXTURE_STARTS = {
   'patient-chart-forms': { module: 'chart', node: 'dynamic', view: 'section' },
   scheduler: { module: 'scheduler', node: 'p-daybook', view: 'scheduler' },
   workspace: { module: 'workspace', node: 'ws-summary', view: 'wssummary' },
+  /* the alternate launch modes (MOIS_CLASSIC_LAUNCH_MODES below): the MDI
+     frame behind them is the Patient Summary, hidden until Launch Main
+     Program shows it */
+  'encounter-lite': { module: 'chart', node: 'summary', view: 'summary' },
+  'my-encounters': { module: 'chart', node: 'summary', view: 'summary' },
+  'select-launch-mode': { module: 'chart', node: 'summary', view: 'summary' },
+  'select-service-group': { module: 'chart', node: 'summary', view: 'summary' },
 } as const
 
 export type MoisClassicFixtureId = keyof typeof MOIS_CLASSIC_FIXTURE_STARTS
+
+/* ----------------------------------------------------------------------------
+   Alternate launch modes (E2 stream, 2026-09-28; screens/LaunchModeWindows.tsx).
+
+   MOIS can start in a slimmed window instead of the MDI frame — Encounter
+   Lite (3797326) or MyEncounters (3103943) — chosen by the user's security
+   profile. A stage selects one with a FIXTURE: these four ids open the
+   launch window (or the chooser in front of it) with the Main Program
+   hidden behind it until "Launch Main Program". A host may instead pass the
+   shell's `launchMode` prop, which wins over the fixture. Every other
+   fixture — and every existing lesson — opens the Main Program exactly as
+   before; the launch layer is not mounted.
+
+   Snapshot: `host.screen.launchMode` (the value below, or `closed`) and
+   `host.screen.mainLaunched`.
+   ------------------------------------------------------------------------ */
+export type MoisClassicLaunchStart = 'main' | 'encounter-lite' | 'my-encounters' | 'select-launch-mode' | 'select-service-group'
+
+export const MOIS_CLASSIC_LAUNCH_MODES: Partial<Record<MoisClassicFixtureId, MoisClassicLaunchStart>> = {
+  'encounter-lite': 'encounter-lite',
+  'my-encounters': 'my-encounters',
+  'select-launch-mode': 'select-launch-mode',
+  'select-service-group': 'select-service-group',
+}
+
+/** The launch mode a fixture opens in; undefined is the Main Program. */
+export function launchModeOfFixture(id: string | undefined): MoisClassicLaunchStart | undefined {
+  return id ? MOIS_CLASSIC_LAUNCH_MODES[id as MoisClassicFixtureId] : undefined
+}
 
 /* MOIS opens on an empty Patient Summary: no chart is loaded until one is
    looked up (`reference/patient-summary-empty.png`), so that is where the
@@ -87,6 +123,34 @@ const fixtures: HostFixtureSpec[] = [
     initialState: initialState('workspace'),
     chart: MOIS_CLASSIC_TUTORIAL_CHART,
   },
+  {
+    id: 'encounter-lite',
+    label: 'Launch mode — Encounter Lite',
+    description: 'MOIS started in the Encounter Lite launch mode: search for a chart, chart an encounter note, update the visit and demographics, send a task. Launch Main Program opens the full frame beside it.',
+    initialState: initialState('encounter-lite'),
+    chart: MOIS_CLASSIC_TUTORIAL_CHART,
+  },
+  {
+    id: 'my-encounters',
+    label: 'Launch mode — My Encounters',
+    description: 'MOIS started in the My Encounters launch mode: quick encounter notes, past encounters by time frame, Care Complete.',
+    initialState: initialState('my-encounters'),
+    chart: MOIS_CLASSIC_TUTORIAL_CHART,
+  },
+  {
+    id: 'select-launch-mode',
+    label: 'Launch mode — Select Launch Mode',
+    description: 'The sign-in choice between the Main Program and Encounter Lite, for a user whose profile has both.',
+    initialState: initialState('select-launch-mode'),
+    chart: MOIS_CLASSIC_TUTORIAL_CHART,
+  },
+  {
+    id: 'select-service-group',
+    label: 'Launch mode — Select Service Group / Pathway',
+    description: 'The sign-in choice of service group and mode, with My Encounters (VP) among them.',
+    initialState: initialState('select-service-group'),
+    chart: MOIS_CLASSIC_TUTORIAL_CHART,
+  },
 ]
 
 export const moisClassicHostManifest: HostEmulatorManifest = {
@@ -109,6 +173,21 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
        New Record / Duplicate holds an unsaved row, and `record` for the last
        thing done to it — saved, voided, deleted, cancelled, renewed */
     'host.screen.draft', 'host.screen.record',
+    /* the alternate launch modes (screens/LaunchModeWindows.tsx): which one is
+       up, whether the Main Program was launched beside it, and the launch
+       window's chart, encounter, note state, appointment status and time frame */
+    'host.screen.launchMode', 'host.screen.mainLaunched', 'host.screen.chart',
+    'host.screen.apptStatus', 'host.screen.timeFrame',
+    /* E2 screens: myhealthkey registration / scheduling, the user-agreement
+       answer at login, CareConnect, unmatched-result activity and routing,
+       Computer Settings' printer profile, Automated Notifications */
+    'host.screen.registration', 'host.screen.scheduling', 'host.screen.agreement',
+    'host.screen.careconnect', 'host.screen.activity', 'host.screen.assigned', 'host.screen.handling',
+    'host.screen.profile', 'host.screen.printer', 'host.screen.acknowledged', 'host.screen.enabled',
+    'host.screen.copied', 'host.screen.sql', 'host.screen.converted', 'host.screen.folder',
+    'host.screen.sendToPatient', 'host.screen.retracted', 'host.screen.invited',
+    /* Health Issues ▸ Conditions: a ** NO KNOWN ** assertion stands (screens/NoKnown.tsx) */
+    'host.screen.noKnown',
     /* the tick box a window last toggled (`host.mois.tickCell`), and its state */
     'host.screen.cell', 'host.screen.checked',
     /* the Workspace (data/workspaceStore.ts): tasks and messages raised this
@@ -135,6 +214,11 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
        the Care Plan summary's row / snapshot / tag counts */
     'host.screen.letterDoc', 'host.screen.letterTemplate', 'host.screen.letterPrompt', 'host.screen.letterInserts',
     'host.screen.carePlanRows', 'host.screen.carePlanSnapshots', 'host.screen.carePlanTags',
+    /* Goals (screens/GoalsView.tsx): how many records the current goal is
+       linked to, and whether New Goal has Quantitative Goal ticked; Summary
+       Settings (screens/SummarySettingsView.tsx): its section and element counts */
+    'host.screen.goalLinks', 'host.screen.goalQuantitative',
+    'host.screen.carePlanSections', 'host.screen.carePlanElements',
     /* Billing's Unsent MSP window (screens/BillingViews.tsx): the claim's
        record state (loaded / new / picked / saved), its Insured By code,
        whether Insurance # is empty / starts with a zero / entered, and what
@@ -159,6 +243,23 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
        over itself — a merge confirmation, Merge Complete, a Find / Add list
        (screens/ChartBasicsWindows.tsx) */
     'host.screen.chartStatus', 'host.screen.designation', 'host.screen.prompt',
+    /* E1 admin / reference: the Universal Search Window (section holding
+       focus, rows, recent searches, search-by), a chart folder's Search For
+       band (empty / valid / invalid, a NOT term, history), code-list
+       lookups, Codeset Management, Concept import / export, Task Set
+       templates, the Provider / Org Role grids and members, Service
+       Location, the Address Book and its Contact Lists, DEACON's function */
+    'host.screen.uswSection', 'host.screen.uswRows', 'host.screen.uswHistory', 'host.screen.uswSearchBy',
+    'host.screen.searchState', 'host.screen.searchNegated', 'host.screen.searchHistory', 'host.screen.historyPicked',
+    'host.screen.lookupRows', 'host.screen.lookupSort', 'host.screen.altTerms', 'host.screen.values',
+    'host.screen.conceptTransfer', 'host.screen.conceptsPicked', 'host.screen.tasks',
+    'host.screen.aliases', 'host.screen.forwarding', 'host.screen.sharing', 'host.screen.scheduleAccess',
+    'host.screen.scheduleAccessRows', 'host.screen.orgActive', 'host.screen.members', 'host.screen.locations',
+    'host.screen.subscriptions', 'host.screen.scheduled', 'host.screen.missing',
+    'host.screen.addressBook', 'host.screen.addressBookRows', 'host.screen.addressBookLists',
+    'host.screen.addressBookOption', 'host.screen.addressBookAdded',
+    'host.screen.listType', 'host.screen.contactTab', 'host.screen.contactPicks', 'host.screen.selectedValues',
+    'host.screen.deaconFunction',
   ],
   actions: {
     'host.mois.selectModule': {

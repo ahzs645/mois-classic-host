@@ -3,7 +3,8 @@ import { basketFolderById, type BasketRow } from '../data/basket'
 import { MOIS_TODAY } from '../data/patients'
 import { CURRENT_USER, TASK_GROUPS, USER_GROUPS, WORKSPACE_USERS, taskScreenByNode } from '../data/tasks'
 import { taskListRows } from '../data/workspaceLists'
-import { basketKey, useWorkspaceStore, workspaceStore, type WorkspaceBlend } from '../data/workspaceStore'
+import { basketKey, useWorkspaceStore, workspaceStore } from '../data/workspaceStore'
+import { workspaceExtras } from '../data/workspaceExtras'
 import {
   PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
@@ -15,7 +16,8 @@ import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './Worksp
    The Workspace's own windows (the Create New Task / Message windows live in
    CreateTaskDialog.tsx and CreateMessageDialog.tsx).
 
-   · change-workspace           Change Workspace          303749 `861df29b`
+   · change-workspace           Change Workspace — moved to
+                                WorkspaceBlendWindows.tsx (1802767)
    · mark-for-review            Mark Record for Review    303764 `4bf6cd3b`
    · reassign-items / copy-items  Reassign Items / Copy Items, then the
                                 MOIS - Search Window user picker and the
@@ -55,87 +57,9 @@ function Confirm({ id, title, children, buttons, onClose }: {
   )
 }
 
-/* ---------------------------------------------------------------------------
-   Change Workspace (303749 image `861df29b`, v02.21.14)
-   ------------------------------------------------------------------------ */
-/** The users who have shared their workspace with ADMINISTRATOR. */
-const SHARED_WORKSPACES = [
-  { name: 'ADMINISTRATOR', initials: 'ADMIN', until: '' },
-  { name: 'BEARDWOOD, WENDY', initials: 'WB', until: '' },
-  { name: 'SHEWCHUK, LEAH', initials: 'LS', until: '2026.04.30' },
-  { name: 'RESIDENT, R1', initials: 'R1', until: '' },
-]
-
-function ChangeWorkspaceDialog({ close }: AreaWindowProps) {
-  const ws = useWorkspaceStore()
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(
-    ws.blend === 'own' || ws.blend === 'blend-with-me' ? [CURRENT_USER.name, ...ws.sharedWith] : ws.sharedWith,
-  ))
-  const [cur, setCur] = useState(0)
-  const toggle = (name: string, on: boolean) => setPicked((s) => {
-    const next = new Set(s)
-    on ? next.add(name) : next.delete(name)
-    return next
-  })
-  const proceed = () => {
-    const others = SHARED_WORKSPACES.map((u) => u.name).filter((n) => n !== CURRENT_USER.name && picked.has(n))
-    const me = picked.has(CURRENT_USER.name)
-    const blend: WorkspaceBlend = !others.length ? 'own'
-      : me ? 'blend-with-me'
-        : others.length === 1 ? 'other' : 'blend-without-me'
-    workspaceStore.changeWorkspace(blend, others)
-    close()
-  }
-  const included = SHARED_WORKSPACES.filter((u) => picked.has(u.name))
-  return (
-    <WorkspaceDialogFrame id="change-workspace" title="Change Workspace" width={900} height={600} onClose={close} controls={false}>
-      <div style={{ display: 'flex', gap: 6, padding: '10px 10px 0', flex: '1 1 auto', minHeight: 0 }}>
-        <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', border: '1px solid #a0a0a0', background: '#fff' }}>
-          <FormBand>Select One or More Shared Workspaces</FormBand>
-          <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
-            <PBDataWindow
-              rows={SHARED_WORKSPACES}
-              current={cur}
-              onCurrentChange={setCur}
-              groupBy={() => 'USERS'}
-              groupLabel={(g) => <b>{g}</b>}
-              rowTutorialId={(u) => `host.mois.row.ws-share-${pbSlug(u.name.split(',')[0]!)}`}
-              columns={[
-                {
-                  key: 'select', header: 'Select', width: 80, align: 'center',
-                  render: (u) => (
-                    <PBCheckbox
-                      tutorialId={`host.mois.cell.ws-share-${pbSlug(u.name.split(',')[0]!)}`}
-                      checked={picked.has(u.name)}
-                      onChange={(v) => toggle(u.name, v)}
-                    />
-                  ),
-                },
-                { key: 'name', header: 'Name', width: 300 },
-                { key: 'initials', header: 'Initials', width: 80 },
-                { key: 'until', header: 'Shared Until', width: 90 },
-              ]}
-            />
-          </div>
-        </div>
-        <div style={{ width: 230, flex: 'none', display: 'flex', flexDirection: 'column', border: '1px solid #a0a0a0', background: '#fff' }}>
-          <FormBand>Included Users</FormBand>
-          <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }} data-tutorial-id="host.mois.field.included-users">
-            <PBDataWindow rows={included} gutter={false} current={-1} columns={[{ key: 'name', header: 'Name' }]} />
-          </div>
-        </div>
-      </div>
-      <div className="pb-row" style={{ gap: 8, padding: '10px 12px', flex: 'none' }}>
-        <PBCheckbox label="Save as Default" />
-        <span style={{ flex: '1 1 auto' }} />
-        <DialogButton id="ws-continue" onClick={proceed} isDefault>Continue</DialogButton>
-        <DialogButton id="ws-cancel" onClick={close}>Cancel</DialogButton>
-        <span style={{ flex: '1 1 auto' }} />
-        <DialogButton id="manage-workgroups" width={150}>Manage Workgroups...</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
-  )
-}
+/* Change Workspace (303749 / 1802767) and its Manage Workgroups, Create
+   Temporary Membership and Default Blending Changed windows are in
+   WorkspaceBlendWindows.tsx. */
 
 /* ---------------------------------------------------------------------------
    Mark Record for Review (303764 image `4bf6cd3b`)
@@ -144,7 +68,11 @@ function MarkForReviewDialog({ args, close }: AreaWindowProps) {
   const [note, setNote] = useState('')
   const proceed = () => {
     const key = str(args.rowKey)
-    if (key) workspaceStore.markForReview(key)
+    if (key) {
+      workspaceStore.markForReview(key)
+      /* the Review Note shows in the Workflow Summary's detail (1802768 `9a1ef52e…`) */
+      workspaceExtras.record({ key, action: 'MARKED FOR REVIEW', by: CURRENT_USER.name, to: [CURRENT_USER.name], note }, MOIS_TODAY)
+    }
     close()
   }
   return (
@@ -209,6 +137,11 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
   const finish = () => {
     const keys = [...picked].map((i) => basketKey(folder.id, String(rows[i]!.patient)))
     if (mode === 'reassign') workspaceStore.reassign(keys)
+    /* the note and the users go into each record's Acknowledgement History
+       (1802768 `3d36d71e…` REASSIGNED, `315269da…` COPIED) */
+    for (const key of keys) {
+      workspaceExtras.record({ key, action: mode === 'copy' ? 'COPIED' : 'REASSIGNED', by: CURRENT_USER.name, to: [...users], note }, MOIS_TODAY)
+    }
     close()
   }
   /* the folder's own columns after the Check / paperclip pair are left off,
@@ -529,7 +462,6 @@ function PrintTaskListWindow({ args, open }: AreaWindowProps) {
   return null
 }
 
-registerAreaWindow('change-workspace', ChangeWorkspaceDialog)
 registerAreaWindow('mark-for-review', MarkForReviewDialog)
 registerAreaWindow('reassign-items', (p) => <ForwardItemsDialog {...p} args={{ ...p.args, mode: 'reassign' }} />)
 registerAreaWindow('copy-items', (p) => <ForwardItemsDialog {...p} args={{ ...p.args, mode: 'copy' }} />)

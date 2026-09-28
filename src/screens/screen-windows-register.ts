@@ -4,4 +4,6 @@
    a file. */
 import './MedicationWindows'
 import './MarWindows'
+import './MarActionWindows'
+import './ControlledRxWindows'
 import './AllergyWindows'

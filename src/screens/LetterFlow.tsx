@@ -11,6 +11,7 @@ import {
   type LetterDocId,
 } from '../data/letterFlow'
 import { LW } from '../data/letterWriter'
+import { useTemplateMeta } from '../data/letterDocs'
 import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
 import {
@@ -86,9 +87,16 @@ export function SelectLetterTemplateDialog({
 }) {
   const flow = useLetterFlow()
   const [search, setSearch] = useState('')
+  /* the stage's templates, then any the Designer saved this session
+     (Administration ▸ Letter Templates, data/letterDocs.ts) */
+  const [meta] = useTemplateMeta()
+  const templates: LetterTemplate[] = [
+    ...LETTER_TEMPLATES,
+    ...meta.filter((m) => !LETTER_TEMPLATES.some((t) => t.name === m.name)).map((m) => ({ group: 'Letter' as const, name: m.name, type: m.type, description: m.description })),
+  ]
   /* the Action item that opened the picker preselects a template of its own
      document type — Create Consult Note lands on a consult template */
-  const [cur, setCur] = useState(() => Math.max(0, LETTER_TEMPLATES.findIndex((t) => t.name === (flow.template || DEFAULT_TEMPLATE[flow.doc]))))
+  const [cur, setCur] = useState(() => Math.max(0, templates.findIndex((t) => t.name === (flow.template || DEFAULT_TEMPLATE[flow.doc]))))
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   /* 303099 / 304756: after the template, a consult note's Letter Writer asks
      whether the letter fulfils an Order; Yes lists the chart's orders */
@@ -109,8 +117,8 @@ export function SelectLetterTemplateDialog({
      anywhere in the name, add a * to the beginning (wildcard search)" */
   const q = search.trim().toUpperCase()
   const rows = !q
-    ? LETTER_TEMPLATES
-    : LETTER_TEMPLATES.filter((t) => (
+    ? templates
+    : templates.filter((t) => (
       q.startsWith('*')
         ? t.name.toUpperCase().includes(q.slice(1))
         : t.name.toUpperCase().startsWith(q)

@@ -6,8 +6,9 @@ import {
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
-import { useFolderReviews } from '../data/folder-reviews'
-import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug } from '../pb'
+import { reviewFolderOf, useFolderReviews } from '../data/folder-reviews'
+import { clearNoKnown, useAllergySession } from '../data/allergySession'
+import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
 
 /* ============================================================================
    Reviewing: <folder> — the Patient Chart's Taskbar `Review`.
@@ -21,6 +22,12 @@ import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug } from '..
    The title's noun tracks the folder — only `Reviewing: Health Condition` was
    ever captured; see `REVIEW_NOUNS` for the two that are derived rather than
    measured.
+
+   A folder's `No Known` assertion (data/allergySession.ts) is listed in the
+   Review History as a `No Known` row carrying a Delete button; Delete then
+   Mark Reviewed removes the assertion (art. 303131 `a4b9f727…png`,
+   "Reviewing: Reaction Risk", v02.24.41: `2019.07.12 ADMINISTRATOR No Known
+   … Delete`). Until Mark Reviewed the row stays, struck through.
 
    PROVENANCE: `303791 / 7d42bca76bd7` @1.00x — window x 460–1040 (w 581),
    y 178–≈672, flat white title bar 25 tall. Note the Review History column
@@ -74,6 +81,14 @@ export function ReviewingDialog({ node, onClose }: {
   const rows: ReviewRow[] = filed
   const setRows = (next: (r: ReviewRow[]) => ReviewRow[]) => { const [row] = next([]); if (row) file(row.note) }
   const [note, setNote] = useState('')
+  const host = usePBInstrumentation()
+  const folder = reviewFolderOf(node)
+  const noKnown = useAllergySession(patient.chart).noKnown[folder]
+  const [dropNoKnown, setDropNoKnown] = useState(false)
+  const history: (ReviewRow & { noKnown?: boolean })[] = [
+    ...(noKnown ? [{ date: noKnown.date, by: noKnown.by, note: 'No Known', noKnown: true }] : []),
+    ...rows,
+  ]
 
   /* with an Encounter Detail Window open, the review is reported onto that
      encounter's summary (art. 303116: Reaction Risks, Long Term Medications
@@ -83,6 +98,7 @@ export function ReviewingDialog({ node, onClose }: {
   if (!noun) return null
 
   const markReviewed = () => {
+    if (dropNoKnown) { clearNoKnown(patient.chart, folder); setDropNoKnown(false) }
     setRows((r) => [{ date: new Date().toLocaleDateString('en-CA').replace(/-/g, '.'), by: 'LOCAL PREVIEW', note }, ...r])
     const active = encounters.active
     if (active) {
@@ -129,13 +145,26 @@ export function ReviewingDialog({ node, onClose }: {
             }}
           >
             <PBDataWindow
-              rows={rows}
+              rows={history}
               gutter={false}
-              rowTutorialId={(r) => `host.mois.row.review-${pbSlug(r.date)}`}
+              rowTutorialId={(r) => (r.noKnown ? 'host.mois.row.review-no-known' : `host.mois.row.review-${pbSlug(r.date)}`)}
               columns={[
                 { key: 'date', header: 'Review Date', width: 89 },
                 { key: 'by', header: 'Reviewed By', width: 88 },
-                { key: 'note', header: 'Note', width: 389 },
+                {
+                  key: 'note', header: 'Note', width: 329,
+                  render: (r) => (r.noKnown ? <b style={{ textDecoration: dropNoKnown ? 'line-through' : undefined }}>{r.note}</b> : r.note),
+                },
+                {
+                  key: 'delete', header: '', width: 60,
+                  render: (r) => r.noKnown && (
+                    <PBButton size="sm" disabled={dropNoKnown} style={{ minWidth: 0, width: 50 }}
+                      data-tutorial-id={host?.anchor('command', 'review-delete-no-known')}
+                      onClick={() => { host?.report('command', { command: 'review-delete-no-known' }); setDropNoKnown(true) }}>
+                      Delete
+                    </PBButton>
+                  ),
+                },
               ]}
               empty="No review history available in this export."
               style={{

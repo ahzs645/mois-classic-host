@@ -31,6 +31,9 @@ import { taskScreens } from '../data/tasks'
 import { userManagementNodes } from '../data/userManagement'
 import { adminListNodes } from '../data/adminLists'
 import { AdminListsView } from '../screens/AdminListsView'
+/* Designer Section ▸ Quick Entry (art. 3071982) and its template store */
+import { QuickEntryListView } from '../screens/QuickEntryListView'
+import { resetQuickEntryTemplates } from '../data/quickEntryTemplates'
 import {
   PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBMessageBox, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
@@ -43,6 +46,7 @@ import { BasketFolderView } from '../screens/BasketFolderView'
 import { BillingAdminView } from '../screens/BillingAdminView'
 import { InvoiceView, SentMspView, UnsentMspView } from '../screens/BillingViews'
 import { CarePlanSummaryView } from '../screens/CarePlanSummaryView'
+import { SummarySettingsView } from '../screens/SummarySettingsView'
 import { CarePlanView } from '../screens/CarePlanView'
 import {
   InboundMessagesView, OutboundMessagesView, PatientMessageDetailWindow, RecordNavigatorWindow,
@@ -89,21 +93,32 @@ import { UserManagementView } from '../screens/UserManagementView'
 import { WaitingListView } from '../screens/WaitingListView'
 import { WorkspaceSummaryView } from '../screens/WorkspaceSummaryView'
 import { AreaWindowLayer, AreaWindowProvider, isAreaWindow } from '../screens/areaWindowRegistry'
+import { ActiveEncounterProvider } from '../screens/ActiveEncounterWindow'
 import '../screens/areaWindows.register'
+import { FolderViewLayer, isFolderView } from '../screens/folderViewRegistry'
+import '../screens/folderViews.register'
 import { reportNavigatorRows } from '../data/reportParams'
 import { resetWorkspaceStore, useWorkspaceStore } from '../data/workspaceStore'
 import { workspaceItemCounts } from '../data/workspaceLists'
 import { resetWorkspaceSettings } from '../data/workspaceSettings'
 import { resetChartSession } from '../data/chartSession'
+import { resetCarePlanRecords } from '../data/carePlanRecords'
+import { resetAllergySession } from '../data/allergySession'
+import { resetGoalRecords } from '../data/goalRecords'
+import { resetSummarySettings } from '../data/summarySettings'
+import { setFrameNodeOpener } from './frame-nav'
+import { resetSystemSettingsMirror } from '../data/systemSettings'
 import { WorkspaceSettingsView } from '../screens/WorkspaceSettingsView'
 import { FavouriteMedicationListView } from '../screens/FavouriteMedicationListView'
-import { MOIS_CLASSIC_NO_CHART_FIXTURE, resolveMoisClassicFixture } from './manifest'
+import { MOIS_CLASSIC_NO_CHART_FIXTURE, launchModeOfFixture, resolveMoisClassicFixture, type MoisClassicLaunchStart } from './manifest'
+import { LaunchModeHost } from '../screens/LaunchModeWindows'
 import { ScreenWindowProvider, isScreenWindow, type ScreenWindow } from './screen-windows'
 import '../screens/screen-windows-register'
 import { ScreenStateProvider, mergeScreenReports, type ScreenReport, type ScreenReporter } from './screen-state'
 import { promptCurrentField, useMoisHotkeys } from './hotkeys'
 import { setFieldValue } from './field-input'
 import { resetPatientEdits } from '../data/patient-edits'
+import { resetBillingPrograms } from '../data/billingPrograms'
 import { resetChartBasicsState } from '../data/chart-basics-state'
 import { DesktopProviderField } from '../screens/ChartBasicsWindows'
 import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './types'
@@ -143,6 +158,10 @@ type View =
   | 'wssettings' | 'favmeds'
   /* every Data Exchange folder's own window (screens/ExchangeView.tsx) */
   | 'exchange'
+  /* Administration ▸ Designer Section ▸ Quick Entry (screens/QuickEntryListView.tsx) */
+  | 'quickentry'
+  /* a node registered in screens/folderViewRegistry.ts */
+  | 'folder'
 
 /* The MDI window classes this frame can instantiate. Each is opened by key,
    so the same record never opens twice. */
@@ -198,6 +217,7 @@ const ROUTES: Record<string, View> = {
   ...Object.fromEntries(adminListNodes.map((n) => [n, 'adminlist' as View])),
   ...Object.fromEntries(EXCHANGE_NODES.map((n) => [n, 'exchange' as View])),
   'dx-inbound-msg': 'cdxinbound',
+  'ad-quick-entry': 'quickentry',
   'dx-outbound-msg': 'cdxoutbound',
   'bl-unsent': 'unsentmsp',
   'bl-sent': 'sentmsp',
@@ -541,6 +561,13 @@ export interface MoisClassicShellProps extends HostShellProps {
    * Utilities menu last chose. Passing it pins the mode instead.
    */
   text?: PBTextMode
+  /**
+   * Start MOIS in an alternate launch mode — Encounter Lite, My Encounters,
+   * or the chooser in front of one (screens/LaunchModeWindows.tsx). Wins over
+   * the fixture's own (`MOIS_CLASSIC_LAUNCH_MODES` in host/manifest.ts).
+   * Omitted, with an ordinary fixture, the Main Program opens as before.
+   */
+  launchMode?: MoisClassicLaunchStart
 }
 
 /* --- text rasterisation, remembered ---------------------------------------
@@ -596,10 +623,13 @@ export function MoisClassicShell(props: MoisClassicShellProps) {
 
 function Frame({
   fixture, patients, chart: chartProp, onChartChange,
-  onAction, onStateChange, onReady, formSlot, className, onOpenKit, text, windowSize,
+  onAction, onStateChange, onReady, formSlot, className, onOpenKit, text, windowSize, launchMode: launchModeProp,
   loadEncounterForms, encounterFormSlot,
 }: MoisClassicShellProps) {
   const start = useMemo(() => resolveMoisClassicFixture(fixture), [fixture])
+  /* an alternate launch mode hides the MDI frame until Launch Main Program */
+  const [initialLaunch] = useState(() => launchModeProp ?? launchModeOfFixture(start.id))
+  const [mainShown, setMainShown] = useState(!initialLaunch || initialLaunch === 'main')
   /* the roster this frame can open: the host's charts, or the training set */
   const roster: Patient[] = useMemo(
     () => (patients?.length ? patients.map(normalizePatient) : trainingRoster),
@@ -689,11 +719,23 @@ function Frame({
   useState(() => { resetPatientEdits(); resetChartBasicsState() })
   /* the Scheduler's session edits (data/schedulerStore.ts), fresh per frame */
   useState(() => resetSchedulerStore())
+  /* PBF / LFP / PAS session edits (data/billingPrograms.ts), fresh per frame */
+  useState(() => resetBillingPrograms())
   const sched = useSchedulerStore()
   useState(() => resetWorkspaceSettings())
   /* the Care Plan tags, snapshots, folder reviews and sent letters a lesson
      writes (data/chartSession.ts), fresh for every frame too */
   useState(() => resetChartSession())
+  /* Preferences, Planned Actions, Barriers, Resources, Risks and Needs entered
+     in the session, and goal links (data/carePlanRecords.ts) */
+  useState(() => resetCarePlanRecords())
+  useState(() => resetAllergySession())
+  /* Goals and Summary Settings edits (data/goalRecords.ts, data/summarySettings.ts) */
+  useState(() => { resetGoalRecords(); resetSummarySettings() })
+  /* the clinic's Quick Entry templates start from the seed list per frame */
+  useState(() => resetQuickEntryTemplates())
+  /* System Settings' committed values as the menus read them (data/systemSettings.ts) */
+  useState(() => resetSystemSettingsMirror())
   const workspace = useWorkspaceStore()
   /* the Letter Writer is reached through a two-dialog run-up, so one state
      holds where in it we are rather than three booleans that can disagree */
@@ -750,6 +792,8 @@ function Frame({
       setView('scheduler')
       return
     }
+    /* a self-registered folder view, unless ROUTES names a window of its own */
+    if (!ROUTES[id] && isFolderView(id)) { setView('folder'); return }
     if (MODULE_ROOTS[id]) { setSection(moduleScreens[MODULE_ROOTS[id]]); setView('section'); return }
     if (reportScreens[id]) { setReport(reportScreens[id]); setView('report'); return }
     if (CARE_PLAN[id]) { setCarePlan(CARE_PLAN[id]); setView('careplan'); return }
@@ -976,7 +1020,7 @@ function Frame({
     if (action === 'host.mois.command' && typeof payload?.command === 'string') {
       const on = (...nodes: string[]) => nodes.includes(selectedRef.current)
       if (payload.command === 'search' && on('summary', 'demographic')) setChartSearchOpen(true)
-      if (payload.command === 'review' && on('reaction', 'ltm', 'conditions')) setReviewOpen(true)
+      if (payload.command === 'review' && on('reaction', 'allergy', 'ltm', 'conditions')) setReviewOpen(true)
       if (payload.command === 'link-to-order' && on('measures', 'imaging', 'consults', 'procedures')) {
         setOrderLinkOpen(true)
       }
@@ -1013,7 +1057,7 @@ function Frame({
   /* topmost first: the Chart Navigator is opened from the Find Patient window
      and paints over it, so it has to win the chain. */
   const dialog = noChartOpen ? 'no-chart-available'
-    : openChart && reminderChart === openChart ? 'opening-chart-reminder'
+    : mainShown && openChart && reminderChart === openChart ? 'opening-chart-reminder'
     : areaWindow ? areaWindow.id
     : cdxNavigator ? 'record-navigator'
     : cdxDetail ? 'patient-message-detail'
@@ -1134,6 +1178,8 @@ function Frame({
   }
   const openWindowRef = useRef(openWindowById)
   openWindowRef.current = openWindowById
+  /* hyperlinked descriptions jump to their folder (host/frame-nav.ts) */
+  setFrameNodeOpener(openNode)
 
   const api = useMemo<HostShellApi>(() => ({
     getState: () => stateRef.current,
@@ -1508,6 +1554,7 @@ function Frame({
     <ScreenStateProvider value={reportScreen}>
     <AreaWindowProvider open={(id, args) => openWindowRef.current(id, args)}>
     <ScreenWindowProvider window={screenWindow} onOpen={openScreenWindow} onClose={closeScreenWindow}>
+    <ActiveEncounterProvider>
     <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, textMode, className)}>
       {/* host.screen.lockout: whether System Settings' LOCKOUT band has a lock set */}
       <LockoutStatusReporter />
@@ -1525,7 +1572,7 @@ function Frame({
           title="MOIS: MOIS DEV"
           /* PB windows do not reflow — they have a minimum size and the
              desktop scrolls underneath them. */
-          style={frame.style}
+          style={mainShown ? frame.style : { ...frame.style, display: 'none' }}
           maximized={frame.maximized}
           onMaximize={frame.toggleMaximized}
           onMovePointerDown={frame.onMovePointerDown}
@@ -1616,11 +1663,19 @@ function Frame({
                   onAcknowledged={setBasketAck}
                 />
               )}
-              {view === 'billingadmin' && <BillingAdminView node={selected} />}
+              {view === 'billingadmin' && (
+                <BillingAdminView
+                  node={selected}
+                  onClose={() => setView('closed')}
+                  onOpenNode={openNode}
+                  onOpenChart={(next) => { if (findPatient(next, roster)) { selectPatient(next); openNode('summary') } }}
+                />
+              )}
               {view === 'cliniclist' && <ClinicListView node={selected} onClose={() => setView('closed')} />}
               {view === 'designer' && <DesignerSectionView node={selected} onClose={() => setView('closed')} />}
               {view === 'usermgt' && <UserManagementView node={selected} onClose={() => setView('closed')} />}
               {view === 'adminlist' && <AdminListsView node={selected} onClose={() => setView('closed')} />}
+              {view === 'quickentry' && <QuickEntryListView onClose={() => setView('closed')} />}
               {view === 'cdxinbound' && (
                 <InboundMessagesView
                   onOpenDetail={() => setCdxDetail(true)}
@@ -1668,7 +1723,9 @@ function Frame({
               {view === 'waitprov' && <WaitingListView mode="provider" />}
               {view === 'waitres' && <WaitingListView mode="resource" />}
               {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) }} />}
-              {view === 'section' && section.title !== 'Care Plan' && (
+              {/* Care Plan ▸ Summary Settings (art. 303514) */}
+              {view === 'section' && section.title === 'Summary Settings' && <SummarySettingsView key={chart} screen={section} />}
+              {view === 'section' && section.title !== 'Care Plan' && section.title !== 'Summary Settings' && (
                 <ChartSectionView
                   /* the one screen that starts over when the export lands, so
                      its current row is taken from the real rows */
@@ -1683,6 +1740,14 @@ function Frame({
                 <DayGridView columns={dayGrid.columns} mode={dayGrid.mode} title={dayGrid.title} />
               )}
               {view === 'schedx' && <SchedulerExtraView node={selected} />}
+              {view === 'folder' && (
+                <FolderViewLayer
+                  node={selected}
+                  close={() => setView('closed')}
+                  openNode={openNode}
+                  open={(id, args) => openWindowRef.current(id, args)}
+                />
+              )}
 
               {goalOpen && <GoalDialog onClose={closeDialogs} />}
             </div>
@@ -1691,11 +1756,17 @@ function Frame({
           <PBStatusBar cells={status} />
         </PBWindow>
 
+        {/* ---- an alternate launch mode's window (screens/LaunchModeWindows.tsx) ---- */}
+        {initialLaunch && initialLaunch !== 'main' && (
+          <LaunchModeHost initial={initialLaunch} mainShown={mainShown} onLaunchMain={() => setMainShown(true)} />
+        )}
+
         {/* ---- MDI sheets: one per open record ---- */}
         <PBMdiHost classes={WINDOW_CLASSES} />
 
         {/* modal child window — layered above the MDI frame and any child */}
-        {openChart && reminderChart === openChart && findPatient(chart, roster) && (
+        {/* an alternate launch mode keeps the frame's chart reminder until the Main Program is up */}
+        {mainShown && openChart && reminderChart === openChart && findPatient(chart, roster) && (
           <OpeningChartReminderDialog
             patient={findPatient(chart, roster)!}
             reminders={dueOpeningReminders(findPatient(chart, roster), MOIS_TODAY)}
@@ -1815,6 +1886,7 @@ function Frame({
         />
       </div>
     </div>
+    </ActiveEncounterProvider>
     </ScreenWindowProvider>
     </AreaWindowProvider>
     </ScreenStateProvider>

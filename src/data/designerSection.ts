@@ -546,7 +546,12 @@ export const designerScreens: DesignerListScreen[] = [
       source: 'dd92ae1e643e, art. 303101',
       fields: [
         { kind: 'text', label: 'Name:', w: 268, focus: true },
-        { kind: 'drop', label: 'Type:', options: ['MISC', 'CONSULTATION', 'REFERRAL'], value: 'MISC', w: 150 },
+        /* 303101: "select the document type … so that the MOIS system
+           receiving your letter will identify it as a Referral, Consult,
+           etc."; 2961349 `601440d4…` adds INFORMATION REQUEST, and its Send
+           window's response types (NOTE, NOTIFICATION, PATIENT SUMMARY) each
+           need a template of their own type to be offered */
+        { kind: 'drop', label: 'Type:', options: ['MISC', 'CONSULTATION', 'REFERRAL', 'INFORMATION REQUEST', 'NOTE', 'NOTIFICATION', 'PATIENT SUMMARY'], value: 'MISC', w: 150 },
         { kind: 'memo', label: 'Description:', rows: 3 },
       ],
     },

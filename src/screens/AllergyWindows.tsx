@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import type { MoisRecord } from '../data/charts'
 import { MOIS_TODAY } from '../data/patients'
-import { useChartExport } from '../data/chart-records'
+import { addReactionRisk, type AgentType } from '../data/allergySession'
+import { usePatient } from '../data/patient-context'
 import { registerScreenWindows, useScreenWindow } from '../host/screen-windows'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
+import {
+  ADVERSE_WINDOWS, AdverseEventWindows, EventAgentsPane, EventDetailPane, EventReactionsPane, LinkPickerWindow,
+  LinkedRisksPane, useAllergyIndex,
+} from './AdverseEventWindows'
 import { FooterButton, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -23,25 +28,40 @@ registerScreenWindows(Object.values(ALLERGY_WINDOWS))
    Agent Type Drug (Specific) / Food / Drug (Category) / Environmental; Date of
    Onset (today) and Stopped; Agent Code "…" and Description (the salmon
    required field); Reaction 1–3, each a code "…" and a description; Severity
-   ▾; Comments; More… · Link Event(s)…; Save (F2) · Cancel. */
+   ▾; Comments; More… · Link Event(s)…; Save (F2) · Cancel.
+
+   Save files the risk into data/allergySession.ts (which also drops a
+   `** NO KNOWN **` assertion, 303131). Link Event(s)… opens the Link Event(s)
+   pick list over this window (303131: "Opens a new window to allow adverse
+   events to be linked" — the list is INFERRED); the ticked events are linked
+   when the risk is saved. More… stays inert. */
 export const SEVERITIES = ['', 'MILD', 'MODERATE', 'SEVERE', 'SEVERE TO LIFE THREATENING']
 
-export function NewReactionRiskWindow({ onSave, onClose }: {
-  onSave: (row: Record<string, string>) => void
+export function NewReactionRiskWindow({ onSaved, onClose }: {
+  onSaved: () => void
   onClose: () => void
 }) {
+  const { chart } = usePatient()
+  const ix = useAllergyIndex()
+  const [linking, setLinking] = useState(false)
+  const [linkEvents, setLinkEvents] = useState<string[]>([])
+  const [onset, setOnset] = useState(MOIS_TODAY)
+  const [stopped, setStopped] = useState('')
+  const [agentCode, setAgentCode] = useState('')
+  const [comments, setComments] = useState('')
   const [type, setType] = useState<'Allergy' | 'Intolerance'>('Allergy')
   const [agentType, setAgentType] = useState('Drug (Specific)')
   const [agent, setAgent] = useState('')
   const [reactions, setReactions] = useState(['', '', ''])
   const [severity, setSeverity] = useState('')
-  const drug = agentType.startsWith('Drug')
-  const save = () => onSave({
-    onset: MOIS_TODAY, tilde: '',
-    type: `${drug ? 'DRUG' : agentType.toUpperCase()} ${type.toUpperCase()}`,
-    category: drug ? '✓' : '', code: '', agent: agent.toUpperCase(),
-    reactions: reactions.filter(Boolean).join(', ').toUpperCase(), severity, m: '',
-  })
+  const save = () => {
+    addReactionRisk(chart, {
+      reactionType: type, agentType: agentType as AgentType, agentCode, agentTerm: agent,
+      reactions: reactions.filter(Boolean).map((term) => ({ code: '', term })),
+      severity, firstOccurrence: onset || MOIS_TODAY, stopped, comments, linkEvents,
+    })
+    onSaved()
+  }
   const radio = (label: string) => (
     <PBRadio name="agent-type" label={label} checked={agentType === label} onChange={() => setAgentType(label)} />
   )
@@ -64,12 +84,12 @@ export function NewReactionRiskWindow({ onSave, onClose }: {
           {radio('Drug (Specific)')}{radio('Food')}{radio('Drug (Category)')}{radio('Environmental')}
         </div>
         <span>Date of Onset:</span>
-        <div className="pb-row"><PBInput w={74} align="center" defaultValue={MOIS_TODAY} /><span style={{ marginLeft: 20 }}>Stopped:</span><PBInput w={74} /></div>
+        <div className="pb-row"><PBInput w={74} align="center" value={onset} onChange={(e) => setOnset(e.target.value)} /><span style={{ marginLeft: 20 }}>Stopped:</span><PBInput w={74} value={stopped} onChange={(e) => setStopped(e.target.value)} /></div>
         <span />
         <div className="pb-row" style={{ gap: 0 }}><span style={{ width: 124 }}>Code</span><span>Description</span></div>
         <span>Agent:</span>
         <div className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.field.reaction-agent">
-          <PBLookup w={124} />
+          <PBLookup w={124} value={agentCode} onChange={setAgentCode} />
           <PBInput w="100%" value={agent} onChange={(e) => setAgent(e.target.value)} style={{ background: 'var(--pb-dw-flag, #f8c7a8)', flex: '1 1 auto' }} />
         </div>
         {[0, 1, 2].map((i) => (
@@ -84,12 +104,20 @@ export function NewReactionRiskWindow({ onSave, onClose }: {
         <span>Severity:</span>
         <span data-tutorial-id="host.mois.field.reaction-severity"><PBSelect w={124} value={severity} options={SEVERITIES} onChange={(e) => setSeverity(e.target.value)} /></span>
         <span style={{ alignSelf: 'start' }}>Comments:</span>
-        <PBTextArea rows={6} w="100%" data-tutorial-id="host.mois.field.reaction-comments" />
+        <PBTextArea rows={6} w="100%" value={comments} onChange={(e) => setComments(e.target.value)} data-tutorial-id="host.mois.field.reaction-comments" />
         <span />
         <div className="pb-row" style={{ justifyContent: 'flex-end' }}>
-          <PBButton wide>More...</PBButton><PBButton wide>Link Event(s)...</PBButton>
+          {linkEvents.length > 0 && <span style={{ marginRight: 'auto' }} data-tutorial-id="host.mois.field.reaction-linked-events">{linkEvents.length} event(s) to link</span>}
+          <PBButton wide>More...</PBButton>
+          <PBButton wide data-tutorial-id="host.mois.command.reaction-risk-link-events" onClick={() => setLinking(true)}>Link Event(s)...</PBButton>
         </div>
       </div>
+      {linking && (
+        <LinkPickerWindow id="reaction-risk-link-events" title="Link Event(s)" band="Adverse Events"
+          rows={ix.events.map(({ record: _r, ...e }) => e)}
+          columns={[{ key: 'onset', header: 'Onset', width: 86 }, { key: 'agents', header: 'Agents' }, { key: 'reactions', header: 'Reactions', width: 200 }]}
+          onOk={(ids) => { setLinkEvents(ids); setLinking(false) }} onClose={() => setLinking(false)} />
+      )}
     </StageWindow>
   )
 }
@@ -169,64 +197,34 @@ export function TextViewerWindow({ heading, text, onClose }: { heading: string; 
   )
 }
 
-/* --- Adverse Events: the tabs other than Reactions -------------------------
-   Recommendations is the captured one (above). Agents and Linked Reaction
-   Risks list the event's adverse_agent and adverse_link rows; the Detail
-   tab's layout is not captured, so it shows only the event's dated fields. */
+/* --- Adverse Events: the tabs other than Recommendations -------------------
+   Recommendations is the captured one (above). Detail, Agents, Reactions and
+   Linked Reaction Risks are screens/AdverseEventWindows.tsx (303131
+   `4f7a5861…`, `0d3d5d53…`, `b7ebbce5…`, `10f68120…`). */
 export function AdverseEventTab({ tab, record }: { tab: string; record?: MoisRecord }) {
-  const data = useChartExport()
   const win = useScreenWindow()
-  const id = record?.id_adverse_event
   if (tab === 'Recommendations') {
     return <RecommendationsPane record={record}
       onOpenText={() => win.open(ALLERGY_WINDOWS.textViewer, { heading: 'Recommendations - Read Only' })} />
   }
-  if (tab === 'Agents') {
-    const rows = (data?.adverse_agent ?? []).filter((a) => a.id_adverse_event === id)
-      .map((a) => ({ code: a.str_agent_code ?? '', agent: a.str_agent ?? '', trade: a.str_trade_name ?? '', maker: a.str_manufacturer ?? '', route: a.str_route ?? '', site: a.str_site ?? '' }))
-    return (
-      <div style={{ flex: '1 1 auto', display: 'flex', padding: 3 }}>
-        <PBDataWindow flush gutter={false} rows={rows} empty="No agents recorded."
-          columns={[
-            { key: 'code', header: 'Code', width: 76 }, { key: 'agent', header: 'Generic Name' },
-            { key: 'trade', header: 'Brand Name', width: 210 }, { key: 'maker', header: 'Manufacturer', width: 140 },
-            { key: 'route', header: 'Route', width: 70 }, { key: 'site', header: 'Site', width: 50 },
-          ]} />
-      </div>
-    )
-  }
+  if (tab === 'Agents') return <EventAgentsPane key={record?.id_adverse_event} record={record} />
+  if (tab === 'Reactions') return <EventReactionsPane key={record?.id_adverse_event} record={record} />
   if (tab === 'Linked Reaction Risks') {
-    const linked = new Set((data?.adverse_link ?? []).filter((l) => l.id_adverse_event === id).map((l) => l.id_allergy))
-    const rows = (data?.allergy ?? []).filter((a) => linked.has(a.id_allergy))
-      .map((a) => ({ onset: (a.dtm_start ?? '').replace(/\//g, '.'), type: a.str_intolerance_type ?? '', agent: a.str_substance ?? '', reactions: a.str_reactions ?? '' }))
-    return (
-      <div style={{ flex: '1 1 auto', display: 'flex', padding: 3 }}>
-        <PBDataWindow flush gutter={false} rows={rows} empty="No linked reaction risks."
-          columns={[{ key: 'onset', header: 'Onset', width: 86 }, { key: 'type', header: 'Type', width: 130 }, { key: 'agent', header: 'Agent' }, { key: 'reactions', header: 'Reactions', width: 200 }]} />
-      </div>
-    )
+    return <LinkedRisksPane key={record?.id_adverse_event} record={record}
+      onLink={() => win.open(ADVERSE_WINDOWS.linkRisks, { event: record?.id_adverse_event ?? '' })} />
   }
-  const hm = [record?.num_administered_hr, record?.num_administered_min].every(Boolean)
-    ? `${record!.num_administered_hr!.padStart(2, '0')}:${record!.num_administered_min!.padStart(2, '0')}` : ''
-  return (
-    <div className="pb-form" style={{ gridTemplateColumns: '110px 200px 110px 1fr', padding: '8px', gap: '4px 6px', alignContent: 'start' }}>
-      <span className="pb-form__label pb-form__label--right">Onset:</span>
-      <div className="pb-row"><PBInput w={84} readOnly value={(record?.dtm_administered ?? '').replace(/\//g, '.')} /><PBInput w={46} readOnly value={hm} /></div>
-      <span className="pb-form__label pb-form__label--right">Report Type:</span><PBInput w={160} readOnly value={record?.str_report_type ?? ''} />
-      <span className="pb-form__label pb-form__label--right">Intolerance Type:</span><PBInput w={160} readOnly value={record?.str_intolerance_type ?? ''} />
-      <span className="pb-form__label pb-form__label--right">Severity:</span><PBInput w={220} readOnly value={record?.str_severity ?? ''} />
-    </div>
-  )
+  return <EventDetailPane record={record} />
 }
 
 /* The windows a report folder raises through the frame's by-name switch. */
-export function AllergyFolderWindows({ record, onFile }: { record?: MoisRecord; onFile: (row: Record<string, string>) => void }) {
+export function AllergyFolderWindows({ record, onMark }: { record?: MoisRecord; onMark: (what: string, top?: boolean) => void }) {
   const win = useScreenWindow()
   return (
     <>
       {win.is(ALLERGY_WINDOWS.newRisk) && (
-        <NewReactionRiskWindow onClose={win.close} onSave={(row) => { onFile(row); win.close() }} />
+        <NewReactionRiskWindow onClose={win.close} onSaved={() => { onMark('saved', true); win.close() }} />
       )}
+      <AdverseEventWindows win={win} onMark={onMark} />
       {win.is(ALLERGY_WINDOWS.textViewer) && (
         <TextViewerWindow
           heading={typeof win.window?.args?.heading === 'string' ? win.window.args.heading : 'Recommendations - Read Only'}

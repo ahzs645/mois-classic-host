@@ -14,7 +14,12 @@ export { printReportByMenu, printReports, type PrintReport } from './data/printR
    opens, and the signed-in user the form header names */
 export { useLoadedChart, loadChartExport, hasChartExport, type MoisRecord } from './data/charts'
 export { MeasurementGraphWindow, graphForCode } from './screens/MeasurementGraphWindow'
+/* a Dynamic Form's Select Flowsheet... / Open Flowsheet open the same flow sheet */
+export { FlowSheetWindow, FLOWSHEET_TYPES, type FlowSheetParams } from './screens/FlowSheetWindows'
 export { SESSION_USER } from './data/chartSession'
 /* MOIS - Search Window, the provider / organization directory a Provider field opens */
 export { DirectorySearchWindow } from './screens/DirectorySearchWindow'
 export { directoryEntries, type DirectoryEntry } from './data/providers'
+/* the JORG List and Service Location Selection List a Dynamic Form's "..." lookups open */
+export { JorgListWindow, ServiceLocationSelectionWindow } from './screens/JorgLookupWindows'
+export { NOT_ASSIGNED, dformServiceLocations, jorgUnits, type JorgUnit, type ServiceLocation } from './data/jorg'

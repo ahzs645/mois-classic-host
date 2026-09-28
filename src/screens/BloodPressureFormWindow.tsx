@@ -3,6 +3,7 @@ import { date } from '../data/charts/relations'
 import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { clockNow } from '../data/measureEntry'
 import { PBButton, PBCheckbox, PBDropField, PBInput, PBTextArea, PBWindow } from '../pb'
 import './legacy-dynamic-form.css'
 
@@ -141,6 +142,9 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
     header ? (header.id_provider && header.id_provider !== '-1' ? header.id_provider : '') : DESKTOP_USER,
   )
   const [allowOthers, setAllowOthers] = useState(header ? header.str_lock_to_user !== 'Y' : true)
+  /* Save Form keeps the window open and stamps Last Modified with the date,
+     time and user (302837 `bd504bb6…`: "2022.11.10 15:58 ADMINISTRATOR") */
+  const [savedAt, setSavedAt] = useState('')
 
   const phoneKind = patient.preferredPhone ?? 'Home'
   const phone = phoneKind === 'Cell' ? patient.cell : phoneKind === 'Work' ? patient.work : patient.home
@@ -207,7 +211,7 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
           </span>
         </div>
         <div style={{ height: 25, flex: '0 0 auto', display: 'flex', alignItems: 'center', padding: '0 14px', background: '#fff', borderBottom: '1px solid #000' }}>
-          Last Modified:{header?.stp_date_modify ? <span style={{ marginLeft: 6 }}>{stamp(header.stp_date_modify)}</span> : null}
+          Last Modified:{savedAt ? <span style={{ marginLeft: 6 }}>{savedAt}</span> : header?.stp_date_modify ? <span style={{ marginLeft: 6 }}>{stamp(header.stp_date_modify)}</span> : null}
         </div>
 
         {/* the form, 162–657, scrolling */}
@@ -272,7 +276,10 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
           <PBButton
             style={{ width: 93, height: 25, minWidth: 0 }}
             data-tutorial-id="host.mois.command.save-form"
-            onClick={() => onSave({ systolic: form.systolic, diastolic: form.diastolic })}
+            onClick={() => {
+              setSavedAt(`${MOIS_TODAY} ${clockNow()}  ${createdBy}`)
+              onSave({ systolic: form.systolic, diastolic: form.diastolic })
+            }}
           >
             Save Form
           </PBButton>

@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react'
 import { useChartExport } from '../data/chart-records'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { yearsOld } from '../data/reportParams'
+import { rsLike } from '../data/reportSpecs/types'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBInput, PBLookup, PBSelect } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
@@ -19,8 +21,9 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
      Facility Code and Service Center drop-downs;
    · Ok / Cancel.
 
-   Ok lists the patients whose imaging or procedure records match, into the
-   Print Preview — the list 303122 says to "review each patient" from. The
+   Ok lists the patients whose imaging or procedure records match (Contains,
+   `%`-aware), into the Print Preview laid out as 304049 `698852ae` (LIST OF
+   PATIENTS WITH SELECTED PROCEDURES) — the list 303122 says to "review each patient" from. The
    stage's only chart with records behind it is the one open, so that is the
    chart the list can find.
    ========================================================================= */
@@ -52,18 +55,27 @@ function PatientsByProcedureParams({ close, open }: AreaWindowProps) {
     const hits = (data?.order ?? [])
       .filter((r) => ['IMAGING', 'XRAY', 'PROCEDURE'].includes(r.str_order_type ?? ''))
       .filter((r) => inRange(r.dtm_finish_date || r.dtm_ord_date))
-      .filter((r) => !terms.length || terms.some((t) => `${r.str_description ?? ''} ${r.str_code_term ?? ''}`.toUpperCase().includes(t)))
+      /* "Contains", with the `%` wildcard (304049: "For any report that has a
+         CONTAINS argument … this single, wildcard character will find all
+         entries") */
+      .filter((r) => !terms.length || terms.some((t) => rsLike(t, `${r.str_description ?? ''} ${r.str_code_term ?? ''}`)))
+    /* 304049 `698852ae`: LIST OF PATIENTS WITH SELECTED PROCEDURES */
+    const age = yearsOld(patient.dob)
     open('print-preview', {
       title: 'Patients by Procedure',
-      heading: `PATIENTS BY PROCEDURE${terms.length ? ` - ${terms.join(' / ')}` : ''}`,
-      columns: [
-        { key: 'chart', header: 'CHART', width: 60 }, { key: 'name', header: 'PATIENT', width: 200 },
-        { key: 'date', header: 'DATE', width: 90 }, { key: 'procedure', header: 'PROCEDURE', width: 320 },
-      ],
-      rows: hits.map((r) => ({
-        chart: patient.chart, name: `${patient.last}, ${patient.first}`,
-        date: (r.dtm_finish_date || r.dtm_ord_date || '').slice(0, 10).replace(/\//g, '.'), procedure: r.str_description ?? r.str_code_term ?? '',
-      })),
+      pages: [[
+        '**MOIS TEST CLINIC**',
+        '%TITLE%LIST OF PATIENTS WITH SELECTED PROCEDURES',
+        `%SUB%${active ? 'ACTIVE ' : ''}Patients For Date between ${from} and ${to}`,
+        `%SUB%Procedure Description Contains: ${terms.join(', ')}`,
+        '%COLS:28,8,12,9,12,31%',
+        '%TH%NAME|CHART NO.|DATE OF BIRTH|SEX AGE|DATE PERFORMED|DESCRIPTION',
+        ...hits.map((r) => `%TR%${patient.last}, ${patient.first}|${patient.chart}|${patient.dob}|${patient.gender}  ${age}|${(r.dtm_finish_date || r.dtm_ord_date || '').slice(0, 10).replace(/\//g, '.')}|${r.str_description ?? r.str_code_term ?? ''}`),
+        '',
+        `Records Printed: ${hits.length}`,
+        '',
+        `Patients Printed: ${hits.length ? 1 : 0}`,
+      ].join('\n')],
     })
   }
   return (

@@ -23,6 +23,11 @@ import {
 import { RECORD_OPTION_WINDOWS } from './RecordOptionWindows'
 import { recordKeyOf } from './reportRecordEdits'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
+import { StageMessageBox } from './StageWindow'
+import { useEncounterSession } from '../host/encounterArea'
+import {
+  CPP_WINDOWS, CppPrescribingWindow, CppPrintWindow, cppSummary, isScheduleOneA, useControlledRx, type CppDetails,
+} from './ControlledRxWindows'
 import './medication.css'
 
 /* ============================================================================
@@ -73,6 +78,16 @@ import './medication.css'
    Prescription straight under it. Neither has Mark for Review (the chart
    report folders' list does, RecordOptionList.tsx). They supersede 303232
    `b6a3367f…png` (v02.22.92).
+
+   Added for 303227 / 3001611 / 3001613 (stream C2):
+   - the paper-clip cell: double-clicking its "-" (or count) opens Add
+     Attachment for that row (3001611 / 3001613 `b1bbc9de…png`), where the
+     PHSA eFORMS band lives; the count adds what was attached this session.
+   - controlled prescriptions: Rx Wizard on a Schedule 1A drug, with the
+     feature on and the user permitted, opens the CPP prescribing window
+     instead of the Dose Wizard (screens/ControlledRxWindows.tsx); Record ▸
+     New Historical starts an HX row, which a Schedule 1A drug turns into
+     CPP HX (`d7ec0802…`, `ce34e801…`).
    ========================================================================= */
 
 const RX_COLUMNS: PBColumn<Med>[] = [
@@ -131,6 +146,14 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   }
   const shown = draft ? [draft, ...rows] : rows
   const current = shown[Math.min(cur, shown.length - 1)]
+  /* the paper clip's target and the CPP windows (303227, 3001611, 3001613) */
+  const area = useEncounterSession()
+  const controlled = useControlledRx()
+  const [cpp, setCpp] = useState<CppDetails | null>(null)
+  const attachRow = (m: Med) => {
+    area.update((s) => ({ ...s, attachTarget: `rx:${m.id}` }))
+    openFrameWindow('add-attachment')
+  }
 
   /* `row` is the current row's anchor slug, which host.mois.selectRow grades */
   const rowSlug = (m?: Med) => (!m ? '' : m === draft ? `${mode}-new` : `${mode}-${pbSlug(m.med).slice(0, 32)}`)
@@ -145,6 +168,22 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
     setRecord('saved')
   }
   const undo = () => { setDraft(null); setRecord('') }
+  /* the CPP prescribing window's Save: the row, typed CPP, with what the
+     window built as its dose, amount and comment */
+  const saveCpp = (c: CppDetails): string => {
+    setCpp(c)
+    const s = cppSummary(c)
+    const base = draft ?? blankMed(newMedId('rx'))
+    const saved: Med = {
+      ...base, type: 'CPP', order: c.date || MOIS_TODAY, dose: s.directions, amount: s.total ? `${s.total} ${s.unit}` : '',
+      comment: c.comment, indic: c.indication === 'Other' ? c.description : c.indication, modified: `${MOIS_TODAY}  ${STAGE_USER}`,
+    }
+    update((x) => ({ ...x, rxAdded: [saved, ...x.rxAdded] }))
+    setDraft(null)
+    setCur(0)
+    setRecord('cpp-saved')
+    return saved.id
+  }
   const duplicate = () => {
     if (!current) return
     if (!rx) { win.open(MED_WINDOWS.ltmDose); return }
@@ -164,6 +203,8 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
     if (slot === MED_WINDOWS.duplicate) { win.close(); duplicate() }
     else if (slot === MED_WINDOWS.addToLtm) { win.close(); addToLtm() }
     else if (slot === MED_WINDOWS.printRx) { win.open(MED_WINDOWS.allergyWarning) }
+    /* Record ▸ New Historical (303227 `3404d09b…`): an HX row */
+    else if (slot === CPP_WINDOWS.newHistorical && rx) { win.close(); startDraft({ ...blankMed(newMedId('rx')), type: 'HX' }) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot])
 
@@ -248,7 +289,16 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   const columns = (rx ? RX_COLUMNS : LTM_COLUMNS).map((c) => (
     c.key === 'd1' || c.key === 'd2'
       ? { ...c, render: (m: Med, i: number) => dots(m, i, c.key as 'd1' | 'd2') }
-      : c.key === 'clip' ? { ...c, render: (m: Med) => (m.record?.num_attachments && m.record.num_attachments !== '0' ? m.record.num_attachments : '-') }
+      : c.key === 'clip' ? {
+        ...c,
+        render: (m: Med, i: number) => {
+          const n = (Number(m.record?.num_attachments) || 0) + (area.session.attachments[`rx:${m.id}`] ?? 0)
+          return (
+            <span style={{ display: 'block' }} data-tutorial-id={i === cur ? 'host.mois.cell.rx-attachment' : `host.mois.cell.rx-attachment-${i}`}
+              onMouseDown={() => setCur(i)} onDoubleClick={() => attachRow(m)}>{n ? String(n) : '-'}</span>
+          )
+        },
+      }
       : c
   ))
 
@@ -330,9 +380,15 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
           initial={typeof win.window?.args?.search === 'string' ? win.window.args.search : draft?.med ? draft.med.split(' ')[0] : ''}
           onClose={win.close}
           onPick={(d) => {
-            intoDraft({ med: d.generic, generic: d.generic, atc: d.atc, cdic: d.cdic })
+            const cppDrug = rx && controlled && isScheduleOneA(d)
+            /* a historical row takes the drug and becomes CPP HX */
+            const type = draft?.type === 'HX' || draft?.type === 'CPP HX' ? (cppDrug ? 'CPP HX' : 'HX') : draft?.type ?? ''
+            intoDraft({ med: d.generic, generic: d.generic, atc: d.atc, cdic: d.cdic, type })
             const then = win.window?.args?.then
-            if (then === MED_WINDOWS.doseWizard) win.open(MED_WINDOWS.doseWizard)
+            /* "Once you have selected your Schedule 1A drug and selected 'OK'
+               this will open a new prescribing window" */
+            if (then === MED_WINDOWS.doseWizard && cppDrug) { setCpp(null); win.open(CPP_WINDOWS.prescribing) }
+            else if (then === MED_WINDOWS.doseWizard) win.open(MED_WINDOWS.doseWizard)
             else win.close()
           }}
         />
@@ -404,6 +460,8 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
             filePrint(job, true)
             win.close()
             setRecord('printed')
+            /* SRFax (2616562 `c85ea0f7…`): Sign and Fax queues it — C3 */
+            if (job.mode === 'sign-fax') openFrameWindow('fax-queued')
             /* #47: Create New Task, "PLEASE SEND PRESCRIPTION", linked to the
                prescription log record the signed print made. The stage keeps
                no tdt_prescription_log rows, so the first prescription's id
@@ -455,6 +513,28 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
             win.close()
             setCur(0)
             setRecord('duplicated')
+          }}
+        />
+      )}
+      {win.is(CPP_WINDOWS.prescribing) && (draft ?? current) && (
+        <CppPrescribingWindow
+          med={(draft ?? current)!}
+          initial={cpp ?? undefined}
+          onClose={win.close}
+          onSave={(c) => { saveCpp(c); win.close() }}
+          onPrint={(c) => { const id = saveCpp(c); win.open(CPP_WINDOWS.print, { id }) }}
+        />
+      )}
+      {win.is(CPP_WINDOWS.print) && cpp && (current || draft) && (
+        <CppPrintWindow
+          med={rows.find((m) => m.id === win.window?.args?.id) ?? (draft ?? current)!}
+          c={cpp}
+          onClose={win.close}
+          onPrint={() => {
+            const id = typeof win.window?.args?.id === 'string' ? win.window.args.id : current?.id
+            if (id) filePrint({ mode: 'sign-print', include: [id], pharmacy: false, printer: 'Default', fax: 'DEFAULT' }, true)
+            setRecord('cpp-printed')
+            win.close()
           }}
         />
       )}
@@ -640,10 +720,22 @@ export function PrintHistoryView() {
     return [...fromStage, ...fromExport]
   }, [records, rxRows, session.printLog])
   const row = rows[Math.min(cur, rows.length - 1)]
+  /* 303227 Administrator Actions: printing the signed script from here asks
+     "Would you like to update your task to completed?" (`b1ca3582…png`) */
+  const [asking, setAsking] = useState(false)
+  const [printed, setPrinted] = useState('')
+  useScreenReport({ record: printed || null })
   return (
     <>
       <PBViewHeader title="Prescription Print Hx" right={<ChartHeaderIdentity />} />
-      <PBCommandRow commands={[{ label: 'Refresh' }, { label: 'Preview' }]} />
+      <PBCommandRow commands={[{ label: 'Refresh' }, { label: 'Preview', disabled: !row, onClick: () => { setPrinted('reprinted'); if (row?.signed === 'Y') setAsking(true) } }]} />
+      {asking && (
+        <StageMessageBox id="rx-completed-task" title="Completed Task?" icon="question"
+          buttons={[{ label: 'Yes', value: 'yes', default: true }, { label: 'No', value: 'no' }]}
+          onClose={(v) => { setAsking(false); if (v === 'yes') setPrinted('task-completed') }}>
+          Would you like to update your task to completed?
+        </StageMessageBox>
+      )}
       <PBIdentityStrip
         fields={[
           { label: 'FIRST:', value: patient.first },
@@ -677,7 +769,8 @@ export function PrintHistoryView() {
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4, padding: '4px 3px 3px' }}>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex' }}>
-          <PBTabsCompact tab={tab} setTab={setTab} items={tab === 'Prescription Items' ? row?.items ?? [] : []} />
+          <PBTabsCompact tab={tab} setTab={setTab} items={tab === 'Prescription Items' ? row?.items ?? [] : []}
+            faxes={row?.method === 'FAX' ? [{ date: row.created, pharmacy: patient.pharmacy?.name ?? '', fax: patient.pharmacy?.fax ?? '', status: 'QUEUED' }] : []} />
         </div>
         <div style={{ width: 170, display: 'flex', flexDirection: 'column', border: '1px solid var(--pb-border)' }}>
           <PBBand>Workflow Summary</PBBand>
@@ -693,10 +786,31 @@ export function PrintHistoryView() {
   )
 }
 
-function PBTabsCompact({ tab, setTab, items }: { tab: string; setTab: (t: string) => void; items: Med[] }) {
+function PBTabsCompact({ tab, setTab, items, faxes = [] }: {
+  tab: string
+  setTab: (t: string) => void
+  items: Med[]
+  /** a Sign and Fax print's fax: 2616562 `d5512c5a…` (Date · Pharmacy ·
+      Fax · Status), QUEUED until SRFax reports — C3 */
+  faxes?: { date: string; pharmacy: string; fax: string; status: string }[]
+}) {
   return (
     <PBTabs tabs={['Prescription Items', 'Distribution']} active={tab} onChange={setTab} compact>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
+        {tab === 'Distribution' ? (
+          <PBDataWindow
+            rows={faxes}
+            gutter={false}
+            rowTutorialId={(_r, i) => `host.mois.row.rx-distribution-${i}`}
+            columns={[
+              { key: 'date', header: 'Date', width: 150 },
+              { key: 'pharmacy', header: 'Pharmacy', width: 220 },
+              { key: 'fax', header: 'Fax', width: 130 },
+              { key: 'status', header: 'Status' },
+            ]}
+            empty="This print was not faxed."
+          />
+        ) : (
         <PBDataWindow
           /* the Distribution tab exists in the capture but is never the
              active tab anywhere in the corpus, so its columns are unknown */
@@ -708,8 +822,9 @@ function PBTabsCompact({ tab, setTab, items }: { tab: string; setTab: (t: string
             { key: 'dose', header: 'Dose / Frequency', width: 180 },
             { key: 'amount', header: 'Amount', width: 90 },
           ]}
-          empty={tab === 'Distribution' ? 'Not captured in the manual.' : 'Select a print above.'}
+          empty="Select a print above."
         />
+        )}
       </div>
     </PBTabs>
   )

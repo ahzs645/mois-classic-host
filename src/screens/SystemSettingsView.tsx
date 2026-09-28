@@ -3,7 +3,7 @@ import { PBCommandRow, PBDataWindow, PBInput, PBViewHeader } from '../pb'
 import { MOIS_TODAY } from '../data/patients'
 import {
   LOCKOUT_ENDS_ROW, LOCKOUT_MESSAGE_ROW, LOCKOUT_RELEASED_KEY,
-  SETTING_BANDS, SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, settingRowId, settingSlug, type SystemSetting,
+  SETTING_BANDS, SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, mirrorSystemSettings, settingRowId, settingSlug, type SystemSetting,
 } from '../data/systemSettings'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
@@ -103,6 +103,8 @@ export function SystemSettingsView({ onClose }: { onClose?: () => void }) {
   const save = () => {
     if (dirty) {
       setCommitted((c) => ({ ...c, ...edits }))
+      /* menus read the committed values too (data/systemSettings.ts) */
+      mirrorSystemSettings({ ...committed, ...edits })
       /* a newly saved lock is a new lock, whatever became of the last one */
       if (LOCKOUT_MESSAGE_ROW in edits || LOCKOUT_ENDS_ROW in edits) setReleased(false)
       setEdits({})

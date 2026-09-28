@@ -1,0 +1,758 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  ALL_PERMISSIONS, APPT_STATUSES, DEFAULT_FEE_CODE, LITE_CHARTS_KEY, LITE_ENCOUNTERS, LITE_ENCOUNTERS_KEY, LITE_PROVIDERS,
+  NOTE_TEMPLATES, SERVICE_LOCATIONS, VISIT_CODES, VISIT_REASONS, dayOffset,
+  type LiteChart, type LiteEncounter, type LitePermissions, type MoisLaunchMode, type MoisLaunchStart,
+} from '../data/launchModes'
+import { usePatientRoster } from '../data/patient-context'
+import { MOIS_TODAY, type Patient } from '../data/patients'
+import { BILLING_ENC_TIMES_ROW, isYes, useSystemSetting } from '../data/systemSettings'
+import { useScreenReport } from '../host/screen-state'
+import { useSessionState } from '../host/screen-windows'
+import {
+  PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, PBWindow, pbSlug,
+} from '../pb'
+import { useOpenWindow } from './areaWindowRegistry'
+import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
+
+/* ============================================================================
+   The two alternate launch modes of the MOIS client — Encounter Lite
+   (3797326) and MyEncounters (3103943) — and the choosers in front of them.
+
+   HOW A HOST SELECTS ONE (the decision, documented in host/manifest.ts too):
+     - a fixture: `encounter-lite`, `my-encounters`, `select-launch-mode`
+       (Encounter Lite's "Select Launch Mode" list first) and
+       `select-service-group` (MyEncounters' "Select Service Group /
+       Pathway" first) — `MOIS_CLASSIC_LAUNCH_MODES` in host/manifest.ts;
+     - or the shell's `launchMode` prop, which wins over the fixture.
+     Every other fixture, and no prop, is the Main Program exactly as before:
+     this layer is not mounted at all.
+   While a launch mode is up, the MDI frame is hidden. "Launch Main Program"
+   shows it beside the launch window ("will open main MOIS in a secondary
+   window and keep the My Encounters Window available"); a click on either
+   brings it to the front. Close closes the launch window; with the Main
+   Program open, that one stays ("both windows will have to close").
+   Closing the last window leaves an empty desktop with a "Launch MOIS"
+   button — an emulator affordance, not MOIS.
+
+   PROVENANCE
+   · Select Launch Mode — 3797326 inline image 3: a list headed "Launch
+     Mode" (Main Program, Encounter Lite), Ok / Cancel.
+   · Select Service Group / Pathway — 3103943 `b59a0d20…`: Service Group /
+     Pathway · Mode (VP Main Program; VMOA Tracking Board (VMOA); My
+     Encounters (VP)), Continue. Tracking Board has no capture and is not
+     built: choosing it opens the Main Program.
+   · The launch window — 3103943 `0b1ad375…` (My Encounters, 1074 × 787) and
+     3797326 inline images 4–14 (Encounter Lite, "MOIS: SMITHERS PRIMARY CARE
+     CLINIC - Encounter Lite"): left, "Search Options" — Encounter Lite adds a
+     "Provider" group — then "Time Frame" (Today, Today and Yesterday, In
+     Last n Days/Weeks, Since, Between … & …), "Include" Discharged, and the
+     patients grouped by day ("Today", "Sunday November 09, 2025"), a "D"
+     beside a discharged visit and an Information tip on hover (Patient,
+     Date, Time, Reason, Status). Right, the blue bands "Search for Chart"
+     (Insurance No., Last Name, Birth Date, "(at least one optional parameter
+     is required)", Find…), "Chart Data" (… Chart No.:), "Encounter Detail"
+     (Most Recent Encounter: date time reason) and "Encounter Note"
+     (Author:). Buttons: Launch Main Program, Send Task | New Encounter,
+     Save, Care Complete (MyEncounters), Close. Encounter Lite's window adds
+     Make Private (3797326 "Make Note Private").
+   · Chart Data — inline image 12: First Name*, Middle Name, Last Name*,
+     Insurance by*, Insurance No.*, Birth Date*, Gender*, City* "…",
+     Province*, Postal Code*, Preferred* with Home / Work / Cell.
+   · Encounter Detail — inline image 14: Scheduled Date / Time, Visit Code,
+     Reason "…", Appt Status, Slots, Visit Mode (DE), Service Location, Start
+     Time (seen) + Start, Finished Time (discharge) + Finish, General Note,
+     Billing Data…. Billing Data (Health Issue / Service ×4, Back) has no
+     capture — INFERRED from the article's steps.
+   · Confirm Chart for Patient — inline image 8 ("The following chart has
+     been found: … Would you like to create a new encounter for this
+     patient?" Yes / No / Cancel); Chart Advance Search List — image 9
+     (Search Results: Chart, First Name, Middle Name, Last Name, DoB, Gender,
+     Ins., Insurance No., PHN, Home #); No Chart Found — image 11 / 3103943
+     `46bd1494…`; Permission Denied — image 10; Quick Patient Registration
+     Form — image 13 (Register (F2) / Cancel).
+   · My Encounter - Care Complete — 3103943 `7722ca57…`: Encounter Detail:
+     Patient, Visit Reason "…", Encounter Date / Time, Care Stop Date / Time
+     (0000.00.00 until Continue fills it), Health Issue (optional) ×2,
+     Service (optional) ×2, Continue / Cancel. The provider's Default Fee
+     Code (the article's "Bonus Function") is printed under Service.
+   · The template list F4 opens, Make Private and the future-date prompt are
+     described in 3797326's steps but have no capture: INFERRED.
+
+   Reported (host.screen.*): `launchMode` (encounter-lite / my-encounters /
+   select-launch-mode / select-service-group / closed), `mainLaunched`,
+   `chart` (the launch window's chart number), `encounter` (its id),
+   `noteStatus` (empty / draft / saved), `apptStatus`, `timeFrame`,
+   `rows` (patients listed); `host.dialog` for each prompt.
+   ========================================================================= */
+
+type Stage = MoisLaunchStart | 'closed'
+
+const toLite = (p: Patient): LiteChart => ({
+  chart: p.chart, first: p.first ?? '', middle: p.middle ?? '', last: p.last ?? '', dob: p.dob ?? '', gender: p.gender ?? '',
+  insuranceBy: p.insuranceBy ?? 'BC', insurance: p.bchn ?? p.insurance ?? '', city: p.city ?? '', province: p.province ?? 'BC',
+  postal: p.postal ?? '', preferred: p.preferredPhone ?? 'Home', home: p.home ?? '', work: p.work ?? '', cell: p.cell ?? '',
+})
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+function dayCaption(date: string): string {
+  if (date === MOIS_TODAY) return 'Today'
+  const [y, m, d] = date.split('.').map(Number)
+  const t = new Date(Date.UTC(y!, m! - 1, d!))
+  return `${WEEKDAYS[t.getUTCDay()]} ${MONTHS[t.getUTCMonth()]} ${String(d).padStart(2, '0')}, ${y}`
+}
+const nowHM = () => stampNow().slice(-5)
+const norm = (s: string) => s.replace(/[\s.-]/g, '').toLowerCase()
+
+/* ===========================================================================
+   The host: which window is up, and the Main Program beside it
+   ======================================================================== */
+export function LaunchModeHost({ initial, mainShown, onLaunchMain }: {
+  initial: MoisLaunchStart
+  /** whether the MDI frame is showing */
+  mainShown: boolean
+  onLaunchMain: () => void
+}) {
+  const [stage, setStage] = useState<Stage>(initial)
+  const [front, setFront] = useState(true)
+  const ref = useRef<HTMLDivElement>(null)
+  useScreenReport({ launchMode: stage, mainLaunched: mainShown })
+
+  /* a click on the frame behind sends the launch window back */
+  useEffect(() => {
+    if (!mainShown) return
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t || !ref.current) return
+      if (ref.current.contains(t)) { setFront(true); return }
+      if (t.closest('.pb-modal-layer')) return
+      if (t.closest('.pb-desktop')) setFront(false)
+    }
+    window.addEventListener('pointerdown', onDown, true)
+    return () => window.removeEventListener('pointerdown', onDown, true)
+  }, [mainShown])
+
+  const launchMain = () => { onLaunchMain(); setFront(false) }
+
+  if (stage === 'select-launch-mode') {
+    return (
+      <LaunchChooser
+        id="select-launch-mode" title="Select Launch Mode" header={['Launch Mode']}
+        rows={[{ cells: ['Main Program'], mode: 'main' }, { cells: ['Encounter Lite'], mode: 'encounter-lite' }]}
+        buttons="ok-cancel"
+        onPick={(mode) => { if (mode === 'main') { launchMain(); setStage('closed') } else setStage(mode) }}
+        onCancel={() => setStage('closed')}
+      />
+    )
+  }
+  if (stage === 'select-service-group') {
+    return (
+      <LaunchChooser
+        id="select-service-group" title="Select Service Group / Pathway" header={['Service Group / Pathway', 'Mode']}
+        rows={[
+          { cells: ['VP', 'Main Program'], mode: 'main' },
+          { cells: ['VMOA', 'Tracking Board (VMOA)'], mode: 'main' },
+          { cells: ['My Encounters', '(VP)'], mode: 'my-encounters' },
+        ]}
+        buttons="continue"
+        onPick={(mode) => { if (mode === 'main') { launchMain(); setStage('closed') } else setStage(mode) }}
+        onCancel={() => setStage('closed')}
+      />
+    )
+  }
+  if (stage === 'closed') {
+    if (mainShown) return null
+    return (
+      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 5 }}>
+        <div style={{ textAlign: 'center', color: '#fff', textShadow: '0 1px 2px #000' }} data-tutorial-id="host.mois.group.mois-closed">
+          <div style={{ marginBottom: 8 }}>MOIS has been closed.</div>
+          <Btn id="relaunch-mois" onClick={() => setStage(initial)}>Launch MOIS</Btn>
+        </div>
+      </div>
+    )
+  }
+  if (stage === 'main') return null
+  return (
+    <div ref={ref} style={{ position: 'absolute', inset: 0, zIndex: front || !mainShown ? 30 : 1, pointerEvents: 'none' }}>
+      <LaunchWindow
+        mode={stage}
+        mainShown={mainShown}
+        onLaunchMain={launchMain}
+        onClose={() => setStage('closed')}
+      />
+    </div>
+  )
+}
+
+function LaunchChooser({ id, title, header, rows, buttons, onPick, onCancel }: {
+  id: string; title: string; header: string[]
+  rows: { cells: string[]; mode: MoisLaunchMode }[]
+  buttons: 'ok-cancel' | 'continue'
+  onPick: (mode: MoisLaunchMode) => void
+  onCancel: () => void
+}) {
+  const [cur, setCur] = useState(rows.length - 1)
+  const pick = () => onPick(rows[cur]!.mode)
+  return (
+    <DetailWindow id={id} title={title} width={520} height={420} zIndex={40} onClose={onCancel}
+      buttons={buttons === 'ok-cancel'
+        ? <><Btn id="launch-mode-ok" isDefault width={96} onClick={pick}>Ok</Btn><Btn id="launch-mode-cancel" width={96} onClick={onCancel}>Cancel</Btn></>
+        : <Btn id="service-group-continue" isDefault width={96} onClick={pick}>Continue</Btn>}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 8 }}>
+        <PBDataWindow
+          rows={rows.map((r) => Object.fromEntries(r.cells.map((c, i) => [`c${i}`, c])))}
+          current={cur}
+          onCurrentChange={setCur}
+          onActivate={(_, i) => onPick(rows[i]!.mode)}
+          gutter={false}
+          rowTutorialId={(r) => `host.mois.row.launch-${pbSlug(Object.values(r).join(' '))}`}
+          columns={header.map((h, i) => ({ key: `c${i}`, header: h, width: i === 0 ? 250 : 230, headAlign: 'left' as const }))}
+        />
+      </div>
+    </DetailWindow>
+  )
+}
+
+/* ===========================================================================
+   The launch window
+   ======================================================================== */
+type Dialog =
+  | { kind: 'need-parameter' } | { kind: 'confirm-chart'; chart: LiteChart } | { kind: 'multiple'; charts: LiteChart[] }
+  | { kind: 'no-chart' } | { kind: 'permission-denied' } | { kind: 'quick-registration' } | { kind: 'care-complete' }
+  | { kind: 'templates' } | { kind: 'make-private' } | { kind: 'future-date' } | { kind: 'saved' } | { kind: 'reason' }
+
+const Band = ({ title, right, anchor }: { title: string; right?: ReactNode; anchor: string }) => (
+  <div className="pb-row" data-tutorial-id={anchor} style={{ background: '#a8cdf0', fontWeight: 700, padding: '3px 10px', flex: 'none', borderTop: '1px solid #8ab0d8' }}>
+    <span style={{ flex: '1 1 auto' }}>{title}</span>
+    {right && <span style={{ fontWeight: 400, color: '#7a8aa0' }}>{right}</span>}
+  </div>
+)
+
+function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
+  mode: 'encounter-lite' | 'my-encounters'
+  mainShown: boolean
+  onLaunchMain: () => void
+  onClose: () => void
+}) {
+  const lite = mode === 'encounter-lite'
+  const perms: LitePermissions = ALL_PERMISSIONS
+  const roster = usePatientRoster()
+  const openWindow = useOpenWindow()
+  const encTimes = isYes(useSystemSetting(BILLING_ENC_TIMES_ROW))
+  const [encounters, setEncounters] = useSessionState<LiteEncounter[]>(LITE_ENCOUNTERS_KEY, LITE_ENCOUNTERS)
+  const [created, setCreated] = useSessionState<LiteChart[]>(LITE_CHARTS_KEY, [])
+  const charts = useMemo(() => [...roster.map(toLite), ...created], [roster, created])
+
+  const [provider, setProvider] = useState(LITE_PROVIDERS[0]!)
+  const [frame, setFrame] = useState<'today' | 'yesterday' | 'last' | 'since' | 'between'>('today')
+  const [lastN, setLastN] = useState('7')
+  const [lastUnit, setLastUnit] = useState<'Days' | 'Weeks'>('Days')
+  const [since, setSince] = useState(dayOffset(-30))
+  const [betweenA, setBetweenA] = useState(dayOffset(-14))
+  const [betweenB, setBetweenB] = useState(MOIS_TODAY)
+  const [discharged, setDischarged] = useState(true)
+  const [ins, setIns] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [dob, setDob] = useState('')
+  const [chart, setChart] = useState<LiteChart | null>(null)
+  const [chartDraft, setChartDraft] = useState<LiteChart | null>(null)
+  const [enc, setEnc] = useState<LiteEncounter | null>(null)
+  const [billing, setBilling] = useState(false)
+  const [dialog, setDialog] = useState<Dialog | null>(null)
+  const [hover, setHover] = useState<{ e: LiteEncounter; x: number; y: number } | null>(null)
+  const noteRef = useRef<HTMLTextAreaElement>(null)
+
+  const from = frame === 'today' ? MOIS_TODAY
+    : frame === 'yesterday' ? dayOffset(-1)
+      : frame === 'last' ? dayOffset(-(Number(lastN) || 0) * (lastUnit === 'Weeks' ? 7 : 1))
+        : frame === 'since' ? since : betweenA
+  const to = frame === 'between' ? betweenB : MOIS_TODAY
+  const listed = encounters
+    .filter((e) => e.date >= from && e.date <= to && (discharged || e.status !== 'Discharged'))
+    .sort((a, b) => (b.date.localeCompare(a.date)) || a.name.localeCompare(b.name))
+  const saved = enc ? encounters.find((e) => e.id === enc.id) : undefined
+  const dirty = !!enc && JSON.stringify(enc) !== JSON.stringify(saved)
+  const recent = chart ? encounters.filter((e) => e.chart === chart.chart && e.id !== enc?.id).sort((a, b) => b.date.localeCompare(a.date))[0] : undefined
+
+  useScreenReport({
+    chart: chart?.chart ?? null,
+    encounter: enc?.id ?? null,
+    noteStatus: !enc ? null : !enc.note.trim() ? 'empty' : dirty ? 'draft' : 'saved',
+    apptStatus: enc ? pbSlug(enc.status || 'none') : null,
+    timeFrame: frame,
+    rows: listed.length,
+  })
+
+  const openEncounter = (e: LiteEncounter) => {
+    const c = charts.find((x) => x.chart === e.chart) ?? null
+    setChart(c); setChartDraft(c); setEnc({ ...e }); setBilling(false)
+  }
+  const newEncounterFor = (c: LiteChart) => {
+    const e: LiteEncounter = {
+      id: `le-${Date.now()}`, chart: c.chart, name: `${c.last}, ${c.first}`.toUpperCase(), date: MOIS_TODAY,
+      hh: nowHM().slice(0, 2), mm: nowHM().slice(3), visitCode: 'R', reason: '', status: 'Arrived', slots: '3', mode: 'DE',
+      location: '', start: '', finish: '', generalNote: '', note: '', author: '', healthIssues: ['', '', '', ''], services: ['', '', '', ''],
+    }
+    setEncounters((all) => [...all, e])
+    setChart(c); setChartDraft(c); setEnc(e); setBilling(false)
+  }
+  const find = () => {
+    if (!ins.trim() && !lastName.trim() && !dob.trim()) { setDialog({ kind: 'need-parameter' }); return }
+    const hits = charts.filter((c) =>
+      (!ins.trim() || norm(c.insurance).includes(norm(ins)))
+      && (!lastName.trim() || c.last.toLowerCase().startsWith(lastName.trim().toLowerCase()))
+      && (!dob.trim() || norm(c.dob) === norm(dob)))
+    if (hits.length === 1) setDialog({ kind: 'confirm-chart', chart: hits[0]! })
+    else if (hits.length > 1) setDialog({ kind: 'multiple', charts: hits })
+    else setDialog({ kind: perms.createChart ? 'no-chart' : 'permission-denied' })
+  }
+  const choose = (c: LiteChart, createEncounter: boolean) => {
+    setDialog(null)
+    if (createEncounter && perms.createEncounter) newEncounterFor(c)
+    else { setChart(c); setChartDraft(c); setEnc(null) }
+  }
+  const createChart = (c: Omit<LiteChart, 'chart'>) => {
+    const next: LiteChart = { ...c, chart: String(90001 + created.length) }
+    setCreated((all) => [...all, next])
+    setDialog(null)
+    newEncounterFor(next)
+  }
+  const stampTimes = (e: LiteEncounter): LiteEncounter => ({
+    ...e,
+    start: encTimes && (e.status === 'Seen' || e.status === 'Discharged') && !e.start ? nowHM() : e.start,
+    finish: encTimes && e.status === 'Discharged' && !e.finish ? nowHM() : e.finish,
+  })
+  const save = (override?: LiteEncounter) => {
+    const e = override ?? enc
+    if (e && e.date > MOIS_TODAY) { setDialog({ kind: 'future-date' }); return false }
+    if (chartDraft && chart && JSON.stringify(chartDraft) !== JSON.stringify(chart)) {
+      setCreated((all) => (all.some((c) => c.chart === chartDraft.chart) ? all.map((c) => (c.chart === chartDraft.chart ? chartDraft : c)) : all))
+      setChart(chartDraft)
+    }
+    if (e) {
+      const next = stampTimes({ ...e, author: e.note.trim() ? (e.author || provider) : e.author })
+      setEncounters((all) => all.map((x) => (x.id === next.id ? next : x)))
+      setEnc(next)
+    }
+    return true
+  }
+  const reset = () => { setChart(null); setChartDraft(null); setEnc(null); setIns(''); setLastName(''); setDob(''); setBilling(false) }
+  const set = (patch: Partial<LiteEncounter>) => setEnc((e) => (e ? { ...e, ...patch } : e))
+  const insertTemplate = (text: string) => {
+    if (!enc) return
+    const el = noteRef.current
+    const at = el ? el.selectionStart : enc.note.length
+    set({ note: enc.note.slice(0, at) + text + enc.note.slice(at) })
+    setDialog(null)
+  }
+
+  /* --- the patient list, grouped by day ------------------------------------------- */
+  const groups: { day: string; items: LiteEncounter[] }[] = []
+  for (const e of listed) {
+    const last = groups[groups.length - 1]
+    if (last && last.day === e.date) last.items.push(e)
+    else groups.push({ day: e.date, items: [e] })
+  }
+
+  const radio = (value: typeof frame, label: string, extra?: ReactNode) => (
+    <div className="pb-row" style={{ gap: 4, minHeight: 22 }}>
+      <span style={{ width: 118 }}><PBRadio name={`${mode}-frame`} label={label} checked={frame === value} onChange={() => setFrame(value)} tutorialId={`host.mois.field.time-frame-${value}`} /></span>
+      {extra}
+    </div>
+  )
+  const cd = chartDraft
+  const setCd = (patch: Partial<LiteChart>) => setChartDraft((c) => (c ? { ...c, ...patch } : c))
+  const cdField = (label: string, key: keyof LiteChart, w: number, req = false) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <span>{label}{req && <b style={{ color: '#000' }}> *</b>}</span>
+      <PBInput w={w} value={cd ? String(cd[key] ?? '') : ''} readOnly={!cd || (!!chart && !perms.updateChart)} onChange={(e) => setCd({ [key]: e.target.value } as Partial<LiteChart>)}
+        data-tutorial-id={`host.mois.field.chart-data-${pbSlug(String(key))}`} />
+    </div>
+  )
+
+  return (
+    <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(1074px, calc(100% - 24px))', height: 'min(787px, calc(100% - 24px))', pointerEvents: 'auto', display: 'flex' }}>
+      <PBWindow
+        tutorialId={`host.mois.dialog.${mode}`}
+        title={lite ? 'MOIS: MOIS DEV - Encounter Lite' : 'My Encounters'}
+        onClose={() => (mainShown ? onClose() : onClose())}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff', border: '1px solid #8a8a8a', margin: 4 }}>
+          {/* --- left: Search Options and the patients ----------------------- */}
+          <div style={{ width: 215, flex: 'none', display: 'flex', flexDirection: 'column', borderRight: '1px solid #8a8a8a' }}>
+            <Band title="Search Options" anchor="host.mois.group.search-options" />
+            <div style={{ background: 'var(--pb-face)', padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: 6, flex: 'none' }}>
+              {lite && (
+                <fieldset className="pb-fieldset" data-tutorial-id="host.mois.group.launch-provider">
+                  <legend className="pb-fieldset__legend">Provider</legend>
+                  <PBSelect w="100%" options={LITE_PROVIDERS} value={provider} onChange={(e) => setProvider(e.target.value)} data-tutorial-id="host.mois.field.launch-provider" />
+                </fieldset>
+              )}
+              <fieldset className="pb-fieldset" data-tutorial-id="host.mois.group.time-frame">
+                <legend className="pb-fieldset__legend">Time Frame</legend>
+                {radio('today', 'Today')}
+                {radio('yesterday', 'Today and Yesterday')}
+                {radio('last', 'In Last', <>
+                  <PBInput w={28} value={lastN} onChange={(e) => { setLastN(e.target.value); setFrame('last') }} data-tutorial-id="host.mois.field.in-last-count" />
+                  <PBSelect w={60} options={['Days', 'Weeks']} value={lastUnit} onChange={(e) => { setLastUnit(e.target.value as 'Days' | 'Weeks'); setFrame('last') }} data-tutorial-id="host.mois.field.in-last-unit" />
+                </>)}
+                {radio('since', 'Since', <PBInput w={76} value={since} onChange={(e) => { setSince(e.target.value); setFrame('since') }} data-tutorial-id="host.mois.field.since-date" />)}
+                {radio('between', 'Between', <PBInput w={76} value={betweenA} onChange={(e) => { setBetweenA(e.target.value); setFrame('between') }} data-tutorial-id="host.mois.field.between-from" />)}
+                <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 4 }}>&amp; <PBInput w={76} value={betweenB} onChange={(e) => { setBetweenB(e.target.value); setFrame('between') }} data-tutorial-id="host.mois.field.between-to" /></div>
+              </fieldset>
+              <fieldset className="pb-fieldset">
+                <legend className="pb-fieldset__legend">Include</legend>
+                <PBCheckbox label="Discharged" checked={discharged} onChange={setDischarged} tutorialId="host.mois.field.include-discharged" />
+              </fieldset>
+            </div>
+            <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', position: 'relative' }} data-tutorial-id="host.mois.group.launch-patients">
+              {groups.map((g) => (
+                <div key={g.day}>
+                  <div style={{ background: '#c8dcf5', padding: '2px 4px' }}>{dayCaption(g.day)}</div>
+                  {g.items.map((e) => (
+                    <div key={e.id}
+                      data-tutorial-id={`host.mois.row.launch-encounter-${e.chart}-${pbSlug(e.date)}`}
+                      onDoubleClick={() => openEncounter(e)}
+                      onMouseEnter={(ev) => setHover({ e, x: ev.clientX, y: ev.clientY })}
+                      onMouseLeave={() => setHover(null)}
+                      className="pb-row"
+                      style={{ padding: '3px 4px', borderBottom: '1px solid #e0e0e0', background: enc?.id === e.id ? '#3875d7' : undefined, color: enc?.id === e.id ? '#fff' : undefined, cursor: 'default' }}>
+                      <span style={{ flex: '1 1 auto' }}>{e.name}</span>
+                      {e.status === 'Discharged' && <span style={{ color: enc?.id === e.id ? '#fff' : '#888', paddingRight: 30 }}>D</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* --- right: Search for Chart, Chart Data, Encounter Detail, Encounter Note --- */}
+          <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <Band title="Search for Chart" anchor="host.mois.group.search-for-chart" />
+            <div className="pb-row" style={{ gap: 6, padding: '4px 10px', alignItems: 'flex-end', flex: 'none' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}><span>Insurance No.:</span><PBInput w={115} value={ins} onChange={(e) => setIns(e.target.value)} data-tutorial-id="host.mois.field.search-insurance" /></div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}><span>Last Name:</span><PBInput w={135} value={lastName} onChange={(e) => setLastName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') find() }} data-tutorial-id="host.mois.field.search-last-name" /></div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}><span>Birth Date:</span><PBInput w={90} value={dob} onChange={(e) => setDob(e.target.value)} data-tutorial-id="host.mois.field.search-birth-date" /></div>
+              <span className="pb-row__spacer" />
+              <Btn id="launch-find" width={80} onClick={find}>Find...</Btn>
+            </div>
+            <div style={{ padding: '0 10px 4px', color: '#666', flex: 'none' }}>(at least one optional parameter is required )</div>
+
+            <Band title="Chart Data" right={<>Chart No.: <b>{chart?.chart ?? ''}</b></>} anchor="host.mois.group.chart-data" />
+            <div style={{ height: 90, flex: 'none', padding: '4px 10px', display: 'flex', gap: 10, flexWrap: 'wrap', alignContent: 'flex-start' }}>
+              {cd && (<>
+                {cdField('First Name', 'first', 110, true)}{cdField('Middle Name', 'middle', 90)}{cdField('Last Name', 'last', 120, true)}
+                {cdField('Insurance by', 'insuranceBy', 50, true)}{cdField('Insurance No.', 'insurance', 110, true)}
+                {cdField('Birth Date', 'dob', 80, true)}{cdField('Gender', 'gender', 40, true)}
+                {cdField('City', 'city', 100, true)}{cdField('Province', 'province', 40, true)}{cdField('Postal Code', 'postal', 70, true)}
+                {cdField('Home', 'home', 100)}{cdField('Work', 'work', 100)}{cdField('Cell', 'cell', 100)}
+              </>)}
+            </div>
+
+            <Band title="Encounter Detail" anchor="host.mois.group.encounter-detail"
+              right={<>Most Recent Encounter:&nbsp;&nbsp; {recent ? `${recent.date}  ${recent.hh}:${recent.mm}   ${recent.reason}` : ':'}</>} />
+            <div style={{ height: 118, flex: 'none', padding: '4px 10px' }}>
+              {enc && !billing && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto 1fr auto', gap: '2px 10px', alignItems: 'end' }}>
+                  <div><div>Scheduled Date / Time</div><span className="pb-row" style={{ gap: 2 }}>
+                    <PBInput w={76} value={enc.date} onChange={(e) => set({ date: e.target.value })} data-tutorial-id="host.mois.field.encounter-date" />
+                    <PBInput w={26} value={enc.hh} onChange={(e) => set({ hh: e.target.value })} />
+                    <PBInput w={26} value={enc.mm} onChange={(e) => set({ mm: e.target.value })} /></span></div>
+                  <div><div>Visit Code</div><PBSelect w={60} options={VISIT_CODES} value={enc.visitCode} onChange={(e) => set({ visitCode: e.target.value })} data-tutorial-id="host.mois.field.encounter-visit-code" /></div>
+                  <div style={{ gridColumn: 'span 2' }}><div>Reason</div>
+                    <PBLookup w={200} value={enc.reason} name="encounter-reason" fieldId="host.mois.field.encounter-reason" onChange={(v) => set({ reason: v })} onDots={() => setDialog({ kind: 'reason' })} /></div>
+                  <div style={{ gridRow: 'span 3' }}><div>General Note</div>
+                    <PBTextArea rows={4} value={enc.generalNote} onChange={(e) => set({ generalNote: e.target.value })} style={{ width: 170, resize: 'none' }} data-tutorial-id="host.mois.field.encounter-general-note" /></div>
+                  <div><div>Appt Status</div>
+                    <PBSelect w={100} options={APPT_STATUSES.map((s) => ({ value: s, label: s }))} value={enc.status} onChange={(e) => set({ status: e.target.value as LiteEncounter['status'] })} data-tutorial-id="host.mois.field.encounter-appt-status" /></div>
+                  <div><div>Slots</div><PBInput w={40} value={enc.slots} onChange={(e) => set({ slots: e.target.value })} data-tutorial-id="host.mois.field.encounter-slots" /></div>
+                  <div><div>Visit Mode</div><PBSelect w={60} options={['DE', 'TL', 'TM']} value={enc.mode} onChange={(e) => set({ mode: e.target.value as LiteEncounter['mode'] })} data-tutorial-id="host.mois.field.encounter-visit-mode" /></div>
+                  <div className="pb-row" style={{ gap: 4 }}>
+                    <span>Start Time: (seen)</span><PBInput w={50} value={enc.start} onChange={(e) => set({ start: e.target.value })} data-tutorial-id="host.mois.field.encounter-start" />
+                    <Btn id="encounter-start" width={50} onClick={() => set({ start: nowHM() })}>Start</Btn>
+                  </div>
+                  <div style={{ gridColumn: 'span 3' }}><div>Service Location</div>
+                    <PBSelect w={200} options={SERVICE_LOCATIONS} value={enc.location} onChange={(e) => set({ location: e.target.value })} data-tutorial-id="host.mois.field.encounter-location" /></div>
+                  <div className="pb-row" style={{ gap: 4 }}>
+                    <span>Finished Time: (discharge)</span><PBInput w={50} value={enc.finish} onChange={(e) => set({ finish: e.target.value })} data-tutorial-id="host.mois.field.encounter-finish" />
+                    <Btn id="encounter-finish" width={50} onClick={() => set({ finish: nowHM() })}>Finish</Btn>
+                  </div>
+                  <div style={{ gridColumn: '5', justifySelf: 'end' }}><Btn id="billing-data" onClick={() => setBilling(true)}>Billing Data...</Btn></div>
+                </div>
+              )}
+              {enc && billing && (
+                /* INFERRED — see the header */
+                <div data-tutorial-id="host.mois.group.billing-data" style={{ display: 'grid', gridTemplateColumns: '90px repeat(4, 130px) 1fr', gap: '3px 6px', alignItems: 'center' }}>
+                  <span>Health Issue:</span>
+                  {enc.healthIssues.map((h, i) => <PBLookup key={i} w={126} value={h} name={`billing-health-issue-${i + 1}`} fieldId={`host.mois.field.billing-health-issue-${i + 1}`} onChange={(v) => set({ healthIssues: enc.healthIssues.map((x, j) => (j === i ? v : x)) })} />)}
+                  <span />
+                  <span>Service:</span>
+                  {enc.services.map((s, i) => <PBLookup key={i} w={126} value={s} name={`billing-service-${i + 1}`} fieldId={`host.mois.field.billing-service-${i + 1}`} onChange={(v) => set({ services: enc.services.map((x, j) => (j === i ? v : x)) })} />)}
+                  <span />
+                  <span>Start / Finish:</span>
+                  <PBInput w={60} value={enc.start} onChange={(e) => set({ start: e.target.value })} />
+                  <PBInput w={60} value={enc.finish} onChange={(e) => set({ finish: e.target.value })} />
+                  <span style={{ gridColumn: 'span 2', color: '#666' }}>Default Fee Code: {DEFAULT_FEE_CODE}</span>
+                  <Btn id="billing-back" width={70} onClick={() => setBilling(false)}>Back</Btn>
+                </div>
+              )}
+            </div>
+
+            <Band title="Encounter Note" right={<>Author:&nbsp;&nbsp; {enc?.author || (enc?.note.trim() ? provider : '')}</>} anchor="host.mois.group.encounter-note" />
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 2 }}>
+              <textarea
+                ref={noteRef}
+                className="pb-field"
+                disabled={!enc}
+                value={enc?.note ?? ''}
+                onChange={(e) => set({ note: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); setDialog({ kind: 'templates' }) } }}
+                data-tutorial-id="host.mois.field.encounter-note"
+                style={{ flex: '1 1 auto', resize: 'none', border: 0 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="pb-row" style={{ gap: 8, padding: '6px 10px 8px', flex: 'none' }}>
+          <Btn id="launch-main-program" width={140} disabled={!perms.launchMain || mainShown} onClick={onLaunchMain}>Launch Main Program</Btn>
+          <span style={{ width: 60 }} />
+          <Btn id="launch-send-task" width={80} disabled={!chart || !perms.sendTask}
+            onClick={() => { if (chart) openWindow('create-task', { chart: chart.chart, patient: `${chart.last}, ${chart.first}`.toUpperCase(), linkedTo: enc ? 'Encounter' : '', recordId: enc ? `Encounter - ${enc.date}` : '' }) }}>Send Task</Btn>
+          {lite && <Btn id="launch-make-private" width={90} disabled={!enc || !saved?.note.trim() || !perms.makePrivate} onClick={() => setDialog({ kind: 'make-private' })}>{enc?.private ? 'View Access' : 'Make Private'}</Btn>}
+          <span className="pb-row__spacer" />
+          <Btn id="launch-new-encounter" width={100} disabled={!perms.createEncounter || (!chart && !enc)} onClick={() => { if (dirty) save(); reset() }}>New Encounter</Btn>
+          <Btn id="launch-save" width={80}
+            disabled={!dirty && !(chartDraft && (!chart || JSON.stringify(chartDraft) !== JSON.stringify(chart)))}
+            onClick={() => {
+              /* a new chart typed into the Chart Data band (inline image 12) */
+              if (chartDraft && !chart) {
+                const { chart: _n, ...rest } = chartDraft
+                void _n
+                if (rest.first && rest.last && rest.dob && rest.gender && rest.insurance) createChart(rest)
+                else setDialog({ kind: 'saved' })
+                return
+              }
+              save()
+            }}>Save</Btn>
+          {!lite && <Btn id="launch-care-complete" width={96} disabled={!enc} onClick={() => setDialog({ kind: 'care-complete' })}>Care Complete</Btn>}
+          <Btn id="launch-close" width={80} onClick={onClose}>Close</Btn>
+        </div>
+      </PBWindow>
+
+      {hover && (
+        <div style={{ position: 'fixed', left: hover.x + 12, top: hover.y + 12, zIndex: 60, background: '#fff', border: '1px solid #767676', boxShadow: '2px 2px 4px rgba(0,0,0,.25)', padding: '4px 8px', pointerEvents: 'none', minWidth: 220 }}>
+          <div style={{ fontWeight: 700, marginBottom: 2 }}>ⓘ Information</div>
+          <div>Patient:&nbsp; {hover.e.name}</div>
+          <div>Date:&nbsp; {dayCaption(hover.e.date) === 'Today' ? hover.e.date : dayCaption(hover.e.date)}</div>
+          <div>Time:&nbsp; {hover.e.hh}:{hover.e.mm}</div>
+          <div>Reason:&nbsp; {hover.e.reason}</div>
+          <div>Status:&nbsp; {hover.e.status}</div>
+        </div>
+      )}
+
+      {dialog?.kind === 'need-parameter' && (
+        <TopMessage id="launch-need-parameter" title={lite ? 'Encounter Lite' : 'My Encounters'} icon="warn" buttons={['OK']} prefix="need-parameter-" onClose={() => setDialog(null)}>
+          Enter at least one of Insurance No., Last Name or Birth Date, then click Find.
+        </TopMessage>
+      )}
+      {dialog?.kind === 'confirm-chart' && (
+        <TopMessage id="confirm-chart-for-patient" title={`Confirm Chart for Patient: ${dialog.chart.first} ${dialog.chart.last}`} icon="question" buttons={['Yes', 'No', 'Cancel']} prefix="confirm-chart-"
+          onClose={(b) => (b === 'Yes' ? choose(dialog.chart, true) : b === 'No' ? choose(dialog.chart, false) : setDialog(null))}>
+          {`The following chart has been found:\n------------------------------------\n${dialog.chart.first} ${dialog.chart.last}\n${dialog.chart.gender}  ${dialog.chart.dob}\n${[dialog.chart.city, dialog.chart.province].filter(Boolean).join(' ')}\nPHN: ${dialog.chart.insurance}\n------------------------------------\nWould you like to create a new encounter for this patient?`}
+        </TopMessage>
+      )}
+      {dialog?.kind === 'multiple' && (
+        <ChartAdvanceSearchList charts={dialog.charts} onClose={() => setDialog(null)} onPick={(c) => choose(c, true)} />
+      )}
+      {dialog?.kind === 'no-chart' && (
+        <TopMessage id="no-chart-found" title="No Chart Found" icon="question" buttons={['Yes', 'No', 'Cancel']} prefix="no-chart-"
+          onClose={(b) => {
+            if (b !== 'Yes') { setDialog(null); return }
+            if (perms.quickRegistration) { setDialog({ kind: 'quick-registration' }); return }
+            /* not quick registration: the Chart Data band opens blank to fill (inline image 12) */
+            setDialog(null)
+            const blank: LiteChart = { chart: '', first: '', middle: '', last: lastName.toUpperCase(), dob, gender: '', insuranceBy: 'BC', insurance: ins, city: '', province: 'BC', postal: '', preferred: 'Home', home: '', work: '', cell: '' }
+            setChart(null); setChartDraft(blank); setEnc(null)
+          }}>
+          {'There is no existing chart record.\n\nWould you like to create a new chart?'}
+        </TopMessage>
+      )}
+      {dialog?.kind === 'permission-denied' && (
+        <TopMessage id="permission-denied" title="Permission Denied" icon="error" buttons={['OK']} prefix="permission-denied-" onClose={() => setDialog(null)}>
+          You do not have access to create a new chart.
+        </TopMessage>
+      )}
+      {dialog?.kind === 'quick-registration' && (
+        <QuickPatientRegistration initialLast={lastName.toUpperCase()} onClose={() => setDialog(null)} onRegister={createChart} />
+      )}
+      {dialog?.kind === 'care-complete' && enc && (
+        <CareComplete enc={enc} onClose={() => setDialog(null)}
+          onContinue={(patch) => {
+            const next = { ...enc, ...patch, status: 'Discharged' as const, finish: enc.finish || nowHM() }
+            setEnc(next)
+            if (save(next)) setDialog(null)
+          }} />
+      )}
+      {dialog?.kind === 'templates' && <TemplateList onClose={() => setDialog(null)} onSelect={insertTemplate} />}
+      {dialog?.kind === 'reason' && enc && (
+        <ReasonPicker onClose={() => setDialog(null)} onPick={(r) => { set({ reason: r }); setDialog(null) }} />
+      )}
+      {dialog?.kind === 'make-private' && enc && (
+        <MakePrivate current={enc.private} onClose={() => setDialog(null)}
+          onContinue={(p) => { const next = { ...enc, private: p }; setEnc(next); setEncounters((all) => all.map((x) => (x.id === next.id ? next : x))); setDialog(null) }} />
+      )}
+      {dialog?.kind === 'future-date' && (
+        <TopMessage id="encounter-future-date" title={lite ? 'Encounter Lite' : 'My Encounters'} icon="warn" buttons={['OK']} prefix="future-date-" onClose={() => setDialog(null)}>
+          The encounter date cannot be in the future. Please update the date before saving.
+        </TopMessage>
+      )}
+      {dialog?.kind === 'saved' && (
+        <TopMessage id="new-chart-incomplete" title={lite ? 'Encounter Lite' : 'My Encounters'} icon="warn" buttons={['OK']} prefix="chart-incomplete-" onClose={() => setDialog(null)}>
+          Complete the required (*) chart fields before saving.
+        </TopMessage>
+      )}
+    </div>
+  )
+}
+
+function ChartAdvanceSearchList({ charts, onPick, onClose }: { charts: LiteChart[]; onPick: (c: LiteChart) => void; onClose: () => void }) {
+  const [cur, setCur] = useState(0)
+  return (
+    <DetailWindow id="chart-advance-search-list" title="Chart Advance Search List" width={820} height={320} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="advance-search-ok" isDefault width={80} onClick={() => onPick(charts[cur]!)}>OK</Btn><Btn id="advance-search-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
+      <div style={{ background: '#a8cdf0', fontWeight: 700, padding: '3px 8px' }}>Search Results</div>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <PBDataWindow rows={charts} current={cur} onCurrentChange={setCur} onActivate={(c) => onPick(c)}
+          rowTutorialId={(c) => `host.mois.row.search-result-${c.chart}`}
+          columns={[
+            { key: 'chart', header: 'Chart', width: 60 }, { key: 'first', header: 'First Name', width: 100 }, { key: 'middle', header: 'Middle Name', width: 100 },
+            { key: 'last', header: 'Last Name', width: 110 }, { key: 'dob', header: 'DoB', width: 80 }, { key: 'gender', header: 'Gender', width: 50, align: 'center' },
+            { key: 'insuranceBy', header: 'Inc.', width: 36 }, { key: 'insurance', header: 'Insurance No.', width: 100 }, { key: 'home', header: 'Home #', width: 110 },
+          ]} />
+      </div>
+    </DetailWindow>
+  )
+}
+
+function QuickPatientRegistration({ initialLast, onClose, onRegister }: { initialLast: string; onClose: () => void; onRegister: (c: Omit<LiteChart, 'chart'>) => void }) {
+  const [c, setC] = useState<Omit<LiteChart, 'chart'>>({ first: '', middle: '', last: initialLast, dob: '', gender: '', insuranceBy: 'BC', insurance: '', city: '', province: 'BC', postal: '', preferred: 'Home', home: '', work: '', cell: '' })
+  const f = (key: keyof typeof c, w: number) => <PBInput w={w} value={c[key]} onChange={(e) => setC({ ...c, [key]: e.target.value })} data-tutorial-id={`host.mois.field.quick-reg-${pbSlug(key)}`} />
+  const ok = c.first && c.last && c.dob && c.gender && c.insurance && c.city && c.postal && (c.home || c.work || c.cell)
+  return (
+    <DetailWindow id="quick-patient-registration-form" title="Quick Patient Registration Form" width={560} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="quick-reg-register" isDefault width={100} disabled={!ok} onClick={() => onRegister(c)}>Register (F2)</Btn><Btn id="quick-reg-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
+      <div style={{ padding: '6px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <b style={{ color: '#0a246a' }}>Patient Identification</b>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Name (F/M/L): *</FieldLabel>{f('first', 110)}{f('middle', 90)}{f('last', 130)}</div>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Birth Date: *</FieldLabel>{f('dob', 90)}<FieldLabel w={60}>Gender: *</FieldLabel>
+          <PBSelect w={60} options={['', 'M', 'F', 'X', 'U']} value={c.gender} onChange={(e) => setC({ ...c, gender: e.target.value })} data-tutorial-id="host.mois.field.quick-reg-gender" /></div>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Insurance by: *</FieldLabel>{f('insuranceBy', 50)}<FieldLabel w={90}>Insurance No.: *</FieldLabel>{f('insurance', 120)}</div>
+        <b style={{ color: '#0a246a', marginTop: 4 }}>Contact Information</b>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>City: *</FieldLabel>{f('city', 150)}<FieldLabel w={60}>Province:</FieldLabel>{f('province', 50)}</div>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Postal Code: *</FieldLabel>{f('postal', 90)}</div>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Home:</FieldLabel>{f('home', 110)}<FieldLabel w={40}>Work:</FieldLabel>{f('work', 110)}</div>
+        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Cell:</FieldLabel>{f('cell', 110)}<span style={{ background: '#ffffa0', padding: '0 4px' }}>Add at least one</span></div>
+      </div>
+    </DetailWindow>
+  )
+}
+
+function CareComplete({ enc, onClose, onContinue }: { enc: LiteEncounter; onClose: () => void; onContinue: (patch: Partial<LiteEncounter>) => void }) {
+  const [reason, setReason] = useState(enc.reason)
+  const [issues, setIssues] = useState(enc.healthIssues.slice(0, 2))
+  const [services, setServices] = useState(enc.services.slice(0, 2))
+  return (
+    <DetailWindow id="my-encounter-care-complete" title="My Encounter - Care Complete" width={450} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="care-complete-continue" isDefault width={80} onClick={() => onContinue({ reason, healthIssues: [...issues, ...enc.healthIssues.slice(2)], services: [...services, ...enc.services.slice(2)] })}>Continue</Btn><Btn id="care-complete-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
+      <div style={{ margin: 8, border: '1px solid #b8b8b8', background: '#fff' }}>
+        <div style={{ background: '#a8cdf0', fontWeight: 700, padding: '3px 8px' }}>Encounter Detail</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', padding: '6px 8px' }}>
+          <div><div style={{ color: '#666' }}>Patient</div><PBInput w={180} readOnly value={enc.name} style={{ background: '#f0f0f0' }} /></div>
+          <div><div style={{ color: '#666' }}>Visit Reason</div><PBLookup w={190} value={reason} name="care-complete-reason" fieldId="host.mois.field.care-complete-reason" onChange={setReason} /></div>
+          <div><div style={{ color: '#666' }}>Encounter Date / Time</div><span className="pb-row" style={{ gap: 2 }}><PBInput w={76} readOnly value={enc.date} /><PBInput w={26} readOnly value={enc.hh} /><PBInput w={26} readOnly value={enc.mm} /></span></div>
+          <div><div style={{ color: '#666' }}>Care Stop Date / Time</div><span className="pb-row" style={{ gap: 2 }}><PBInput w={76} readOnly value={enc.finish ? enc.date : '0000.00.00'} /><PBInput w={26} readOnly value={enc.finish.slice(0, 2)} /><PBInput w={26} readOnly value={enc.finish.slice(3)} /></span></div>
+          <div><div style={{ color: '#666' }}>Health Issue <span style={{ color: '#999' }}>(optional)</span></div>
+            {issues.map((h, i) => <div key={i} style={{ marginTop: 3 }}><PBLookup w={90} value={h} name={`care-complete-health-issue-${i + 1}`} fieldId={`host.mois.field.care-complete-health-issue-${i + 1}`} onChange={(v) => setIssues(issues.map((x, j) => (j === i ? v : x)))} /></div>)}</div>
+          <div><div style={{ color: '#666' }}>Service <span style={{ color: '#999' }}>(optional)</span></div>
+            {services.map((s, i) => <div key={i} style={{ marginTop: 3 }}><PBLookup w={90} value={s} name={`care-complete-service-${i + 1}`} fieldId={`host.mois.field.care-complete-service-${i + 1}`} onChange={(v) => setServices(services.map((x, j) => (j === i ? v : x)))} /></div>)}
+            <div style={{ color: '#888', marginTop: 3 }}>Default: {DEFAULT_FEE_CODE}</div></div>
+        </div>
+      </div>
+    </DetailWindow>
+  )
+}
+
+function TemplateList({ onClose, onSelect }: { onClose: () => void; onSelect: (text: string) => void }) {
+  const [search, setSearch] = useState('')
+  const [favs, setFavs] = useState<string[]>([])
+  const [onlyFavs, setOnlyFavs] = useState(false)
+  const [cur, setCur] = useState(0)
+  const rows = NOTE_TEMPLATES.filter((t) => (!onlyFavs || favs.includes(t.name)) && (!search || `${t.author} ${t.name} ${t.description}`.toLowerCase().includes(search.toLowerCase())))
+  const row = rows[cur]
+  const heart = (on: boolean) => <span style={{ color: on ? '#e0245e' : '#b0b0b0' }}>{on ? '♥' : '♡'}</span>
+  return (
+    <DetailWindow id="note-template-list" title="Templates" width={620} height={520} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="template-select" isDefault width={80} disabled={!row} onClick={() => row && onSelect(row.text)}>Select</Btn><Btn id="template-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
+      <div className="pb-row" style={{ gap: 6, padding: 6 }}>
+        <PBInput w={400} value={search} placeholder="Author, Name or Description" onChange={(e) => { setSearch(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.template-search" />
+        <button type="button" className="pb-btn" style={{ minWidth: 0, width: 26 }} data-tutorial-id="host.mois.command.template-favourites" onClick={() => setOnlyFavs((v) => !v)}>{heart(onlyFavs)}</button>
+      </div>
+      <div style={{ flex: '1 1 55%', minHeight: 0, display: 'flex', padding: '0 6px' }}>
+        <PBDataWindow rows={rows} current={cur} onCurrentChange={setCur} onActivate={(t) => onSelect(t.text)}
+          rowTutorialId={(t) => `host.mois.row.template-${pbSlug(t.name)}`}
+          columns={[
+            { key: 'fav', header: '', width: 24, align: 'center', render: (t) => <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.favourite-${pbSlug(t.name)}`} onClick={() => setFavs((f) => (f.includes(t.name) ? f.filter((x) => x !== t.name) : [...f, t.name]))}>{heart(favs.includes(t.name))}</button> },
+            { key: 'author', header: 'Author', width: 130 }, { key: 'name', header: 'Name', width: 150 }, { key: 'description', header: 'Description', width: 230 },
+          ]} />
+      </div>
+      <pre style={{ flex: '1 1 45%', margin: 6, background: '#fff', border: '1px solid #a0a0a0', padding: 6, fontFamily: 'inherit' }} data-tutorial-id="host.mois.field.template-preview">{row?.text ?? ''}</pre>
+    </DetailWindow>
+  )
+}
+
+function ReasonPicker({ onClose, onPick }: { onClose: () => void; onPick: (r: string) => void }) {
+  const [cur, setCur] = useState(0)
+  return (
+    <DetailWindow id="visit-reason-lookup" title="Visit Reason" width={360} height={300} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="visit-reason-ok" isDefault width={80} onClick={() => onPick(VISIT_REASONS[cur]!)}>Ok</Btn><Btn id="visit-reason-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
+      <div style={{ flex: '1 1 auto', display: 'flex', padding: 6 }}>
+        <PBDataWindow rows={VISIT_REASONS.map((r) => ({ r }))} current={cur} onCurrentChange={setCur} onActivate={(x) => onPick(x.r)}
+          rowTutorialId={(x) => `host.mois.row.visit-reason-${pbSlug(x.r)}`}
+          columns={[{ key: 'r', header: 'Reason', width: 300 }]} />
+      </div>
+    </DetailWindow>
+  )
+}
+
+function MakePrivate({ current, onClose, onContinue }: { current?: LiteEncounter['private']; onClose: () => void; onContinue: (p: NonNullable<LiteEncounter['private']>) => void }) {
+  const [duration, setDuration] = useState(current?.duration ?? '')
+  const [reason, setReason] = useState(current?.reason ?? '')
+  const [who, setWho] = useState(current?.who ?? 'Authorized Users Only')
+  const [alert, setAlert] = useState(current?.alert ?? false)
+  const [kind, setKind] = useState('Message')
+  const [priority, setPriority] = useState('Medium')
+  return (
+    <DetailWindow id="make-note-private" title={current ? 'View Access' : 'Make Private'} width={440} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="private-continue" isDefault width={80} onClick={() => onContinue({ duration, reason, who, alert })}>Continue</Btn><Btn id="private-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
+      <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div className="pb-row" style={{ gap: 6 }}><FieldLabel>Duration:</FieldLabel><PBInput w={100} value={duration} onChange={(e) => setDuration(e.target.value)} data-tutorial-id="host.mois.field.private-duration" /><span style={{ color: '#888' }}>(optional)</span></div>
+        <div className="pb-row" style={{ gap: 6 }}><FieldLabel>Reason:</FieldLabel><PBInput w={250} value={reason} onChange={(e) => setReason(e.target.value)} data-tutorial-id="host.mois.field.private-reason" /></div>
+        <div>Who can Break Glass to see the note:</div>
+        {['Authorized Users Only', 'Select Users Only', 'Nobody'].map((w) => (
+          <div key={w} style={{ paddingLeft: 20 }}><PBRadio name="private-who" label={w} checked={who === w} onChange={() => setWho(w)} tutorialId={`host.mois.field.private-${pbSlug(w)}`} /></div>
+        ))}
+        <PBCheckbox label="Send an alert when Users break glass" checked={alert} onChange={setAlert} tutorialId="host.mois.field.private-alert" />
+        {alert && (
+          <div className="pb-row" style={{ gap: 10, paddingLeft: 20 }}>
+            <PBRadio name="private-kind" label="Message" checked={kind === 'Message'} onChange={() => setKind('Message')} />
+            <PBRadio name="private-kind" label="Task" checked={kind === 'Task'} onChange={() => setKind('Task')} />
+            <span>Priority:</span><PBSelect w={90} options={['Low', 'Medium', 'High', 'V. High']} value={priority} onChange={(e) => setPriority(e.target.value)} />
+          </div>
+        )}
+      </div>
+    </DetailWindow>
+  )
+}

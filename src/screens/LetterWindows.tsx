@@ -1,12 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useChartExport } from '../data/chart-records'
 import { addLetterDistribution } from '../data/chartSession'
 import {
-  DEFAULT_TEMPLATE, DESKTOP_PROVIDER, beginLetter, consultOrders, letterHeader, letterOrder, setLetterFlow, useLetterFlow,
+  DEFAULT_TEMPLATE, DESKTOP_PROVIDER, DOC_TYPE_OF, beginLetter, consultOrders, currentOrderId, letterBody, letterHeader, letterOrder, setLetterFlow, useLetterFlow,
 } from '../data/letterFlow'
+import {
+  nowStamp, useAttachedLetters, useFaxLog, useOrderResponses, useSessionDocDistributions, useStandardReferralMode,
+} from '../data/letterDocs'
+import { MOIS_TODAY } from '../data/patients'
 import { LW } from '../data/letterWriter'
 import { usePatient } from '../data/patient-context'
-import { PBBand, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, pbSlug } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBMessageBox, PBRadio, PBSelect, PBTextArea, pbSlug } from '../pb'
+import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
@@ -29,6 +34,24 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
                                 header, the Recipient Distribution grid with
                                 a Method drop-down, the Report (Read Only)
                                 pane, Distribute (F2) / Cancel.
+
+   Added for 303589 / 2961349 / 2616562 (stream C3):
+     - Select Consultation Order in Standard Mode (APP SETTING Referral Mode
+       = S) goes straight to Order Detail on the Orders folder's current
+       order (303589 `a6252ce4…`), and Order Detail then carries Standard
+       Mode's footer — Paste Provider Address…, Spelling…, Save (F2),
+       Save / Close, Cancel, Quick Print, Print, Paste Encounter Note — and
+       its Appointment Booking group (`2301b448…`). Print opens the Referral
+       Note selection window (screens/StandardReferralWindows.tsx).
+     - Create Referral Note… on an Order that already has a letter opens the
+       Attached Letters window (`e5cee8b0…`, screens/LetterResponseWindows.tsx).
+     - Create Distribution: a letter written in the Letter Writer shows the
+       PDF Preview pane with its Filesize and Print button (`4464d8df…`,
+       2616562 `c6bfdd98…`); a plain-text report keeps Report (Read Only)
+       (2961349 `d7d34094…`). Method FAX queues the letter to SRFax (the
+       "Success: Fax Queued" box, 2616562 `c85ea0f7…`), and its Distribution
+       row reads QUEUED. Distribute (F2) marks the attached letter (or the
+       Information Request response) DISTRIBUTED.
    ========================================================================= */
 
 const dot = (v?: string) => (v ?? '').split(' ')[0]!.replace(/\//g, '.')
@@ -68,6 +91,13 @@ function SelectConsultationOrderWindow({ close, open }: AreaWindowProps) {
     close()
     open('order-detail', { orderId })
   }
+  /* Standard Mode has no order picker: Create Referral Note opens Order
+     Detail on the order the Orders folder is on (303589 `a6252ce4…`) */
+  const standard = useStandardReferralMode()
+  useEffect(() => {
+    if (standard) go(currentOrderId() ?? rows[0]?.id ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standard])
   return (
     <WorkspaceDialogFrame id="select-consultation-order" title="Select Consultation Order" width={682} height={500} onClose={close} controls={false}>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', margin: 12, border: '1px solid #646464' }}>
@@ -106,9 +136,15 @@ const STATUS_WORD: Record<string, string> = { IP: 'IN PROCESS', SC: 'SCHEDULED',
 
 function OrderDetailWindow({ args, close, open }: AreaWindowProps) {
   const data = useChartExport()
+  const p = usePatient()
   const orderId = typeof args.orderId === 'string' ? args.orderId : null
   const order = orderId ? consultOrders(data).find((r) => r.id_order === orderId) : undefined
   const [text, setText] = useState(order?.str_note ?? '')
+  const standard = useStandardReferralMode()
+  const [letters] = useAttachedLetters()
+  const attached = letters.filter((l) => l.chart === p.chart && l.orderId === order?.id_order)
+  const [bookedBy, setBookedBy] = useState('')
+  useScreenReport({ referralMode: standard ? 'standard' : 'new', attachedLetters: attached.length })
   const field = (label: string, value: string, w: number, dots = false) => (
     <>
       <span className="pb-form__label" style={{ textAlign: 'right' }}>{label}</span>
@@ -147,6 +183,19 @@ function OrderDetailWindow({ args, close, open }: AreaWindowProps) {
             <span className="pb-form__label" style={{ textAlign: 'right' }}>Payor:</span><PBSelect w={110} options={['']} />
           </div>
         </fieldset>
+        {standard && (
+          /* 303589 `2301b448…`: Appointment Booking beside Detail Information */
+          <fieldset data-tutorial-id="host.mois.group.appointment-booking" style={{ margin: '4px 8px 0', border: '1px solid #c8c8c8', padding: '2px 8px 6px' }}>
+            <legend>Appointment Booking</legend>
+            <div className="pb-row" style={{ gap: 12 }}>
+              <span className="pb-form__label">Responsibility:</span>
+              <PBRadio name="order-booking" label="OFFICE" checked={bookedBy === 'OFFICE'} onChange={() => setBookedBy('OFFICE')} tutorialId="host.mois.field.booking-office" />
+              <PBRadio name="order-booking" label="PATIENT" checked={bookedBy === 'PATIENT'} onChange={() => setBookedBy('PATIENT')} tutorialId="host.mois.field.booking-patient" />
+              <span className="pb-form__label" style={{ marginLeft: 16 }}>Date / Time:</span><PBInput w={82} /><PBInput w={40} defaultValue=":" />
+              <span className="pb-form__label" style={{ marginLeft: 16 }}>Notify:</span><PBCheckbox label="Patient Notified" />
+            </div>
+          </fieldset>
+        )}
         <fieldset style={{ margin: '4px 8px 6px', border: '1px solid #c8c8c8', padding: '2px 6px 6px', flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
           <legend>Referral Text</legend>
           <PBTextArea
@@ -163,29 +212,59 @@ function OrderDetailWindow({ args, close, open }: AreaWindowProps) {
         </div>
       </div>
       <div className="pb-row" style={{ gap: 6, padding: '8px 10px 10px', flex: 'none' }}>
+        {standard && (
+          /* 303589 `2301b448…`: Paste Provider Address... pastes the Referred
+             To provider's address into Referral Text */
+          <DialogButton id="order-detail-paste-provider-address" width={126} onClick={() => setText((t) => `${order?.str_performed_by ?? 'Dr. ' + DESKTOP_PROVIDER}\n1100 - 6th AVENUE\nPRINCE GEORGE, BC  V2L 3M6\n\n${t}`)}>
+            Paste Provider Address...
+          </DialogButton>
+        )}
         <DialogButton id="order-detail-spelling" width={78}>Spelling...</DialogButton>
         <span className="pb-row__spacer" />
         <DialogButton id="order-detail-save" width={78}>Save (F2)</DialogButton>
         <DialogButton id="order-detail-save-close" width={78} onClick={close}>Save / Close</DialogButton>
         <DialogButton id="order-detail-cancel" width={78} onClick={close}>Cancel</DialogButton>
-        <span style={{ width: 40 }} />
-        <DialogButton
-          id="create-referral-note"
-          width={122}
-          isDefault
-          onClick={() => {
-            /* Create Referral Note... starts a referral: whatever the last
-               letter was (a consult, a sent one), its type, template, Letter
-               Setup counts and Distributed flag do not carry into this one */
-            beginLetter('referral')
-            setLetterFlow({ orderId: order?.id_order ?? null })
-            close()
-            open('select-letter-template')
-          }}
-        >
-          Create Referral Note...
-        </DialogButton>
-        <DialogButton id="order-detail-quick-print" width={78}>Quick Print</DialogButton>
+        <span style={{ width: standard ? 12 : 40 }} />
+        {standard ? (
+          <>
+            <DialogButton id="order-detail-quick-print" width={78}>Quick Print</DialogButton>
+            <DialogButton id="order-detail-print" width={78} isDefault onClick={() => { close(); open('referral-note-report', { orderId: order?.id_order ?? null, text }) }}>Print</DialogButton>
+            <DialogButton id="order-detail-paste-encounter-note" width={122}
+              onClick={() => {
+                const note = [...(data?.encounter_note ?? [])].sort((a, b) => String(b.stp_date_create ?? '').localeCompare(String(a.stp_date_create ?? '')))[0]
+                if (note?.str_note) setText((t) => `${t}${t ? '\n\n' : ''}${note.str_note}`)
+              }}>
+              Paste Encounter Note
+            </DialogButton>
+          </>
+        ) : (
+          <>
+            <DialogButton
+              id="create-referral-note"
+              width={122}
+              isDefault
+              onClick={() => {
+                /* an Order with a letter already on it asks what to do with it
+                   first: Attached Letters (303589 `e5cee8b0…`) */
+                if (attached.length && order?.id_order) {
+                  close()
+                  open('attached-letters', { orderId: order.id_order })
+                  return
+                }
+                /* Create Referral Note... starts a referral: whatever the last
+                   letter was (a consult, a sent one), its type, template, Letter
+                   Setup counts and Distributed flag do not carry into this one */
+                beginLetter('referral')
+                setLetterFlow({ orderId: order?.id_order ?? null })
+                close()
+                open('select-letter-template')
+              }}
+            >
+              Create Referral Note...
+            </DialogButton>
+            <DialogButton id="order-detail-quick-print" width={78}>Quick Print</DialogButton>
+          </>
+        )}
       </div>
     </WorkspaceDialogFrame>
   )
@@ -274,6 +353,27 @@ function SendInformationRequestWindow({ close, open }: AreaWindowProps) {
 }
 
 /* --- Create Distribution ------------------------------------------------- */
+/** The PDF the Letter Writer made, as the Preview pane shows it: the letter's
+    page at print scale (303589 `4464d8df…`). */
+function DistributionPreview({ lines }: { lines: string[] }) {
+  return (
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {/* the viewer's mini toolbar: hand · snapshot · select ▾ || Zoom In ▾ ·
+          1:1 · Fit Page · Fit Width · 100% ▾ · − slider + */}
+      <div className="pb-row" style={{ gap: 6, padding: '1px 6px', background: 'linear-gradient(#fbfbfb, #eeeeee)', borderBottom: '1px solid #dadada', flex: 'none', fontSize: 11 }}>
+        <span>✋</span><span>📷</span><span>⌖▾</span><span style={{ width: 10 }} /><span>🔍 Zoom In ▾</span><span>1:1</span><span>⤢</span><span>↔</span>
+        <span className="pb-field" style={{ width: 44, padding: '0 4px' }}>100%</span><span>▾</span><span>⊖ ── ⊕</span>
+      </div>
+      <div data-tutorial-id="host.mois.field.distribution-preview" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#808080', padding: 8 }}>
+        <div style={{ width: 612, margin: '0 auto', background: '#fff', padding: '40px 60px', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, minHeight: 700 }}>
+          {lines.map((l, i) => <div key={i} style={{ minHeight: '1.3em', fontSize: i === 0 ? 20 : undefined }}>{l}</div>)}
+        </div>
+      </div>
+      <div className="pb-row" style={{ padding: '0 6px', flex: 'none', borderTop: '1px solid #c8c8c8' }}>8.50 x 11.00 in</div>
+    </div>
+  )
+}
+
 function CreateDistributionWindow({ close }: AreaWindowProps) {
   const p = usePatient()
   const data = useChartExport()
@@ -284,13 +384,62 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
   /* CDX when the recipient is a CDX clinic, else Mail (303589: "If you are
      not registered for CDX or your recipients are not registered for CDX,
      the Distribution method will say 'Mail'") */
-  const cdx = order?.str_recipient_id_system === 'CDXCLINICID' || flow.doc === 'information-request'
+  const cdx = order?.str_recipient_id_system === 'CDXCLINICID' || flow.doc === 'information-request' || !!flow.responseTo || flow.doc === 'notification'
   const copies = (header.right.find((f) => f.label === 'Copies To:')?.value ?? '').split(';').map((s) => s.trim()).filter(Boolean)
   const [rows, setRows] = useState(() => [
-    { method: cdx ? 'CDX' : 'MAIL', type: 'PRIMARY RECIPIENT', name: primary, id: order?.str_recipient_id ? `${order.str_recipient_id_system}: ${order.str_recipient_id}` : '', location: '' },
-    ...copies.map((name) => ({ method: 'MAIL', type: 'SECONDARY RECIPIENT', name, id: '', location: '' })),
+    { method: cdx ? 'CDX' : 'MAIL', type: 'PRIMARY RECIPIENT', name: primary, id: order?.str_recipient_id ? `${order.str_recipient_id_system}: ${order.str_recipient_id}` : '', location: '', fax: '' },
+    ...copies.map((name) => ({ method: 'MAIL', type: 'SECONDARY RECIPIENT', name, id: '', location: '', fax: '' })),
   ])
+  const [cur, setCur] = useState(0)
+  const [letters, setLetters] = useAttachedLetters()
+  const [, setResponses] = useOrderResponses()
+  const [, queueFax] = useFaxLog()
+  const [, addDocDistribution] = useSessionDocDistributions()
+  const [queued, setQueued] = useState(false)
+  /* a letter written in the Letter Writer is a PDF with a Preview pane; a
+     plain-text report is shown as text (2961349 `d7d34094…`) */
+  const plain = flow.template === '' && (flow.doc === 'information-request' || !!flow.plainText || flow.doc !== 'referral' && flow.doc !== 'consult' && flow.doc !== 'care-plan')
+  const letterLines = letterBody(flow.doc, p, header).map((l) => l.runs.map((r) => r.s).join(''))
+  const filesize = `${(38 + letterLines.length * 1.3).toFixed(1)} Kb`
   const right = header.right
+  useScreenReport({ distributionMethods: rows.map((r) => pbSlug(r.method)).join(','), distributionPreview: !plain })
+
+  const distribute = () => {
+    const faxing = rows.filter((r) => r.method === 'FAX')
+    const stamp = nowStamp()
+    const title = flow.correctionOf ? `${header.title} (CORRECTED)` : header.title
+    addLetterDistribution(p.chart, {
+      orderId: order?.id_order ?? flow.responseTo ?? null, doc: flow.doc, date: header.date, title,
+      rows: rows.map((r) => ({ method: r.method, type: r.type, name: r.name, status: r.method === 'CDX' ? 'SUCCESS' : r.method === 'FAX' ? 'QUEUED' : '' })),
+    })
+    faxing.forEach((r) => queueFax({ date: stamp, chart: p.chart, title, recipient: r.name, fax: r.fax, status: 'QUEUED', from: 'letter' }))
+    if (flow.documentId) addDocDistribution({ chart: p.chart, documentId: flow.documentId, date: stamp, title, rows: rows.map((r) => ({ method: r.method, type: r.type, name: r.name, status: r.method === 'CDX' ? 'SUCCESS' : r.method === 'FAX' ? 'QUEUED' : '' })) })
+    /* the letter this was: DISTRIBUTED now (data/letterDocs.ts) */
+    if (flow.responseTo) {
+      const id = flow.letterId ?? `response-${flow.responseTo}-${Date.now()}`
+      setResponses((all) => [
+        { id, chart: p.chart, orderId: flow.responseTo!, date: MOIS_TODAY, author: flow.author, type: DOC_TYPE_OF[flow.doc], note: header.title, status: 'DISTRIBUTED', recipient: primary, correctionOf: flow.correctionOf ?? undefined },
+        ...all.filter((r) => r.id !== id),
+      ])
+    } else if (order?.id_order) {
+      const id = flow.letterId ?? `letter-${order.id_order}-${Date.now()}`
+      const was = letters.find((l) => l.id === id)
+      setLetters((all) => [
+        {
+          id, chart: p.chart, orderId: order.id_order!, date: was?.date ?? MOIS_TODAY, author: flow.author, doc: flow.doc, type: DOC_TYPE_OF[flow.doc],
+          note: order.str_description ?? '', status: 'DISTRIBUTED', template: flow.template, correctionOf: flow.correctionOf ?? undefined,
+        },
+        ...all.filter((l) => l.id !== id),
+      ])
+    }
+    if (faxing.length) { setQueued(true); return }
+    finish()
+  }
+  const finish = () => {
+    setLetterFlow({ distributed: true })
+    close()
+  }
+
   return (
     <WorkspaceDialogFrame id="create-distribution" title="Create Distribution" width={1000} height={700} onClose={close} zIndex={96}>
       <div style={{ margin: '8px 10px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#fff' }}>
@@ -319,46 +468,68 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
         <div style={{ height: 110, flex: 'none', display: 'flex' }} data-tutorial-id="host.mois.group.recipient-distribution">
           <PBDataWindow
             rows={rows}
-            current={0}
+            current={cur}
+            onCurrentChange={setCur}
+            rowTutorialId={(_r, i) => `host.mois.row.distribution-${i}`}
             columns={[
               {
                 key: 'method', header: 'Method', width: 130,
                 render: (r, i) => (
-                  <PBSelect w={120} options={['CDX', 'FAX', 'MAIL', 'INTERNAL']} value={r.method}
-                    onChange={(e) => setRows((v) => v.map((x, j) => (j === i ? { ...x, method: e.target.value } : x)))} />
+                  <PBSelect w={120} options={['CDX', 'FAX', 'MAIL', 'PRINT', 'INTERNAL']} value={r.method}
+                    data-tutorial-id={i === 0 ? 'host.mois.field.distribution-method' : `host.mois.field.distribution-method-${i}`}
+                    onChange={(e) => setRows((v) => v.map((x, j) => (j === i ? { ...x, method: e.target.value, fax: e.target.value === 'FAX' ? x.fax || '250-565-7470' : x.fax } : x)))} />
                 ),
               },
               { key: 'type', header: 'Recipient Type', width: 170 },
               { key: 'name', header: 'Recipient Name', width: 250 },
-              { key: 'id', header: 'Recipient ID', width: 250 },
+              {
+                key: 'id', header: 'Recipient ID', width: 250,
+                /* a FAX row carries the number SRFax dials (2616562) */
+                render: (r) => (r.method === 'FAX' ? `FAX: ${r.fax}` : r.id),
+              },
               { key: 'location', header: 'Recipient Location' },
             ]}
           />
         </div>
-        <PBBand>Report (Read Only)</PBBand>
-        <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '8px 10px', fontFamily: '"Lucida Console", monospace', whiteSpace: 'pre-wrap' }}>
-          {flow.doc === 'information-request' ? TEMPLATE_TEXT
-            : `${header.title}\n\n${p.last}, ${p.first}   DOB: ${p.dob}\n\nDear Dr. ${primary},\n\n<ENTER REPORT HERE>\n\nSincerely,\n\n${header.left[1]!.value}`}
-        </div>
+        {plain ? (
+          <>
+            <PBBand>Report (Read Only)</PBBand>
+            <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '8px 10px', fontFamily: '"Lucida Console", monospace', whiteSpace: 'pre-wrap' }}>
+              {flow.plainText || (flow.doc === 'information-request' ? TEMPLATE_TEXT
+                : `${header.title}\n\n${p.last}, ${p.first}   DOB: ${p.dob}\n\nDear Dr. ${primary},\n\n<ENTER REPORT HERE>\n\nSincerely,\n\n${header.left[1]!.value}`)}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="pb-band">
+              <span>Preview</span><span className="pb-band__spacer" />
+              <b style={{ color: '#0000ff', marginRight: 10 }} data-tutorial-id="host.mois.field.filesize">Filesize: {filesize}</b>
+              <PBButton size="sm" style={{ width: 80 }} data-tutorial-id="host.mois.command.distribution-print">Print</PBButton>
+            </div>
+            <DistributionPreview lines={letterLines} />
+          </>
+        )}
       </div>
       <div className="pb-row" style={{ justifyContent: 'center', gap: 6, padding: '10px 0', flex: 'none' }}>
         <DialogButton
           id="distribute-f2"
           width={92}
           isDefault
-          onClick={() => {
-            addLetterDistribution(p.chart, {
-              orderId: order?.id_order ?? null, doc: flow.doc, date: header.date, title: header.title,
-              rows: rows.map((r) => ({ method: r.method, type: r.type, name: r.name, status: r.method === 'CDX' ? 'SUCCESS' : '' })),
-            })
-            setLetterFlow({ distributed: true })
-            close()
-          }}
+          /* sends at once: the lessons grade "the writer has closed" right
+             after the press. The "CDX Messaging — Initializing…" splash of
+             2961349 `d7d34094…` is not drawn for that reason. */
+          onClick={distribute}
         >
           Distribute (F2)
         </DialogButton>
         <DialogButton id="distribution-cancel" width={78} onClick={close}>Cancel</DialogButton>
       </div>
+      {queued && (
+        /* 2616562 `c85ea0f7…` */
+        <PBMessageBox title="Success: Fax Queued" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.fax-queued-ok' }]} onClose={() => { setQueued(false); finish() }}>
+          Successfully queued file to SRFax.<br />Please check your SRFax account for the faxing status.
+        </PBMessageBox>
+      )}
     </WorkspaceDialogFrame>
   )
 }

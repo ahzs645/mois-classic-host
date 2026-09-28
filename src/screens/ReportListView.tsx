@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PBDataWindow, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
 import { REPORT_FOLDERS, reportRows, type ReportRow } from '../data/reportCatalogue'
 import { REPORT_WINDOWS } from '../data/reportParams'
+import { reportSpecFor, reportSpecWindow } from '../data/reportSpecs'
 import { useScreenReport } from '../host/screen-state'
 import { useOpenWindow } from './areaWindowRegistry'
 
@@ -25,6 +26,7 @@ import { useOpenWindow } from './areaWindowRegistry'
 
 /** Folders start shut, the way the module opens. */
 const ALL_SHUT = new Set<string>(REPORT_FOLDERS)
+const SHARED_NAMES = new Set(reportRows.map((r) => r.name).filter((n, i, all) => all.indexOf(n) !== i))
 
 export function ReportListView({ onRun }: { onRun?: (row: ReportRow) => void }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(ALL_SHUT)
@@ -35,7 +37,10 @@ export function ReportListView({ onRun }: { onRun?: (row: ReportRow) => void }) 
   useScreenReport({ row: current ? pbSlug(current.name) : '' })
   const run = (row: ReportRow) => {
     onRun?.(row)
-    const window = REPORT_WINDOWS[pbSlug(row.name)]
+    /* the hand-built windows first, then the report's spec
+       (data/reportSpecs, drawn by screens/ReportSpecWindow.tsx) */
+    const spec = reportSpecFor(row.folder, row.name)
+    const window = REPORT_WINDOWS[pbSlug(row.name)] ?? (spec ? reportSpecWindow(spec) : undefined)
     if (!window) return
     host?.report('openUtility', { window })
     openWindow(window)
@@ -54,7 +59,9 @@ export function ReportListView({ onRun }: { onRun?: (row: ReportRow) => void }) 
           groupLabel={(folder) => folder}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
-          rowTutorialId={(row) => `host.mois.row.${pbSlug(row.name)}`}
+          /* a name two folders share (Bills ▸ MSP / Practice Private) takes
+             its folder as a prefix, so each row has its own anchor */
+          rowTutorialId={(row) => `host.mois.row.${SHARED_NAMES.has(row.name) ? `${pbSlug(row.folder)}-` : ''}${pbSlug(row.name)}`}
           groupTutorialId={(folder) => `host.mois.group.${pbSlug(folder)}`}
           /* the catalogue has no column-header row: the first band sits one
              pixel under the view header (art. 304051). Name is 275px and

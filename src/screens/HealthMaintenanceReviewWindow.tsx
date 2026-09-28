@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useChartExport } from '../data/chart-records'
 import { date } from '../data/charts/relations'
 import type { MoisRecord } from '../data/charts/types'
+import { SESSION_USER } from '../data/chartSession'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
-import { PBButton, PBTabs, PBWindow } from '../pb'
+import { CLINIC } from '../data/printPages'
+import { useScreenReport } from '../host/screen-state'
+import { PBBand, PBButton, PBCheckbox, PBTabs, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { useOpenWindow } from './areaWindowRegistry'
 import './health-maintenance-review.css'
 
 /* ============================================================================
@@ -52,6 +56,30 @@ import './health-maintenance-review.css'
    Care Plan goals on the report lines. The Care Plan and Patient Summary
    tabs are never shown open in the manual; what they list here is a plain
    reading of their names, not a transcription.
+
+   The four buttons (art. 304722's definitions table):
+   · Flow Sheet — opens the Flow Sheet parameters (303225).
+   · Print — the review, the tab on screen, in the Print Preview window
+     (screens/PrintPreviewWindow.tsx), which takes this window's place.
+   · Tear Off — "Will open the tab/information in a new MOIS viewer window.
+     Only available in the 'Care Plan' or 'Patient Summary' tabs": a
+     separate, non-modal text window over this one, closed on its own.
+   · Clipboard — "Creates a copy of the information that is within the
+     chosen tab, with the option to add Clinic or Provider details (in
+     addition to the patient details) at the top": a small options window,
+     then the text goes to the system clipboard. The stage names what was
+     copied under the buttons, as Print Preview names what was printed.
+   INFERRED: neither the torn-off window nor the Clipboard options window is
+   captured — their titles, the two tick boxes' wording and the layout are
+   read off the definitions. A resolved condition's section states its
+   resolve date ("If resolve date - State it", the concept table) as
+   "RESOLVED as of <date>" — that wording is inferred too.
+
+   Anchors: each item line is `host.mois.row.hmr-<item>`, each heading
+   `host.mois.group.hmr-<heading>`, the first red and first blue line also
+   `host.mois.field.hmr-first-missing` / `hmr-first-found` (the colour key a
+   lesson points at); tabs are `host.mois.tab.health-maintenance`,
+   `care-plan`, `patient-summary`.
    ========================================================================= */
 
 /** description column width: "CIGARETTES SMOKED.CURRENT (PACK/DAY" is where MOIS cuts */
@@ -190,16 +218,23 @@ function range(r: MoisRecord) {
   return lo || hi ? `[ ${lo} to ${hi} ]` : '[ N/A ]'
 }
 
-function ItemLine({ item, measures }: { item: Item; measures: MoisRecord[] }) {
+/** `section:item` of the first red and the first blue line, which carry the
+    colour-key anchors; every other line is anchored by its item */
+type Marks = { missing?: string; found?: string }
+const anchorOf = (marks: Marks | undefined, kind: keyof Marks, at: string | undefined, item: string) =>
+  (marks && at && marks[kind] === at ? `host.mois.field.hmr-first-${kind}` : `host.mois.row.hmr-${pbSlug(item)}`)
+
+function ItemLine({ item, measures, marks, at }: { item: Item; measures: MoisRecord[]; marks?: Marks; at?: string }) {
   const r = mostRecent(item, measures)
   if (!r) {
-    return <div className={item.blueWhenMissing ? 'pb-hmr__found' : 'pb-hmr__missing'}>{item.name} Not Found</div>
+    const kind = item.blueWhenMissing ? 'found' : 'missing'
+    return <div className={`pb-hmr__${kind}`} data-hm-state={kind} data-tutorial-id={anchorOf(marks, kind, at, item.name)}>{item.name} Not Found</div>
   }
   const desc = (r.str_description ?? item.name).toUpperCase().slice(0, DESC_W).padEnd(DESC_W)
   const flag = r.str_abnormal ?? ''
   const value = [r.str_value, flag].filter(Boolean).join(' ')
   return (
-    <div className="pb-hmr__found">
+    <div className="pb-hmr__found" data-hm-state="found" data-tutorial-id={anchorOf(marks, 'found', at, item.name)}>
       {`${desc} - ${date(r.dtm_collect_date)} - `}
       <b className={flag ? 'pb-hmr__abnormal' : 'pb-hmr__normal'}>{value}</b>
       {' '.repeat(Math.max(1, VALUE_W - value.length + 1))}
@@ -211,7 +246,7 @@ function ItemLine({ item, measures }: { item: Item; measures: MoisRecord[] }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="pb-hmr__section">
-      <div className="pb-hmr__heading">{title}</div>
+      <div className="pb-hmr__heading" data-tutorial-id={`host.mois.group.hmr-${pbSlug(title)}`}>{title}</div>
       {children}
     </div>
   )
@@ -256,12 +291,63 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
     /HIV SCREENING/.test((r.str_description ?? r.str_preference ?? '').toUpperCase())
     && /NOT DESIRED/.test((r.str_instruction_code ?? '').toUpperCase()))
 
+  /* "If resolve date - State it / Else - <the items>" (the concept table):
+     an open issue lists its items, a resolved one only its resolve date */
   const conditions = CONDITIONS.flatMap((c) => {
-    const hit = issues.find((r) => !r.dtm_end && c.when.test((r.str_problem_name ?? '').toUpperCase()))
-    return hit ? [{ title: (hit.str_problem_name ?? '').toUpperCase(), items: c.items }] : []
+    const hits = issues.filter((r) => c.when.test((r.str_problem_name ?? '').toUpperCase()))
+    const hit = hits.find((r) => !r.dtm_end) ?? hits[0]
+    return hit ? [{ title: (hit.str_problem_name ?? '').toUpperCase(), items: c.items, resolved: hit.dtm_end ? date(hit.dtm_end) : '' }] : []
   })
 
   const careTab = tab !== 'Health Maintenance'
+  const general = GENERAL.filter((it) => applies(it, sex, age))
+  const marks: Marks = (() => {
+    const seq: [string, Item][] = [
+      ...general.map((it): [string, Item] => [`general:${it.name}`, it]),
+      [`general:${HIV.name}`, HIV],
+      ...conditions.filter((c) => !c.resolved).flatMap((c) => c.items.map((it): [string, Item] => [`${c.title}:${it.name}`, it])),
+    ]
+    const found = (it: Item) => !!mostRecent(it, measures) || !!it.blueWhenMissing
+    return { missing: seq.find(([, it]) => !found(it))?.[0], found: seq.find(([, it]) => found(it))?.[0] }
+  })()
+
+  const host = usePBInstrumentation()
+  const openWindow = useOpenWindow()
+  const report = useRef<HTMLDivElement>(null)
+  const [tornOff, setTornOff] = useState<{ tab: string; lines: string[] } | null>(null)
+  const [clipOpen, setClipOpen] = useState(false)
+  const [copied, setCopied] = useState('')
+  useScreenReport({
+    ...(tornOff ? { dialog: 'hmr-tear-off' } : clipOpen ? { dialog: 'hmr-clipboard' } : {}),
+    ...(copied ? { copied: pbSlug(copied) } : {}),
+  })
+
+  /** the tab on screen as plain text, one entry per report line */
+  const reportLines = () => Array.from(report.current?.querySelectorAll<HTMLElement>('.pb-hmr__age, .pb-hmr__heading, .pb-hmr__found, .pb-hmr__missing') ?? [])
+    .map((el) => (el.classList.contains('pb-hmr__heading') ? `\n${el.textContent ?? ''}` : el.textContent ?? ''))
+  const identity = [
+    `Patient: ${`${patient.first} ${patient.last}`.toUpperCase()}    DoB: ${patient.dob}    Gender: ${patient.sex}`,
+    `BC Health No.: ${patient.bchn ?? ''}    Chart: ${patient.chart}`,
+  ]
+  const press = (id: string, run: () => void) => () => { host?.report('command', { command: id }); run() }
+
+  const print = press('hmr-print', () => {
+    openWindow('print-preview', {
+      title: `Health Maintenance Review - ${tab}`,
+      pages: [[`**Health Maintenance Review : As Of ${MOIS_TODAY}**`, ...identity, '', ...reportLines()].join('\n')],
+    })
+  })
+  const tearOff = press('hmr-tear-off', () => setTornOff({ tab, lines: reportLines() }))
+  const copy = (clinic: boolean, provider: boolean) => {
+    const text = [
+      ...(clinic ? [CLINIC] : []),
+      ...(provider ? [`Provider: ${patient.provider ?? SESSION_USER}`] : []),
+      ...identity, '', `${tab} : As Of ${MOIS_TODAY}`, ...reportLines(),
+    ].join('\n')
+    try { void navigator.clipboard?.writeText(text).catch(() => { /* no clipboard permission */ }) } catch { /* no clipboard on this page */ }
+    setCopied(tab)
+    setClipOpen(false)
+  }
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
@@ -284,30 +370,35 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
             <span className="pb-hmr__lbl">Chart:</span><b>{patient.chart}</b>
           </div>
           <div className="pb-hmr__buttons">
-            <PBButton data-tutorial-id="host.mois.command.hmr-flow-sheet" onClick={onFlowSheet}><u>F</u>low Sheet</PBButton>
-            <PBButton data-tutorial-id="host.mois.command.hmr-print"><u>P</u>rint</PBButton>
-            <PBButton disabled={!careTab} data-tutorial-id="host.mois.command.hmr-tear-off"><u>T</u>ear Off</PBButton>
-            <PBButton disabled={!careTab} data-tutorial-id="host.mois.command.hmr-clipboard"><u>C</u>lipboard</PBButton>
+            <PBButton data-tutorial-id="host.mois.command.hmr-flow-sheet" onClick={press('hmr-flow-sheet', onFlowSheet)}><u>F</u>low Sheet</PBButton>
+            <PBButton data-tutorial-id="host.mois.command.hmr-print" onClick={print}><u>P</u>rint</PBButton>
+            <PBButton disabled={!careTab} data-tutorial-id="host.mois.command.hmr-tear-off" onClick={tearOff}><u>T</u>ear Off</PBButton>
+            <PBButton disabled={!careTab} data-tutorial-id="host.mois.command.hmr-clipboard" onClick={press('hmr-clipboard', () => setClipOpen(true))}><u>C</u>lipboard</PBButton>
+            {copied && (
+              <span className="pb-hmr__note" data-tutorial-id="host.mois.field.hmr-copied">{`${copied} copied to the clipboard`}</span>
+            )}
           </div>
         </div>
 
         <div className="pb-hmr__tabs">
           <PBTabs tabs={['Health Maintenance', 'Care Plan', 'Patient Summary']} active={tab} onChange={setTab}>
-            <div className="pb-hmr__report">
+            <div className="pb-hmr__report" ref={report}>
               {tab === 'Health Maintenance' && (
                 <>
                   <div className="pb-hmr__age">{`Age = ${age ?? ''}    SEX = ${sexWord}`}</div>
                   <Section title="GENERAL AND AGE/SEX SPECIFIC SCREENING">
-                    {GENERAL.filter((it) => applies(it, sex, age)).map((it) => <ItemLine key={it.name} item={it} measures={measures} />)}
+                    {general.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`general:${it.name}`} />)}
                     {smokerLine && <div className="pb-hmr__found">{smokerLine}</div>}
-                    <ItemLine item={HIV} measures={measures} />
+                    <ItemLine item={HIV} measures={measures} marks={marks} at={`general:${HIV.name}`} />
                     {hivDeclined && (
                       <div className="pb-hmr__found">{` NOT DESIRED FURTHER MEASURE as of ${date(hivDeclined.dtm_start)}`}</div>
                     )}
                   </Section>
                   {conditions.map((c) => (
                     <Section key={c.title} title={c.title}>
-                      {c.items.map((it) => <ItemLine key={it.name} item={it} measures={measures} />)}
+                      {c.resolved
+                        ? <div className="pb-hmr__found" data-tutorial-id={`host.mois.row.hmr-${pbSlug(c.title)}-resolved`}>{`RESOLVED as of ${c.resolved}`}</div>
+                        : c.items.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`${c.title}:${it.name}`} />)}
                     </Section>
                   ))}
                 </>
@@ -347,6 +438,62 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
               )}
             </div>
           </PBTabs>
+        </div>
+      </PBWindow>
+      {tornOff && <TearOffWindow tab={tornOff.tab} lines={tornOff.lines} identity={identity} onClose={() => setTornOff(null)} />}
+      {clipOpen && <ClipboardWindow tab={tab} onCopy={copy} onClose={() => setClipOpen(false)} />}
+    </div>
+  )
+}
+
+/* Tear Off (INFERRED layout): the tab's text in its own window, left open
+   beside the review — offset so both title bars show. */
+function TearOffWindow({ tab, lines, identity, onClose }: { tab: string; lines: string[]; identity: string[]; onClose: () => void }) {
+  const host = usePBInstrumentation()
+  return (
+    <PBWindow child controls title={`MOIS Viewer - ${tab}`} onClose={onClose} tutorialId="host.mois.dialog.hmr-tear-off"
+      className="pb-hmr pb-hmr__tearoff">
+      <div className="pb-hmr__report" style={{ margin: 6 }} data-tutorial-id="host.mois.field.hmr-tear-off-text">
+        {[...identity, '', `${tab.toUpperCase()} : As Of ${MOIS_TODAY}`, ...lines].join('\n')}
+      </div>
+      <div className="pb-footer">
+        <span className="pb-footer__spacer" />
+        <PBButton wide data-tutorial-id={host?.anchor('command', 'hmr-tear-off-close')}
+          onClick={() => { host?.report('command', { command: 'hmr-tear-off-close' }); onClose() }}>Close</PBButton>
+        <span className="pb-footer__spacer" />
+      </div>
+    </PBWindow>
+  )
+}
+
+/* Clipboard (INFERRED layout): patient details always, clinic and provider
+   details on request, then OK copies the tab. */
+function ClipboardWindow({ tab, onCopy, onClose }: { tab: string; onCopy: (clinic: boolean, provider: boolean) => void; onClose: () => void }) {
+  const host = usePBInstrumentation()
+  const [clinic, setClinic] = useState(false)
+  const [provider, setProvider] = useState(false)
+  const button = (id: string, label: string, run: () => void, primary = false) => (
+    <PBButton wide className={primary ? 'pb-btn--default' : undefined} data-tutorial-id={host?.anchor('command', id)}
+      onClick={() => { host?.report('command', { command: id }); run() }}>{label}</PBButton>
+  )
+  return (
+    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 2 }}>
+      <PBWindow child controls={false} title="Copy to Clipboard" onClose={onClose} tutorialId="host.mois.dialog.hmr-clipboard" style={{ width: 360 }}>
+        <div style={{ background: 'var(--pb-face)', padding: 6 }}>
+          <div className="pb-groupbox">
+            <PBBand>{`Copy the ${tab} tab`}</PBBand>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '6px 10px' }}>
+              <PBCheckbox label="Patient Details" checked disabled />
+              <PBCheckbox label="Include Clinic Details" checked={clinic} onChange={setClinic} tutorialId="host.mois.field.hmr-clipboard-clinic" />
+              <PBCheckbox label="Include Provider Details" checked={provider} onChange={setProvider} tutorialId="host.mois.field.hmr-clipboard-provider" />
+            </div>
+          </div>
+        </div>
+        <div className="pb-footer">
+          <span className="pb-footer__spacer" />
+          {button('hmr-clipboard-ok', 'OK', () => onCopy(clinic, provider), true)}
+          {button('hmr-clipboard-cancel', 'Cancel', onClose)}
+          <span className="pb-footer__spacer" />
         </div>
       </PBWindow>
     </div>

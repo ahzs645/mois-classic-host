@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { UserAgreementResponses } from './UserAgreementWindows'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBGroup, PBInput, PBRadio, PBSelect,
   PBTabs, PBTextArea, PBWindow, pbSlug, usePBInstrumentation,
@@ -23,8 +24,11 @@ import {
 import type { PBColumn } from '../pb'
 import { BandButtons, UMField as Field, UM_CSS, umColumns, umField as anchorField } from './UserManagementKit'
 import { ModuleWindowAccessTab } from './UserAccessTabs'
+import { ReportAccessPane } from './ReportAccessPane'
 import { SecurityProfilePickerDialog } from './SecurityProfileWindow'
 import { useScreenReport } from '../host/screen-state'
+import { useStoredList } from './adminSession'
+import { aliasKey } from './ProviderTabGrids'
 import { MOIS_TODAY as MOIS_TODAY_STAMP } from '../data/patients'
 
 /* ============================================================================
@@ -406,8 +410,10 @@ function UserAccountPage({ tab, row }: { tab: string; row: UserRow }) {
        analogy with `1e9141017547`, but no capture proves it — so nothing is
        drawn here rather than something invented. */
     case 'Special Functions': return <UncapturedPage />
-    case 'Report Access': return <UncapturedPage />
-    case 'User Alias': return <UserAliasTab />
+    /* the user-level Report Access IS captured, in 304021 `9ca90685`
+       (Override + Access / Print per report): screens/ReportAccessPane.tsx */
+    case 'Report Access': return <ReportAccessPane override />
+    case 'User Alias': return <UserAliasTab row={row} />
     case 'Workspace Mgt': return <WorkspaceMgtTab row={row} />
     case 'Memberships': return <MembershipsTab />
     case 'Service Group': return <ServiceGroupTab />
@@ -538,6 +544,11 @@ function UserAccountTab({ row }: { row: UserRow }) {
               {WORKSPACE_ACK_ITEMS.map((item) => (
                 <PBCheckbox key={item} label={item} tutorialId={`host.mois.field.ack-${pbSlug(item)}`} />
               ))}
+              {/* 303492 v2.31.41 (`wfkw6qbP…`, inline image 5): the user's
+                  own inbox for unmatched results; blank = the system default */}
+              <Field label="Unmatched Results Inbox:" w={150}>
+                <PBSelect w={200} options={['', ...DESKTOP_PROVIDERS]} data-tutorial-id="host.mois.field.unmatched-results-inbox" />
+              </Field>
             </PBGroup>
           </div>
         </div>
@@ -557,10 +568,13 @@ function UserAccountTab({ row }: { row: UserRow }) {
 
 /* --- tab 5: `User Alias` ------------------------------------------------- */
 
-function UserAliasTab() {
+function UserAliasTab({ row }: { row: UserRow }) {
   /* New adds a row dated today for the learner to fill in (303351: Code NHA,
-     Value the MSP number, Note NHA CIX Labs); Delete removes the last one */
-  const [rows, setRows] = useState<UserRow[]>(USER_ALIAS_ROWS)
+     Value the MSP number, Note NHA CIX Labs); Delete removes the last one.
+     The list is kept under the account's alias key (ProviderTabGrids.tsx
+     `aliasKey`), the one its associated Provider's Alias ID tab reads — MOIS
+     "will copy the Alias IDs for you" between the two (303184). */
+  const [rows, setRows] = useStoredList<UserRow>(aliasKey('', String(row.display ?? '')), USER_ALIAS_ROWS)
   useScreenReport({ rows: rows.length })
   return (
     <>
@@ -958,6 +972,7 @@ function OtherTab() {
         />
       </div>
       <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-window)' }}>
+        {setting.name === 'User Agreements' ? <UserAgreementResponses /> : <>
         <div className="pb-band" style={{ background: '#c8dcfa' }}>{setting.name}</div>
         {setting.desc && (
           <div style={{ padding: '4px 8px', whiteSpace: 'normal' }}>{setting.desc}</div>
@@ -965,6 +980,7 @@ function OtherTab() {
         <div style={{ padding: '2px 8px' }}>
           {setting.fields.map((f, i) => <OtherControl key={i} field={f} />)}
         </div>
+        </>}
       </div>
     </div>
   )

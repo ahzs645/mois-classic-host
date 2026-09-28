@@ -1,5 +1,6 @@
 import type { PBMenuItem } from '../../pb/components/chrome'
 import { currentRow, dayRows, schedulerBridge, schedulerStore } from '../schedulerStore'
+import { schedulerExtras } from '../schedulerExtras'
 import { ensureSchedulerPrintReports } from '../schedulerPrintReports'
 import { registerMenus } from './index'
 
@@ -20,6 +21,18 @@ import { registerMenus } from './index'
      right-click menu "or … the Utilities menu on the toolbar". No capture of
      the Scheduler's Utilities list exists, so the Patient Chart list is kept
      and Quick Registration added to it.
+   - 303239 "Scheduler Contents" names the rest of the Utilities list —
+     Switch Service Group/ Pathway, Quick Registration, Time Entry, Time
+     Logger, Provider / Patient Address to Clipboard, Change Teleplan
+     Password — and they are added in that order around the kept items.
+     Time Entry / Time Logger open stream A2's `time-entry` / `time-logger`
+     windows.
+   - Action wiring (303239): Summary All Visit (Alt+F1), Copy / Paste
+     Encounter Data (Ctrl+Shift+C / Ctrl+Shift+P), Patient Summary / Detail
+     (Ctrl+Q) and Hide Patient Summary (Ctrl+Shift+Q) drive the Patient
+     Detail Slide; Print ▸ Current Daybook as Slate opens Print Current Day
+     Book with As Slate ticked; Print ▸ Print Encounter opens the Print
+     Encounter Note window. Group Bookings adds Print Name Tags to Action.
    ========================================================================= */
 
 registerMenus('scheduler', (ctx) => {
@@ -29,14 +42,17 @@ registerMenus('scheduler', (ctx) => {
   const onDayBook = ctx.node === 'p-daybook'
 
   const action: PBMenuItem[] = [
-    { label: 'Summary All Visit', key: 'Alt+F1' },
+    { label: 'Summary All Visit', key: 'Alt+F1', onSelect: open('summary-all-visit') },
     { label: 'Daybook Bar - Multi', key: 'Alt+F2', onSelect: open('provider-schedule-summary', { multi: true }) },
     { label: 'Daybook Bar - Single', key: 'Alt+F3', onSelect: open('provider-schedule-summary', { multi: false }) },
     { sep: true },
     { label: 'Copy / Move Day Book Items', key: 'Ctrl+O', onSelect: open('copy-move-daybook') },
     { label: 'Copy / Move Appointment', onSelect: open('copy-move-appointment') },
-    { label: 'Copy Encounter Data', key: 'Ctrl+Shift+C' },
-    { label: 'Paste Encounter Data', key: 'Ctrl+Shift+P' },
+    {
+      label: 'Copy Encounter Data', key: 'Ctrl+Shift+C',
+      onSelect: () => { const row = currentRow(); if (row) schedulerExtras.copyEncounter(row.key) },
+    },
+    { label: 'Paste Encounter Data', key: 'Ctrl+Shift+P', onSelect: open('paste-encounter-data') },
     {
       label: 'Bill MSP (current encounter)', key: 'Ctrl+B',
       onSelect: () => { const row = currentRow(); if (row) schedulerStore.bill(row.key) },
@@ -52,8 +68,11 @@ registerMenus('scheduler', (ctx) => {
     { label: 'Move to Online Schedule' },
     { sep: true },
     { label: 'Create Message', key: 'Ctrl+M', onSelect: open('create-message') },
-    { label: 'Patient Summary / Detail', key: 'Ctrl+Q' },
-    { label: 'Hide Patient Summary', key: 'Ctrl+Shift+Q' },
+    {
+      label: 'Patient Summary / Detail', key: 'Ctrl+Q',
+      onSelect: () => schedulerExtras.setSlide({ mode: schedulerExtras.get().slide.mode === 'detail' ? 'summary' : 'detail' }),
+    },
+    { label: 'Hide Patient Summary', key: 'Ctrl+Shift+Q', onSelect: () => schedulerExtras.setSlide({ mode: 'hidden' }) },
     { label: 'Find Rx', key: 'Alt+F8' },
     {
       /* Alt+F9 opens the current appointment's chart on its Encounters folder */
@@ -76,35 +95,52 @@ registerMenus('scheduler', (ctx) => {
   const printMenu: PBMenuItem[] = [
     { label: 'Day Sheet - Desktop Provider', onSelect: print('Day Sheet - Desktop Provider') },
     { label: 'Day Sheet - All Providers', onSelect: print('Day Sheet - All Providers') },
-    { label: 'Current Daybook as Slate', onSelect: print('Current Daybook as Slate') },
+    { label: 'Current Daybook as Slate', onSelect: open('print-current-daybook', { slate: true }) },
     { sep: true },
     { label: 'Print Daybook', onSelect: open('print-current-daybook') },
     { label: 'Print Daily Appointment', onSelect: print('Print Daily Appointment') },
     { label: 'Print Select Text', key: 'Ctrl+Shift+N' },
     { label: 'Print Appointment Card', onSelect: open('appointment-card') },
-    { label: 'Print Encounter' },
+    { label: 'Print Encounter', onSelect: open('scheduler-print-encounter') },
   ]
 
   const utilities: PBMenuItem[] = [
     { label: 'Lock MOIS / Switch User', key: 'Ctrl+Alt+L' },
     { label: 'Paste Patient Text' },
     { sep: true },
+    { label: 'Switch Service Group / Pathway', onSelect: open('switch-service-group') },
     {
       /* only a row saved with a name and no chart can be registered */
       label: 'Quick Registration',
       disabled: onDayBook && !!currentRow() && !!currentRow()?.chart,
       onSelect: open('quick-registration'),
     },
+    { label: 'Time Entry', onSelect: open('time-entry') },
+    { label: 'Time Logger', onSelect: open('time-logger') },
     { sep: true },
     { label: 'Health Maintenance Review', key: 'Ctrl+H' },
     { label: 'Flow Sheet Review' },
     { label: 'MSP Eligibility Check' },
-    { label: 'Provider Address to Clipboard' },
+    { label: 'Provider Address to Clipboard', onSelect: open('provider-address-clipboard') },
     { label: 'Patient Address to Clipboard (lookup)', onSelect: () => ctx.go.lookup?.() },
     { sep: true },
-    { label: 'Change Teleplan Password' },
+    { label: 'Change Teleplan Password', onSelect: open('change-teleplan-password') },
     { label: 'Patient Address to Clipboard (current)' },
   ]
+
+  /* Group Bookings ▸ Action ▸ Print Name Tags (303239) */
+  if (ctx.node === 'group') {
+    return {
+      Action: [
+        { label: 'Print Name Tags', onSelect: open('print-name-tags') },
+        { sep: true },
+        { label: 'Change Desktop Provider', key: 'Alt+D' },
+        { label: 'Create an Appointment', onSelect: open('new-appointment') },
+      ],
+      Print: printMenu,
+      Utilities: utilities,
+    }
+  }
 
   return { Action: action, Print: printMenu, Utilities: utilities }
 })

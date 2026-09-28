@@ -34,6 +34,13 @@ import { registerMenus, type MenuContext } from './index'
                Clipboard, Patient Address to Clipboard (lookup) | Change
                Teleplan Password, Share W/S on Behalf Of… (greyed: it is a
                special function granted per security profile).
+   · Wiring added for 303599 / 1802749: Clean List (Summary and the
+               basket folders) opens `clean-list`; Workflow Summary opens the
+               record's `basket-workflow-summary`; Measures adds Show History
+               (1802749 "Show History in Measures") → `basket-measure-history`;
+               Basket Statistics… ▸ Acknowledgement Forwarding / Intended
+               Recipient open their parameter windows; Provider Address to
+               Clipboard opens `provider-address-clipboard`.
    · Maintenance — the Patient Chart set plus Save Column Sort Order on the
                list folders (art. 303750: "open the Maintenance menu and click
                'Save Column Sort Order'").
@@ -82,14 +89,16 @@ function action(ctx: MenuContext): PBMenuItem[] {
   const changeWs: PBMenuItem = { label: 'Change W/S', onSelect: () => go.open?.('change-workspace') }
 
   if (node === 'ws-summary') {
-    return [desktopProvider, sep, changeWs, { label: 'Clean List' }]
+    return [desktopProvider, sep, changeWs, { label: 'Clean List', onSelect: () => go.open?.('clean-list') }]
   }
   if (isBasket(node)) {
     return [
       desktopProvider, openChart, sep,
       changeWs,
       { label: 'Mark For Review', key: 'Ctrl+R', onSelect: () => go.open?.('mark-for-review', { ...current(), folder: node }) },
-      { label: 'Workflow Summary' },
+      { label: 'Workflow Summary', onSelect: () => go.open?.('basket-workflow-summary', { ...current(), folder: node }) },
+      ...(node === 'ws-measures' ? [{ label: 'Show History', onSelect: () => go.open?.('basket-measure-history', { ...current(), folder: node }) }] : []),
+      { label: 'Clean List', onSelect: () => go.open?.('clean-list') },
       sep,
       { label: 'Create Task', key: 'Ctrl+K', onSelect: () => go.open?.('create-task', current()) },
       { label: 'Create Message', key: 'Ctrl+M', onSelect: () => go.open?.('create-message', current()) },
@@ -117,7 +126,10 @@ function print(ctx: MenuContext): PBMenuItem[] {
   const { node, go } = ctx
   const statistics: PBMenuItem = {
     label: 'Basket Statistics…',
-    menu: [{ label: 'Acknowledgement Forwarding' }, { label: 'Acknowledgement Intended Recipient' }],
+    menu: [
+      { label: 'Acknowledgement Forwarding', onSelect: () => go.open?.('report-ack-forwarding') },
+      { label: 'Acknowledgement Intended Recipient', onSelect: () => go.open?.('report-ack-intended-recipient') },
+    ],
   }
   const selectText: PBMenuItem = { label: 'Print Select Text', key: 'Ctrl+Shift+N' }
   const list = (noun: 'Task' | 'Messages'): PBMenuItem[] => [
@@ -132,7 +144,7 @@ function print(ctx: MenuContext): PBMenuItem[] {
 
 function utilities(ctx: MenuContext): PBMenuItem[] {
   return [
-    { label: 'Provider Address to Clipboard' },
+    { label: 'Provider Address to Clipboard', onSelect: () => ctx.go.open?.('provider-address-clipboard') },
     { label: 'Patient Address to Clipboard (lookup)', onSelect: () => ctx.go.lookup?.() },
     sep,
     { label: 'Change Teleplan Password', onSelect: () => ctx.go.open?.('change-teleplan-password') },

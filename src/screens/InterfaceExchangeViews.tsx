@@ -12,6 +12,7 @@ import {
 import { QualityReviewTab } from './CdxMessageViews'
 import { Body, CellCheck, GreenBand, Heading, Lbl, Radio, ReportPage } from './ExchangeKit'
 import type { ExchangeGo } from './ExchangeView'
+import { LabActionButtons, LabActivityPanel, RoutingPanes, useLabActivity } from './UnmatchedResultViews'
 
 /* ============================================================================
    Data Exchange ▸ Electronic Interfaces — 303384 and its How-To's (303491
@@ -177,10 +178,11 @@ export function LabResultsView({ onTearOff }: { onTearOff?: () => void }) {
           )}
         </PBTabs>
         {window_ === 'detail' && (
-          <PatientLabDetailWindow onClose={() => setWindow(null)} onMatch={() => setWindow('manual')} />
+          <PatientLabDetailWindow resultKey={`lab:${rows[cur]?.index ?? 0}`} onClose={() => setWindow(null)} onMatch={() => setWindow('manual')} />
         )}
         {window_ === 'manual' && (
           <ManualLabProcessingWindow
+            resultKey={`lab:${rows[cur]?.index ?? 0}`}
             onClose={() => setWindow(null)}
             onProcess={() => {
               const row = rows[cur]
@@ -194,8 +196,15 @@ export function LabResultsView({ onTearOff }: { onTearOff?: () => void }) {
   )
 }
 
-/* --- Patient Lab Detail — 303492 image cd14c83a --------------------------- */
-function PatientLabDetailWindow({ onClose, onMatch }: { onClose: () => void; onMatch: () => void }) {
+/* --- Patient Lab Detail — 303492 image cd14c83a ---------------------------
+   MOIS 2.31.41 (303492 "Unmatched Result Enhancements", E2 stream): the
+   action buttons sit "in line with the 'Lab Message List' heading" and an
+   Activity log fills the right-hand pane above Close Window (Esc)
+   (`e9610920…`) — screens/UnmatchedResultViews.tsx. The older Actions links
+   stay above the log: the Match lesson's anchors are on that pane, and each
+   link now logs the same action its button does. */
+function PatientLabDetailWindow({ onClose, onMatch, resultKey }: { onClose: () => void; onMatch: () => void; resultKey: string }) {
+  const { add } = useLabActivity(resultKey)
   const stat = (label: string, value: string) => (
     <div className="pb-row" style={{ gap: 6 }}><Lbl w={62}>{label}</Lbl><b>{value}</b></div>
   )
@@ -223,7 +232,7 @@ function PatientLabDetailWindow({ onClose, onMatch }: { onClose: () => void; onM
             </div>
           </div>
           <div className="pb-groupbox" style={{ flex: 'none', height: 124, display: 'flex', flexDirection: 'column' }}>
-            <PBBand>Lab Message List</PBBand>
+            <PBBand right={<LabActionButtons resultKey={resultKey} />}>Lab Message List</PBBand>
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
               <PBDataWindow flush rows={LAB_DETAIL.rows} columns={LAB_DETAIL.columns.map((c) => ({ key: c.key, header: c.header, width: c.width, align: c.align }))} />
             </div>
@@ -234,11 +243,12 @@ function PatientLabDetailWindow({ onClose, onMatch }: { onClose: () => void; onM
               <b className="pb-link" style={{ textDecoration: 'underline' }}>Actions:</b>
               {LAB_DETAIL.actions.map((a) => (
                 <div key={a.label}>
-                  <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.${a.anchor}`} style={{ textAlign: 'left', whiteSpace: 'normal' }}>{a.label}</button>
+                  <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.${a.anchor}`} style={{ textAlign: 'left', whiteSpace: 'normal' }}
+                    onClick={() => add({ kind: a.anchor.startsWith('print') ? 'Print' : a.anchor.startsWith('fax') ? 'Fax' : 'Ignore', text: a.label })}>{a.label}</button>
                   {a.key && <div>{a.key}</div>}
                 </div>
               ))}
-              <span style={{ flex: '1 1 auto' }} />
+              <LabActivityPanel resultKey={resultKey} />
               <PBButton data-tutorial-id="host.mois.command.close-window-esc" onClick={onClose}>Close Window (Esc)</PBButton>
             </div>
           </div>
@@ -249,8 +259,10 @@ function PatientLabDetailWindow({ onClose, onMatch }: { onClose: () => void; onM
 }
 
 /* --- Manual Lab Result Processing — 303492 image a6474f86 ------------------ */
-function ManualLabProcessingWindow({ onClose, onProcess }: { onClose: () => void; onProcess: () => void }) {
+function ManualLabProcessingWindow({ onClose, onProcess, resultKey }: { onClose: () => void; onProcess: () => void; resultKey: string }) {
   const [picked, setPicked] = useState(MANUAL_LAB.picked)
+  /* the Activity record's "User match (manual) — Date, time, user" */
+  const { add } = useLabActivity(resultKey)
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 65 }}>
       <PBWindow child controls={false} title="Manual Lab Result Processing" onClose={onClose}
@@ -290,7 +302,7 @@ function ManualLabProcessingWindow({ onClose, onProcess }: { onClose: () => void
           </div>
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '4px 0 8px' }}>
-          <PBButton data-tutorial-id="host.mois.command.process-lab-report" onClick={onProcess}>Process Lab Report</PBButton>
+          <PBButton data-tutorial-id="host.mois.command.process-lab-report" onClick={() => { add({ kind: 'User Match', text: '' }); onProcess() }}>Process Lab Report</PBButton>
           <PBButton onClick={onClose}>Cancel</PBButton>
         </div>
       </PBWindow>
@@ -348,6 +360,8 @@ export function SetupRegistrationView() {
         { label: 'Save', disabled: !dirty, onClick: () => setDirty(false) },
         { label: 'Close Window' },
       ]} />
+      {/* MOIS 2.31.41 routing (303492 `59647e5a…`, `95dab64d…`): UnmatchedResultViews.tsx */}
+      <RoutingPanes />
       <div className="pb-row" data-tutorial-id="host.mois.group.default-user-inbox" style={{ gap: 8, padding: '6px 10px', background: 'var(--pb-face)', borderBottom: '1px solid #888', flex: 'none' }}>
         <Lbl>Default User Inbox:</Lbl>
         <PBInput w={170} readOnly value={inbox} style={{ background: '#e8e8e8' }} />

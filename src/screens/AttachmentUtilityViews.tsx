@@ -6,6 +6,10 @@ import {
   PBViewHeader, pbSlug,
 } from '../pb'
 import { Lbl } from './ExchangeKit'
+import { ControlledRxRecordBlock, useFileControlledRx } from './ControlledRxWindows'
+
+/** 303227: the TYPE a controlled prescription's scanned copy is attached as */
+const CONTROLLED_RX = 'Controlled Rx'
 import type { ExchangeGo } from './ExchangeView'
 
 /* ============================================================================
@@ -149,8 +153,13 @@ export function AttachFilesView({ go }: { go: ExchangeGo }) {
     rows: files.length,
   })
 
+  /* TYPE Controlled Rx (303227 `3fd33f9d…`): the prescription and folio the
+     Attach files against (screens/ControlledRxWindows.tsx) */
+  const [cppPending, setCppPending] = useState<Parameters<ReturnType<typeof useFileControlledRx>>[0]>(null)
+  const fileCpp = useFileControlledRx()
   const attach = () => {
     if (!current || current.attached) return
+    if (type === CONTROLLED_RX) fileCpp(cppPending)
     setFiles((all) => [...all.filter((_, i) => i !== cur), { ...current, attached: true }])
     if (clear) { setType(''); setChart('') }
   }
@@ -231,11 +240,11 @@ export function AttachFilesView({ go }: { go: ExchangeGo }) {
             <span />
             <span>PHN:</span><span />
             <span>TYPE:</span>
-            <PBSelect w={104} options={ATTACH_FILES.types} value={type} onChange={(e) => setType(e.target.value)} data-tutorial-id="host.mois.field.record-type" />
+            <PBSelect w={104} options={[...ATTACH_FILES.types, CONTROLLED_RX]} value={type} onChange={(e) => setType(e.target.value)} data-tutorial-id="host.mois.field.record-type" />
             <span />
             <span>DOB:</span><span />
           </div>
-          {type ? (
+          {type === CONTROLLED_RX ? <ControlledRxRecordBlock onReady={setCppPending} /> : type ? (
             <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 3, padding: '4px 8px', flex: '1 1 auto' }}>
               <Lbl>Date:</Lbl><PBInput w={90} />
               <Lbl>Description:</Lbl><PBLookup w={300} />

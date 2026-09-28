@@ -6,6 +6,10 @@ import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
 import { AddressBookWindow } from './AddressBookWindow'
 import { HealthIssuesPicker, type HealthIssuePick } from './HealthIssuesPicker'
+import { useSrfaxEnabled } from '../data/letterDocs'
+import {
+  CustomizeToolbarsDialog, DRAG_COMMAND_TYPE, SendEfaxWindow, TOOLBAR_NAMES, ViewerBottomToolbar,
+} from './ViewerWindows'
 
 /* ============================================================================
    The MOIS Viewer — the Tracker Software PDF-XChange Viewer control MOIS
@@ -58,8 +62,33 @@ import { HealthIssuesPicker, type HealthIssuePick } from './HealthIssuesPicker'
    tool buttons' pressed state, the zoom controls and the Find bar do
    anything; the rest of the control is inert on this stage.
 
+   Added for 304734 / 2616562 / 303112 (stream C3):
+   · Filling and saving: typing in a fillable field makes the form dirty and
+     lights Save (the button and File ▸ Save, F2); Save commits it (304734:
+     "With PDF files that have fill-in the form fields, you can enter your
+     responses and save the changes").
+   · Signing (303112 `f17840c9…`, "Notice the pencil tool in the top left of
+     the MOIS Viewer … Click the pencil tool, navigate to the signature field
+     on the form and begin signing … Save the form to commit your changes"):
+     the Sign Document tool pressed, a click in the Provider's Signature
+     field signs it.
+   · View ▸ Toolbars (304734 `47b18063…`): the thirteen toolbars, ticked
+     while shown, and Customize Toolbars... (`da4862fc…`,
+     screens/ViewerWindows.tsx; a command dragged from it onto the first
+     toolbar is added there). The captured current build shows the File,
+     Standard, Zoom and Comment And Markup toolbars; the rest start hidden.
+     Find / Rotate View / Links Editor / Measuring / Properties draw a third
+     row; the four bottom toolbars (`5d1a2af1…`) draw under the page.
+   · The Fields pane (Options ▸ View ▸ Fields, or Show Fields Pane).
+   · Fax (2616562 `a38e5ffb…`): with SRFax enabled, the embedded viewer has
+     a Fax button top left, which opens Send eFax. Whether the viewer is
+     embedded at all is the MOIS Viewer Mode setting (System Settings, stream
+     E2); this window only honours `embedded`.
+
    Reported: `host.dialog` = mois-viewer while it is open, and
-   `host.screen.viewerTool` = the pressed tool's slug (or null).
+   `host.screen.viewerTool` = the pressed tool's slug (or null),
+   `viewerDirty`, `viewerSaved`, `viewerSigned`, `viewerToolbars` (how many
+   are shown), `viewerFieldsPane`.
    ========================================================================= */
 
 const VIEWER_ICON = (
@@ -143,19 +172,27 @@ const ZOOMS = [25, 50, 75, 100, 120, 150, 200, 300, 400]
 type Fit = 'actual' | 'page' | 'width'
 
 function viewerMenus({
-  onClose, fileName, setTool, setFit,
+  onClose, fileName, setTool, setFit, dirty, onSave, toolbars, onToggleToolbar, onCustomize, onFields,
 }: {
   onClose: () => void
   fileName: string
   setTool: (slug: string) => void
   setFit: (fit: Fit) => void
+  dirty: boolean
+  onSave: () => void
+  toolbars: Record<string, boolean>
+  onToggleToolbar: (name: string) => void
+  onCustomize: () => void
+  onFields: () => void
 }): PBMenuBarEntry[] {
+  /* 304734 `47b18063…`: a tick beside every shown toolbar */
+  const bar = (name: string, key?: string): PBMenuItem => ({ label: `${toolbars[name] ? '✓ ' : '   '}${name}`, key, onSelect: () => onToggleToolbar(name) })
   /* #7 */
   const file: PBMenuItem[] = [
     { label: 'Open...', key: 'Ctrl+O' },
     { label: 'Open from URL...' },
     sep,
-    { label: 'Save', key: 'F2', disabled: true },
+    { label: 'Save', key: 'F2', disabled: !dirty, onSelect: onSave },
     { label: 'Save As...', key: 'Ctrl+Shift+S' },
     { label: 'Save Copy As...' },
     sep,
@@ -211,15 +248,26 @@ function viewerMenus({
   ]
   /* #10 */
   const view: PBMenuItem[] = [
-    { label: 'Toolbars', menu: [] },
+    {
+      label: 'Toolbars',
+      menu: [
+        ...['File Toolbar', 'Standard Toolbar', 'Zoom Toolbar', 'Find Toolbar', 'Rotate View Toolbar', 'Comment And Markup Toolbar', 'Links Editor Toolbar', 'Measuring Toolbar'].map((n) => bar(n)),
+        sep,
+        ...['Document Options Toolbar', 'Pages Navigation Toolbar', 'Pages Layout Toolbar', 'Launch Toolbar'].map((n) => bar(n)),
+        sep,
+        { label: 'Customize Toolbars...', onSelect: onCustomize },
+        sep,
+        bar('Properties Toolbar', 'Ctrl+E'),
+      ],
+    },
     { label: 'Status Bar' },
     { label: 'Navigation Tabs', disabled: true },
     sep,
-    { label: 'Customize User Interface...' },
+    { label: 'Customize User Interface...', onSelect: onCustomize },
     sep,
     { label: 'Bookmarks', key: 'Ctrl+B' },
     { label: 'Pages Thumbnails', key: 'Ctrl+T' },
-    { label: 'Other Panes', menu: [] },
+    { label: 'Other Panes', menu: [{ label: 'Fields', key: 'Ctrl+I', onSelect: onFields }] },
     sep,
     { label: 'Actual Size', key: 'Ctrl+0', onSelect: () => setFit('actual') },
     { label: 'Fit Page', key: 'Ctrl+1', onSelect: () => setFit('page') },
@@ -382,13 +430,24 @@ const NEUTRAL_ROWS: { heading?: string; fields: PageField[] }[] = [
 ]
 const FIELD_FILL = '#fbf7b8'
 
+/** the ink a signed signature field carries */
+const SIGNATURE_INK = (
+  <svg viewBox="0 0 190 24" width="190" height="22" aria-hidden="true" style={{ position: 'absolute', left: 6, top: 0, pointerEvents: 'none' }}>
+    <path d="M4 18c10-14 16 6 26-4s8-10 16-1 10 6 20-3 12 1 22-4 14 6 22 1 10-7 22-4" fill="none" stroke="#1b2f6b" strokeWidth="1.8" />
+  </svg>
+)
+
 function NeutralPage({
-  form, values, onField, onFocusField,
+  form, values, onField, onFocusField, signing = false, signed = false, onSign,
 }: {
   form: string
   values: Record<string, string>
   onField: (name: string, value: string) => void
   onFocusField: (name: string) => void
+  /** the Sign Document tool is pressed: the signature field takes ink */
+  signing?: boolean
+  signed?: boolean
+  onSign?: () => void
 }) {
   return (
     <>
@@ -416,6 +475,17 @@ function NeutralPage({
                     rows={4}
                     style={{ resize: 'none', border: 0, background: FIELD_FILL, font: '12px Arial, Helvetica, sans-serif', padding: '2px 3px' }}
                   />
+                ) : f.name === 'signature' ? (
+                  /* 303112 `f17840c9…`: the signature field, signed with the
+                     Sign Document tool pressed */
+                  <span
+                    title={f.name}
+                    data-tutorial-id="host.mois.field.viewer-signature"
+                    onMouseDown={() => { if (signing) onSign?.() }}
+                    style={{ position: 'relative', display: 'block', height: 20, background: FIELD_FILL, cursor: signing ? 'crosshair' : 'text' }}
+                  >
+                    {signed && SIGNATURE_INK}
+                  </span>
                 ) : (
                   <input
                     title={f.name}
@@ -491,7 +561,24 @@ export function MoisViewerWindow({
     first: patient.first, middle: patient.middle?.slice(0, 1) ?? '', last: patient.last,
     dob: patient.dob, street: patient.address ?? '', city: patient.city ?? '',
   }))
-  useScreenReport({ dialog: 'mois-viewer', viewerTool: tool, viewerEmbedded: embedded })
+  /* filling, saving, signing, toolbars (see the header) */
+  const [dirty, setDirty] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [signed, setSigned] = useState(false)
+  const [efax, setEfax] = useState(false)
+  const [customize, setCustomize] = useState(false)
+  const [fieldsPane, setFieldsPane] = useState(false)
+  const [extraTools, setExtraTools] = useState<string[]>([])
+  const shownByDefault = ['File Toolbar', 'Standard Toolbar', 'Zoom Toolbar', 'Comment And Markup Toolbar']
+  const [toolbars, setToolbars] = useState<Record<string, boolean>>(() => Object.fromEntries(TOOLBAR_NAMES.map((n) => [n, shownByDefault.includes(n)])))
+  const toggleToolbar = (name: string) => setToolbars((t) => ({ ...t, [name]: !t[name] }))
+  const srfax = useSrfaxEnabled()
+  const save = () => { if (dirty) { setDirty(false); setSaved(true) } }
+  useScreenReport({
+    dialog: efax ? 'send-efax' : customize ? 'customize-toolbars' : 'mois-viewer', viewerTool: tool, viewerEmbedded: embedded,
+    viewerDirty: dirty, viewerSaved: saved, viewerSigned: signed, viewerToolbars: Object.values(toolbars).filter(Boolean).length,
+    viewerFieldsPane: fieldsPane,
+  })
 
   const file = fileName ?? `${pbSlug(form) || 'form'}.pdf`
   const pickTool = (slug: string) => setTool((t) => (t === slug ? null : slug))
@@ -524,7 +611,7 @@ export function MoisViewerWindow({
     'grip',
     { slug: 'open', title: 'Open', glyph: 'open', label: 'Open...', drop: true },
     'rule',
-    { slug: 'save', title: 'Save', glyph: 'save', disabled: true },
+    { slug: 'save', title: 'Save', glyph: 'save', disabled: !dirty },
     { slug: 'print', title: 'Print', glyph: 'print' },
     { slug: 'sign-document', title: 'Sign Document', glyph: 'sign', corner: true },
     { slug: 'select-text', title: 'Select Text', glyph: 'select' },
@@ -557,7 +644,8 @@ export function MoisViewerWindow({
     if (slug === 'fit-width') return () => fitTo('width')
     if (slug === 'zoom-in') return () => zoomBy(1)
     if (slug === 'zoom-out') return () => zoomBy(-1)
-    if (slug === 'zoom-in-tool' || slug === 'select-text') return () => pickTool(slug)
+    if (slug === 'zoom-in-tool' || slug === 'select-text' || slug === 'sign-document') return () => pickTool(slug)
+    if (slug === 'save') return save
     return undefined
   }
 
@@ -579,6 +667,21 @@ export function MoisViewerWindow({
           ? { width: '100%', height: '100%' }
           : { width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}
       >
+        {/* 2616562 `a38e5ffb…`: with SRFax on, the embedded viewer's Fax
+            button sits top left, above the menu */}
+        {embedded && srfax && (
+          <div style={{ flex: 'none', display: 'flex', alignItems: 'center', height: 26, padding: '0 2px', background: '#e8e8e8', borderBottom: '1px solid #cfcfcf' }}>
+            <button
+              type="button"
+              data-tutorial-id={host?.anchor('command', 'viewer-fax')}
+              onClick={() => { host?.report('command', { command: 'viewer-fax' }); setEfax(true) }}
+              style={{ height: 22, width: 104, font: 'inherit', border: '1px solid #bcbcbc', background: '#f4f4f4', cursor: 'default' }}
+            >
+              Fax
+            </button>
+          </div>
+        )}
+
         {/* #2: the embedded viewer's Find bar */}
         {embedded && (
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', height: 32, padding: '0 4px', background: '#b7cff0' }}>
@@ -591,12 +694,26 @@ export function MoisViewerWindow({
 
         <div style={{ flex: 'none', display: 'flex', alignItems: 'center', background: '#fff', borderBottom: '1px solid #e2e2e2' }}>
           <Grip />
-          <PBMenuBar items={viewerMenus({ onClose, fileName: file, setTool: (slug) => setTool(slug), setFit: fitTo })} />
+          <PBMenuBar items={viewerMenus({
+            onClose, fileName: file, setTool: (slug) => setTool(slug), setFit: fitTo, dirty, onSave: save,
+            toolbars, onToggleToolbar: toggleToolbar, onCustomize: () => setCustomize(true), onFields: () => setFieldsPane((v) => !v),
+          })} />
         </div>
 
-        {/* toolbar row 1 */}
-        <div style={band}>
-          {row1.map((item, i) => {
+        {/* toolbar row 1: the File (up to OCR), Standard (history) and Zoom
+            toolbars, each shown or hidden from View ▸ Toolbars; a command
+            dragged from Customize Toolbars drops onto its end */}
+        {(toolbars['File Toolbar'] || toolbars['Standard Toolbar'] || toolbars['Zoom Toolbar'] || extraTools.length > 0) && (
+        <div
+          style={band}
+          data-tutorial-id="host.mois.group.viewer-toolbar-row-1"
+          onDragOver={(e) => { if (e.dataTransfer.types.includes(DRAG_COMMAND_TYPE)) e.preventDefault() }}
+          onDrop={(e) => {
+            const cmd = e.dataTransfer.getData(DRAG_COMMAND_TYPE)
+            if (cmd) { e.preventDefault(); setExtraTools((t) => (t.includes(cmd) ? t : [...t, cmd])) }
+          }}
+        >
+          {row1.filter((_, i) => (i <= 10 ? toolbars['File Toolbar'] : i <= 16 ? toolbars['Standard Toolbar'] : toolbars['Zoom Toolbar'])).map((item, i) => {
             if (item === 'grip') return <Grip key={i} />
             if (item === 'rule') return <Rule key={i} />
             if (item === 'overflow') return <Overflow key={i} />
@@ -626,9 +743,14 @@ export function MoisViewerWindow({
               />
             )
           })}
+          {extraTools.map((cmd) => (
+            <ToolButton key={cmd} def={{ slug: pbSlug(cmd), title: cmd, glyph: <span style={{ fontSize: 10 }}>{cmd}</span> }} pressed={tool === pbSlug(cmd)} onClick={() => pickTool(pbSlug(cmd))} />
+          ))}
         </div>
+        )}
 
         {/* toolbar row 2: comment and markup */}
+        {toolbars['Comment And Markup Toolbar'] && (
         <div style={band}>
           <Grip />
           {MARKUP.map((t, i) => (
@@ -649,8 +771,35 @@ export function MoisViewerWindow({
           />
           <Overflow />
         </div>
+        )}
+
+        {/* toolbar row 3 (hidden in the current build's default): Find,
+            Rotate View, Links Editor, Measuring and Properties — 304734
+            `97654993…` */}
+        {(toolbars['Find Toolbar'] || toolbars['Rotate View Toolbar'] || toolbars['Links Editor Toolbar'] || toolbars['Measuring Toolbar'] || toolbars['Properties Toolbar']) && (
+          <div style={band} data-tutorial-id="host.mois.group.viewer-toolbar-row-3">
+            {toolbars['Find Toolbar'] && (<><Grip /><span className="pb-field" data-tutorial-id={host?.anchor('field', 'viewer-find')} style={{ width: 120, height: 20 }} /><ToolButton def={{ slug: 'find-previous', title: 'Find Previous', glyph: <span>◀</span> }} /><ToolButton def={{ slug: 'find-next', title: 'Find Next', glyph: <span>▶</span> }} /></>)}
+            {toolbars['Rotate View Toolbar'] && (<><Grip /><ToolButton def={{ slug: 'rotate-left', title: 'Rotate View Counter-clockwise', glyph: <span>⟲</span> }} /><ToolButton def={{ slug: 'rotate-right', title: 'Rotate View Clockwise', glyph: <span>⟳</span> }} /></>)}
+            {toolbars['Links Editor Toolbar'] && (<><Grip /><ToolButton def={{ slug: 'link-tool', title: 'Link Tool', glyph: <span>🔗</span> }} pressed={tool === 'link-tool'} onClick={() => pickTool('link-tool')} /></>)}
+            {toolbars['Measuring Toolbar'] && (<><Grip />{['Distance', 'Perimeter', 'Area'].map((m) => <ToolButton key={m} def={{ slug: `${m.toLowerCase()}-tool`, title: `${m} Tool`, glyph: <span style={{ fontSize: 10 }}>{m === 'Distance' ? '↔' : m === 'Perimeter' ? '⬠' : '▦'}</span> }} pressed={tool === `${m.toLowerCase()}-tool`} onClick={() => pickTool(`${m.toLowerCase()}-tool`)} />)}</>)}
+            {toolbars['Properties Toolbar'] && (<><Grip /><ToolButton def={{ slug: 'properties', title: 'Properties', glyph: <span>⚙</span>, label: 'Properties...' }} /></>)}
+          </div>
+        )}
 
         {/* the desk and the page */}
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        {fieldsPane && !fields && (
+          /* the Fields pane: every fillable field and what it holds */
+          <div data-tutorial-id="host.mois.group.viewer-fields-pane" style={{ width: 200, flex: 'none', overflow: 'auto', borderRight: '1px solid #d4d4d4', background: '#fff' }}>
+            <div className="pb-band">Fields</div>
+            {NEUTRAL_ROWS.flatMap((r) => r.fields).map((f) => (
+              <div key={f.name} style={{ padding: '2px 6px', borderBottom: '1px solid #f0f0f0', background: focused === f.name ? '#cce4f7' : undefined }}>
+                <div style={{ fontWeight: 700 }}>{f.name}</div>
+                <div style={{ color: '#505050', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name === 'signature' ? (signed ? '(signed)' : '') : values[f.name] ?? ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
         <div
           data-tutorial-id="host.mois.field.viewer-page"
           style={{
@@ -667,9 +816,28 @@ export function MoisViewerWindow({
           >
             {fields
               ? <NumberedPage form={form} fields={fields} />
-              : <NeutralPage form={form} values={values} onField={(n, v) => setValues((x) => ({ ...x, [n]: v }))} onFocusField={setFocused} />}
+              : (
+                <NeutralPage
+                  form={form}
+                  values={values}
+                  onField={(n, v) => { setValues((x) => ({ ...x, [n]: v })); setDirty(true); setSaved(false) }}
+                  onFocusField={setFocused}
+                  signing={tool === 'sign-document' || tool === 'pencil'}
+                  signed={signed}
+                  onSign={() => { setSigned(true); setDirty(true); setSaved(false) }}
+                />
+              )}
           </div>
         </div>
+        </div>
+
+        <ViewerBottomToolbar
+          show={{ options: !!toolbars['Document Options Toolbar'], navigation: !!toolbars['Pages Navigation Toolbar'], layout: !!toolbars['Pages Layout Toolbar'], launch: !!toolbars['Launch Toolbar'] }}
+          fieldsPane={fieldsPane}
+          onFieldsPane={() => setFieldsPane((v) => !v)}
+          onToggleToolbar={toggleToolbar}
+          visible={toolbars}
+        />
 
         {/* the status strip: page size, then the horizontal scroll bar */}
         <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, height: 20, padding: '0 6px', background: '#f3f3f3', borderTop: '1px solid #d6d6d6' }}>
@@ -688,6 +856,15 @@ export function MoisViewerWindow({
               : [e.name, e.location, e.city, e.phone && `Ph ${e.phone}`, e.fax && `Fax ${e.fax}`].filter(Boolean).join(', '))
             setPicker(null)
           }}
+        />
+      )}
+      {efax && <SendEfaxWindow title={form} onClose={() => setEfax(false)} />}
+      {customize && (
+        <CustomizeToolbarsDialog
+          visible={toolbars}
+          onToggle={toggleToolbar}
+          onReset={() => { setToolbars(Object.fromEntries(TOOLBAR_NAMES.map((n) => [n, shownByDefault.includes(n)]))); setExtraTools([]) }}
+          onClose={() => setCustomize(false)}
         />
       )}
       {picker === 'health-issues' && (

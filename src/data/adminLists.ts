@@ -232,6 +232,17 @@ export const MANAGED_LISTS: Record<string, ManagedList> = {
       ['MAMMO', 'Mammogram', 0], ['MRI', 'MRI Scan', 0], ['PAP', 'Pap Test', 0], ['OTHER', 'Other', 1000],
     ].map(([code, desc, order]) => ({ code, desc, grace: 90, order })),
   },
+  /* Art. 301149 "Alias ID - Add to list options": the list behind the ID
+     Alias tab's Code drop-down lives at Selection Lists ▸ Alias ID. No
+     capture opens it, so it is drawn like Postal Code below over the codes
+     the tab offers (data/demographic-claim-lookups ALIAS_ID_CODES). */
+  'Alias ID': {
+    source: '301149 prose; no capture',
+    columns: CODE_DESC_ORDER,
+    rows: [
+      ['HOSPNO', 'HOSPITAL NO.'], ['NHN', 'NORTHERN HEALTH NUMB'], ['RCMP', 'RCMP NUMBER'], ['SIN', 'SOCIAL INSURANCE NUMBER'],
+    ].map(([code, desc]) => ({ code, desc, order: 0 })),
+  },
   /* No capture opens the Postal Code list. 303177 says only that it holds
      "postal codes that are set to specific cities", and 303081 that every
      list's record is a code, a description and an order — so it is drawn
@@ -453,6 +464,8 @@ export const LOOKUP_REFERENCE_SETS: AdminRow[] = [
 export const adminListNodes = [
   'ad-prompt-lists', 'ad-selection-lists', 'ad-text-labels', 'ad-snippet',
   'ad-chart-summaries', 'ad-reference-sets', 'ad-lookup-settings',
+  /* Codeset Management's other five (screens/CodesetManagementViews.tsx) */
+  'ad-code-sources', 'ad-code-systems', 'ad-codes', 'ad-value-sets', 'ad-code-mapping',
   /* the two section landing pages (screens/AdminLandingViews.tsx, user
      capture 2026-09-25 #48 / #54): the folder node itself opens them */
   'ad-designer', 'ad-clinic-mgt',

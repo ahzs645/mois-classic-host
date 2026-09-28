@@ -2,6 +2,7 @@ import { useScreenReport } from '../host/screen-state'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { PBBand, PBCheckbox, PBDataWindow, PBRadio, pbSlug } from '../pb'
+import { useSpecialFunctions } from '../data/accessSettings'
 import {
   ACCESS_FOOTNOTE, ACCESS_LEVELS, MODULE_ACCESS_ROWS, MODULE_PANE_W,
   REPORT_ACCESS_FOLDERS, SPECIAL_FUNCTION_ROWS, UM_RED, WINDOW_ACCESS_ROWS, WINDOW_PANE_W,
@@ -142,7 +143,8 @@ export function ModuleWindowAccessTab({ override = false }: { override?: boolean
                   render: (r: WindowAccessRow, i: number) => (
                     <PBCheckbox
                       label="Access"
-                      checked={Boolean(r.access)}
+                      checked={ticks[`window-access-${i}`] ?? Boolean(r.access)}
+                      onChange={tick(`window-access-${i}`)}
                       tutorialId={`host.mois.cell.window-access-${pbSlug(r.node)}-${i}`}
                     />
                   ),
@@ -183,6 +185,12 @@ export function ModuleWindowAccessTab({ override = false }: { override?: boolean
 /** The two BH-internal rows render entirely in #FF0000 — every cell. */
 export function SpecialFunctionsTab() {
   const [cur, setCur] = useState(0)
+  /* the Execute ticks persist for the frame, so a chart window can check
+     one (data/accessSettings.ts: Make Private Notes, Break Glass Private
+     Notes, Can create controlled prescriptions — 3799750, 303227) */
+  const [executes, setExecute] = useSpecialFunctions()
+  const [last, setLast] = useState<string | null>(null)
+  useScreenReport(last ? { cell: `execute-${pbSlug(last)}`, checked: Boolean(executes[last]) } : {})
   const red = (r: SpecialFunctionRow, text: ReactNode) =>
     (r.bh ? <span style={{ color: UM_RED }}>{text}</span> : text)
 
@@ -219,7 +227,8 @@ export function SpecialFunctionsTab() {
                 <span style={r.bh ? { color: UM_RED } : undefined}>
                   <PBCheckbox
                     label="Execute"
-                    checked={Boolean(r.execute)}
+                    checked={Boolean(executes[r.fn])}
+                    onChange={(v) => { setExecute(r.fn, v); setLast(r.fn) }}
                     tutorialId={`host.mois.cell.execute-${pbSlug(r.fn)}`}
                   />
                 </span>

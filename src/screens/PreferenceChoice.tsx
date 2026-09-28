@@ -2,9 +2,14 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { PBDropGlyph, PBInput } from '../pb'
 import { PBPopup, pbInPopup, usePBPopupOwner } from '../pb/popup'
 
-/** Headerless PowerBuilder choice list, including its empty dropped state. */
-export function PreferenceChoice({ label, value, options, onChange, disabled }: {
+/** Headerless PowerBuilder choice list, including its empty dropped state.
+ * `tutorialId` (opt-in) anchors the control `host.mois.field.{id}` — setField
+ * types into its edit box — and its drop button `host.mois.command.{id}-list`.
+ * `readOnly` is the protected state: value shown, list and typing locked
+ * (art. 300925: Type, Subject and Instruction once a preference is saved). */
+export function PreferenceChoice({ label, value, options, onChange, disabled, readOnly, tutorialId }: {
   label: string; value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean
+  readOnly?: boolean; tutorialId?: string
 }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
@@ -25,7 +30,8 @@ export function PreferenceChoice({ label, value, options, onChange, disabled }: 
   useEffect(() => {
     if (open && active >= 0) document.getElementById(`${id}-${active}`)?.scrollIntoView?.({ block: 'nearest' })
   }, [active, open, id])
-  return <span ref={anchor} className="pb-inputgroup pb-preference-choice" onKeyDown={e => {
+  return <span ref={anchor} className="pb-inputgroup pb-preference-choice" data-tutorial-id={tutorialId ? `host.mois.field.${tutorialId}` : undefined} onKeyDown={e => {
+    if (readOnly) return
     if (e.key === 'Escape') { e.stopPropagation(); close() }
     if (e.key === 'Tab') setOpen(false)
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -36,9 +42,11 @@ export function PreferenceChoice({ label, value, options, onChange, disabled }: 
   }}>
     <PBInput aria-label={label} role="combobox" aria-autocomplete="none" aria-expanded={open}
       aria-controls={open ? id : undefined} aria-activedescendant={open && active >= 0 ? `${id}-${active}` : undefined}
-      value={value} disabled={disabled} onChange={e => onChange(e.target.value)} />
+      value={value} disabled={disabled} readOnly={readOnly} onChange={e => onChange(e.target.value)} />
     <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--drop" aria-label={`Open ${label.toLowerCase()} choices`}
-      disabled={disabled} aria-expanded={open} onClick={() => { setActive(choices.indexOf(value)); setOpen(v => !v) }}>
+      disabled={disabled || readOnly} aria-expanded={open} aria-controls={open ? id : undefined}
+      data-tutorial-id={tutorialId ? `host.mois.command.${tutorialId}-list` : undefined}
+      onClick={() => { setActive(choices.indexOf(value)); setOpen(v => !v) }}>
       <PBDropGlyph />
     </button>
     {open && <PBPopup anchorRef={anchor} owner={owner} minWidth="anchor" className="pb-preference-choice__popup">

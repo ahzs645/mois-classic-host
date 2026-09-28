@@ -30,12 +30,17 @@ export const SUMMARY_LINK_NODES = {
   Encounters: 'encounters',
   Orders: 'orders',
   Notifications: 'notifications',
+  /* an added MEASURE band's rows (data/chartSummaryConfig, art. 303353) */
+  Measures: 'measures',
 } as const
 
 export type SummaryRow = {
   /** Stable source ID used when a summary hyperlink opens a specific record. */
   recordId?: string
   instructionComment?: string
+  /** a monospace line under the description: an added MEASURE band's
+      "Ref. Range:  to" (art. 303353 `cf5e62ee…png`) */
+  note?: string
   date?: string
   description: string
   detail?: string

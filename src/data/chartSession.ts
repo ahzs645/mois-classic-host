@@ -55,6 +55,20 @@ export function addCarePlanTag(chart: string, tag: CarePlanTag) {
   emit()
 }
 
+/** Summary Settings ▸ Care Plan Elements ▸ Edit: a tag's section and rank
+    (art. 303514; screens/SummarySettingsView.tsx) */
+export function updateCarePlanTag(chart: string, index: number, patch: Partial<CarePlanTag>) {
+  of(chart).tags = of(chart).tags.map((t, i) => (i === index ? { ...t, ...patch } : t))
+  emit()
+}
+
+/** Summary Settings ▸ Care Plan Elements ▸ Delete Record: "Tagged records
+    must be deleted from this window" (art. 303514) */
+export function deleteCarePlanTag(chart: string, index: number) {
+  of(chart).tags = of(chart).tags.filter((_, i) => i !== index)
+  emit()
+}
+
 export function addCarePlanSnapshot(chart: string, snapshot: CarePlanSnapshot) {
   of(chart).snapshots = [snapshot, ...of(chart).snapshots]
   emit()

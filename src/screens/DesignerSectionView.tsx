@@ -8,6 +8,9 @@ import {
   type DesignerColumn, type DesignerListScreen, type DesignerNewDialog, type DesignerRow,
 } from '../data/designerSection'
 import { DesignerDetailWindow, ImportPaperFormsDialog } from './DesignerDetailWindow'
+import { ExportPaperFormsDialog, NewPaperFormDialog } from './PaperFormAdminWindows'
+import { ConceptTransfer } from './ConceptTransferWindows'
+import { CarePlanTemplatesView } from './CarePlanTemplatesView'
 import { useScreenReport } from '../host/screen-state'
 import { DesktopLayer } from './StageWindow'
 
@@ -72,6 +75,9 @@ function rowFromDialog(columns: DesignerColumn[], values: Record<string, string>
 }
 
 export function DesignerSectionView({ node, onClose }: { node: string; onClose?: () => void }) {
+  /* Care Plan Templates reads and writes a shared template store, so Summary
+     Settings ▸ Add from Template sees what is authored (art. 303115) */
+  if (node === 'ad-careplan-templates') return <CarePlanTemplatesView onClose={onClose} />
   const screen = designerScreen(node)
   if (!screen) return null
   return <DesignerList key={screen.node} screen={screen} onClose={onClose} />
@@ -85,6 +91,13 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
   const [detail, setDetail] = useState<DesignerRow | null>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  /* Paper (PDF) Forms' New Record and Export Forms (303112;
+     screens/PaperFormAdminWindows.tsx) */
+  const [paperNew, setPaperNew] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const paper = screen.node === 'ad-paper-forms'
+  /* Concept Mapping's Import / Export Concepts (ConceptTransferWindows.tsx) */
+  const [conceptTransfer, setConceptTransfer] = useState<'import' | 'export' | null>(null)
   /* the HM Item filter tick (Concept Mapping only) */
   const [onlyTicked, setOnlyTicked] = useState<Record<string, boolean>>({})
 
@@ -125,11 +138,13 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
           width: DESIGNER_COMMAND_WIDTH[label],
           onClick:
             label === 'New Record'
-              /* two have no New Record dialog, captured or described (Paper
-                 Forms, Care Plan Templates), so the button raises nothing
-                 there rather than an invented one. Encounter Form's is
-                 described by 303174's step list (data/designerSection.ts). */
-              ? (screen.newDialog ? () => setNewOpen(true) : undefined)
+              /* Care Plan Templates has no New Record dialog, captured or
+                 described, so the button raises nothing there rather than an
+                 invented one. Paper Forms' is described by 303112 ("you will
+                 be prompted to locate a fillable PDF document") and built in
+                 PaperFormAdminWindows. Encounter Form's is described by
+                 303174's step list (data/designerSection.ts). */
+              ? (paper ? () => setPaperNew(true) : screen.newDialog ? () => setNewOpen(true) : undefined)
               : label === 'Edit Record'
                 ? () => { const r = rows[cur]; if (r) openDetail(r) }
                 : label === 'Close Window' ? () => onClose?.()
@@ -150,8 +165,13 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
                   host?.report('command', { command: pbSlug(b.label) })
                   /* `Import Paper Forms` is the only one of the six
                      Import/Export dialogs captured anywhere in the corpus;
-                     the other five raise nothing rather than a guess. */
+                     Import / Export Concepts open the INFERRED windows in
+                     ConceptTransferWindows.tsx (302269 describes them, a
+                     lesson needs them); the other three raise nothing. */
                   if (b.label === 'Import Forms') setImportOpen(true)
+                  if (b.label === 'Export Forms') setExportOpen(true)
+                  if (b.label === 'Import Concepts') setConceptTransfer('import')
+                  if (b.label === 'Export Concepts') setConceptTransfer('export')
                 }}
               >
                 {b.label}
@@ -212,6 +232,23 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
           onClose={() => setNewOpen(false)}
         />
       )}
+
+      {conceptTransfer && (
+        <ConceptTransfer
+          mode={conceptTransfer}
+          concepts={all}
+          onImported={(rows) => setAdded((a) => [...a, ...rows])}
+          onClose={() => setConceptTransfer(null)}
+        />
+      )}
+
+      {paperNew && (
+        <NewPaperFormDialog
+          onClose={() => setPaperNew(false)}
+          onCreate={(values) => { setPaperNew(false); createRecord(values) }}
+        />
+      )}
+      {exportOpen && <ExportPaperFormsDialog forms={all} onClose={() => setExportOpen(false)} />}
 
       {importOpen && (
         <ImportPaperFormsDialog

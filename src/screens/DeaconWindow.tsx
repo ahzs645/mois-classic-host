@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { clinicListSpecs } from '../data/clinicManagement'
-import { DEACON_FUNCTIONS, DEACON_GROUPS, DEACON_TITLE, type DeaconFunction } from '../data/deacon'
+import { DEACON_CHART_STATUSES, DEACON_FUNCTIONS, DEACON_GROUPS, DEACON_TITLE, type DeaconFunction } from '../data/deacon'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBButton, PBDataWindow, PBDropDownDataWindow, PBWindow, pbSlug, usePBInstrumentation,
+  PBButton, PBDataWindow, PBDropDownDataWindow, PBInput, PBSelect, PBWindow, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { deaconRun } from '../data/billingPrograms'
+import { useUnsentSink } from './billingProgramsKit'
 
 /* ============================================================================
    DEACON - Data Extraction, Access, & Control.
@@ -61,12 +63,21 @@ export function DeaconWindow({ close }: AreaWindowProps) {
   const [paramRow, setParamRow] = useState(0)
   const [asking, setAsking] = useState(false)
   const [ran, setRan] = useState(false)
+  /* a destructive function asks first (data/deacon.ts `confirm`, INFERRED) */
+  const [confirming, setConfirming] = useState(false)
+  /* a function with behaviour (the LFP panel pair, data/billingPrograms.ts
+     deaconRun) answers Run with its own message, or refuses with one */
+  const [outcome, setOutcome] = useState<{ ok: boolean; message: string } | null>(null)
+  const sink = useUnsentSink()
   const selected = cur >= 0 ? DEACON_FUNCTIONS[cur] : undefined
 
   useScreenReport({
     dialog: 'deacon',
     row: selected ? deaconRowId(selected) : null,
     record: ran ? 'run' : null,
+    /* which function the run was, so a lesson can grade Delete future
+       daybook vs Update Patient Status (slug only) */
+    deaconFunction: ran && selected ? pbSlug(selected.name) : null,
   })
 
   return (
@@ -131,15 +142,34 @@ export function DeaconWindow({ close }: AreaWindowProps) {
                     style={{ gap: 8, padding: '4px 12px', background: i === paramRow ? SALMON : PANEL }}
                   >
                     <span style={{ width: 172, flex: 'none' }}>{p}</span>
-                    <PBDropDownDataWindow
-                      w={236}
-                      listW={300}
-                      rows={providers()}
-                      columns={[{ key: 'provider', header: 'Provider' }, { key: 'type', header: 'Type', width: 80 }]}
-                      value={params[p] ?? ''}
-                      onSelect={(row) => setParams((v) => ({ ...v, [p]: row.provider }))}
-                      tutorialId={`host.mois.field.${pbSlug(p)}`}
-                    />
+                    {/provider/i.test(p) ? (
+                      <PBDropDownDataWindow
+                        w={236}
+                        listW={300}
+                        rows={providers()}
+                        columns={[{ key: 'provider', header: 'Provider' }, { key: 'type', header: 'Type', width: 80 }]}
+                        value={params[p] ?? ''}
+                        onSelect={(row) => setParams((v) => ({ ...v, [p]: row.provider }))}
+                        tutorialId={`host.mois.field.${pbSlug(p)}`}
+                      />
+                    ) : selected?.kinds?.[p] === 'status' || selected?.kinds?.[p] === 'statuses' ? (
+                      /* a chart status parameter drops the status list (INFERRED) */
+                      <PBSelect
+                        w={236}
+                        options={['', ...DEACON_CHART_STATUSES]}
+                        value={params[p] ?? ''}
+                        onChange={(e) => setParams((v) => ({ ...v, [p]: e.target.value }))}
+                        data-tutorial-id={`host.mois.field.${pbSlug(p)}`}
+                      />
+                    ) : (
+                      /* the plain edit boxes of 3295289 `07de3928…` / `43859d93…` */
+                      <PBInput
+                        w={236}
+                        value={params[p] ?? ''}
+                        onChange={(e) => setParams((v) => ({ ...v, [p]: e.target.value }))}
+                        data-tutorial-id={`host.mois.field.${pbSlug(p)}`}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -150,6 +180,10 @@ export function DeaconWindow({ close }: AreaWindowProps) {
                   data-tutorial-id={host?.anchor('command', 'run')}
                   onClick={() => {
                     host?.report('command', { command: 'run' })
+                    const result = selected ? deaconRun(selected.name, params) : null
+                    if (result && !result.ok) { setOutcome({ ok: false, message: result.message ?? '' }); return }
+                    if (result) { sink(result.claims ?? []); setOutcome({ ok: true, message: result.message ?? '' }) }
+                    if (selected?.confirm) { setConfirming(true); return }
                     setAsking(true)
                   }}
                 >
@@ -167,7 +201,10 @@ export function DeaconWindow({ close }: AreaWindowProps) {
         <div className="pb-modal-layer" style={{ zIndex: 80 }}>
           <PBWindow child controls={false} title="DEACON" onClose={() => setAsking(false)} className="pb-msgbox" tutorialId="host.mois.dialog.deacon-results">
             <div className="pb-msgbox__body">
-              <span className="pb-msgbox__text">The data has been changed. Would you like to see the results?</span>
+              <span className="pb-msgbox__text">
+                {outcome?.ok && outcome.message ? <>{outcome.message}<br /><br /></> : null}
+                The data has been changed. Would you like to see the results?
+              </span>
             </div>
             <div className="pb-msgbox__footer">
               {['Yes', 'No'].map((b) => (
@@ -180,6 +217,41 @@ export function DeaconWindow({ close }: AreaWindowProps) {
                   {b}
                 </PBButton>
               ))}
+            </div>
+          </PBWindow>
+        </div>
+      )}
+
+      {confirming && selected?.confirm && (
+        <div className="pb-modal-layer" style={{ zIndex: 80 }}>
+          <PBWindow child controls={false} title="DEACON" onClose={() => setConfirming(false)} className="pb-msgbox" tutorialId="host.mois.dialog.deacon-confirm">
+            <div className="pb-msgbox__body">
+              <span className="pb-msgbox__text">{selected.confirm}</span>
+            </div>
+            <div className="pb-msgbox__footer">
+              {['Yes', 'No'].map((b) => (
+                <PBButton
+                  key={b}
+                  className={b === 'No' ? 'pb-btn--default' : undefined}
+                  data-tutorial-id={host?.anchor('command', `deacon-confirm-${pbSlug(b)}`)}
+                  onClick={() => { host?.report('command', { command: `deacon-confirm-${pbSlug(b)}` }); setConfirming(false); if (b === 'Yes') setAsking(true) }}
+                >
+                  {b}
+                </PBButton>
+              ))}
+            </div>
+          </PBWindow>
+        </div>
+      )}
+
+      {outcome && !outcome.ok && (
+        <div className="pb-modal-layer" style={{ zIndex: 80 }}>
+          <PBWindow child controls={false} title="DEACON" onClose={() => setOutcome(null)} className="pb-msgbox" tutorialId="host.mois.dialog.deacon-error">
+            <div className="pb-msgbox__body">
+              <span className="pb-msgbox__text">{outcome.message}</span>
+            </div>
+            <div className="pb-msgbox__footer">
+              <PBButton className="pb-btn--default" data-tutorial-id={host?.anchor('command', 'deacon-error-ok')} onClick={() => setOutcome(null)}>OK</PBButton>
             </div>
           </PBWindow>
         </div>

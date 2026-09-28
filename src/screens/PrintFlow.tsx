@@ -4,7 +4,7 @@ import { usePatient } from '../data/patient-context'
 import type { PrintParams } from '../data/printPages'
 import type { PrintField, PrintReport } from '../data/printReports'
 import { CmdButton } from './CmdButton'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBSelect, PBWindow, usePBInstrumentation } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBWindow, usePBInstrumentation } from '../pb'
 
 /* ============================================================================
    The two windows every MOIS print goes through.
@@ -37,6 +37,7 @@ export function defaultPrintParams(report: PrintReport): PrintParams {
     if (f.kind === 'text' && f.key) out[f.key] = f.value ?? ''
     if (f.kind === 'range') { out.from = f.from ?? ''; out.to = f.to ?? '' }
     if (f.kind === 'check' && f.key) out[f.key] = !!f.checked
+    if (f.kind === 'radio') out[f.key] = f.value
     if (f.kind === 'segments') {
       for (const r of f.rows) { out[`include:${r.label}`] = !!r.include; out[`detail:${r.label}`] = !!r.detail }
     }
@@ -91,6 +92,15 @@ export function SelectionParameterDialog({
       )
     }
     if (f.kind === 'segments') return <SegmentGrid key={i} rows={f.rows} values={values} set={set} />
+    if (f.kind === 'radio') {
+      return (
+        <div key={i} className="pb-row" style={{ gap: 14, padding: '2px 0 2px 72px' }}>
+          {f.options.map((o) => (
+            <PBRadio key={o} name={`print-${f.key}`} label={o} checked={String(values[f.key] ?? f.value) === o} onChange={() => set(f.key, o)} tutorialId={`host.mois.field.print-${f.key}-${o.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} />
+          ))}
+        </div>
+      )
+    }
     return (
       <div key={i} className="pb-row" style={{ gap: 6, padding: '2px 0 2px 12px' }}>
         <span className="pb-form__label" style={{ width: 54 }}>{f.label}</span>

@@ -101,13 +101,17 @@ export const measureTemplates: MeasureTemplate[] = [
 /** `Calculator` opens `Measure Calculators` over this list. */
 export const measureCalculators = ['BMI', 'BSA', 'Cardiac Risk', 'Predicted PEF', 'Gestational Age']
 
-/** The measure each calculator writes back, shown in its `Measure Code` box. */
+/** The measure each calculator writes back, shown in its `Measure Code` box.
+    BSA 34086, Predicted PEF 12577 and Cardiac Risk 1988 ("Map Score to MOIS
+    Code: 1988 CARDIAC RISK FRAMINGHAM") are the codes printed on their
+    calculators (302837 `27fd978b…`, `eb9d27d7…`, `4d69f496…`); Gestational
+    Age has no Measure Code box and saves nothing (`14e8d18a…`). */
 export const calculatorMeasureCode: Record<string, string> = {
   BMI: '951',
-  BSA: '3140',
-  'Cardiac Risk': '',
-  'Predicted PEF': '39951',
-  'Gestational Age': '11884',
+  BSA: '34086',
+  'Cardiac Risk': '1988',
+  'Predicted PEF': '12577',
+  'Gestational Age': '',
 }
 
 /** The classification table the BMI calculator prints under its fields. */

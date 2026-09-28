@@ -20,6 +20,9 @@ export function undoPatient(chart: string) {
   const saved = entries.get(chart)?.saved ?? {}; entries.set(chart, { draft: saved, saved }); emit()
 }
 export function refreshPatient(chart: string) { entries.delete(chart); emit() }
+/** Charts with edits this session — Billing ▸ Enrollment CR reads the BC-PBF
+    requests made on their Benefits tabs (data/billingPrograms.ts). */
+export function editedCharts(): string[] { return [...entries.keys()] }
 export function usePatientEdits(chart: string) {
   return useSyncExternalStore(subscribe, () => patientEdits(chart), () => empty)
 }

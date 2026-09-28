@@ -124,7 +124,9 @@ export function useRecordOptionList({ node, record, commands, setCur }: {
     { label: 'Save Changes', onSelect: press('Save') },
     { sep: true },
     { label: 'Create Task', onSelect: () => { open('create-task', { ...who, linkedTo }) } },
-    { label: 'Create Message', onSelect: () => { open('create-message', { ...who, linkedTo }) } },
+    /* on Measures a PHQ-9 questionnaire row opens New Message, which can send
+       it to the patient (302837 `563168db…`; MeasureEntryWindows.tsx) */
+    { label: 'Create Message', onSelect: () => { open(node === 'measures' ? 'measure-create-message' : 'create-message', { ...who, linkedTo }) } },
     { label: 'Create Reminder' },
     { label: 'Create Recall', onSelect: () => { open('create-recall', who) } },
     { label: 'View Recalls', onSelect: () => { open('patient-recall-list', who) } },

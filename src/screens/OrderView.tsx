@@ -10,8 +10,12 @@ import { MOIS_TODAY } from '../data/patients'
 import { nextEncounterId, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
 import { useChartSession } from '../data/chartSession'
-import { DESKTOP_PROVIDER } from '../data/letterFlow'
+import { DESKTOP_PROVIDER, setCurrentOrder } from '../data/letterFlow'
+import { SEED_DISTRIBUTIONS } from '../data/letterDocs'
+import { useRespondToOrder, useResponseLinks } from './LetterResponseWindows'
 import { VISIT_MODES } from './EncounterWindow'
+import { useOpenWindow } from './areaWindowRegistry'
+import type { QuickEntryApplied } from './quickEntryApply'
 import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBFixed, PBGroup, PBIdentityStrip, PBInput,
   PBLookup, PBRadio, PBSelect, PBTabs, PBTextArea, PBViewHeader,
@@ -96,6 +100,7 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   /* New Record (303588): a row at the top dated today, Ordered By the Desktop
      Provider, and an Order Type to pick — held until Save or Undo */
   const [draft, setDraft] = useState<OrderRow | null>(null)
+  const openWindow = useOpenWindow()
 
   const exportedOrders = draft ? [draft, ...exported] : exported
   const offset = draft ? 1 : 0
@@ -105,11 +110,20 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
      grade "that order is the one you are on" (host.screen.row) */
   const currentOrderId = draft && cur === 0 ? null : records[cur - offset]?.id_order
   useScreenReport({ draft: !!draft, row: draft && cur === 0 ? 'order-new' : currentOrderId ? `order-${currentOrderId}` : null })
+  /* Standard Mode's Create Referral Note and Respond act on this order
+     (data/letterFlow.ts currentOrderId, screens/LetterResponseWindows.tsx) */
+  useEffect(() => { setCurrentOrder(currentOrderId ?? null) }, [currentOrderId])
+  const respond = useRespondToOrder()
+  const responseLinks = useResponseLinks(currentOrderId ?? undefined)
   const r = records[cur - offset]
   /* a letter distributed from this order this session (screens/LetterWindows.tsx) */
-  const sent = session.distributions.filter((d) => d.orderId && d.orderId === r?.id_order)
+  const sent = [
+    ...session.distributions,
+    /* the training overlay's already-sent letter (data/letterDocs.ts) */
+    ...SEED_DISTRIBUTIONS.filter((d) => d.chart === patient.chart),
+  ].filter((d) => d.orderId && d.orderId === r?.id_order)
   const order: OrderRow | undefined = draft && cur === 0 ? { ...draft, detail: { orderedBy: DESKTOP_PROVIDER, status: 'IP', priority: 'ROUTINE' } }
-    : exportedOrders?.[cur] ? { ...exportedOrders[cur], distribution: sent.map((d) => ({
+    : exportedOrders?.[cur] ? { ...exportedOrders[cur], linkRows: [...(exportedOrders[cur].linkRows ?? []), ...responseLinks], distribution: sent.map((d) => ({
       sentAt: d.date, document: d.title, by: 'JALIL, AHMAD',
       recipients: d.rows.map((x) => ({ method: x.method, type: x.type, name: x.name, location: '', status: x.status })),
     })), detail: {
@@ -152,12 +166,32 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
                 setTab('Report')
               },
             },
-            { label: 'Quick Entry' }, { label: 'Delete Record' },
+            /* art. 3071982 "Using Quick Entry in Orders": the searchable
+               Quick Entry - Chart Order window (screens/QuickEntryWindows.tsx);
+               Continue puts the templated order in as the new record */
+            {
+              label: 'Quick Entry',
+              onClick: () => openWindow('quick-entry-chart', {
+                group: 'Order',
+                onApply: ({ template, values }: QuickEntryApplied) => {
+                  setDraft({
+                    date: values.orderDate || MOIS_TODAY, type: template.order?.type ?? '', by: values.orderBy || DESKTOP_PROVIDER,
+                    to: values.orderTo ?? '', for: template.order?.orderFor ?? '', st: 'IP', links: '-',
+                    attach: template.order?.attachment ? '1' : '-',
+                  })
+                  setCur(0)
+                  setTab('Report')
+                },
+              }),
+            },
+            { label: 'Delete Record' },
             /* MOIS draws Save and Undo in full black here, not greyed — both
                captures of this window show them enabled at rest. */
             { label: 'Save', onClick: () => setDraft(null) }, { label: 'Undo', onClick: () => { setDraft(null); setCur(0) } }, { label: 'Refresh' },
             { label: 'Mark for Review' }, { label: 'Attachment', onClick: onAttachment },
-            { label: 'Print' }, { label: 'Paste Provider Addr.', width: 118 }, { label: 'Respond' },
+            { label: 'Print' }, { label: 'Paste Provider Addr.', width: 118 },
+            /* 2961349 `ad5aba34…`: answer the Information Request on this row */
+            { label: 'Respond', onClick: () => respond(currentOrderId ?? undefined, openWindow) },
           ]}
         />
       </div>

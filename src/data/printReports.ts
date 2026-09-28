@@ -21,6 +21,10 @@ import {
   interventionsPage, marHistoryPage, medicationsPage, problemListPage,
   proceduresPage, radiologyPage, socialHistoryPage, type PrintContext,
 } from './printPages'
+import {
+  accessListPage, clinicalHistoryTabularPage, clinicalSummaryPage, cumulativeLabPage, labCodePage, labProfilePage,
+  reminderListPage,
+} from './printPagesChart'
 
 export type PrintField =
   | { kind: 'section'; label: string }
@@ -32,6 +36,9 @@ export type PrintField =
   | { kind: 'check'; label: string; checked?: boolean; key?: string; caption?: string }
   /** the Clinical History Segment's Include Section / With Detail grid */
   | { kind: 'segments'; rows: { label: string; include?: boolean; detail?: boolean; date?: boolean }[] }
+  /** one of several (Cumulative Lab Data's output, the Reminder List's
+      Current / Stopped / All) */
+  | { kind: 'radio'; label?: string; key: string; options: string[]; value: string }
 
 export type PrintReport = {
   /** the Print-menu item that opens it */
@@ -240,6 +247,113 @@ export const printReports: PrintReport[] = [
     build: clinicalHistoryPage,
   },
 ]
+
+/* ------------------------------------------------------------------------
+   680492's remaining chart reports (stream C3). Every image in that article
+   is missing, so each window follows the captured Selection Parameter shape
+   (band, navy headings, From / To, Ok / Cancel) with the parameters the
+   prose names; pages are data/printPagesChart.ts. INFERRED.
+   --------------------------------------------------------------------- */
+printReports.push(
+  {
+    menu: 'Cumulative Lab Data for Patient',
+    title: 'Patient Cumulative Lab Data Report',
+    fields: [
+      { kind: 'section', label: 'Collected Date Range (INCLUSIVE)' },
+      { kind: 'text', label: 'From:', value: back(1), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+      { kind: 'section', label: 'Output' },
+      { kind: 'radio', key: 'output', options: ['Summary Only', 'Comments Only', 'Comments and Report'], value: 'Summary Only' },
+    ],
+    reportTitle: 'Patient Cumulative Lab Data',
+    captured: false,
+    build: cumulativeLabPage,
+  },
+  {
+    menu: 'Lab Code for Patient',
+    title: 'Patient Lab Code Report',
+    fields: [
+      { kind: 'section', label: 'Lab Code' },
+      { kind: 'text', label: 'Code:', value: '', width: 200, key: 'code', dots: true },
+      { kind: 'section', label: 'Collected Date Range (INCLUSIVE)' },
+      { kind: 'text', label: 'From:', value: back(2), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+    ],
+    reportTitle: 'Patient Lab Code Report',
+    captured: false,
+    build: labCodePage,
+  },
+  {
+    menu: 'Lab Profile for Patient',
+    title: 'Patient Lab Profile Report',
+    fields: [
+      { kind: 'section', label: 'Lab Profile' },
+      { kind: 'text', label: 'Profile:', value: '', width: 200, key: 'profile', dots: true },
+      { kind: 'section', label: 'Collected Date Range (INCLUSIVE)' },
+      { kind: 'text', label: 'From:', value: back(2), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+    ],
+    reportTitle: 'Patient Lab Profile Report',
+    captured: false,
+    build: labProfilePage,
+  },
+  {
+    menu: 'Reminder List for Patient',
+    title: 'Patient Reminder List Report',
+    fields: [
+      { kind: 'section', label: 'Due Date Range (INCLUSIVE)' },
+      { kind: 'text', label: 'From:', value: back(2), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: back(-2), width: 80, key: 'to' },
+      { kind: 'section', label: 'Description' },
+      { kind: 'text', label: 'Contains:', value: '', width: 190, key: 'contains' },
+      { kind: 'section', label: 'Reminders' },
+      { kind: 'radio', key: 'which', options: ['Current', 'Stopped', 'All'], value: 'Current' },
+    ],
+    reportTitle: 'Patient Reminder List',
+    captured: false,
+    build: reminderListPage,
+  },
+  {
+    menu: 'Clinical History Tabular',
+    title: 'Patient Clinical History - Tabular',
+    band: false,
+    okLabel: 'View Report',
+    fields: [
+      { kind: 'section', label: 'Date Range (INCLUSIVE)' },
+      { kind: 'range', from: back(2), to: TO },
+    ],
+    reportTitle: 'Patient Clinical History - Tabular',
+    captured: false,
+    build: clinicalHistoryTabularPage,
+  },
+  /* 680492: "This report is similar to the Clinical History Tabular report
+     in that it shows an overview of the chart" — no parameters, straight to
+     the preview (303353: "Prints lists of the patient's problems …") */
+  {
+    menu: 'Clinical Summary',
+    title: 'Patient Clinical Summary',
+    fields: [],
+    reportTitle: 'Patient Clinical Summary',
+    captured: false,
+    build: clinicalSummaryPage,
+  },
+  /* 303353: "Opens the Chart Access Report … Select the patient's chart and
+     medical record access date range" */
+  {
+    menu: 'Access List',
+    title: 'Report: Chart Access',
+    fields: [
+      { kind: 'section', label: 'Chart' },
+      { kind: 'text', label: 'Chart:', value: '', width: 120, key: 'chart', dots: true },
+      { kind: 'section', label: 'Access Date Range (INCLUSIVE)' },
+      { kind: 'text', label: 'From:', value: back(1), width: 80, key: 'from' },
+      { kind: 'text', label: 'To:', value: TO, width: 80, key: 'to' },
+    ],
+    reportTitle: 'Chart Access',
+    captured: false,
+    build: accessListPage,
+  },
+)
 
 export const printReportByMenu = (menu: string): PrintReport | undefined =>
   printReports.find((r) => r.menu === menu)

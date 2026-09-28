@@ -6,6 +6,9 @@ import {
 import { useChartRecords } from '../data/chart-records'
 import { useScreenReport } from '../host/screen-state'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
+import { Phq9FormWindow } from './Phq9FormWindow'
+import { MeasureCalculatorBody } from './MeasureCalculatorBodies'
+import { MEASURE_FORMS, type Phq9Answers } from '../data/measureEntry'
 import { usePatient } from '../data/patient-context'
 import {
   PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, PBWindow, pbSlug,
@@ -27,6 +30,10 @@ import {
 const QUICK_CODES: Record<string, Partial<MeasurementRow>> = {
   BP: { code: '1950', name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', units: 'mm Hg' },
   '1950': { name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', units: 'mm Hg' },
+  /* 303102: "Type in the quick code PHQ9" — PHQ-9 TOTAL SCORE, 43894
+     (302837 quick-code table `4bdc30e8…`; normal range to 10 per the export) */
+  PHQ9: { code: '43894', name: 'PHQ-9 TOTAL SCORE', units: '', upper: '10' },
+  '43894': { name: 'PHQ-9 TOTAL SCORE', units: '', upper: '10' },
 }
 
 export type MeasurementRow = {
@@ -44,6 +51,8 @@ export type MeasurementRow = {
   upper?: string
   /** the chart record behind the row, when it has one */
   id?: string
+  /** the unnamed column right of Value: `.*.` once a form was saved on it */
+  marker?: string
 }
 
 /* ---------------------------------------------------------------------------
@@ -63,10 +72,17 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
   const patient = usePatient()
   const [draft, setDraft] = useState(row)
   const set = (patch: Partial<MeasurementRow>) => setDraft((d) => ({ ...d, ...patch }))
-  /* a blood pressure has a form behind its value: BLOOD PRESSURE MEASUREMENT */
-  const hasForm = draft.code === '1950'
-  const [bpForm, setBpForm] = useState(false)
-  useScreenReport(bpForm ? { dialog: 'blood-pressure-form' } : {})
+  /* a blood pressure has a form behind its value (BLOOD PRESSURE
+     MEASUREMENT), and so does a PHQ-9 TOTAL SCORE (PATIENT HEALTH
+     QUESTIONNAIRE, 303102) */
+  const formKind = MEASURE_FORMS[draft.code]
+  const hasForm = !!formKind
+  const [openForm, setOpenForm] = useState(false)
+  const bpForm = openForm && formKind === 'bp'
+  const phq9Form = openForm && formKind === 'phq9'
+  const setBpForm = setOpenForm
+  const [phq9, setPhq9] = useState<{ answers: Phq9Answers; modified: string } | null>(null)
+  useScreenReport(bpForm ? { dialog: 'blood-pressure-form' } : phq9Form ? { dialog: 'phq9-form' } : {})
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 96 }}>
@@ -196,6 +212,15 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
           initial={draft.value.includes('/') ? { systolic: draft.value.split('/')[0], diastolic: draft.value.split('/')[1] } : undefined}
           onSave={(r) => set({ value: `${r.systolic}/${r.diastolic}` })}
           onClose={() => setBpForm(false)}
+        />
+      )}
+      {phq9Form && (
+        <Phq9FormWindow
+          initial={phq9?.answers}
+          modified={phq9?.modified}
+          /* Save Form: "The patient's PHQ9 score is now in the value field" */
+          onSave={(r) => { setPhq9({ answers: r.answers, modified: r.modified }); set({ value: r.total, flag: r.flag, report: r.report, marker: '.*.' }) }}
+          onClose={() => setOpenForm(false)}
         />
       )}
     </div>
@@ -470,6 +495,10 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
   const rule = { borderTop: '1px solid var(--pb-border)' }
   const code = calculatorMeasureCode[calculator] ?? ''
 
+  /* BSA, Cardiac Risk, Predicted PEF and Gestational Age are their own
+     layouts (302837 `27fd978b…`, `4d69f496…`, `eb9d27d7…`, `14e8d18a…`) */
+  if (calculator !== 'BMI') return <MeasureCalculatorBody calculator={calculator} onSave={onSave} onClose={onClose} />
+
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 97 }}>
       <PBWindow
@@ -482,16 +511,11 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
       >
         <div style={{ padding: 8, display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <div style={{ border: '1px solid var(--pb-border)', flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
-            {/* only the BMI calculator is transcribed (302837 `ff51e56c…`); the
-                BSA, Cardiac Risk, Predicted PEF and Gestational Age windows are
-                their own layouts in MOIS and are not built on this stage */}
-            <PBBand>{calculator === 'BMI' ? 'BODY MASS INDEX (BMI) CALCULATOR' : `${calculator.toUpperCase()} CALCULATOR`}</PBBand>
-            {calculator !== 'BMI' && (
-              <div className="pb-dw__empty" style={{ padding: 16 }}>
-                The {calculator} calculator is not built on this practice stage yet.
-              </div>
-            )}
-            {calculator === 'BMI' && <>
+            {/* the BMI calculator (302837 `ff51e56c…`); the BSA, Cardiac Risk,
+                Predicted PEF and Gestational Age windows are their own layouts
+                and return above (MeasureCalculatorBodies.tsx) */}
+            <PBBand>BODY MASS INDEX (BMI) CALCULATOR</PBBand>
+            <>
 
             <div style={{ padding: '5px 8px' }}>
               <div className="pb-row" style={{ gap: 6, marginBottom: 4 }}>
@@ -565,7 +589,7 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
               <span>Measure Code:</span>
               <PBInput w={122} defaultValue={code} />
             </div>
-            </>}
+            </>
           </div>
         </div>
 
@@ -575,7 +599,6 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
             /* Populate pulls the chart's last height and weight in; Save (F2)
                is what files the index as a measure row */
             data-tutorial-id="host.mois.command.populate"
-            disabled={calculator !== 'BMI'}
             onClick={populate}
           >
             Populate (Ctrl+P)

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
+import { usePBInstrumentation } from '../instrumentation'
 
 /* --- PBPatientBannerYellow ----------------------------------------------
    The compact two-line yellow strip on the encounter window.             */
@@ -68,7 +69,17 @@ export function PBSummaryBand({ title, links }: { title: ReactNode; links?: stri
 
 /* --- PBIdentityStrip -----------------------------------------------------
    Every chart view carries the same line under its command row. Only the
-   field set and the trailing encounter block vary.                        */
+   field set and the trailing encounter block vary.
+
+   The Active ENC# block is the frame's, not the screen's: "Choose a specific
+   Encounter and make it the Active Encounter by pressing on the ellipses"
+   (303793 `7e1fd910…png`), and it follows an open Encounter Detail Window.
+   A host supplies both through PBActiveEncounterContext; a screen that
+   passes the "NO ENCOUNTER" placeholder then shows the frame's encounter,
+   and its "…" opens the frame's picker unless the screen passes its own
+   `onEncounterLookup`. The "…" is anchored host.mois.lookup.active-encounter. */
+export const PBActiveEncounterContext = createContext<{ encounter: string | null; onLookup?: () => void } | null>(null)
+
 export function PBIdentityStrip({
   fields, encounter, onEncounterLookup,
 }: {
@@ -78,6 +89,10 @@ export function PBIdentityStrip({
   encounter?: ReactNode
   onEncounterLookup?: () => void
 }) {
+  const active = useContext(PBActiveEncounterContext)
+  const host = usePBInstrumentation()
+  const shown = encounter === 'NO ENCOUNTER' && active?.encounter ? active.encounter : encounter
+  const lookup = onEncounterLookup ?? active?.onLookup
   return (
     <div className="pb-identity">
       {fields.map((f, i) => (
@@ -89,9 +104,11 @@ export function PBIdentityStrip({
       {encounter !== undefined && (
         <span className="pb-identity__enc">
           <span>Active ENC#:&nbsp;</span>
-          <span className="pb-identity__enc-value">{encounter}</span>
+          <span className="pb-identity__enc-value" data-tutorial-id={host?.anchor('field', 'active-encounter')}
+            style={shown !== encounter ? { color: '#000' } : undefined}>{shown}</span>
           <span style={{ width: 6 }} />
-          <button className="pb-dw__dots" onClick={onEncounterLookup}>…</button>
+          <button className="pb-dw__dots" data-tutorial-id={host?.anchor('lookup', 'active-encounter')}
+            onClick={() => { host?.report('lookup', { field: 'active-encounter' }); lookup?.() }}>…</button>
         </span>
       )}
     </div>

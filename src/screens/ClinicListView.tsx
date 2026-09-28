@@ -12,6 +12,7 @@ import {
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow, useSessionState } from '../host/screen-windows'
 import { ClinicEditorLayer, EDIT_RECORD_WINDOW, FIND_REPLACE_WINDOW, NEW_RECORD_WINDOW, useClinicRows } from './ClinicEditorWindows'
+import { AdminExtraLayer, EXTRA_EDIT_RECORD, EXTRA_NEW_RECORD, adminOwnList } from './AdminExtraWindows'
 
 /* ============================================================================
    Administration ▸ Clinic Management — the twelve list screens.
@@ -257,7 +258,14 @@ function sessionRows(view: ClinicListSpec, converted: ConvertedProviders, base: 
   return base
 }
 
+/* Organizations and Service Location are edited in place with a bound
+   detail, so the admin/reference stream draws them itself
+   (AdminExtraWindows.tsx `adminOwnList`); every other node is this grid. */
 export function ClinicListView({ node, onClose }: { node: string; onClose?: () => void }) {
+  return adminOwnList(node) ?? <ClinicListGrid key={node} node={node} onClose={onClose} />
+}
+
+function ClinicListGrid({ node, onClose }: { node: string; onClose?: () => void }) {
   const view: ClinicListSpec | undefined = clinicListSpec(node)
   const [cur, setCur] = useState(0)
   const [tab, setTab] = useState('')
@@ -325,8 +333,8 @@ export function ClinicListView({ node, onClose }: { node: string; onClose?: () =
     updateRows((prev) => [...prev, blank])
     setCur(rows.length)
   }
-  const newWindow = NEW_RECORD_WINDOW[view.node]
-  const editWindow = EDIT_RECORD_WINDOW[view.node]
+  const newWindow = NEW_RECORD_WINDOW[view.node] ?? EXTRA_NEW_RECORD[view.node]
+  const editWindow = EDIT_RECORD_WINDOW[view.node] ?? EXTRA_EDIT_RECORD[view.node]
   const findWindow = FIND_REPLACE_WINDOW[view.node]
   /* Edit Record and a double-click open the current row's detail window */
   const editRow = (row: ClinicRow | undefined) => {
@@ -437,6 +445,7 @@ export function ClinicListView({ node, onClose }: { node: string; onClose?: () =
         /* a created row lands at the end of the list and becomes current */
         onAdded={() => setCur(rows.length)}
       />
+      <AdminExtraLayer window={win.window} open={win.open} close={win.close} onAdded={() => setCur(rows.length)} />
     </>
   )
 }

@@ -8,9 +8,12 @@ import {
 } from '../data/tasks'
 import { taskListRows } from '../data/workspaceLists'
 import { setCurrentWorkspaceRow, useWorkspaceStore } from '../data/workspaceStore'
+import { useWorkspaceExtras, workspaceExtras } from '../data/workspaceExtras'
 import { useScreenReport } from '../host/screen-state'
+import { usePBInstrumentation } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { WorkspaceBanner } from './WorkspaceBanner'
+import { SEARCH_FIELDS, matchesSearch } from '../data/workspaceSearch'
 
 /* ============================================================================
    The Workspace's four list screens: Task Inbox, Sent Tasks, Message Inbox
@@ -34,6 +37,17 @@ import { WorkspaceBanner } from './WorkspaceBanner'
    an acknowledged-and-completed one is struck through in grey. The zebra is
    banding. A team assignee reads TEAM in teal, with the team in a tooltip
    (1802744).
+
+   Added for art. 1802744 "Task Inbox":
+   - View: View 1 shows Created and Created By; View 2 shows the Task Group
+     in their place (`c734bd09…` ringed selector; INFERRED column position).
+   - Follow Up Notes (n) (`d5b7a079…`): a `Follow Up Notes` band with New /
+     Delete over Date | Author | Note; a double-click or Alt+Z on a note opens
+     it in full (the `follow-up-note` window, WorkspaceBasketWindows.tsx),
+     where a change records Modified By.
+   - Search For searches Patient and Task; the "…" (or F4) opens Advanced
+     Search on Priority, Patient, Task, Assignee, Group and Team
+     (`79f934dc…`).
    ========================================================================= */
 
 const cx = (...v: (string | false | undefined)[]) => v.filter(Boolean).join(' ')
@@ -75,10 +89,30 @@ function PriorityRow({ value }: { value: string }) {
 
 /** Detail / Follow Up Notes under a task list. */
 function TaskDetail({ r }: { r: TaskRow | undefined }) {
+  const extras = useWorkspaceExtras()
+  const openWindow = useOpenWindow()
+  const host = usePBInstrumentation()
+  const slug = r ? taskRowSlug(r) : ''
+  const notes = slug ? extras.followUps[slug] ?? [] : []
+  const [noteCur, setNoteCur] = useState(0)
   const [tab, setTab] = useState('Detail')
+  const notesTab = `Follow Up Notes (${notes.length})`
+  const openNote = (id?: string) => { if (r) openWindow('follow-up-note', { task: slug, note: id ?? '', subject: str(r.task) }) }
+  const noteButton = (id: string, label: string, onClick: () => void) => (
+    <button
+      type="button"
+      className="pb-btn pb-btn--sm"
+      style={{ minWidth: 52 }}
+      disabled={!r}
+      data-tutorial-id={host?.anchor('command', id)}
+      onClick={() => { host?.report('command', { command: id }); onClick() }}
+    >
+      {label}
+    </button>
+  )
   const rule = <div style={{ borderTop: '1px solid #b8b8b8', margin: '3px 0' }} />
   return (
-    <PBTabs tabs={['Detail', 'Follow Up Notes (0)']} active={tab} onChange={setTab} face>
+    <PBTabs tabs={['Detail', notesTab]} active={tab === 'Detail' ? 'Detail' : notesTab} onChange={(t) => setTab(t === 'Detail' ? 'Detail' : 'notes')} face>
       {tab === 'Detail' ? (
         <div style={{ padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 auto', minHeight: 0 }} data-tutorial-id="host.mois.field.task-detail-pane">
           <div className="pb-row" style={{ gap: 8 }}>
@@ -131,8 +165,28 @@ function TaskDetail({ r }: { r: TaskRow | undefined }) {
           </div>
         </div>
       ) : (
-        <div style={{ padding: 6, flex: '1 1 auto', display: 'flex' }}>
-          <PBDataWindow rows={[]} columns={[{ key: 'date', header: 'Date', width: 90 }, { key: 'author', header: 'Author', width: 160 }, { key: 'note', header: 'Note' }]} empty="No follow up notes." />
+        <div
+          style={{ padding: 6, flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          data-tutorial-id="host.mois.field.follow-up-notes"
+          onKeyDown={(e) => { if (e.altKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); openNote(notes[noteCur]?.id) } }}
+        >
+          <div className="pb-row" style={{ gap: 2, background: 'linear-gradient(#f4f4f4, #dcdcdc)', border: '1px solid #a0a0a0', padding: '2px 4px', flex: 'none' }}>
+            <b>Follow Up Notes</b>
+            <span className="pb-row__spacer" />
+            {noteButton('follow-up-new', 'New', () => openNote())}
+            {noteButton('follow-up-delete', 'Delete', () => { const n = notes[noteCur]; if (n) workspaceExtras.deleteFollowUp(slug, n.id) })}
+          </div>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            <PBDataWindow
+              rows={notes.map((n) => ({ ...n, who: n.modifiedBy ? `${n.author} (Modified By: ${n.modifiedBy})` : n.author }))}
+              current={noteCur}
+              onCurrentChange={setNoteCur}
+              onActivate={(n) => openNote(n.id)}
+              rowTutorialId={(_n, i) => `host.mois.row.follow-up-${i}`}
+              columns={[{ key: 'date', header: 'Date', width: 90 }, { key: 'who', header: 'Author', width: 200 }, { key: 'note', header: 'Note' }]}
+              empty="No follow up notes."
+            />
+          </div>
         </div>
       )}
     </PBTabs>
@@ -223,9 +277,14 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null)
   /* Ack. / Comp. ticked on the grid, before Save */
   const [marks, setMarks] = useState<Record<string, { ack?: boolean; comp?: boolean }>>({})
+  const extras = useWorkspaceExtras()
+  const [search, setSearch] = useState('')
+  const [criteria, setCriteria] = useState<Record<string, string>>({})
 
   const all: TaskRow[] = taskListRows(node, ws).map((r): TaskRow => ({ ...r, ...marks[taskRowSlug(r)] }))
-  const filtered = screen?.filters ? all.filter((r) => yesNo(ack, r.ack) && yesNo(comp, r.comp)) : all
+  const searchFields = screen?.kind === 'task' ? SEARCH_FIELDS.task! : [{ key: 'patient', label: 'Patient', default: true }, { key: 'subject', label: 'Subject', default: true }]
+  const filtered = (screen?.filters ? all.filter((r) => yesNo(ack, r.ack) && yesNo(comp, r.comp)) : all)
+    .filter((r) => matchesSearch(r, search, criteria, searchFields))
   const rows = sort
     ? [...filtered].sort((a, b) => String(a[sort.key] ?? '').localeCompare(String(b[sort.key] ?? '')) * sort.dir)
     : filtered
@@ -237,6 +296,13 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
   useScreenReport(current ? { row: taskRowSlug(current) } : {})
 
   if (!screen) return null
+
+  const view2 = !!screen.viewSelect && extras.taskView === 'View 2'
+  /* View 2 trades Created / Created By for the Task Group (1802744) */
+  const viewColumns = view2
+    ? [...screen.columns.filter((c) => c.key !== 'created' && c.key !== 'createdBy'), { key: 'group', header: 'Group', width: 173 }]
+    : screen.columns
+  const advanced = () => openWindow('advanced-search', { fields: searchFields, initial: criteria, onApply: (v: Record<string, string>) => { setCriteria(v); setCur(0) } })
 
   const onNew = () => { openWindow(screen.kind === 'task' ? 'create-task' : 'create-message') }
   const reply = (all: boolean) => () => {
@@ -276,7 +342,13 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
           ? (
             <span className="pb-row" style={{ gap: 6 }}>
               <span className="pb-form__label">View:</span>
-              <PBSelect w={75} options={['View 1', 'View 2']} />
+              <PBSelect
+                w={75}
+                options={['View 1', 'View 2']}
+                value={extras.taskView}
+                onChange={(e) => workspaceExtras.setTaskView(e.target.value === 'View 2' ? 'View 2' : 'View 1')}
+                data-tutorial-id="host.mois.field.task-view"
+              />
             </span>
           )
           : undefined}
@@ -284,8 +356,14 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
 
       <div className="pb-row" style={{ gap: 6, padding: '4px 6px', background: '#f0f0f0', flex: 'none', alignItems: 'center' }}>
         <span className="pb-form__label">Search For:</span>
-        <PBInput w={screen.filters ? 400 : 700} />
-        <button className="pb-inputgroup__btn pb-inputgroup__btn--dots" type="button" title="Advanced search…">…</button>
+        <PBInput
+          w={screen.filters ? 400 : 700}
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCur(0) }}
+          onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); advanced() } }}
+          data-tutorial-id="host.mois.field.task-search"
+        />
+        <button className="pb-inputgroup__btn pb-inputgroup__btn--dots" type="button" title="Advanced search…" data-tutorial-id="host.mois.command.task-advanced-search" onClick={advanced}>…</button>
         {screen.filters && (
           <>
             <span className="pb-form__label" style={{ marginLeft: 12 }}>Acknowledged:</span>
@@ -324,7 +402,7 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
             r.ack && r.comp && 'pb-dw--done',
           )}
           rowTutorialId={(r) => `host.mois.row.${taskRowSlug(r)}`}
-          columns={screen.columns.map((c) => (c.check
+          columns={viewColumns.map((c) => ('check' in c && c.check
             ? {
               ...c,
               render: (r: TaskRow) => (

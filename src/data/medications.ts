@@ -42,6 +42,21 @@ export const drugList: DrugRow[] = [
   { f: '', generic: 'ROSUVASTATIN (ROSUVASTATIN CALCIUM) 10MG TABLET', brand: 'CRESTOR', atc: 'C10AA07', atcName: 'ROSUVASTATIN', cost: '-', lca: '-', cdic: '02247162', manufacturer: 'ASTRAZENECA CANADA INC' },
   { f: '*', generic: 'ROSUVASTATIN (ROSUVASTATIN CALCIUM) 10MG TABLET', brand: 'APO-ROSUVASTATIN', atc: 'C10AA07', atcName: 'ROSUVASTATIN', cost: '0.21', lca: '-', cdic: '02337983', manufacturer: 'APOTEX INC' },
   { f: '', generic: 'VENLAFAXINE (VENLAFAXINE HYDROCHLORIDE) 75MG CAPSULE', brand: 'EFFEXOR XR', atc: 'N06AX16', atcName: 'VENLAFAXINE', cost: '-', lca: '-', cdic: '02237280', manufacturer: 'BGP PHARMA ULC' },
+  /* 303227 `1a845913…png` (a DILAUDID search, current build): the Schedule 1A
+     hydromorphone run a controlled prescription is written for, Cost / LCA
+     as captured; methadone and buprenorphine are the stage's own (the manual
+     names both, `680ce610…`, `ce34e801…`) */
+  { f: '', generic: 'HYDROMORPHONE HYDROCHLORIDE 10MG LIQUID', brand: 'DILAUDID HP 10 MG LIQUID', atc: 'N02AA03', atcName: 'HYDROMORPHONE', cost: '3.01', lca: '-', cdic: '00622133', manufacturer: 'PURDUE PHARMA' },
+  { f: '', generic: 'HYDROMORPHONE HYDROCHLORIDE 1MG LIQUID', brand: 'DILAUDID 1 MG LIQUID', atc: 'N02AA03', atcName: 'HYDROMORPHONE', cost: '0.09', lca: '0.08', cdic: '00786535', manufacturer: 'PURDUE PHARMA' },
+  { f: '', generic: 'HYDROMORPHONE HYDROCHLORIDE 1MG TABLET', brand: 'DILAUDID 1 MG TABLET', atc: 'N02AA03', atcName: 'HYDROMORPHONE', cost: '0.10', lca: '0.10', cdic: '00705438', manufacturer: 'PURDUE PHARMA' },
+  { f: '', generic: 'HYDROMORPHONE HYDROCHLORIDE 2MG LIQUID', brand: 'DILAUDID 2 MG LIQUID', atc: 'N02AA03', atcName: 'HYDROMORPHONE', cost: '1.23', lca: '2.22', cdic: '00125083', manufacturer: 'PURDUE PHARMA' },
+  { f: '', generic: 'HYDROMORPHONE HYDROCHLORIDE 2MG TABLET', brand: 'DILAUDID 2 MG TABLET', atc: 'N02AA03', atcName: 'HYDROMORPHONE', cost: '0.15', lca: '-', cdic: '00125083', manufacturer: 'PURDUE PHARMA' },
+  { f: '', generic: 'METHADONE HYDROCHLORIDE 10MG SOLUTION', brand: 'METADOL-D', atc: 'N07BC02', atcName: 'METHADONE', cost: '-', lca: '-', cdic: '02244290', manufacturer: 'PALADIN LABS INC' },
+  { f: '', generic: 'BUPRENORPHINE (BUPRENORPHINE HYDROCHLORIDE) 12MG TABLET', brand: 'SUBUTEX', atc: 'N07BC01', atcName: 'BUPRENORPHINE', cost: '-', lca: '-', cdic: '02295695', manufacturer: 'INDIVIOR UK LIMITED' },
+  /* 3001611: Paxlovid, searched "under Brand Name" (`2a99b3df…`); 3001613's
+     Special Authority drug stands in as apixaban. INFERRED codes. */
+  { f: '', generic: 'NIRMATRELVIR 150MG TABLET RITONAVIR 100MG TABLET', brand: 'PAXLOVID', atc: 'J05AE30', atcName: 'NIRMATRELVIR AND RITONAVIR', cost: '-', lca: '-', cdic: '02524031', manufacturer: 'PFIZER CANADA ULC' },
+  { f: '', generic: 'APIXABAN 5MG TABLET', brand: 'ELIQUIS', atc: 'B01AF02', atcName: 'APIXABAN', cost: '1.60', lca: '-', cdic: '02397714', manufacturer: 'BRISTOL-MYERS SQUIBB CANADA' },
 ]
 
 /* The Medication Dose Wizard's three drop-downs and the Dispense units.

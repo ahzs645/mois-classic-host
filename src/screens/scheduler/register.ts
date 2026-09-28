@@ -2,6 +2,9 @@
    frame's window registry (screens/areaWindowRegistry.ts). */
 import '../NewAppointmentDialog'
 import './AppointmentDetail'
+import './AppointmentSeriesWindows'
+import './GroupBookingWindows'
+import './SchedulerMenuWindows'
 import './CopyMoveWindows'
 import './DaybookMenus'
 import './DaybookPrintWindows'

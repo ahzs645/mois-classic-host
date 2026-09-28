@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useChartExport, useNodeRecords } from '../data/chart-records'
 import { bindReportField, stamp } from '../data/charts/detail'
 import type { MoisRecord } from '../data/charts'
@@ -10,6 +10,10 @@ import {
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
 import { PreferencesDetail } from './PreferencesDetail'
+import { PREFERENCE_SEARCH_FIELDS, preferenceCommands, usePreferenceFolder } from './PreferenceWindows'
+import { CarePlanNoteFolder } from './CarePlanNoteFolder'
+import { useNoKnown } from './NoKnown'
+import { SearchForBand, searchFieldsFor, useFolderSearch } from './SearchForBand'
 import { PreferenceEncounterDialog } from './PreferenceEncounterDialog'
 import { MeasurePanelPane, MeasureReportPane } from './MeasureReportPane'
 import { useMeasuresFolder } from './measuresFolder'
@@ -17,8 +21,12 @@ import { SignatureLink, recordKeyOf, useReportRecordEdits } from './reportRecord
 import { RECORD_FOLDERS, useReportRecords } from './reportRecords'
 import { useFolderReviews } from '../data/folder-reviews'
 import { AdverseEventTab, ALLERGY_WINDOWS, AllergyFolderWindows } from './AllergyWindows'
+import { ADVERSE_WINDOWS, LinkedEventsPane, NoKnownMark } from './AdverseEventWindows'
+import { storedRiskReactions } from '../data/allergySession'
+import { useScreenWindow } from '../host/screen-windows'
 import { useRecordOptionList } from './RecordOptionList'
 import { PaperFormsView } from './PaperFormsView'
+import { useDocumentsDistribution } from './documentsDistribution'
 import { reviewKeyOf } from './RecordOptionWindows'
 import { useWorkspaceStore } from '../data/workspaceStore'
 import { CURRENT_USER } from '../data/tasks'
@@ -74,16 +82,25 @@ type ReportViewProps = { screen: ReportScreen; node?: string; initialRecordId?: 
    screens/PaperFormsView.tsx. A different component per node, so switching
    folders remounts rather than changing the hooks this one calls. */
 export function ClinicalReportView(props: ReportViewProps) {
+  if (props.node === 'barriers' || props.node === 'resources') {
+    /* Barriers to Care / Patient Resources: entered in the grid, Note on
+       Detail (screens/CarePlanNoteFolder.tsx, art. 303512 / 303513) */
+    return <CarePlanNoteFolder key={props.node} screen={props.screen} node={props.node} />
+  }
   return props.node === 'paper' ? <PaperFormsView screen={props.screen} node="paper" /> : <ReportView {...props} />
 }
 
 function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewProps) {
   const data = useChartExport()
-  const records = useNodeRecords(node)
+  const nodeRecords = useNodeRecords(node)
+  /* Preferences: this session's (New Preference, Quick Entry) first, saved
+     edits and deletions applied, sortable (PreferenceWindows.tsx); a newly
+     filed one becomes the current row */
+  const prefs = usePreferenceFolder(node === 'prefs', nodeRecords, () => setCur(0))
+  const records = prefs.records
   const encounters = useNodeRecords('encounters')
-  // Preference edits are local to this mounted chart view, never export writes.
+  // Preference edits stay pending here until Save files them (data/carePlanRecords.ts), never export writes.
   const [drafts, setDrafts] = useState<Record<string, MoisRecord>>({})
-  const [saved, setSaved] = useState<Record<string, MoisRecord>>({})
   const [encounterOpen, setEncounterOpen] = useState(false)
   /* "… have not been reviewed for this patient" stands until a review is
      filed; then the title carries its date and a Last Reviewed line takes the
@@ -93,6 +110,7 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
   const screen = { ...layout, banner: reviewed ? undefined : layout.banner, title: reviewed ? `${layout.title} - (${reviewed.date})` : layout.title }
 
   const patient = usePatient()
+  const { open: openScreenWindow } = useScreenWindow()
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
   const [cur, setCur] = useState(() => initialRecordId && node === 'prefs' ? Math.max(0, records.findIndex(r => r.id_chart_preference === initialRecordId)) : 0)
   /* Measures' own taskbar, flag painting, filter and Panel tab (measuresFolder.tsx) */
@@ -104,7 +122,7 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
      rows, and the generic handler below passes straight through. */
   const own = useReportRecords({
     node: RECORD_FOLDERS.has(node) ? node : '', rows: measures.rows, records, columns: layout.columns, cur, setCur,
-    newWindow: node === 'reaction' || node === 'allergy' ? ALLERGY_WINDOWS.newRisk : undefined,
+    newWindow: node === 'reaction' || node === 'allergy' ? ALLERGY_WINDOWS.newRisk : node === 'events' ? ADVERSE_WINDOWS.newEvent : undefined,
   })
   const edits = useReportRecordEdits(own.active ? 'measures' : node, measures.rows, records, cur, setCur)
   const tabs = measures.active ? screen.tabs?.map((t) => (t.startsWith('Panel (') ? measures.panel.caption : t)) : screen.tabs
@@ -117,19 +135,29 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
   const sourceRecord = own.active ? own.recordAt(cur) : edits.records[cur]
   const recordId = sourceRecord?.id_chart_preference ?? ''
   const record = node === 'prefs' && sourceRecord ? { ...sourceRecord, ...drafts[recordId] } : sourceRecord
+  /* Documents: Distribute, the editable Document Type, the Distribution tab (documentsDistribution.tsx, 303445) */
+  const docs = useDocumentsDistribution({ node, record, records: edits.records, cur })
   const changePreference = (field: string, value: string) => {
     if (recordId) setDrafts(previous => ({ ...previous, [recordId]: { ...previous[recordId], [field]: value } }))
   }
   const encounterId = record?.id_encounter && record.id_encounter !== '-1' && record.id_encounter !== '0' ? record.id_encounter : ''
   const form = screen.forms?.[tab] ?? screen
-  const reactions = record ? (node === 'events' ? data?.reaction_event.filter(r => r.id_adverse_event === record.id_adverse_event) : data?.reaction_risk.filter(r => r.id_allergy === record.id_allergy)) ?? [] : []
+  const reactions = record ? (node === 'events' ? data?.reaction_event.filter(r => r.id_adverse_event === record.id_adverse_event)
+    : record.id_allergy?.startsWith('session-') ? storedRiskReactions(patient.chart, record.id_allergy)
+    : data?.reaction_risk.filter(r => r.id_allergy === record.id_allergy)) ?? [] : []
 
-  const commands: PBCommand[] = own.commands(edits.commands(measures.commands(screen.commands.map((c) =>
-    c === null ? null : { label: c, disabled: screen.disabled?.includes(c), onClick: node !== 'prefs' ? undefined
-      : c === 'Save' ? () => setSaved(drafts)
-      : c === 'Undo' ? () => setDrafts(previous => ({ ...previous, [recordId]: saved[recordId] ?? {} }))
-      : c === 'Refresh' ? () => { setDrafts({}); setSaved({}) } : undefined },
-  ))))
+  /* Conditions' No Known and its ** NO KNOWN ** assertion (NoKnown.tsx, art. 303447) */
+  const noKnown = useNoKnown(node === 'conditions' ? 'conditions' : '', own.rows.length)
+  const base: PBCommand[] = screen.commands.map((c) => (c === null ? null : { label: c, disabled: screen.disabled?.includes(c) }))
+  const commands: PBCommand[] = noKnown.commands(own.commands(edits.commands(measures.commands(node !== 'prefs' ? base
+    /* Preferences: New Record opens New Preference; Delete / Save / Undo /
+       Refresh and Quick Entry as PreferenceWindows.tsx describes */
+    : preferenceCommands(base, prefs, {
+      record,
+      drafts,
+      clearDrafts: () => setDrafts({}),
+      undoDraft: () => setDrafts(({ [recordId]: _undone, ...rest }) => rest),
+    })))))
   /* the record's right-click Option List (RecordOptionList.tsx) */
   const options = useRecordOptionList({ node, record, commands, setCur })
   /* the rail's Acknowledgements: a Mark for Review filed on this record
@@ -146,14 +174,25 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
     dots: c.dots,
     render: c.check ? (r) => <PBCheckbox checked={r[c.key] === '✓' || r[c.key] === 'Y'} /> : undefined,
   })))
+  /* Search For filters the grid (SearchForBand.tsx) without renumbering it:
+     `cur` and the row anchors keep addressing the folder's own list */
+  const searchFields = useMemo(() => (node === 'prefs' ? PREFERENCE_SEARCH_FIELDS
+    : searchFieldsFor(layout.title, layout.columns, { concept: true })), [node, layout.title, layout.columns])
+  const search = useFolderSearch(layout.title, searchFields)
+  const gridRows = docs.rows(node === 'prefs' ? rowsFromExport('prefs', records.map(r => ({ ...r, ...drafts[r.id_chart_preference ?? ''] }))) : own.active ? own.rows : edits.rows)
+  const shown = gridRows.map((row, index) => ({ row, index })).filter((x) => search.test(x.row))
 
+  /* the detail fields are uncontrolled (defaultValue), so they remount per
+     record, not per row index: a record filed at the top of the list (New
+     Reaction Risk, Quick Entry) arrives while the current index stays 0 */
+  const detailKey = recordKeyOf(patient.chart, node, record)
   const detail = (
     <div style={{ display: 'flex', gap: 10, padding: '6px 8px', alignItems: 'flex-start', minWidth: 0 }}>
       <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
-        {form.left.map((f, i) => <Fragment key={`${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}
+        {form.left.map((f, i) => <Fragment key={`${detailKey}:${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}
       </div>
       <div className="pb-form" style={{ padding: 0, gridTemplateColumns: 'auto 1fr', flex: 'none', alignItems: 'start' }}>
-        {form.right.map((f, i) => <Fragment key={`${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}
+        {form.right.map((f, i) => <Fragment key={`${detailKey}:${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}
       </div>
     </div>
   )
@@ -161,7 +200,7 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
   return (
     <>
       <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
-      <PBCommandRow commands={commands} />
+      <PBCommandRow commands={docs.commands(commands)} />
 
       <PBIdentityStrip
         fields={[
@@ -174,8 +213,8 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
       />
 
       <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <span>Search For:</span><PBLookup w="100%" />
-        {screen.viewSelect && <PBSelect options={screen.viewSelect} w={120} />}
+        <SearchForBand context={layout.title} fields={searchFields} value={search.text} onChange={search.setText} style={{ padding: 0, flex: '1 1 auto' }}
+          right={screen.viewSelect && <PBSelect options={screen.viewSelect} w={120} />} />
       </div>
 
       {screen.filters && (
@@ -187,21 +226,28 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
         </div>
       )}
 
-      {screen.banner && <div style={{ padding: '2px 8px 3px', flex: 'none' }} data-tutorial-id="host.mois.field.review-banner">{screen.banner}</div>}
+      {/* 303131 `8ed81b2c…`: a No Known assertion prints at the right of this line */}
+      {screen.banner && <div className="pb-row" style={{ padding: '2px 0 3px 8px', flex: 'none' }}><span data-tutorial-id="host.mois.field.review-banner">{screen.banner}</span><NoKnownMark node={node} />{noKnown.label}</div>}
       {reviewed && (
         <div className="pb-row" style={{ padding: '0 8px 3px', gap: 18, flex: 'none' }} data-tutorial-id="host.mois.field.last-reviewed">
-          <span>Last Reviewed</span><span>{reviewed.date}</span><span>{reviewed.name}</span>
+          <span>Last Reviewed</span><span>{reviewed.date}</span><span>{reviewed.name}</span><NoKnownMark node={node} />{noKnown.label}
         </div>
       )}
 
       <div ref={preferenceGrid} onContextMenu={options.active ? options.onContextMenu : undefined} style={{ padding: '0 3px', height: node === 'prefs' ? 278 : 220, flex: 'none', display: 'flex', position: 'relative' }}>
         <PBDataWindow
-          columns={columns}
-          rows={node === 'prefs' ? rowsFromExport('prefs', records.map(r => ({ ...r, ...drafts[r.id_chart_preference ?? ''] }))) : own.active ? own.rows : edits.rows}
-          current={cur}
-          rowTutorialId={node === 'prefs' ? (_r, i) => `host.mois.row.preference-${records[i]?.id_chart_preference}` : measures.rowTutorialId ?? options.rowTutorialId}
-          onCurrentChange={i => { setCur(i); setEncounterOpen(false) }}
+          columns={docs.columns(columns)}
+          rows={shown.map((x) => x.row)}
+          current={Math.max(0, shown.findIndex((x) => x.index === cur))}
+          rowTutorialId={(r, i) => {
+            const index = shown[i]?.index ?? i
+            if (node === 'prefs') return `host.mois.row.preference-${records[index]?.id_chart_preference}`
+            return (measures.rowTutorialId ?? options.rowTutorialId)?.(r, index)
+          }}
+          onCurrentChange={i => { setCur(shown[i]?.index ?? 0); setEncounterOpen(false) }}
           rowStatus={(r) => (!measures.active && screen.flagKey && r[screen.flagKey] === 'H' ? 'flag' : 'normal')}
+          /* Preferences' blue column titles sort (art. 300925 step 3 note) */
+          onSort={node === 'prefs' ? prefs.onSort : undefined}
           empty={`No ${screen.title.toLowerCase()} on file.`}
         />
         {options.menu}
@@ -215,8 +261,8 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
             {screen.tabs ? (
-              <PBTabs tabs={tabs ?? screen.tabs} active={activeTab} onChange={setTab} compact>
-                {tab === 'Office Notes (0)' ? (
+              <PBTabs tabs={docs.tabs(tabs ?? screen.tabs) ?? []} active={docs.active && activeTab.startsWith('Distribution') ? docs.tabs([activeTab])![0]! : activeTab} onChange={setTab} compact>
+                {docs.active && tab.startsWith('Distribution') ? docs.page(tab) : tab === 'Office Notes (0)' ? (
                   <>
                     <PBBand right={<><PBButton size="sm">New</PBButton><PBButton size="sm">Delete</PBButton></>}>
                       Office Notes
@@ -233,7 +279,7 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
                       />
                     </div>
                   </>
-                ) : node === 'events' && tab !== 'Reactions' ? (
+                ) : node === 'events' ? (
                   <AdverseEventTab tab={tab} record={record} />
                 ) : tab === 'Reactions' ? (
                   <>
@@ -254,21 +300,9 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
                     </div>
                   </>
                 ) : tab === 'Linked Events' ? (
-                  <>
-                    <PBBand>Linked Events - Read Only</PBBand>
-                    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                      <PBDataWindow
-                        flush gutter={false} rows={[]}
-                        columns={[
-                          { key: 'date', header: 'Date', width: 96, align: 'center' },
-                          { key: 'agent', header: 'Agent', width: 240 },
-                          { key: 'event', header: 'Event' },
-                          { key: 'outcome', header: 'Outcome', width: 130, align: 'center' },
-                        ]}
-                        empty="No linked events."
-                      />
-                    </div>
-                  </>
+                  /* 303131 `1a8f753b…`: Link Event(s) · Unlink Event(s) over the EVENTS band */
+                  <LinkedEventsPane key={record?.id_allergy} record={record}
+                    onLink={() => openScreenWindow(ADVERSE_WINDOWS.linkEvents, { risk: record?.id_allergy ?? '' })} />
                 ) : measures.active && activeTab === measures.panel.caption ? (
                   <MeasurePanelPane panel={measures.panel} />
                 ) : tab === 'Panel (0)' ? (
@@ -336,8 +370,10 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
 
       {node === 'prefs' && record && encounterOpen && <PreferenceEncounterDialog key={recordId} encounterId={encounterId}
         encounters={encounters} onChange={id => changePreference('id_encounter', id)} onClose={() => setEncounterOpen(false)} />}
-      {own.active && <AllergyFolderWindows record={record} onFile={own.file} />}
+      {own.active && <AllergyFolderWindows record={record} onMark={own.mark} />}
       {options.windows}
+      {docs.windows}
+      {noKnown.windows}
     </>
   )
 }

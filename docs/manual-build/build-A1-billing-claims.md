@@ -1,0 +1,154 @@
+# Stream A1: billing-claims build report
+
+Emulator: `hosts/mois-classic`. `npx tsc -p tsconfig.json --noEmit` passes. The Unsent, Sent and Invoice views, both Unsent wizards, the Sent Claim Review Wizard chain, the remittance and adjustment windows, the statement print, the day-book MSP Loc and default-location flow, and the SNOMED swap were all checked in the Vite dev app with Playwright.
+
+## New files
+- `src/data/billingStore.ts`: the session stores for the live lists.
+  - The unsent list includes training rows, claims saved in Unsent MSP, day-book bills (Ctrl+B / MSP Bill, their Health Issue mapped to ICD-9), bulk claims, and resubmit, debit and duplicate copies, with edits and deletes applied.
+  - Sent claims carry their R1, WO and note toggles. Adjustments, remittance lines and sequence numbers come from here.
+  - Also here: code mappings (SNOMED→ICD-9), the time-dependent fee items, the claim fee list, `useDefaultLocation`, invoices, payors, tax rates, invoice totals and the provider letterhead.
+- `src/data/mspLocations.ts`: the 16 MSP location codes with their descriptions. Shared by Billing and the Provider window.
+- `src/screens/billing/claimLayout.tsx`: the claim grid helpers, moved out of BillingViews. Adds the red "mapped code" dot.
+- `src/screens/billing/SentToMspView.tsx`: Sent To MSP rebuilt on capture `86eedb19`. It handles Resubmit, Debit, Duplicate and the four toggles.
+- `src/screens/billing/SentClaimWindows.tsx`: two windows, `sent-adjustment-summary` and `sent-remittance-history`.
+- `src/screens/billing/ClaimWizards.tsx`: two windows, `unsent-claim-review-wizard` and `batch-claim-wizard`.
+- `src/screens/billing/SentReviewWizard.tsx`: three windows, `msp-review-wizard` → `claim-review-window` → `resubmission-wizard`. The Accept/Resubmit/Write Off/Delete confirmations are inside `claim-review-window`.
+- `src/screens/billing/InvoiceView.tsx`: the Invoice view rebuilt on a session store (multiple invoices).
+- `src/screens/billing/InvoiceWindows.tsx`: seven windows — `receipt-for-services`, `invoice-payor`, `invoice-tax-rates`, `invoice-prompt`, `invoice-transaction-note`, `paste-msp-claim` and `invoice-fee-lookup` — plus statement and label printing through `print-preview`.
+- `src/screens/billing/UnsentClaimWindows.tsx`: four screen windows — `claim-fee-lookup`, `claim-provider-list`, `claim-patient-lookup` and `claim-diagnosis-lookup`.
+- `src/screens/billing/DaybookMspLoc.tsx`: the day book's MSP Loc drop-down and `commitDaybookMspLoc`.
+- `src/screens/billing/register.ts`: registers all of the above.
+
+## Edited files
+- **My own files:**
+  - `src/screens/BillingViews.tsx`: Unsent MSP rewritten. It re-exports `SentMspView` and `InvoiceView`, and the original is backed up at `/tmp/mcov/BillingViews.orig.tsx`.
+  - `src/data/claims.ts`: ids and new fields.
+  - `src/data/billingCommands.ts`: new commands.
+  - `src/data/menus/billing.ts`: every item is wired, and `billingNavigate` was added.
+  - `src/screens/ClaimPromptDialog.tsx`: now reads the live lists.
+- **Small edits to shared files:**
+  - `areaWindows.register.ts`: one import line.
+  - `data/mois.tsx`: the base Views items Unsent/Sent to MSP (Alt+9/Alt+0) and Action ▸ Invoice Window (Alt+I) now navigate.
+  - `data/encounterPickers.ts`: four Universal Search rows (ICD-9 42682 and three SNOMED-CT codes).
+  - `data/clinicManagement.ts`: `MSP_LOCATIONS` and `MSP_LOCATION_TEXT` now come from the 16 captured rows.
+  - `screens/ClinicEditorWindows.tsx`: on the Billing tab, MSP Location is now a Code | Description drop-down (one element changed).
+  - `screens/SchedulerView.tsx` (stream D's file, 3 lines): the MSP Loc control became `<DaybookMspLoc>` and still uses D's `form.mspLoc` state; the day book's Save now calls `commitDaybookMspLoc`.
+
+## 1. Articles → what was built
+- **303600 Billing Contents**
+  - The Billing Views menu now carries Alt+9, Alt+0 and Alt+I, so the hot keys work because the frame runs a menu item by its printed key. The Patient Chart base menu's items now navigate as well.
+  - The Billing Print menu keeps the three day-sheet items (Selection Parameter windows) and falls back to `go.print`.
+  - On Invoices, Print Statement (Ctrl+A) and Print Receipt (Ctrl+R) are wired.
+- **303601 Unsent Claims**
+  - **Manual claim, end to end:** New Claim (Location opens on the provider or clinic default), then:
+    - Chart "…"/F4 opens the patient lookup;
+    - the Fee Item "…"/F4 lookup fills the Unit Amount;
+    - the Diag "…" opens the Universal Search;
+    - Save checks the claim, marking Incomplete with red labels or Complete, and stores the whole window. Prompt lists reopen it.
+  - **Other claim types (rules inferred):**
+    - Hospital: Location drop-down with descriptions; Service To Date (DD) needs a hospital location and fills No. Service.
+    - Out of province: Insured By another province needs Dep. No. and OPTIONS Sex.
+    - Newborn: Dep. No. 66 needs the baby's OPTIONS DoB and Sex.
+    - Time-dependent: fees 01200–01202 need Time Received; 01205–01207 need Start and Finish.
+  - **Pay Mode and Status:** Pay Mode radios are controlled and reported. The "…" beside Claim Status lists what is missing.
+  - **Delete Claim:** "Confirmation - Delete Record", from capture `dcf77aa9`.
+  - **Action menu:** every item works — F11/F12 fee options, Duplicate NOS/DOS/diff Provider, Change Claim Provider (the provider list), Set as WCB, and Set as PP.
+  - **Utilities:** Claim Review Wizard, from captures `c379631e`, `e974131a` and `08c212b4`. Bulk Claim Creation Wizard, the "Batch Claim Wizard", from `24bd5844`, `8c056b46`, `76c14603`, `3ff4e8ca`, `eccfcffc` and `a5aa3acb`. Both create, update and delete claims in the live list.
+- **303602 Sent Claims and 3786544 Billing How To's**
+  - Resubmit (F2) shows "Confirmation: Resubmit Claim", sets R1 = R, loads a copy in Unsent and opens the folder.
+  - Debit (Ctrl+F2) creates a negative copy with Sub D.
+  - Duplicate (F3) creates a held copy in Unsent.
+  - Toggle Approve/Adjust (Ctrl+A) sets R1 A.
+  - Toggle Write Off (Ctrl+W) sets WO Y and the date.
+  - Toggle Mark For Delete (Shift+F2) sets R1 D.
+  - Toggle Private Claim Flag sets R1 V.
+  - Detail Adjustment Summary (Alt+Z) follows capture `3acbf70b`.
+  - Remittance History follows `cb3b6af8` and `aec03531`.
+  - Claim Review Wizard follows `989ee848`, `b83a4544`, `6cd43398` and `4e254b41`. Resubmit, Accept, Write Off and Delete all act on the list.
+  - Prompt Recon and Chart lists show the toggled R1/WO.
+- **303603 Invoices**
+  - New Invoice; Save assigns the number.
+  - Payor drop-down for third-party invoices, with Add Payor and Edit Payor.
+  - New Trans (editable current row, partial No. Serv, fee "…") and Delete Trans.
+  - Apply Tax (GST+PST) plus the Change Tax Rates window. Defaults come from System Settings GST/PST.
+  - Pay Balance, W/O Balance and Recalculate.
+  - Statement: a print preview with the provider letterhead, read from Provider List General `letterhead1..5`. That is "Adjust the Heading".
+  - Receipt for Services with a choice of lines, then a print preview.
+  - Label: the payor's Detail lines, as a print preview.
+  - Prompt by Recon, Payor or Invoice # (Alt+F1/F2/F3, and F4 in Invoice #), Transaction Note, Paste Sent MSP Claim (sets R1 V), and Change Patient.
+- **2069402 Multiple Code Sets**
+  - The Universal Search now has SNOMED rows.
+  - Picking or typing SNOMED 422348008, 442917000 or 111975006 in Diag 1 swaps it to ICD-9 42682 with a red dot, as in capture `39508486`.
+  - Day-book bills (Ctrl+B) land in Unsent Claims with the mapped code. The bill needs the row's Health Issue picked through the day book's F4 Universal Search.
+- **3295094 Default Billing Location**
+  - Day book MSP Loc is a Code | Description drop-down (capture `4eb31491`). Save writes the provider's default.
+  - Provider ▸ Billing ▸ MSP Location is the same drop-down (capture `707d1e64`), and Save / Close writes the same store (the Provider List session rows, field `mspLocation`).
+  - New Claim in Unsent opens on that default, or else on System Settings Default Location.
+
+## 2. Deliberately left out
+- **Associated Mappings view (Codeset Management ▸ Codes):** stream E1 owns it. The mapping rows are ready in `billingStore.CODE_MAPPINGS` for E1 to read.
+- **Time Entry and Time Logger items:** they appear on the Sent Claims Utilities menu in the user build `879760ec`, but they belong to A2 (not added).
+- **Day book changes:** the red dot beside SNOMED codes in the day book's Health Issue cell (`9a4e6f99`) was not added; the day book is stream D's.
+- **Utilities items left inert:** Provider Address to Clipboard, and Change Desktop Provider on the Billing Action menus, which open the existing `desktop-provider` window.
+- **Update patient status** in the Claim Review confirmation is a control only; it does not write to the chart.
+- **Remittance:** the adjustment-code table carries only a subset of the Teleplan P14 list.
+
+## 3. INFERRED
+- **Unsent claim rules:** the Save rules for hospital, out-of-province, newborn and time-dependent claims (the linked How-To pages are not in the archive), and which fee codes need times.
+- **Unsent windows and messages:**
+  - the Fee Code lookup and Registered Provider List layouts;
+  - the Claim Status "…" message;
+  - where the Set as PP flag shows (OTHER ▸ Payor).
+- **Sent Claims:**
+  - the confirmation and message wording for Debit and Duplicate, and the message boxes the Review wizards show after they act;
+  - the Write Off, Resubmit and Delete confirmation boxes (only Accept, `6cd43398`, was captured);
+  - Accept sets R1 = A;
+  - remittance paid dates are sent date + 14.
+- **Bulk Claim Creation Wizard:** where the Create Claims and Close buttons sit; each chart's service provider (assigned in roster order); patient lists for Connection, Report and File (a fixed roster slice); the Report Builder list inside the wizard.
+- **Every Invoice window except the main view:** Receipt for Services, Add/Edit Payor, Change Tax Rates (and its position beside Apply Tax), the three Prompt lists, Transaction Note, Paste Sent MSP Claim, and the statement, receipt and label layouts.
+- **User build versus older captures:** the Location list uses the 16 codes captured in v02.30.11 (`4eb31491`/`707d1e64`). Older lists with F/H/U/V/W were dropped. The Views accelerators are shown although `248dc9d0` prints none; the article text gives them.
+
+## 4. Tutorial-authoring notes (anchors are `host.mois.*`)
+- **Navigation:**
+  - tree `tree.bl-unsent`, `tree.bl-sent`, `tree.bl-invoices`;
+  - menus `menu.views`, `menu.action`, `menu.utilities`, `menu.print`, and items `menu.<menu>.<item-slug>` (e.g. `menu.utilities.claim-review-wizard`, `menu.action.toggle-write-off`);
+  - keys Alt+9, Alt+0, Alt+I.
+- **Unsent MSP:**
+  - Commands: `command.new-claim`, `command.delete-claim` (confirmation title slug `dialog.confirmation-delete-record`, `command.yes`), `command.save`, `command.claim-status-reasons`, `command.refresh-patient-data`.
+  - Fields: `field.claim-chart` (`lookup.claim-chart`), `field.claim-insured-by`, `field.claim-insurance`, `field.claim-dep`, `field.claim-service-date`, `field.claim-location` (drop-down), `field.claim-service-to`, `field.claim-no-service`, `field.claim-clarification`, `field.claim-fee` (`lookup.claim-fee` → `row.fee-01200`, `command.fee-select`), `field.claim-unit`, `field.claim-diag-1` (`lookup.claim-diag-1` → `row.usw-snomed-ct-422348008`), `field.claim-received|start|finish`, `field.claim-oop-dob`, `field.claim-oop-sex`, `field.claim-address-1..4`, `field.claim-postal`, `field.claim-note`, `field.claim-msp-note`, `field.claim-sub-code`, `field.claim-facility`.
+  - Radios and checks: `radio.claim-pay-mode-normal|alternate`, `radio.claim-after-hour-*`, `check.hold-claim`.
+  - `host.screen` reports: `claim`, `claimStatus`, `location`, `payMode`, `afterHour`, `fee`, `diagnosis` (mapped/entered/empty), `serviceTo`, `received`, `start`, `finish`, `dep` (newborn/none/entered), `payPatient`, `missing`, `unsentCount`. Dialogs: `delete-unsent-claim`, `claim-incomplete`.
+  - Windows: `claim-fee-lookup`, `claim-provider-list` (`row.provider-<slug>`, `command.provider-select`), `claim-patient-lookup`, `claim-diagnosis-lookup`.
+- **Unsent Claim Review Wizard** (`unsent-claim-review-wizard`):
+  - filters `field.review-provider`, `field.review-payee-no`, `field.review-facility-no`, `field.review-fee-code`, `field.review-rural-retention`, `field.review-location-code`;
+  - updates `check.review-change-provider|change-facility-no|change-fee-code|change-rural-retention|change-location-code`, new values `field.review-new-provider|new-facility|new-fee|new-rural|new-location`, and `check.review-refresh-provider-information`;
+  - rows `row.review-<last>`, `check.review-exclude-<last>`;
+  - buttons `command.review-delete-claims` → `command.review-delete-yes`, `command.review-update-claims`, `command.review-ok`, `command.review-cancel`.
+- **Batch Claim Wizard** (`batch-claim-wizard`):
+  - source `radio.batch-provider|connection|report|file`;
+  - parameters `field.batch-service-provider`, `field.batch-connection-role|connection-resource|connection`, `command.batch-run-report` → `row.batch-report-<slug>` and `command.batch-report-open`, `field.batch-file` (`lookup.batch-file`), `field.batch-first-row`, `field.batch-chart-column`, `field.batch-status-codes`, `radio.batch-contact-since|last|ignore`, `command.batch-retrieve`;
+  - claim fields `field.batch-provider|service-date|location|no-service|clarification|fee|diag-1|diag-2|facility|claim-count`;
+  - patient list `check.batch-ignore-<chart>`;
+  - buttons `command.batch-create-claims` → `command.batch-ok`, `command.batch-close`.
+- **Sent To MSP:**
+  - commands `command.resubmit-claim` (dialog `resubmit-claim`, `command.yes`), `command.debit-claim` (dialog `debit-claim`), `command.duplicate-claim` (`command.duplicate-ok`), `command.prompt-recon`, `command.prompt-chart`;
+  - fields `field.sent-r1`, `field.sent-r2`, `field.sent-write-off`, `field.sent-write-off-date`, `field.expl-codes`;
+  - `host.screen` reports `sentClaim`, `r1`, `r2`, `writeOff`.
+  - Windows: `sent-adjustment-summary` (`command.adjustment-summary-ok`, `row.adjustment-<code>`; claims with adjustments are ADAM (39) and RAO (35)) and `sent-remittance-history` (`command.remittance-history-ok`).
+- **Sent Claim Review Wizard** (`msp-review-wizard`):
+  - fields `field.review-r1`, `field.review-r2`, `field.review-explanatory-codes|fee-codes|diagnosis-codes|doctor|last-name|payee`, `check.review-all-r1`, `check.review-written-off`, `radio.review-sent-*` / `radio.review-service-*`, and `command.review-continue`;
+  - then `claim-review-window`: `command.claim-review-resubmit|accept|write-off|delete`, `check.claim-review-exclude-<last>`, `field.claim-review-note`, `check.claim-review-update-status`, `command.claim-review-yes|no|ok|close`;
+  - then `resubmission-wizard`: `check.resubmit-fee|clar|sub|facility|location`, `field.resubmit-*`, `radio.resubmit-no-note|claim-note|msp-note`, `command.resubmit-continue` → `command.resubmit-ok`.
+  - Training data: HALE is R2 R with expl K4; CASTILLO is R2 F with P9.
+- **Invoices:**
+  - commands `command.new-invoice|save|statement|receipt|label|add-payor|edit-payor|change-patient|new-trans|delete-trans|pay-balance|w-o-balance|paste-msp-claim`, and `command.change-tax-rates`;
+  - fields `field.invoice-payor` (drop-down), `field.invoice-number` (`lookup.invoice-number`), `field.invoice-provider`, `field.invoice-code`, `field.invoice-payment-due`, `field.invoice-comment`, `field.invoice-message`, `check.apply-tax`, `field.balance-owed`, `field.invoice-billed`, `field.invoice-write-off`;
+  - transaction rows `row.trans-b|trans-p|trans-b-2…`; current-row fields `field.trans-date|serv|fee|unit|diag|paid|adj|adjamt`, `field.trans-tran`, `lookup.trans-fee`, `field.payment-method`;
+  - `host.screen` reports `invoiceNo`, `payor` (self-pay/third-party), `taxable`, `trans`, `balance`, `writeOff`.
+  - Windows `receipt-for-services` (`check.receipt-p-1`, `command.receipt-print`), `invoice-payor` (`field.payor-code|name|detail-1..4`, `command.payor-save`), `invoice-tax-rates` (`field.tax-gst|pst`, `command.tax-rates-ok`), `invoice-prompt` (`field.invoice-filter-invoice|recon|payor`, `row.invoice-<no>`, `command.invoice-prompt-ok`), `invoice-transaction-note`, `paste-msp-claim` (`row.paste-claim-<last>`, `command.paste-claim-select`), and `print-preview` (statement, receipt, label).
+  - Heading lesson: Administration ▸ Provider List ▸ BEARDWOOD, WALTER ▸ General ▸ Letterhead 1–5 ▸ Save / Close, then Invoices ▸ Statement.
+- **Default Billing Location:**
+  - Day book (Daybook For BEARDWOOD, WALTER): `field.daybook-msp-loc` (the list), then `command.save`. `host.screen` reports `mspLoc` (pending/saved/none) and `mspLocCode`.
+  - Provider window Billing tab: `field.msp-location`, then `command.save-close`.
+  - Verify with Billing ▸ Unsent ▸ `command.new-claim`, where `host.screen.location` equals the code.
+- **Multiple Code Sets:** Unsent ▸ `lookup.claim-diag-1` → `row.usw-snomed-ct-422348008` (Select or double-click). `host.screen.diagnosis` becomes `mapped`, and the field shows 42682 with the dot.

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { PBCommandRow, PBDataWindow, PBIdentityStrip, PBTabs, PBViewHeader } from '../pb'
 import { useChartExport } from '../data/chart-records'
-import { CARE_PLAN_ACCENT, CARE_PLAN_DEFAULT_ACCENT, CARE_PLAN_SECTIONS, carePlanRows } from '../data/carePlanRows'
+import { CARE_PLAN_ACCENT, CARE_PLAN_DEFAULT_ACCENT } from '../data/carePlanRows'
+import { carePlanSummaryRows, carePlanSummarySections, useSummarySettings } from '../data/summarySettings'
 import { deleteCarePlanSnapshot, useChartSession } from '../data/chartSession'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ChartScreen } from '../data/chartScreens'
@@ -24,6 +25,11 @@ import { useOpenWindow } from './areaWindowRegistry'
 
    Create Snapshot, Distribute... and the blue Print link each start with the
    Report Letterhead window (screens/CarePlanWindows.tsx).
+
+   Sections and their order, and the relative (rule-based) elements, are the
+   chart's Summary Settings (art. 303514, data/summarySettings.ts): a rule's
+   records are pulled from the chart as the summary draws, and a rule with no
+   record prints its name in red (Record is Required) or grey.
    ========================================================================= */
 export function CarePlanSummaryView({ screen }: { screen: ChartScreen }) {
   const patient = usePatient()
@@ -31,8 +37,9 @@ export function CarePlanSummaryView({ screen }: { screen: ChartScreen }) {
   const session = useChartSession(patient.chart)
   const openWindow = useOpenWindow()
   const [tab, setTab] = useState('Current Care Plan')
-  const rows = useMemo(() => carePlanRows(data, session.tags), [data, session.tags])
-  const groups = CARE_PLAN_SECTIONS.filter((s) => rows.some((r) => r.section === s))
+  const settings = useSummarySettings(patient.chart)
+  const rows = useMemo(() => carePlanSummaryRows(data, patient.chart, session.tags), [data, patient.chart, session.tags, settings])
+  const groups = useMemo(() => carePlanSummarySections(patient.chart, session.tags, rows), [patient.chart, session.tags, rows])
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
   const [snap, setSnap] = useState(0)
   const snapshots = session.snapshots
@@ -81,7 +88,7 @@ export function CarePlanSummaryView({ screen }: { screen: ChartScreen }) {
               {
                 key: 'description', header: 'Description', width: 340,
                 render: (r) => (
-                  <span>
+                  <span style={r.tone ? { color: r.tone === 'required' ? '#d00000' : '#8c8c8c' } : undefined}>
                     {r.description}
                     {r.comment && <span style={{ display: 'block', fontFamily: '"Lucida Console", monospace' }}>Comments:<br />{r.comment}</span>}
                   </span>

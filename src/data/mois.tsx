@@ -2,6 +2,7 @@
 import type { PBTreeNode } from '../pb'
 import type { PBMenuItem } from '../pb/components/chrome'
 import { menusFor, type MenuGo, type MenuName } from './menus'
+import { CARECONNECT_ENABLED_ROW, isYes, systemSettingValue } from './systemSettings'
 import {
   IconBasket, IconBilling, IconBook, IconCalendarGrid, IconChart, IconClock, IconEnvelope,
   IconFolder, IconTaskCheck,
@@ -83,6 +84,9 @@ export const workspaceTree: PBTreeNode[] = [
     f('ws-procedures', 'Procedures'), f('ws-documents', 'Documents'),
     f('ws-admissions', 'Facility Admissions'), f('ws-progress', 'Progress Note'),
     f('ws-orders', 'Orders'),
+    /* 303492 v2.31.41: "Workspace > Basket > Unmatched Items" (place INFERRED;
+       screens/UnmatchedResultViews.tsx) */
+    f('ws-unmatched', 'Unmatched Items'),
   ]},
   { id: 'ws-tasklist', label: 'Task List', icon: <IconTaskCheck />, children: [
     f('ws-task-inbox', 'Inbox'), f('ws-task-sent', 'Sent Tasks'),
@@ -92,6 +96,13 @@ export const workspaceTree: PBTreeNode[] = [
   ]},
   { id: 'ws-settings', label: 'My Settings', icon: <IconFolder />, children: [
     f('ws-set-workspace', 'Workspace'), f('ws-set-meds', 'Favourite Medications'),
+  ]},
+  /* 3799734 "select Other from the folder options available and open My
+     Private Notes"; the order after My Settings is the Security Profile's
+     Window / Tree Access list (3799750 `ed3a6269…png`).
+     screens/PrivateNotesViews.tsx */
+  { id: 'ws-other', label: 'Other', icon: <IconFolder />, children: [
+    f('ws-private-notes', 'My Private Notes'),
   ]},
 ]
 
@@ -117,6 +128,11 @@ export const billingTree: PBTreeNode[] = [
     f('bl-pbf-unack', 'Unack Enrollment Claims'), f('bl-pbf-failed', 'Failed Enrollment Claims'),
     f('bl-pbf-review', 'MSP CR Review'), f('bl-pbf-audit', 'MSP Registry Audit'),
     f('bl-pbf-history', 'Enrollment Claim History'), f('bl-pbf-pcpc', 'PCPC Complexity Index'),
+    /* PBF Configuration: 2257761 `58b8f835…` / `fc17dba2…` place it last.
+       The v02.31 clinic-user captures do not show it — it is set up by BHSS
+       ("This is to be enabled and set up by BHSS") — but the lessons for
+       2257761 need it (A2 stream) */
+    f('bl-pbf-config', 'PBF Configuration'),
   ]},
   { id: 'bl-lfp', label: 'LFP Management', icon: <IconFolder />, children: [
     f('bl-lfp-setup', 'LFP Setup'), f('bl-lfp-reg', 'Provider Registration'),
@@ -196,12 +212,32 @@ export const adminTree: PBTreeNode[] = [
     f('ad-settings', 'System Settings'), f('ad-chart-summaries', 'Chart Summaries'),
     f('ad-field-audit', 'Field Audit Setup'), f('ad-password', 'Password Policy'),
     f('ad-printer-configs', 'Printer Configurations'), f('ad-printer-profiles', 'Printer Profiles'),
+    /* 3768908 `5e0a163c…` (current build): under Printer Profiles */
+    f('ad-user-agreements', 'User Agreements'),
   ]},
   { id: 'ad-codesets', label: 'Codeset Management', icon: <IconFolder />, children: [
     f('ad-code-sources', 'Sources'), f('ad-code-systems', 'Systems'),
     f('ad-codes', 'Codes'), f('ad-reference-sets', 'Reference Sets'),
     f('ad-value-sets', 'Value Sets'), f('ad-code-mapping', 'Mapping'),
     f('ad-lookup-settings', 'Lookup Settings'),
+  ]},
+  /* 2280708 "myhealthkey": "a new folder in the Administration module" with
+     Settings, Providers, Locations, Patients, Registration Activity and
+     Communication History, in the article's order (its captures are the
+     folders' windows, not the tree, so the ORDER and the root's place at
+     the foot of the tree are INFERRED; the root's caption is the article's
+     "Administration - myhealthkey (BETA)"). screens/MyHealthKeyAdminViews.tsx */
+  { id: 'ad-mhk', label: 'myhealthkey (BETA)', icon: <IconFolder />, children: [
+    f('ad-mhk-settings', 'Settings'), f('ad-mhk-providers', 'Providers'),
+    f('ad-mhk-locations', 'Locations'), f('ad-mhk-patients', 'Patients'),
+    f('ad-mhk-registration', 'Registration Activity'), f('ad-mhk-communication', 'Communication History'),
+  ]},
+  /* 3799750 `2f2f9da1…png`: Chart Access Control after myhealthkey, with
+     Management, Break Glass Audit and Private Notes. Only Private Notes is
+     built here (screens/PrivateNotesViews.tsx); the other two are not part
+     of the private-notes articles and are left out rather than drawn empty. */
+  { id: 'ad-access-control', label: 'Chart Access Control', icon: <IconFolder />, children: [
+    f('ad-private-notes', 'Private Notes'),
   ]},
 ]
 
@@ -217,6 +253,11 @@ export const exchangeTree: PBTreeNode[] = [
     f('dx-procedures', 'Procedures'), f('dx-documents', 'Documents'),
     f('dx-admissions', 'Facility Admissions'), f('dx-orders', 'Orders'),
   ]},
+  /* 3797121 `b3f1d93d…`, `76fd6b13…` (current build): Document Center between
+     Manual Entry and Attachment Utilities (screens/DocumentCenterViews.tsx) */
+  { id: 'dx-doc-center', label: 'Document Center', icon: <IconFolder />, children: [
+    f('dx-inbound-docs', 'Inbound Documents'), f('dx-outbound-docs', 'Outbound Documents'),
+  ]},
   { id: 'dx-attach', label: 'Attachment Utilities', icon: <IconFolder />, children: [
     f('dx-scan', 'Scan Files'), f('dx-attach-files', 'Attach Files'),
   ]},
@@ -229,6 +270,10 @@ export const exchangeTree: PBTreeNode[] = [
     f('dx-inbound-msg', 'Inbound Messages'), f('dx-outbound-msg', 'Outbound Messages'),
     f('dx-distribution', 'Inbox Distribution'), f('dx-setup', 'Setup / Registration'),
     f('dx-matching', 'Matching History'), f('dx-audit', 'Interface Data Audit'),
+    /* 303492 v2.31.41: "Data Exchange > Electronic Interfaces > User Alias ID
+       Review" (a folder permission); no capture of the tree, so its place at
+       the foot of the section is INFERRED (screens/UnmatchedResultViews.tsx) */
+    f('dx-alias-review', 'User Alias ID Review'),
   ]},
   { id: 'dx-notifications', label: 'Automated Notifications', icon: <IconFolder />, children: [
     f('dx-call-lists', 'Call Lists'), f('dx-notif-setup', 'Setup / Registration'),
@@ -330,6 +375,10 @@ export const makeMainMenu = (
       { label: 'Find Last' },
       { label: 'Save', key: 'F2', onSelect: () => go?.command?.('save') },
       { label: 'Prompt', key: 'F4', onSelect: () => go?.prompt?.() },
+      /* 303227 `3404d09b…png` (current build): New Historical, last, which
+         starts a historical (HX) row on Prescriptions — the way a CPP written
+         on a triplicate pad is entered (screens/ControlledRxWindows.tsx) */
+      { label: 'New Historical', disabled: place?.node !== 'rx', onSelect: () => go?.open?.('rx-new-historical') },
     ]},
     { label: 'Modules', menu: [
       { label: 'Patient Chart', onSelect: () => go?.module?.('chart') },
@@ -386,8 +435,9 @@ export const makeMainMenu = (
       view('myhealthkey', 'mhk'),
       { sep: true },
       { label: 'Daybook', key: 'Alt+8', onSelect: () => go?.node?.('p-daybook') },
-      { label: 'Unsent to MSP', key: 'Alt+9' },
-      { label: 'Sent to MSP', key: 'Alt+0' },
+      /* Billing's folders from anywhere (303601 "ALT + 9 … ALT + 0") */
+      { label: 'Unsent to MSP', key: 'Alt+9', onSelect: () => go?.node?.('bl-unsent') },
+      { label: 'Sent to MSP', key: 'Alt+0', onSelect: () => go?.node?.('bl-sent') },
       /* emulator extra: the MDI sheets this frame has open */
       { sep: true },
       ...(mdi?.instances.length
@@ -397,7 +447,7 @@ export const makeMainMenu = (
     ]},
     { label: 'Action', menu: [
       { label: 'Account Summary', key: 'Alt+F1', onSelect: () => go?.open?.('account-summary') },
-      { label: 'Invoice Window', key: 'Alt+I' },
+      { label: 'Invoice Window', key: 'Alt+I', onSelect: () => go?.node?.('bl-invoices') },
       { label: 'Create Referral Note', key: 'Ctrl+R', onSelect: () => go?.letter?.('referral') },
       { label: 'Create Consult Note', key: 'Ctrl+Shift+R', onSelect: () => go?.letter?.('consult') },
       { label: 'Create Information Request', onSelect: () => go?.letter?.('information-request') },
@@ -431,11 +481,18 @@ export const makeMainMenu = (
       { label: 'Health Maintenance Review', key: 'Ctrl+H', onSelect: () => go?.open?.('health-maintenance-review') },
       { label: 'Flow Sheet Review', onSelect: () => go?.open?.('flow-sheet-review') },
       { label: 'MSP Eligibility Check', onSelect: () => go?.open?.('msp-eligibility') },
-      { label: 'Provider Address to Clipboard' },
+      /* only while System Settings ▸ APP SETTING - CARECONNECT ▸ Enabled is Y
+         (3318194 `30bf032e…`, `197c5a32…`; screens/CareConnectWindow.tsx) */
+      ...(isYes(systemSettingValue(CARECONNECT_ENABLED_ROW))
+        ? [{ label: 'Launch CareConnect', onSelect: () => go?.open?.('launch-careconnect') }]
+        : []),
+      /* 303377: opens the Master Provider List; the pick is copied
+         (screens/AdminUtilityWindows.tsx) */
+      { label: 'Provider Address to Clipboard', onSelect: () => go?.open?.('provider-address-clipboard') },
       { label: 'Patient Address to Clipboard (lookup)', onSelect: () => go?.lookup?.() },
       { sep: true },
       { label: 'Change Teleplan Password', onSelect: () => go?.open?.('change-teleplan-password') },
-      { label: 'Patient Address to Clipboard (current)' },
+      { label: 'Patient Address to Clipboard (current)', onSelect: () => go?.open?.('patient-address-clipboard') },
       { label: 'Chart Navigator - Load from File', onSelect: () => go?.open?.('select-file') },
     ]},
     { label: 'Print', menu: [
@@ -461,6 +518,10 @@ export const makeMainMenu = (
         'Problem List for Patient',
         'Cumulative Lab Data for Patient',
         'Lab Code for Patient',
+        /* 680492 lists "Lab Profile for Patient" here; the user's v02.31
+           capture (reference/menus/print.png) does not have it, and the
+           current build wins. Its report still opens by name through
+           `host.mois.print {menu: 'Lab Profile for Patient'}` (C3). */
         'Radiology Reports for Patient',
         'Consultations for Patient',
         'Facility Admission for Patient',
@@ -482,8 +543,13 @@ export const makeMainMenu = (
     ]},
     { label: 'Maintenance', menu: [
       { label: 'User Settings' },
-      { label: 'Computer Settings' },
+      /* 3768908, 3076723: the workstation's printers and Printer Profile
+         (screens/ComputerSettingsWindow.tsx) */
+      { label: 'Computer Settings', onSelect: () => go?.open?.('computer-settings') },
       { label: 'Default Value Setting', onSelect: () => go?.open?.('default-value') },
+      /* 303427 `e2d11224…png`: keeps the MAR's view and filters as the
+         folder's default (screens/MarView.tsx) */
+      { label: 'Save Window Options as My Defaults', disabled: place?.node !== 'mar', onSelect: () => go?.open?.('mar-save-window-options') },
       /* emulator extra: the three looks the kit can be dialled to, and the
          two ways its text can be rasterised */
       { sep: true },
@@ -894,6 +960,10 @@ export const daybookProviders = [
   { provider: 'FAIRCHILD, NESRIN L', type: 'Nurse Practitioner', loc: 'DAW HEALTH UNIT' },
   { provider: 'HOWSER, DOOGIE', type: 'Physician', loc: 'PRINCE GEORGE' },
   { provider: 'SHEWCHUK, LEAH', type: 'Nurse', loc: 'DAW HEALTH UNIT' },
+  /* a resident's own day book (art. 304078 scenario 1: provider "Resident
+     A", no practitioner or payee number; the day book's Alias names the
+     preceptor the claims bill under) */
+  { provider: 'RESIDENT A', type: 'Resident', loc: 'DAW HEALTH UNIT' },
 ]
 
 export const encounterRows = [

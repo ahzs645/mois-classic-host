@@ -44,6 +44,9 @@ function PrintCurrentDayBook({ args, close, open }: AreaWindowProps) {
     if (typeof a.spacing === 'number') setSpacing(a.spacing)
     if (a.part === 'am' || a.part === 'pm' || a.part === 'all') setPart(a.part)
     if (a.all === true) setAll(true)
+    /* Print ▸ Current Daybook as Slate: "The 'As Slate' option is
+       automatically checked" (art. 303239) */
+    if (a.slate === true) setSlate(true)
   }, [typed])
 
   const print = () => {

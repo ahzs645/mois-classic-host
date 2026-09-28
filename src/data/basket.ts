@@ -116,6 +116,12 @@ export type BasketReportLayout = {
   comments?: boolean
   /** Progress Notes has no Source / Created footer */
   noFooter?: boolean
+  /** the Detail tab's own fields, where the folder's page lists them
+      (1802756 Measures, 1802758 Consults, 1802761 Facility Admissions) */
+  detail?: { left: [label: string, key: string][]; right: [label: string, key: string][]; memo?: string }
+  /** the Report tab's Order # carries the "…" that opens the Order Linking
+      Service — every folder but Orders (1802749) */
+  orderLink?: boolean
 }
 
 const SHARED_COMMANDS = [
@@ -158,6 +164,12 @@ export const basketFolders: BasketFolder[] = [
       right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
       memo: 'Report',
       comments: true,
+      orderLink: true,
+      detail: {
+        left: [['Test Name:', 'test'], ['Value:', 'valueUnits'], ['Flag:', 'flag'], ['Ref. Ranges:', 'range'], ['Status:', 'status'], ['MOIS Code:', 'moisCode'], ['LOINC Code:', 'loinc'], ['Order Name:', 'orderName'], ['Class:', 'class'], ['Volume:', 'volume']],
+        right: [['Facility:', 'facility'], ['Facility Location:', 'facilityLoc'], ['Facility Reference:', 'facilityRef'], ['Performed By:', 'performedBy'], ['Report By:', 'reportBy'], ['Transcribed:', 'transcribed'], ['Collected By:', 'collectedBy'], ['Specimen Source:', 'specimen']],
+        memo: 'Collection Note',
+      },
     },
     abnormalCells: ['test', 'value', 'units', 'flag'],
     columns: [
@@ -172,12 +184,16 @@ export const basketFolders: BasketFolder[] = [
       ...TAIL,
     ],
     rows: [
-      row('139', 'A', 'BROWN, FARMER', '35', { collected: '26.03.17', test: 'HEMOGLOBIN A1C', value: '8.4', units: '%', flag: 'H', abnormal: true, range: '4.0 to 6.0', orderDate: '2026.03.16', orderedBy: 'BEARDWOOD, WENDY', recordId: '500112', report: 'Consistent with poorly controlled diabetes.' }),
+      row('139', 'A', 'BROWN, FARMER', '35', { collected: '26.03.17', test: 'HEMOGLOBIN A1C', value: '8.4', units: '%', flag: 'H', abnormal: true, range: '4.0 to 6.0', orderDate: '2026.03.16', orderedBy: 'BEARDWOOD, WENDY', recordId: '500112', report: 'Consistent with poorly controlled diabetes.', ir: 'O', owners: 'ADMINISTRATOR;BEARDWOOD, WENDY', panel: 'DIABETES PANEL', moisCode: '128', loinc: '4548-4', orderName: 'DIABETES PANEL', class: 'CHEM', facility: 'LIFELABS', facilityLoc: 'PG', facilityRef: 'L26-031744', performedBy: 'LIFELABS 2026.03.17 11:02', reportBy: 'LIFELABS 2026.03.17 14:10', transcribed: 'SYSTEM 2026.03.17 14:12', collectedBy: 'LIFELABS 2026.03.17 08:40', specimen: 'BLOOD' }),
       row('474', 'A', 'ADAM, GEORGE', '48', { collected: '26.03.17', test: 'CREATININE', value: '96', units: 'umol/L', flag: '', range: '60 to 110', orderDate: '2026.03.16', orderedBy: 'BEARDWOOD, WENDY', recordId: '500113' }),
       row('586', 'A', 'HALE, MARGARET', '70', { collected: '26.03.16', test: 'THYROID STIMULATING HORMONE', value: '11.2', units: 'mIU/L', flag: 'H', abnormal: true, range: '0.32 to 5.04', orderedBy: 'SMITH, DALENE', recordId: '500098' }),
       row('461', 'A', 'RAO, PRIYA', '41', { collected: '26.03.16', test: 'POTASSIUM', value: '4.1', units: 'mmol/L', flag: '', range: '3.5 to 5.0', orderedBy: 'BEARDWOOD, WENDY', recordId: '500101' }),
-      row('0', 'R', 'OKONKWO, SAM', '56', { collected: '26.03.15', test: 'LIPID PANEL', value: '', units: '', flag: '', clip: '1', orderedBy: 'SMITH, DALENE', recordId: '500094', reviewNote: 'Please review with the LDL target in mind.' }),
+      row('0', 'R', 'OKONKWO, SAM', '56', { collected: '26.03.15', test: 'LIPID PANEL', value: '', units: '', flag: '', clip: '1', orderedBy: 'SMITH, DALENE', recordId: '500094', reviewNote: 'Please review with the LDL target in mind.', panel: 'LIPID PANEL' }),
       row('13', 'A', 'FONTAINE, DALE', '24', { collected: '26.03.15', test: 'HEMOGLOBIN', value: '131', units: 'g/L', flag: '', range: '120 to 160', orderedBy: 'RESIDENT, R1', recordId: '500090' }),
+      /* another user's results: listed only when their workspace is blended
+         in or viewed (1802767), with their initials under Assignee */
+      row('22', 'A', 'CASTILLO, JUNE', '78', { collected: '26.03.14', test: 'SODIUM', value: '131', units: 'mmol/L', flag: 'L', abnormal: true, range: '135 to 145', orderedBy: 'BEARDWOOD, WENDY', recordId: '500087', assignee: 'WB', ir: 'O', owners: 'BEARDWOOD, WENDY' }),
+      row('5', 'A', 'ADAM, GEORGE', '48', { collected: '26.03.13', test: 'THROAT SWAB CULTURE', value: 'NEG', units: '', flag: '', orderedBy: 'SMITH, PETER', recordId: '500085', assignee: 'PS', ir: 'O', owners: 'SMITH, PETER' }),
     ],
   },
   {
@@ -192,6 +208,7 @@ export const basketFolders: BasketFolder[] = [
       left: [['Test Name:', 'test'], ['Region:', 'region'], ['Laterality:', 'laterality'], ['Flag:', 'flag'], ['Modality:', 'modality'], ['Status:', 'status']],
       right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
       memo: 'Report',
+      orderLink: true,
     },
     abnormalCells: ['test', 'flag'],
     columns: [
@@ -221,6 +238,14 @@ export const basketFolders: BasketFolder[] = [
       left: [['Reason:', 'reason'], ['Seen By:', 'seenBy'], ['Date:', 'seenDate'], ['Diag. Code:', 'diagCode'], ['Diag Desc.:', 'diagDesc']],
       right: [['Refer Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Referred By:', 'referredBy'], ['Copies To:', 'copiesTo']],
       memo: 'Report',
+      orderLink: true,
+      /* the consultant's own diagnosis, beside the Reason the patient was
+         sent for — "may be different!" (1802758) */
+      detail: {
+        left: [['Description:', 'diagDesc'], ['Reason:', 'reason'], ['Facility:', 'facility'], ['Facility Location:', 'facilityLoc'], ['Facility Reference:', 'facilityRef']],
+        right: [['Report By & Date:', 'reportBy'], ['Transcribed & Date:', 'transcribed'], ['Diagnostic Code:', 'diagCode'], ['Diagnostic Desc.:', 'diagDesc']],
+        memo: 'Key Word',
+      },
     },
     columns: [
       ...head(145),
@@ -234,7 +259,7 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('474', 'A', 'HALE, MARGARET', '70', { seen: '26.03.10', seenBy: 'CARDIOLOGY, UHNBC', reason: 'ATRIAL FIBRILLATION - RATE CONTROL', seenDate: '2026.03.10', referredBy: 'SMITH, DALENE', diagCode: '427', diagDesc: 'CARDIAC DYSRHYTHMIAS', recordId: '500090' }),
+      row('474', 'A', 'HALE, MARGARET', '70', { seen: '26.03.10', seenBy: 'CARDIOLOGY, UHNBC', reason: 'ATRIAL FIBRILLATION - RATE CONTROL', seenDate: '2026.03.10', referredBy: 'SMITH, DALENE', diagCode: '427', diagDesc: 'CARDIAC DYSRHYTHMIAS', recordId: '500090', ir: 'C', orderDate: '2026.02.02', facility: 'UHNBC', facilityLoc: 'PG', facilityRef: 'C26-00913', reportBy: 'CARDIOLOGY, UHNBC 2026.03.10', transcribed: 'UHNBC TRANSCRIPTION 2026.03.11 09:15', report: 'Thank you for referring this pleasant 70 year old woman with paroxysmal atrial fibrillation.\n\nImpression: rate controlled on metoprolol. CHADS2 score 2; anticoagulation discussed.\n\nPlan: continue metoprolol, start apixaban 5 mg BID, repeat Holter in 3 months.' }),
       row('33', 'A', 'OKONKWO, SAM', '56', { seen: '26.03.09', seenBy: 'GENERAL SURGERY', reason: 'INGUINAL HERNIA REPAIR - FOLLOW UP', seenDate: '2026.03.09', referredBy: 'BEARDWOOD, WENDY', recordId: '500088' }),
       row('25', 'R', 'RAO, PRIYA', '41', { seen: '26.03.05', seenBy: 'RESPIROLOGY', reason: 'CHRONIC COUGH', seenDate: '2026.03.05', referredBy: 'BEARDWOOD, WENDY', recordId: '500084' }),
     ],
@@ -250,6 +275,7 @@ export const basketFolders: BasketFolder[] = [
       left: [['Description:', 'description'], ['Diagnostic Code:', 'diagCode'], ['Diagnostic Description:', 'diagDesc']],
       right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
       memo: 'Report',
+      orderLink: true,
     },
     columns: [
       ...head(153),
@@ -307,8 +333,14 @@ export const basketFolders: BasketFolder[] = [
     extra: { header: 'Attending', key: 'attending' },
     report: {
       left: [['Description:', 'description'], ['Admit Date:', 'admitDate'], ['Attending:', 'attending'], ['Admitted By:', 'admittedBy']],
-      right: [['Diagnostic Code:', 'diagCode'], ['Diagnostic Description:', 'diagDesc'], ['Copies To:', 'copiesTo']],
+      right: [['Diagnostic Code:', 'diagCode'], ['Diagnostic Description:', 'diagDesc'], ['Copies To:', 'copiesTo'], ['Order #:', 'orderNo']],
       memo: 'Report',
+      orderLink: true,
+      detail: {
+        left: [['Description:', 'description'], ['Facility:', 'facility'], ['Facility Location:', 'facilityLoc'], ['Facility Reference:', 'facilityRef']],
+        right: [['Report By & Date:', 'reportBy'], ['Transcribed & Date:', 'transcribed'], ['Diagnostic Code:', 'diagCode'], ['Diagnostic Desc.:', 'diagDesc']],
+        memo: 'Key Word',
+      },
     },
     columns: [
       ...head(143),
@@ -322,7 +354,8 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('461', 'A', 'HALE, MARGARET', '70', { discharge: '26.03.02', facility: 'UHNBC', description: 'DISCHARGE SUMMARY', admitDate: '2026.02.26', attending: 'CARDIOLOGY, UHNBC', recordId: '500061' }),
+      row('461', 'A', 'HALE, MARGARET', '70', { discharge: '26.03.02', facility: 'UHNBC', description: 'DISCHARGE SUMMARY', admitDate: '2026.02.26', attending: 'CARDIOLOGY, UHNBC', admittedBy: 'EMERGENCY, UHNBC', diagCode: '427', diagDesc: 'CARDIAC DYSRHYTHMIAS', recordId: '500061', ir: 'F', facilityLoc: 'PG', facilityRef: 'A26-11802', reportBy: 'CARDIOLOGY, UHNBC 2026.03.02', transcribed: 'UHNBC TRANSCRIPTION 2026.03.03 10:04', report: 'Admitted 2026.02.26 with rapid atrial fibrillation. Rate controlled with IV then oral metoprolol. Discharged home 2026.03.02 in sinus rhythm.\n\nFollow-up: family physician in one week; cardiology clinic in six weeks.' }),
+      row('461', 'A', 'RAO, PRIYA', '41', { discharge: '26.03.16', facility: 'UHNBC', description: 'ER CARE REPORT - CHEST PAIN', admitDate: '2026.03.16', attending: 'EMERGENCY, UHNBC', admittedBy: 'TRIAGE, UHNBC', recordId: '500059', ir: 'F', report: 'Seen in ER for atypical chest pain. ECG normal, troponin negative x2. Discharged with GP follow-up.' }),
     ],
   },
   {
@@ -365,9 +398,9 @@ export const basketFolders: BasketFolder[] = [
     recordType: 'Order',
     extra: { header: 'Referred To', key: 'referredTo' },
     report: {
-      left: [['Referred To:', 'referredTo'], ['Payor:', 'payor'], ['Copies To:', 'copiesTo']],
-      right: [['Order Type:', 'orderType'], ['Ordered By:', 'orderedBy'], ['Transcribed:', 'transcribed']],
-      memo: 'Report',
+      left: [['Referred To:', 'referredTo'], ['Payor:', 'payor'], ['Copies To:', 'copiesTo'], ['Transcribed:', 'transcribed'], ['Status:', 'status']],
+      right: [['Order Type:', 'orderType'], ['Ordered By:', 'orderedBy'], ['Facility:', 'facility'], ['Facility Ref:', 'facilityRef'], ['Facility Location:', 'facilityLoc']],
+      memo: 'Referral',
     },
     commands: [
       'Refresh', 'Change W/S', 'Open Chart', 'Create Task', 'Create Message',
@@ -387,8 +420,10 @@ export const basketFolders: BasketFolder[] = [
       { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
     ],
     rows: [
-      row('33', 'A', 'RAO, PRIYA', '41', { ordDate: '26.03.07', orderedBy: 'RESPIROLOGY', orderType: 'Consultation', src: 'EXT', description: 'PULMONARY FUNCTION TESTING', status: 'In Process', referredTo: 'RESPIROLOGY', payor: 'MSP', recordId: '500050' }),
-      row('25', 'A', 'BROWN, FARMER', '35', { ordDate: '26.03.04', orderedBy: 'BEARDWOOD, W', orderType: 'Lab', src: 'EXT', description: 'HEMOGLOBIN A1C', status: 'Completed', referredTo: 'LIFELABS', payor: 'MSP', recordId: '500049' }),
+      row('33', 'A', 'RAO, PRIYA', '41', { ordDate: '26.03.07', orderedBy: 'RESPIROLOGY', orderType: 'Consultation', src: 'EXT', description: 'PULMONARY FUNCTION TESTING', status: 'In Process', referredTo: 'RESPIROLOGY', payor: 'MSP', recordId: '500050', ir: 'R', facility: 'NORTHERN RESPIROLOGY', facilityRef: 'CDX-88213', facilityLoc: 'PG', transcribed: 'CDX 2026.03.07 13:20', report: 'Referral letter: 41 year old with chronic cough, please assess for asthma. PFTs requested.' }),
+      row('25', 'A', 'BROWN, FARMER', '35', { ordDate: '26.03.04', orderedBy: 'BEARDWOOD, W', orderType: 'Lab', src: 'INT', description: 'HEMOGLOBIN A1C', status: 'Completed', referredTo: 'LIFELABS', payor: 'MSP', recordId: '500049', transcribed: 'ADMINISTRATOR 2026.03.04 09:02' }),
+      /* no Order Type: Print asks for one first (1802763 `d86d53f9…`) */
+      row('12', 'A', 'OKONKWO, SAM', '56', { ordDate: '26.03.09', orderedBy: 'GENERAL SURGERY', orderType: '', src: 'EXT', description: 'INGUINAL HERNIA - REFERRAL', status: 'Scheduled', referredTo: 'GENERAL SURGERY', payor: 'MSP', recordId: '500047', report: 'Referral for elective right inguinal hernia repair.' }),
     ],
   },
 ]
@@ -408,4 +443,123 @@ export const CHART_FOLDER_FOR_BASKET: Record<string, string> = {
   'ws-admissions': 'admissions',
   'ws-progress': 'encounters',
   'ws-orders': 'orders',
+}
+
+/* ============================================================================
+   Whose workspace a basket row is in, and what the Basket's own windows
+   read beside the rows (1802749 "Using the Workspace Basket").
+   ========================================================================= */
+
+/** The users a row is waiting for. Unmarked rows are the signed-in user's. */
+export const rowOwners = (r: BasketRow): string[] =>
+  String(r.owners ?? 'ADMINISTRATOR').split(';').map((s) => s.trim()).filter(Boolean)
+
+const initialsOf = (name: string) => {
+  if (name === 'ADMINISTRATOR') return 'ADMIN'
+  const [last = '', first = ''] = name.split(',').map((s) => s.trim())
+  return `${first[0] ?? ''}${last[0] ?? ''}`
+}
+
+/**
+ * The rows a workspace view shows: those waiting for anyone in the view.
+ * A row waiting for two or more of them is one blended row whose Assignee
+ * reads `*` (1802767: "You will see an asterisk in the 'Assignee' column …
+ * when a record is blended, otherwise … the initials of the user").
+ */
+export function rowsForView(rows: BasketRow[], people: string[]): BasketRow[] {
+  return rows.flatMap((r) => {
+    const mine = rowOwners(r).filter((o) => people.includes(o))
+    if (!mine.length) return []
+    if (mine.length > 1) return [{ ...r, assignee: '*', blendedFor: mine.join('; ') }]
+    return [{ ...r, assignee: r.owners ? initialsOf(mine[0]!) : r.assignee }]
+  })
+}
+
+/** Outstanding orders a basket record can be linked to (Order Linking
+    Service, 1802749 `a31c8698…` / `6a620b43…`), by patient. */
+export const BASKET_ORDERS: Record<string, { orderNo: string; date: string; orderBy: string; referral: string; description: string; status: string; priority: string; comment: string }[]> = {
+  'BROWN, FARMER': [
+    { orderNo: '700211', date: '2026.03.16', orderBy: 'BEARDWOOD, WENDY', referral: 'LIFELABS', description: 'DIABETES PANEL', status: 'IN PROCESS', priority: 'ROUTINE', comment: 'ORDER BY: BEARDWOOD, WENDY\n\nQuarterly diabetes review.' },
+    { orderNo: '700198', date: '2026.03.01', orderBy: 'BEARDWOOD, WENDY', referral: 'RADIOLOGY', description: 'ULTRASOUND ABDOMEN COMPLETE', status: 'SCHEDULED', priority: 'ROUTINE', comment: 'ORDER BY: BEARDWOOD, WENDY' },
+  ],
+  'ADAM, GEORGE': [{ orderNo: '700220', date: '2026.03.16', orderBy: 'BEARDWOOD, WENDY', referral: 'LIFELABS', description: 'CREATININE', status: 'IN PROCESS', priority: 'ROUTINE', comment: 'ORDER BY: BEARDWOOD, WENDY' }],
+  'HALE, MARGARET': [
+    { orderNo: '700160', date: '2026.02.02', orderBy: 'SMITH, DALENE', referral: 'CARDIOLOGY, UHNBC', description: 'ATRIAL FIBRILLATION - RATE CONTROL', status: 'SCHEDULED', priority: 'URGENT', comment: 'ORDER BY: SMITH, DALENE\n\nPlease assess rate control.' },
+    { orderNo: '700171', date: '2026.03.14', orderBy: 'SMITH, DALENE', referral: 'LIFELABS', description: 'THYROID STIMULATING HORMONE', status: 'IN PROCESS', priority: 'ROUTINE', comment: 'ORDER BY: SMITH, DALENE' },
+  ],
+  'CASTILLO, JUNE': [{ orderNo: '700150', date: '2026.03.10', orderBy: 'SMITH, DALENE', referral: 'RADIOLOGY', description: 'CHEST X-RAY, TWO VIEWS', status: 'IN PROCESS', priority: 'ROUTINE', comment: 'ORDER BY: SMITH, DALENE' }],
+  'OKONKWO, SAM': [{ orderNo: '700140', date: '2026.03.02', orderBy: 'BEARDWOOD, WENDY', referral: 'GENERAL SURGERY', description: 'INGUINAL HERNIA REPAIR', status: 'SCHEDULED', priority: 'ROUTINE', comment: 'ORDER BY: BEARDWOOD, WENDY' }],
+  'RAO, PRIYA': [{ orderNo: '700133', date: '2026.03.05', orderBy: 'BEARDWOOD, WENDY', referral: 'RESPIROLOGY', description: 'CHRONIC COUGH', status: 'SCHEDULED', priority: 'ROUTINE', comment: 'ORDER BY: BEARDWOOD, WENDY' }],
+  'FONTAINE, DALE': [{ orderNo: '700120', date: '2026.03.14', orderBy: 'RESIDENT, R1', referral: 'LIFELABS', description: 'CBC', status: 'IN PROCESS', priority: 'ROUTINE', comment: 'ORDER BY: RESIDENT, R1' }],
+}
+
+/** The HL7 order statuses the Status drop-down lists (1802763; `6a620b43…`). */
+export const ORDER_STATUSES: { status: string; description: string }[] = [
+  { status: 'IN PROCESS', description: 'In process, unspecified' },
+  { status: 'SCHEDULED', description: 'In process, scheduled' },
+  { status: 'RESULTS AVAILABLE', description: 'Some, but not all, results available' },
+  { status: 'CANCELLED', description: 'Order was cancelled' },
+  { status: 'COMPLETED', description: 'Order is completed' },
+  { status: 'ERROR', description: 'Error, order not found' },
+  { status: 'ON HOLD', description: 'Order is on hold' },
+  { status: 'DISCONTINUED', description: 'Order was discontinued' },
+  { status: 'REPLACED', description: 'Order has been replaced' },
+]
+
+/** A basket measure's earlier values (Show History ▸ Related Measurements),
+    by `patient|test`, newest first; the basket row itself is added on top. */
+export const MEASURE_HISTORY: Record<string, { collected: string; value: string; comment?: string }[]> = {
+  'BROWN, FARMER|HEMOGLOBIN A1C': [
+    { collected: '2025.12.10', value: '7.9' }, { collected: '2025.09.02', value: '7.4' },
+    { collected: '2025.05.28', value: '7.1', comment: 'Metformin increased' }, { collected: '2025.02.14', value: '6.8' },
+  ],
+  'ADAM, GEORGE|CREATININE': [{ collected: '2025.10.01', value: '92' }, { collected: '2025.04.11', value: '88' }],
+  'HALE, MARGARET|THYROID STIMULATING HORMONE': [{ collected: '2025.11.20', value: '7.8' }, { collected: '2025.06.03', value: '4.9' }],
+  'RAO, PRIYA|POTASSIUM': [{ collected: '2025.08.19', value: '4.4' }],
+  'FONTAINE, DALE|HEMOGLOBIN': [{ collected: '2025.12.02', value: '128' }, { collected: '2025.07.15', value: '134' }],
+  'CASTILLO, JUNE|SODIUM': [{ collected: '2026.01.09', value: '136' }],
+}
+
+/** Goals shown beside Show History (2.22: "incorporate Goals"). */
+export const MEASURE_GOALS: Record<string, { goal: string; start: string; end: string }[]> = {
+  'BROWN, FARMER|HEMOGLOBIN A1C': [{ goal: 'HBA1C < 7.0', start: '2025.09.02', end: '' }],
+}
+
+/** The Panel tab: the other results in the row's panel, and its note
+    (1802756 "Panel Tab"). */
+export const BASKET_PANELS: Record<string, { note: string; results: { test: string; value: string; units: string; flag: string; range: string; status: string }[] }> = {
+  'BROWN, FARMER|DIABETES PANEL': {
+    note: 'Fasting sample. Patient reports missed metformin doses this month.',
+    results: [
+      { test: 'HEMOGLOBIN A1C', value: '8.4', units: '%', flag: 'H', range: '4.0 to 6.0', status: 'F' },
+      { test: 'GLUCOSE FASTING', value: '9.1', units: 'mmol/L', flag: 'H', range: '3.6 to 6.0', status: 'F' },
+      { test: 'CREATININE', value: '84', units: 'umol/L', flag: '', range: '50 to 110', status: 'F' },
+      { test: 'ALBUMIN/CREATININE RATIO', value: '3.4', units: 'mg/mmol', flag: 'H', range: '< 2.0', status: 'F' },
+    ],
+  },
+  'OKONKWO, SAM|LIPID PANEL': {
+    note: '',
+    results: [
+      { test: 'CHOLESTEROL', value: '5.9', units: 'mmol/L', flag: 'H', range: '< 5.2', status: 'F' },
+      { test: 'LDL CHOLESTEROL', value: '3.8', units: 'mmol/L', flag: 'H', range: '< 3.5', status: 'F' },
+      { test: 'HDL CHOLESTEROL', value: '1.1', units: 'mmol/L', flag: '', range: '> 1.0', status: 'F' },
+      { test: 'TRIGLYCERIDES', value: '2.2', units: 'mmol/L', flag: 'H', range: '< 1.7', status: 'F' },
+    ],
+  },
+}
+
+/** Workflow Summary: the training acknowledgement history each record
+    carries before the session adds to it (1802768 `9a1ef52e…` etc.). */
+export const ACK_HISTORY_SEED: Record<string, { at: string; action: string; by: string; to?: string; note?: string }[]> = {
+  'ws-measures:OKONKWO, SAM': [
+    { at: '2026.03.15 14:52', action: 'CREATED', by: 'SMITH, DALENE', to: 'ADMINISTRATOR', note: '[REVIEWED] Please review with the LDL target in mind.' },
+  ],
+  'ws-measures:BROWN, FARMER': [
+    { at: '2026.03.17 14:12', action: 'CREATED', by: 'INTERFACE', to: 'BEARDWOOD, WENDY' },
+    { at: '2026.03.17 14:12', action: 'CREATED', by: 'INTERFACE', to: 'ADMINISTRATOR' },
+  ],
+  'ws-consults:HALE, MARGARET': [
+    { at: '2026.03.11 09:15', action: 'CREATED', by: 'SMITH, DALENE', to: 'SMITH, DALENE' },
+    { at: '2026.03.12 10:02', action: 'REASSIGNED', by: 'SMITH, DALENE', to: 'ADMINISTRATOR', note: 'Automatically reassigned according to inbox forwarding rule.' },
+  ],
 }

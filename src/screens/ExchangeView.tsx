@@ -8,6 +8,7 @@ import {
 } from './InterfaceExchangeViews'
 import { ManualEntryView } from './ManualEntryView'
 import { AutoUpdateView, PrepareBillsView, ReconcileRemittanceView, TeleplanView } from './MspExchangeViews'
+import { AmcareScorecardView } from './AmcareScorecardView'
 
 /* ============================================================================
    Data Exchange — one work-area view per folder.
@@ -50,6 +51,8 @@ const SCREENS: Record<string, (go: ExchangeGo) => ReactElement> = {
   'dx-import-charts': () => <ImportChartsView />,
   'dx-import-logs': () => <ImportLogsView />,
   'ad-auto-update': () => <AutoUpdateView />,
+  /* Scorecard Export ▸ AMCARE (303386 `64d96ee8`) */
+  'dx-amcare': (go) => <AmcareScorecardView open={go.open} />,
 }
 
 const MANUAL_NODES = [

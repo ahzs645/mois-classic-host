@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChartScreen } from '../data/chartScreens'
 import type { FormListRow } from '../data/encounterForms'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
@@ -10,8 +10,9 @@ import { useScreenReport } from '../host/screen-state'
 import { DESKTOP_USER } from '../host/encounterArea'
 import { MOIS_TODAY } from '../data/patients'
 import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
+import { SearchForBand, searchFieldsFor, useFolderSearch } from './SearchForBand'
 import {
-  PBCommandRow, PBDataWindow, PBIdentityStrip, PBLookup, PBTabs, PBTextArea,
+  PBCommandRow, PBDataWindow, PBIdentityStrip, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
 
@@ -95,13 +96,20 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
     ...(screen.rows ?? []),
     ...createdDynamicForms.map((form) => ({ date: MOIS_TODAY, group: form.group ?? 'DYNAMIC FORM', title: form.name, attending: '', user: DESKTOP_USER, state: 'DRAFT' })),
   ] : screen.rows ?? []
+  /* Search For filters the grid (SearchForBand.tsx); the rows keep their
+     own indexes, so the current record and the dynamic-form mapping below
+     still address the unfiltered list */
+  const searchFields = useMemo(() => searchFieldsFor(screen.title, screen.columns), [screen.title, screen.columns])
+  const search = useFolderSearch(screen.title, searchFields)
+  const shown = rows.map((row, index) => ({ row, index })).filter((x) => search.test(x.row))
   const grid = (
     <PBDataWindow
       columns={columns}
-      rows={rows}
-      current={current}
-      onCurrentChange={setCurrent}
-      onActivate={isDynamic ? (_, index) => {
+      rows={shown.map((x) => x.row)}
+      current={Math.max(0, shown.findIndex((x) => x.index === current))}
+      onCurrentChange={(i) => setCurrent(shown[i]?.index ?? 0)}
+      onActivate={isDynamic ? (_, filtered) => {
+        const index = shown[filtered]?.index ?? filtered
         if (index >= exportedCount) setOpenedCreatedForm(createdDynamicForms[index - exportedCount]?.formId ?? null)
         else setOpenedDynamicForm(dynamicForms[index] ?? null)
       } : undefined}
@@ -138,7 +146,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
 
       {/* a screen with per-column filters has no Search For band (chartScreens `noSearch`) */}
       {!screen.noPatient && !screen.noSearch && <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <span>Search For:</span><PBLookup w="100%" />
+        <SearchForBand context={screen.title} fields={searchFields} value={search.text} onChange={search.setText} style={{ padding: 0, flex: '1 1 auto' }} />
       </div>}
 
       {content ? (

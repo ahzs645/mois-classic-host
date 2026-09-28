@@ -17,6 +17,17 @@ export type BillingCommand =
   | 'prompt-invoice'
   | 'new-claim' | 'save-claim'
   | 'prompt-patient' | 'prompt-doctor' | 'prompt-service' | 'prompt-chart' | 'prompt-recon'
+  /* Unsent Claims ▸ Action (303601) */
+  | 'delete-claim' | 'fee-option-1' | 'fee-option-2'
+  | 'duplicate-nos' | 'duplicate-dos' | 'duplicate-provider' | 'change-claim-provider'
+  | 'set-wcb' | 'set-pay-patient'
+  /* Sent Claims ▸ Action (303602 / 3786544) */
+  | 'resubmit-claim' | 'debit-claim' | 'duplicate-sent'
+  | 'toggle-approve' | 'toggle-write-off' | 'toggle-delete' | 'toggle-private'
+  | 'adjustment-summary' | 'remittance-history'
+  /* Invoices ▸ Action / Print (303603) */
+  | 'prompt-invoice-recon' | 'prompt-invoice-payor' | 'transaction-note' | 'paste-msp-claim'
+  | 'print-statement' | 'print-receipt'
 
 type Listener = (command: BillingCommand) => void
 

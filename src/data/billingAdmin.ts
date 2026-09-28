@@ -13,6 +13,13 @@
 
    The records are synthetic training data. The spelling mistakes marked
    `[sic]` are the application's own and are kept on purpose.
+
+   Every node here is routed to BillingAdminView by the frame. Most of them
+   are now working screens (screens/PbfViews.tsx, LfpViews.tsx, PasViews.tsx,
+   state in data/billingPrograms.ts — A2 stream, art. 2257761 / 2258278 /
+   3166420 / 3788178); for those, the entry below only routes the node and
+   records its first transcription. The generic grid still draws the PAS
+   folder page and MSP Registry Audit.
    ========================================================================= */
 
 export type AdminField =
@@ -52,6 +59,21 @@ const CLOSE = 'Close Window'
 
 export const billingAdminViews: AdminView[] = [
   /* --- PBF ------------------------------------------------------------- */
+  {
+    /* the PBF Management folder itself: the administrator's dashboard
+       (screens/PbfViews.tsx PbfDashboardView) */
+    node: 'bl-pbf',
+    header: 'Primary Care Physician Compensation Management',
+    commands: [],
+    source: '2258278 `7788a098…` (v02.24.34)',
+  },
+  {
+    /* PBF Setup (screens/PbfViews.tsx PbfConfigView) */
+    node: 'bl-pbf-config',
+    header: 'PBF Setup',
+    commands: ['Save', CLOSE],
+    source: '2257761 `58b8f835…` (v02.24.43)',
+  },
   {
     node: 'bl-pbf-enrol',
     header: 'PBF Patient Enrollment',

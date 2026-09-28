@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { friendlyNameMatch, marDrugName } from '../data/marDrugCodes'
 import { adminSites } from '../data/mois'
 import type { MarEvent, MarOrder } from '../data/marOrders'
 import { usePatient } from '../data/patient-context'
+import { useEncounterSession } from '../host/encounterArea'
 import { MOIS_TODAY } from '../data/patients'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
@@ -30,31 +32,82 @@ registerScreenWindows(Object.values(MAR_WINDOWS))
 /* The eight choices New … offers, in the chooser's two columns (1927481
    `70e81e88…png`), each with its grey sub-caption and the Action a new
    record opens with. Only ADMINISTERED and SELF-ADMINISTERED are captured on
-   a record (`2a29ca84…png`, 1664605 `f9365aa5…png`); the others open blank. */
-export const MAR_CHOICES: { label: string; sub?: string; action: string }[] = [
-  { label: 'Administer a Medication', action: 'ADMINISTERED' },
-  { label: 'Record Medication History', sub: '(Other Provider)', action: '' },
-  { label: 'Create a Medication Order', action: '' },
-  { label: 'Reschedule a Medication', sub: '(Deferred…)', action: '' },
-  { label: 'Administer an Immunization', action: 'ADMINISTERED' },
-  { label: 'Record Medication Not Given', sub: '(Refused, Omitted, Cancelled,…)', action: '' },
-  { label: 'Witness an Administered Medication', action: '' },
-  { label: 'Record a Self-Administered Medication', action: 'SELF-ADMINISTERED' },
+   a record (`2a29ca84…png`, 1664605 `f9365aa5…png`); the others open blank.
+
+   303427 (stream C2) completes the set: each choice is a `kind` with its
+   own window (the record window below for Administer / History / Witness /
+   Self-Administered / Immunization, screens/MarActionWindows.tsx for Order,
+   Reschedule and Not Given), each is reached with its accelerator letter
+   after Ctrl+N ("CTRL + N + A = Administer a Medication … CTRL + N + S =
+   Record a Self-Administered Medication"; Immunization's letter is not
+   given — I is the stage's), and the four `order` choices go when System
+   Settings' MAR Ordering is OFF, leaving the four `a5be44cc…png` shows.
+   Witness, Self-Administered and History open with the Action and Given By
+   their captures show (`b2a75743…`, `0dfdb9ad…`, `a405e0ac…`). */
+export type MarKind = 'administer' | 'history' | 'order' | 'reschedule' | 'immunization' | 'not-given' | 'witness' | 'self'
+
+export const MAR_CHOICES: { label: string; sub?: string; action: string; kind: MarKind; key: string; order?: boolean }[] = [
+  { label: 'Administer a Medication', action: 'ADMINISTERED', kind: 'administer', key: 'A' },
+  { label: 'Record Medication History', sub: '(Other Provider)', action: 'OTHER PROVIDER', kind: 'history', key: 'H' },
+  { label: 'Create a Medication Order', action: '', kind: 'order', key: 'O', order: true },
+  { label: 'Reschedule a Medication', sub: '(Deferred…)', action: 'RESCHEDULED', kind: 'reschedule', key: 'R', order: true },
+  { label: 'Administer an Immunization', action: 'ADMINISTERED', kind: 'immunization', key: 'I', order: true },
+  { label: 'Record Medication Not Given', sub: '(Refused, Omitted, Cancelled,…)', action: '', kind: 'not-given', key: 'C', order: true },
+  { label: 'Witness an Administered Medication', action: 'WITNESSED', kind: 'witness', key: 'W' },
+  { label: 'Record a Self-Administered Medication', action: 'SELF-ADMINISTERED', kind: 'self', key: 'S' },
 ]
+
+/** The Action and Given By a new record of each kind opens with. */
+export function marDefaults(kind: MarKind | undefined): { action: string; givenBy: string } {
+  switch (kind) {
+    case 'witness': return { action: 'WITNESSED', givenBy: 'PATIENT' }
+    case 'self': return { action: 'SELF-ADMINISTERED', givenBy: 'PATIENT' }
+    case 'history': return { action: 'OTHER PROVIDER', givenBy: '' }
+    default: return { action: 'ADMINISTERED', givenBy: 'TECHNICAL SUPPORT' }
+  }
+}
+
+/** A caption with its accelerator letter underlined (the first capital). */
+function Mnemonic({ text, letter }: { text: string; letter: string }) {
+  const i = text.search(new RegExp(`\\b${letter}`))
+  if (i < 0) return <>{text}</>
+  return <>{text.slice(0, i)}<u>{text[i]}</u>{text.slice(i + 1)}</>
+}
 
 /* --- New Medication Administration Information -----------------------------
    1927481 `70e81e88…png`: eight radio choices in two columns, Continue (F2)
    · Cancel. */
-export function MarChooserWindow({ onContinue, onClose }: { onContinue: (choice: number) => void; onClose: () => void }) {
+export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
+  onContinue: (choice: number) => void
+  onClose: () => void
+  /** System Settings ▸ MAR Ordering: OFF drops the order-based choices */
+  ordering?: boolean
+}) {
   const [choice, setChoice] = useState(-1)
+  const offered = MAR_CHOICES.map((_, i) => i).filter((i) => ordering || !MAR_CHOICES[i]!.order)
   const radio = (i: number) => (
     <div key={i} style={{ height: 48 }} data-tutorial-id={`host.mois.field.mar-choice-${i}`}>
-      <PBRadio name="mar-new" label={MAR_CHOICES[i]!.label} checked={choice === i} onChange={() => setChoice(i)} />
+      <PBRadio name="mar-new" label={<Mnemonic text={MAR_CHOICES[i]!.label} letter={MAR_CHOICES[i]!.key} />} checked={choice === i} onChange={() => setChoice(i)}
+        tutorialId={`host.mois.field.mar-choice-${MAR_CHOICES[i]!.kind}`} />
       {MAR_CHOICES[i]!.sub && <div style={{ color: '#a0a0a0', paddingLeft: 22 }}>{MAR_CHOICES[i]!.sub}</div>}
     </div>
   )
+  /* the accelerator letter picks its choice and continues (Ctrl+N, then A…) */
+  const onKey = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.altKey || e.metaKey) return
+    const i = offered.find((x) => MAR_CHOICES[x]!.key === e.key.toUpperCase())
+    if (i !== undefined) { e.preventDefault(); onContinue(i) }
+    else if (e.key === 'F2' && choice >= 0) { e.preventDefault(); onContinue(choice) }
+  }
+  useEffect(() => {
+    const listener = (e: globalThis.KeyboardEvent) => onKey(e as unknown as KeyboardEvent)
+    document.addEventListener('keydown', listener)
+    return () => document.removeEventListener('keydown', listener)
+  })
+  const left = ordering ? [0, 1, 2, 3] : offered
+  const right = ordering ? [4, 5, 6, 7] : []
   return (
-    <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={640} onClose={onClose}
+    <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={ordering ? 640 : 520} onClose={onClose}
       bodyStyle={{ background: '#fff' }}
       footer={<>
         <span className="pb-footer__spacer" />
@@ -62,15 +115,15 @@ export function MarChooserWindow({ onContinue, onClose }: { onContinue: (choice:
         <FooterButton onClick={onClose}>Cancel</FooterButton>
         <span className="pb-footer__spacer" />
       </>}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '26px 30px 12px', gap: '0 30px' }}>
-        <div>{[0, 1, 2, 3].map(radio)}</div>
-        <div>{[4, 5, 6, 7].map(radio)}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: ordering ? '1fr 1fr' : '1fr', padding: '26px 30px 12px', gap: '0 30px' }}>
+        <div>{left.map(radio)}</div>
+        {right.length > 0 && <div>{right.map(radio)}</div>}
       </div>
     </StageWindow>
   )
 }
 /** The blue patient banner every MAR record window opens with. */
-function MarBanner({ children }: { children?: ReactNode }) {
+export function MarBanner({ children }: { children?: ReactNode }) {
   const p = usePatient()
   const cell = (label: string, value: ReactNode, w?: number) => (
     <span style={{ width: w, display: 'inline-flex', flexDirection: 'column' }}>
@@ -102,29 +155,50 @@ function MarBanner({ children }: { children?: ReactNode }) {
    Existing: 1664605 `f9365aa5…png` — the same body under a pale-blue order
    block (Ordered By, Order Date / Time, Scheduled Start / End), footer Delete
    Record alone at the left, Save and Close · Close at the right. */
-export function MarRecordWindow({ event, order, action = '', onSave, onDelete, onClose }: {
+export function MarRecordWindow({ event, order, action = '', kind, prefill, picked, onLookup, onSave, onDelete, onClose }: {
   /** omitted for a new record */
   event?: MarEvent
   order?: MarOrder
   action?: string
+  /** which New … choice opened a new record (303427): Witness /
+      Self-Administered / History change its Action, Given By and date row */
+  kind?: MarKind
+  /** a scheduled dose being closed off from its order (the Scheduled
+      Record's Administered / Witnessed / … buttons): the order's drug and dose */
+  prefill?: Partial<MarEvent> & { orderBy?: string }
+  /** a drug the Drug Code Lookup just returned: `seq` changes per pick */
+  picked?: { name: string; seq: number }
+  /** the Medication "…" (F4): the Drug Code Lookup */
+  onLookup?: () => void
   onSave: (entry: MarEvent, close: boolean) => void
   onDelete?: () => void
   onClose: () => void
 }) {
   const isNew = !event
   const r = event?.record
-  const [med, setMed] = useState(event?.generic ?? '')
+  const area = useEncounterSession()
+  const history = isNew && kind === 'history'
+  const defaults = marDefaults(kind)
+  const [med, setMed] = useState(event?.generic ?? prefill?.generic ?? '')
   const [lot, setLot] = useState(event?.lot ?? '')
-  const [dose, setDose] = useState(event?.dose ?? '')
-  const [unit, setUnit] = useState(event?.units ?? '')
+  const [dose, setDose] = useState(event?.dose ?? prefill?.dose ?? '')
+  const [unit, setUnit] = useState(event?.units ?? prefill?.units ?? '')
   const [route, setRoute] = useState(r?.str_route ?? '')
   const [site, setSite] = useState(event?.site ?? '')
-  const [act, setAct] = useState(event?.status ?? action)
+  const [series, setSeries] = useState(event?.series ?? '')
+  const [act, setAct] = useState(event?.status ?? (action || (isNew ? defaults.action : '')))
+  const [givenBy, setGivenBy] = useState(event?.by ?? defaults.givenBy)
+  const [accurate, setAccurate] = useState('Day')
+  /* a pick from the Drug Code Lookup lands in Medication */
+  useEffect(() => { if (picked) setMed(picked.name) }, [picked?.seq]) // eslint-disable-line react-hooks/exhaustive-deps
+  /* "If you know the friendly name, you can type that directly into this
+     line … if you type td, MOIS will flip it to read Td" */
+  const commitMed = (typed: string) => { const hit = friendlyNameMatch(typed); if (hit) setMed(marDrugName(hit)) }
   const opt = (value: string, list: string[]) => [...new Set(['', value, ...list])]
   const entry = (): MarEvent => ({
     id: event?.id ?? `stage-mar-${Date.now()}`,
     status: act || 'ADMINISTERED', date: event?.date ?? MOIS_TODAY, time: event?.time ?? new Date().toTimeString().slice(0, 5),
-    med, generic: med, dose, units: unit, series: event?.series ?? '', site, lot, by: event?.by ?? 'TECHNICAL SUPPORT', record: r,
+    med, generic: med, dose, units: unit, series, site, lot, by: givenBy, record: r,
   })
   const id = isNew ? MAR_WINDOWS.record : MAR_WINDOWS.detail
   return (
@@ -152,21 +226,39 @@ export function MarRecordWindow({ event, order, action = '', onSave, onDelete, o
       </MarBanner>
       {isNew && (
         <div className="pb-row" style={{ padding: '10px 8px', gap: 8, borderBottom: '1px solid #c9c9c9' }}>
-          <span style={{ width: 110 }}>Ordered By:</span><PBLookup w={270} defaultValue="TECHNICAL SUPPORT" />
-          <span style={{ marginLeft: 50 }}>Order Date / Time:</span><PBInput w={90} align="center" defaultValue={MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={new Date().toTimeString().slice(0, 5)} />
+          {/* a history record's order is Unknown and undated (`a405e0ac…png`) */}
+          <span style={{ width: 110 }}>Ordered By:</span><PBLookup w={270} name="mar-ordered-by" defaultValue={history ? 'Unknown' : prefill?.orderBy ?? 'TECHNICAL SUPPORT'} />
+          <span style={{ marginLeft: 50 }}>Order Date / Time:</span><PBInput w={90} align="center" defaultValue={history ? '0000.00.00' : MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={history ? '' : new Date().toTimeString().slice(0, 5)} />
         </div>
       )}
       <div className="pb-form" style={{ gridTemplateColumns: '110px 280px 90px 1fr', padding: '8px', gap: '3px 6px', borderBottom: '1px solid #c9c9c9' }}>
-        <span>Action:</span><PBInput w={280} value={act} onChange={(e) => setAct(e.target.value)} />
-        <span>PIR SDL:</span><PBLookup w="100%" defaultValue={r?.str_pir_sdl ?? ''} />
-        <span>Date / Time</span><div className="pb-row"><PBInput w={90} align="center" defaultValue={event?.date ?? MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={event?.time ?? ''} /></div><span /><span />
-        <span>Given By:</span><PBInput w={280} defaultValue={event?.by ?? 'TECHNICAL SUPPORT'} /><span /><span />
+        <span>Action:</span><PBInput w={280} value={act} onChange={(e) => setAct(e.target.value)} data-tutorial-id="host.mois.field.mar-action" />
+        {history ? <><span /><span /></> : <><span>PIR SDL:</span><PBLookup w="100%" defaultValue={r?.str_pir_sdl ?? ''} /></>}
+        {history ? (
+          /* "Use the 'Accurate to the' drop-down menu to adjust the date of
+             administration … only the year, a month & year, or a full date" */
+          <>
+            <span>Date</span>
+            <div className="pb-row">
+              <PBInput w={90} align="center" defaultValue={MOIS_TODAY} style={{ background: 'var(--pb-dw-select)' }} data-tutorial-id="host.mois.field.mar-date" />
+              <span style={{ color: '#8a8a8a', marginLeft: 14 }}>Accurate to the</span>
+              <PBSelect w={70} value={accurate} options={['Day', 'Month', 'Year']} onChange={(e) => setAccurate(e.target.value)} data-tutorial-id="host.mois.field.mar-accurate-to" />
+            </div><span /><span />
+          </>
+        ) : (
+          <><span>Date / Time</span><div className="pb-row"><PBInput w={90} align="center" defaultValue={event?.date ?? MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={event?.time ?? (isNew && kind !== 'self' ? new Date().toTimeString().slice(0, 5) : '')} /></div><span /><span /></>
+        )}
+        <span>Given By:</span><PBInput w={280} value={givenBy} onChange={(e) => setGivenBy(e.target.value)} data-tutorial-id="host.mois.field.mar-given-by" />
+        {history ? <><span style={{ textAlign: 'right' }}>Location:</span><PBInput w="100%" data-tutorial-id="host.mois.field.mar-location" /></> : <><span /><span /></>}
       </div>
       <div className="pb-form" style={{ gridTemplateColumns: '110px 1fr', padding: '8px', gap: '3px 6px', borderBottom: '1px solid #c9c9c9' }}>
         <span>Medication:</span>
-        <span data-tutorial-id="host.mois.field.mar-medication"><PBLookup w="100%" value={med} onChange={setMed} /></span>
+        <span data-tutorial-id="host.mois.field.mar-medication">
+          <PBLookup w="100%" name="mar-medication" value={med} onChange={setMed} onDots={onLookup} onEnter={commitMed}
+            onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); onLookup?.() } else if (e.key === 'Tab') commitMed(e.currentTarget.value) }} />
+        </span>
         <span>Lot Number:</span>
-        <div className="pb-row"><PBLookup w={220} value={lot} onChange={setLot} /><span style={{ marginLeft: 'auto' }}>Series Number:</span><PBInput w={76} defaultValue={event?.series ?? ''} /></div>
+        <div className="pb-row"><PBLookup w={220} value={lot} onChange={setLot} /><span style={{ marginLeft: 'auto' }}>Series Number:</span><PBInput w={76} value={series} onChange={(e) => setSeries(e.target.value)} data-tutorial-id="host.mois.field.mar-series" /></div>
       </div>
       <div style={{ display: 'flex' }}>
         <div style={{ flex: '1 1 auto', borderRight: '1px solid #c9c9c9' }}>
@@ -198,7 +290,8 @@ export function MarRecordWindow({ event, order, action = '', onSave, onDelete, o
         <span style={{ width: 100 }}>Created:</span>
         <span>{r ? `${(r.stp_date_create ?? '').replace(/\//g, '.').replace(/:\d\d$/, '')}  ${r.stp_user_create ?? ''}` : `${MOIS_TODAY}  TECHNICAL SUPPORT`}</span>
         <span className="pb-row__spacer" />
-        <button type="button" className="pb-link">ENC# {r?.id_encounter ?? 'EMPTY'}</button>
+        {/* a new record is linked to the active encounter (303427 "Active Enc") */}
+        <button type="button" className="pb-link" data-tutorial-id="host.mois.field.mar-encounter">ENC# {r?.id_encounter ?? (isNew ? area.activeEncounter : null) ?? 'EMPTY'}</button>
       </div>
     </StageWindow>
   )

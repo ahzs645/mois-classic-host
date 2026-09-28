@@ -39,7 +39,7 @@ import './flow-sheet.css'
 export type FlowSheetParams = { from: string; to: string; type: string }
 
 /** The Flowsheet list the Type drop-down drops (570bfeac, step 3b). */
-const FLOWSHEET_TYPES = [
+export const FLOWSHEET_TYPES = [
   { flowsheet: 'ASTHMA', description: 'ASTHMA CDM FLOWSHEET' },
   { flowsheet: 'CHF', description: 'CHF CDM FLOWSHEET' },
   { flowsheet: 'COPD', description: 'COPD CDM FLOWSHEET' },

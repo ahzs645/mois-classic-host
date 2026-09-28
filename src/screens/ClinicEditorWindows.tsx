@@ -3,12 +3,11 @@ import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroupBox, PBInput, PBLookup, PBRadio, PBSelect,
   PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
-import type { PBColumn } from '../pb'
 import {
-  ALIAS_SOURCES, FACILITY_LOCATIONS, FACILITY_LOCATIONS_KEY, MSP_LOCATIONS, MSP_LOCATION_TEXT, PAYMENT_MODES,
+  FACILITY_LOCATIONS, FACILITY_LOCATIONS_KEY, MSP_LOCATIONS, MSP_LOCATION_TEXT, PAYMENT_MODES,
   VISIT_MODES, clinicListSpec, clinicRowsKey, type ClinicRow,
 } from '../data/clinicManagement'
-import { INBOX_FORWARDING_COLUMNS, SHARING_WORKSPACE_COLUMNS, userListSpec, type UserColumn } from '../data/userManagement'
+import { userListSpec } from '../data/userManagement'
 import { visitCodeRows } from '../data/daybook'
 import { MOIS_TODAY } from '../data/patients'
 import { registerScreenWindows, useSessionState, type ScreenWindow } from '../host/screen-windows'
@@ -18,6 +17,7 @@ import { DemographicModal } from './DemographicDialogs'
 import {
   BillingServiceCodeLookup, ChangeAssociatedUserDialog, ServiceConceptSearchWindow, type AssociationChange,
 } from './AdminPickerWindows'
+import { AliasIdGrid, InboxForwardingGrid, ScheduleAccessList, SharingWorkspaceGrid } from './ProviderTabGrids'
 
 /* ============================================================================
    Administration ▸ Clinic Management / External Service Providers — the
@@ -169,47 +169,9 @@ const Btn = ({ command, w = 88, onClick, children }: { command: string; w?: numb
   <CmdButton command={command} style={{ width: w }} onClick={onClick}>{children}</CmdButton>
 )
 
-/** a grid a tab or a detail window carries, New adding a blank row and Delete removing the current one */
-function EditGrid<T extends Record<string, any>>({ caption, scope, columns, initial, right, blank, height }: {
-  caption: string; scope: string; columns: PBColumn<T>[]; initial?: T[]; right?: ReactNode; blank: T; height?: number
-}) {
-  const host = usePBInstrumentation()
-  const [rows, setRows] = useState<T[]>(initial ?? [])
-  const [cur, setCur] = useState(0)
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: height ?? 0, border: '1px solid #8a8a8a' }}>
-      <PBBand
-        right={(
-          <>
-            {right}
-            {['New', 'Delete'].map((b) => (
-              <PBButton
-                key={b}
-                size="sm"
-                data-tutorial-id={host?.anchor('command', `${scope}-${pbSlug(b)}`)}
-                onClick={() => {
-                  host?.report('command', { command: `${scope}-${pbSlug(b)}` })
-                  if (b === 'New') { setRows((r) => [...r, { ...blank }]); setCur(rows.length) }
-                  else { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) }
-                }}
-              >
-                {b}
-              </PBButton>
-            ))}
-          </>
-        )}
-      >
-        {caption}
-      </PBBand>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#ffffff' }}>
-        <PBDataWindow<T> columns={columns} rows={rows} current={cur} onCurrentChange={setCur} empty=" " />
-      </div>
-    </div>
-  )
-}
-
-const umCols = (cols: UserColumn[]): PBColumn<ClinicRow>[] =>
-  cols.map((c) => ({ key: c.key, header: c.header, width: c.width, align: c.align, headAlign: 'center' }))
+/* The Provider window's in-tab grids (Alias ID, Inbox Forwarding, Sharing
+   Workspace With, Schedule Access) are editable and live in
+   ProviderTabGrids.tsx, shared with the Org Role window. */
 
 /* ===========================================================================
    The layer the list screen renders: whichever of these the slot names.
@@ -446,7 +408,9 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
       pract: S(draft.pract),
       payee: S(draft.payee),
       ptype: S(draft.ptype),
-      payment: S(draft.paymentMode) || S(row.payment),
+      /* a blank Payment Mode is normal (fee-for-service) billing, which the
+         list prints as MSP (303054 "How to Change the Pay Mode") */
+      payment: S(draft.paymentMode) || (S(draft.pract) ? 'MSP' : ''),
     })
     setKey(name)
   }
@@ -541,7 +505,7 @@ function Group({ title, fill, style, children }: { title: ReactNode; fill?: bool
   )
 }
 
-function ProviderTab({ tab, draft, set, onChangeUser }: {
+export function ProviderTab({ tab, draft, set, onChangeUser }: {
   tab: string; draft: Draft; set: (patch: Draft) => void; onChangeUser: () => void
 }) {
   const [lookup, setLookup] = useState<string | null>(null)
@@ -631,9 +595,8 @@ function ProviderTab({ tab, draft, set, onChangeUser }: {
             <PBRadio name="schedule-access" label="Public Access" checked={draft.access !== 'private'} onChange={() => set({ access: 'public' })} tutorialId={fieldId('Public Access')} />
             <PBRadio name="schedule-access" label="Private Access" checked={draft.access === 'private'} onChange={() => set({ access: 'private' })} tutorialId={fieldId('Private Access')} />
           </div>
-          <div style={{ color: '#000080', fontWeight: 700, padding: '4px 0 2px' }}>Who has access to this schedule</div>
-          {/* only the public case is captured */}
-          {draft.access !== 'private' && <div>All users with access to the scheduling module</div>}
+          {/* the private list is 2069798 `b8ba256a…` (ProviderTabGrids.tsx) */}
+          <ScheduleAccessList owner={S(draft.name)} isPrivate={draft.access === 'private'} />
         </Group>
       </>
     )
@@ -662,7 +625,12 @@ function ProviderTab({ tab, draft, set, onChangeUser }: {
               </Line>
               <Line label="Rural Retention:">{text('Rural Retention', 'rural', 74)}{tick('No Rural Retention Code', 'noRural', 'No Rural Retention Code')}</Line>
               <Line label="MSP Location:">
-                <PBSelect w={74} options={MSP_LOCATIONS} value={S(draft.mspLocation)} onChange={(e) => set({ mspLocation: e.target.value })} data-tutorial-id={fieldId('MSP Location')} />
+                {/* 3295094 `707d1e64`: a Code | Description drop-down; the value is the
+                    provider's default billing location (data/billingStore useDefaultLocation) */}
+                <PBDropDownDataWindow<{ code: string; desc: string }> w={74} listW={380} value={S(draft.mspLocation)} display="code"
+                  columns={[{ key: 'code', header: 'Code', width: 44 }, { key: 'desc', header: 'Description', width: 320 }]}
+                  rows={MSP_LOCATIONS.filter(Boolean).map((code) => ({ code, desc: MSP_LOCATION_TEXT[code] ?? '' }))}
+                  onSelect={(r) => set({ mspLocation: r.code })} tutorialId={fieldId('MSP Location')} />
                 <span style={HINT}>{MSP_LOCATION_TEXT[S(draft.mspLocation)] ?? ''}</span>
               </Line>
               <Line label="Facility:">{text('Facility', 'facility', 74)}</Line>
@@ -696,21 +664,9 @@ function ProviderTab({ tab, draft, set, onChangeUser }: {
     case 'Alias ID': return (
       <>
         <AssociatedUser title="Alias ID's for" draft={draft} set={set} onChange={onChangeUser} />
-        <EditGrid<ClinicRow>
-          caption="List"
-          scope="alias"
-          blank={{ start: '', end: '', source: '', value: '', note: '' }}
-          columns={[
-            { key: 'start', header: 'Start Date', width: 72, align: 'center' },
-            { key: 'end', header: 'End Date', width: 72, align: 'center' },
-            {
-              key: 'source', header: 'Source', width: 138,
-              render: (r) => <PBSelect w="100%" options={['', ...ALIAS_SOURCES.map((s) => ({ value: s.code, label: s.code }))]} defaultValue={S(r.source)} />,
-            },
-            { key: 'value', header: 'Value', width: 230 },
-            { key: 'note', header: 'Note', width: 393 },
-          ]}
-        />
+        {/* editable, and kept with the associated User Account (303184:
+            "MOIS will copy the Alias IDs for you") — ProviderTabGrids.tsx */}
+        <AliasIdGrid owner={S(draft.name)} user={S(draft.userProfile)} />
       </>
     )
 
@@ -801,26 +757,8 @@ function WorkspaceTab({ draft, set, onChangeUser }: { draft: Draft; set: (patch:
       <div style={{ flex: '1 1 auto', minHeight: 200, display: 'flex', flexDirection: 'column' }}>
         <PBTabs tabs={['Inbox Forwarding', 'Sharing Workspace With']} active={sub} onChange={setSub} compact face>
           {sub === 'Inbox Forwarding'
-            ? (
-              <EditGrid<ClinicRow>
-                key="forward"
-                caption="Inbox Forwarding"
-                scope="inbox-forwarding"
-                blank={{ start: MOIS_TODAY, stop: '', forward: '', rule: 'Reassign', note: '' }}
-                columns={umCols(INBOX_FORWARDING_COLUMNS).map((c) => (c.key === 'rule'
-                  ? { ...c, render: (r: ClinicRow) => <span className="pb-row" style={{ gap: 6 }}>{['Reassign', 'Copy'].map((rule) => <PBRadio key={rule} name={`rule-${S(r.start)}`} label={rule} checked={S(r.rule) === rule} />)}</span> }
-                  : c))}
-              />
-            )
-            : (
-              <EditGrid<ClinicRow>
-                key="share"
-                caption="Sharing Workspace With"
-                scope="sharing-workspace"
-                blank={{ start: MOIS_TODAY, stop: '', user: '', note: '' }}
-                columns={umCols(SHARING_WORKSPACE_COLUMNS)}
-              />
-            )}
+            ? <InboxForwardingGrid key="forward" owner={S(draft.name)} />
+            : <SharingWorkspaceGrid key="share" owner={S(draft.name)} />}
         </PBTabs>
       </div>
     </>
@@ -1030,7 +968,7 @@ function ChangeProviderNameDialog({ draft, onSave, onClose }: {
 
 const masterName = (given: string, last: string) => [last.toUpperCase(), given].filter(Boolean).join(', ')
 
-function NewMasterProviderDialog({ close, open, onAdded }: {
+export function NewMasterProviderDialog({ close, open, onAdded }: {
   close: () => void; open: (id: string, args?: Record<string, unknown>) => void; onAdded?: () => void
 }) {
   const [rows, update] = useClinicRows('ad-providers')
@@ -1079,7 +1017,7 @@ function NewMasterProviderDialog({ close, open, onAdded }: {
    columns (the older build said Home / Work). Footer Apply Changes / Cancel.
    ======================================================================== */
 
-function MasterProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }) {
+export function MasterProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }) {
   const [rows, update] = useClinicRows('ad-providers')
   const row = rows.find((r) => S(r.name) === rowKey) ?? { name: rowKey }
   const [draft, setDraft] = useState<Draft>(() => {

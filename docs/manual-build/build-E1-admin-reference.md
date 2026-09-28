@@ -1,0 +1,185 @@
+# Build report: stream E1-admin-reference
+
+Emulator: `the emulator`. `npx tsc -p tsconfig.json --noEmit` passes for the whole project.
+Playwright smoke (`/tmp/mcov/e1-smoke.mjs`, private vite on :5795, now stopped) drove every new window with no page or console errors. Screenshots are `/tmp/mcov/e1-*.png`.
+
+## New files (src/)
+- `data/codesets.ts`: data for Sources, Systems, Codes (alternate terms, reference sets), Mappings and Value Sets, plus session keys.
+- `screens/adminSession.ts`: `useStoredList` (session-backed lists), code, mapping and value-set hooks, `nowStamp`.
+- `screens/adminKit.tsx`: in-cell editors (`CellText`, `CellSelect`), `Cmd`, `ButtonBand`, `CentredFooter`, `Line`, `NavyBand`, `onF2`.
+- `screens/CodesetManagementViews.tsx`: the Code Source List, Code System List (+ New Code System / Code System Detail), Codes, Code Mapping, Value Set List (+ New Value Set / Value Set Detail) views.
+- `screens/SearchForBand.tsx`: the chart-folder Search For band. It has a search parser (partial words, phrases, wildcards, FIELD:, NOT), history, Advanced Search, Remove From Search History and Validation Messages.
+- `screens/CodeListLookupWindows.tsx`: Advanced Lookup Service ▸ Master Reaction Agent List, with Synonyms, Synonym Entry and sortable columns.
+- `screens/ConceptTransferWindows.tsx`: Import Concepts / Export Concepts, with the Open / Save As file dialogs.
+- `screens/TaskSetTemplateWindow.tsx`: a working Task Set Detail.
+- `screens/ProviderTabGrids.tsx`: editable Alias ID, Inbox Forwarding and Sharing Workspace grids, plus the Schedule Access private list.
+- `screens/OrgRoleWindows.tsx`: New Org Role / Organization Profile and the Org Role / Organization window (11 tabs, Member, Provider Team Member, Location, Subscriptions, Select Event, Event Subscriber).
+- `screens/ExternalServiceWindows.tsx`: an editable Organization List with a bound detail pane, an editable Service Location List with the Delivery Location lookup, New Clinic, Clinic Detail, and the Add / Update External Organization quick-add.
+- `screens/AddressBookAdminWindows.tsx`: New Contact List, Contact List Detail and Change Settings.
+- `screens/AdminExtraWindows.tsx`: the layer and window registration for the above (`registerScreenWindows`).
+
+## Edited shared files (small edits)
+- `screens/CodeLookupDialogs.tsx`: rewrote the Universal Search Window. The public API is unchanged and it gained an `admin` prop. Registered area window `universal-search-window`.
+- `screens/AddressBookWindow.tsx`: rewritten.
+- `screens/ChartSectionView.tsx` and `screens/ClinicalReportView.tsx`: the Search For band is wired in. Filtering keeps the original row indexes.
+- `screens/AdminListsView.tsx` and `data/adminLists.ts`: route the five codeset nodes.
+- `screens/ClinicListView.tsx`: the dispatcher, the extra New/Edit windows, and `AdminExtraLayer`.
+- `screens/ClinicEditorWindows.tsx`:
+  - exported `ProviderTab`, `NewMasterProviderDialog` and `MasterProviderWindow`;
+  - the grids now come from ProviderTabGrids and the dead `EditGrid` was removed;
+  - a blank Payment Mode now saves as MSP.
+- `screens/DesignerSectionView.tsx`: Import/Export Concepts buttons.
+- `screens/DesignerDetailWindow.tsx`: the task-set case uses the new window, and the old read-only TaskSetDetail was removed.
+- `screens/UserAccountWindow.tsx`: User Alias shares the Provider's alias store (`aliasKey`).
+- `screens/DeaconWindow.tsx` and `data/deacon.ts`: parameters for three functions, a chart-status drop-down and a confirm box. The billing stream's concurrent LFP edits in the same files were left intact.
+- `data/clinicManagement.ts`:
+  - new CLINIC_LIST spec for `ad-clinics`;
+  - organization contact fields, with types remapped to value-set values;
+  - `quesnel` contact list;
+  - `LFP` added to PAYMENT_MODES.
+- `data/addressBook.ts`: the `recipient` mode, the contact-list model and membership (`onContactList`), and the external entry builders.
+- `screens/areaWindows.register.ts`: imports CodeLookupDialogs and CodeListLookupWindows.
+- `host/manifest.ts`: an E1 block of `host.screen.*` snapshot paths.
+
+## 1. Article → what was built
+- **2069355 Codeset Management**: new views for tree nodes `ad-code-sources`, `ad-code-systems`, `ad-codes`, `ad-value-sets`, `ad-code-mapping`.
+  - **Codes**: New / Delete / Save / Undo / Find / Reset.
+    - Find opens the admin USW.
+    - Term is editable, which changes the preferred description.
+    - Alternate Terms: Add creates a SYN / QUICK CODE row; shipped terms are read-only.
+    - Associated Reference Sets and Associated Mappings: Add From / Add To / Delete.
+  - **Value Set Detail**: Add Record / Insert Record / Delete Value, and a Linked Lab Codes tab.
+  - **Mapping**: search strip with "…" and Max row limit. Delete / Backspace clears a field. Shipped mappings are protected.
+- **2069363, 2128358 Universal Search Window**:
+  - Code System and Reference Set ticks with All / Clear, and Parameters (Code is, Category is like, Status Active / Inactive / Either, Limit).
+  - Recent-search history drop-down; a "…" menu with Clear Search History / Search by Term / Search by Code.
+  - F6 cycles sections (the active caption is bold). Esc clears Search For, and a second Esc closes the window.
+  - Alternate Terms shows SYN-P-EN / SYN-A-EN / FSN. Synonyms find the code.
+  - Preferred-term and alternate-term edits saved in Codes carry through to the USW.
+  - Open it by id with `universal-search-window` (args.admin).
+- **2122622, 304711 Search / Filter**: the Search For band on every ChartSectionView and ClinicalReportView folder:
+  - default-field tooltip; the caption turns blue on focus; the band is green when valid and red with a ⚠ when invalid (the ⚠ opens Validation Messages);
+  - per-folder history drop-down; F4 or "…" opens Advanced Search (✱ default, Concept "…", Clear History... leading to Remove From Search History with Select All / Unselect All);
+  - negative (`-STATE:UN`), phrase and wildcard searches, and Esc to clear.
+  - Code-list filtering is window `master-reaction-agent-list`: Row Count, a green Search For, sortable titles, Synonyms link, and Synonym Entry.
+- **302269 Concept Mapping**: Import Concepts (Open dialog, preview with ticks, Import) and Export Concepts (tick list, Export..., Save As, confirmation). Exported files can be re-imported.
+- **2873865 Address Book - Contact Lists**:
+  - Value Sets: EXTERNAL ORGANIZATION TYPE and CONTACT LIST GROUP feed the drop-downs.
+  - Contact List New Record opens New Contact List (Standard / Connection Role / Auxilary). Create opens Contact List Detail with 5 tabs, sub-tabs and Change Settings (› / ‹, double-click, Shift/Ctrl multi-select).
+  - The Address Book gained:
+    - Contact Lists from the session, grouped, with Auxiliary lists hidden and FAVOURITE ▸ My Favourites;
+    - list ticks that filter results, and a heart column for favourites;
+    - Save as Default, and My Favourites opening the favourites detail;
+    - a Connection Role mode ("MOIS - Address Book for …", "Searching only …").
+- **3179351 address lookup quick-add**:
+  - Other Options offers Add an External Organization or Add an External Provider when System Settings ▸ APP SETTING - ADDRESS BOOK sets "Create … from Window" to E or R. Update Current Record is always offered.
+  - Go opens the quick-add dialog, or New Provider leading to Master Provider.
+  - The new entry lands in the admin lists and is highlighted in the results.
+  - The `recipient` mode lists External Organization List.
+- **303121 Organizations**: `ad-organizations` is now edited in place. Name is edited in the cell, Type is a drop-down from the value set, the detail pane follows the current row (Address ×2, City, Province, Postal, Country, Phone, Fax, Note, Created), and Save / Undo / Refresh work.
+- **303117 Clinics**: `ad-clinics` is now the Clinic List. New Record opens New Clinic, which leads to Clinic Detail. Edit Record and double-click open Clinic Detail.
+- **2069411, 2069798 Org Roles / Organizations**: New Record on `ad-org-role-list` / `ad-org-list` opens New Org Role / Organization Profile, and Continue opens the window.
+  - General has Deactivate.
+  - Scheduling includes Private Access with an Add / Remove list.
+  - Billing, Service, Online Booking and Telehealth reuse the Provider tabs.
+  - Alias ID and Workspace have "ORGROLE:" blocks and editable grids.
+  - Member: Show Records filter; Add Org. Role / Add Provider / Add User open a search, then Provider Team Member. Edit / Delete, Expand / Collapse, and inherited rows are shown.
+  - Membership Settings; Location List; Subscriptions (Add → Select Event → MOIS - Search Window → Event Subscriber → row with Edit / Delete).
+  - An organization is refused on save when it has a workspace but no user holding all three workspace items.
+- **303054, 303184 Provider List / Add a New Provider**:
+  - Payment Mode now includes LFP, and saving it updates the list's Payment Type.
+  - BCP uses the Billing Facility field, which already existed.
+  - Making a provider inactive (General ▸ Active) greys the list row; this already existed.
+  - Alias ID grid is editable and shared with the associated User Account's User Alias tab (the "copy").
+  - Inbox Forwarding / Sharing grids are editable, with user drop-downs and a working Rule radio.
+  - Scheduling defaults were already present; Schedule Access now has the private list.
+  - The Workspace associated-user assign (Change... dialog) already existed.
+- **3258369 DEACON**:
+  - Delete future daybook: Provider plus Delete Appointments From, with a confirm box.
+  - Patient/Provider Last Seen: Service Provider plus Not Seen Since.
+  - Update Patient Status for selected provider: Service Provider plus Current and New Chart Status drop-downs.
+  - Find and Replace gained an optional Chart Status.
+  - Reports `host.screen.deaconFunction`.
+- **1802764 Task Set Templates**: Task Set Detail has working New Row / Delete Row, Priority / Task / Group / Due After / unit / Detail, and Save Changes (F2), which persists per template. A new template starts empty.
+- **303059 Service Location**: `ad-locations` is fully editable (name, Make Available on Scheduler tick, Service Delivery Location "…" lookup of Northern Health sites) with Save / Undo / Refresh.
+- **Stale fix**:
+  - The Org Role / Organization List New Record and Edit Record now open windows; before, they did nothing.
+  - Provider Type Conversion was already reachable from the Utilities menu on the Provider List (`data/menus/admin.ts`), so nothing changed there.
+
+## 2. Deliberately left out
+- **DEACON effects and results**: runs do not actually delete Scheduler appointments or change chart statuses (Scheduler and Demographics belong to other streams), and no results sheet is drawn, because the roster carries no service providers.
+- **Create Task Set**: `CreateTaskDialog` still reads `data/tasks.ts` `TASK_SETS`, not the templates authored here. The session key is `admin:task-set:<desc>`. This is a Workspace-stream follow-up.
+- **Not built, no capture**: Edit Display Settings (Scheduling tab), the CDX Provider Group / CDX Location address-book types, and the "i" info column.
+- **Converted providers**: a provider converted into an org list can be opened in the Org Role window, but its Save does not upsert, to avoid duplicating it in the list.
+- **ClinicalReportView**: another agent's in-flight edit was present, and only the band / grid props were touched.
+
+## 3. INFERRED
+- **Codeset Management**: Code Source List, Code System List and its pop-ups, New Value Set, and the refusal messages.
+- **USW**: the "…" menu wording.
+- **Search For**: the live colour-coding and when an entry goes into history; the default field for folders other than Consults, Measures and Imaging.
+- **Master Reaction Agent List**: the agents beyond the capture's six.
+- **Concept Mapping**: both Import / Export windows and the file dialogs.
+- **Org Roles**: New Organization Profile, the Category options, Change Name, the member search window, and the save refusal.
+- **Address Book**:
+  - Contact List Detail: the inside of the Clinic Service Providers tab and the Master Organization List sub-tab;
+  - the Connection Role options;
+  - the membership rule in `onContactList`.
+- **Clinics**: the New Clinic dialog.
+- **3179351 quick-add**: its captures are missing, so the dialog is inferred.
+- **Service Location**: the Delivery Location lookup.
+- **DEACON**: the parameters and descriptions of the three functions, the chart status codes, and the confirm text.
+- **Where the emulator follows the newer build**: Value Set Detail uses the later build's columns (`040ba125…`) because the article says "Add Record".
+
+## 4. Tutorial-authoring anchors (prefix host.mois.)
+- **Codeset Management**:
+  - tree `tree.ad-codesets`, which is collapsed by default: double-click it, or `selectNode` expands it;
+  - commands `command.new|delete|save|undo|find|reset`, `command.alternate-terms-add`, `command.reference-sets-add`, `command.mappings-add-from|add-to|delete`, `command.add-new`, `command.save-changes`, `command.value-list-add-record|insert-record|delete-value`;
+  - fields `field.term`, `field.alt-term-<n>`, `field.value-value-<n>`;
+  - rows `row.value-set-<name>`;
+  - dialogs `dialog.code-system-detail|new-code-system|value-set-detail|new-value-set|universal-search`.
+- **USW**:
+  - fields `field.usw-system-<slug>`, `field.usw-set-<slug>`, `field.usw-search-for`, `field.usw-status-*`, `field.usw-alternate-terms`;
+  - commands `command.usw-history`, `command.usw-clear-history|usw-search-by-code|usw-search-by-term|usw-systems-all|usw-systems-clear`, `command.search`, `command.select-term`;
+  - lookup `lookup.usw-search-for`;
+  - rows `row.usw-<system>-<code>`;
+  - state `screen.uswSection|uswHistory|uswSearchBy`.
+- **Search For**:
+  - `field.search-for`, `lookup.search-for`, `command.search-for-history`, `row.search-history-<n>`, `command.search-warning`;
+  - `dialog.advanced-search` (`field.advanced-<label>`, `command.clear-history`, `command.advanced-search-ok`);
+  - `dialog.remove-from-search-history` (`field.remove-history-<n>`, `command.select-all|remove-history-ok`);
+  - `dialog.validation-messages` (`command.validation-continue`);
+  - state `screen.searchState|searchNegated|searchHistory`.
+- **Code-list lookup**: window `master-reaction-agent-list`, `field.reaction-agent-search`, `sort.description`, `command.synonyms`, `dialog.synonym-entry`, `field.synonym-<n>`, `command.synonym-ok`.
+- **Concepts**: `command.import-concepts|export-concepts`, `dialog.open-concept-file`, `field.concept-file-<slug>`, `command.open|save|import|export`, `field.select-concept-<slug>`.
+- **Task Sets**: `command.edit-record|new-record`, `dialog.task-set-detail`, `command.new-row`, `field.task-<n>`, `field.task-<n>-priority-high`, `field.task-<n>-group|due-after|due-unit|detail`, `command.save-changes`.
+- **Contact Lists**:
+  - `tree.ad-contact-list`, `command.new-record`, `dialog.new-contact-list`;
+  - `field.list-type-standard|connection-role|auxiliary`, `field.contact-group|list-name|list-description|connection-role`, `command.create-record`;
+  - `dialog.contact-list-detail`, tabs `tab.city-s|clinic-service-providers|external-service-providers|master-organization-list|other-contact-list-s`;
+  - `command.contact-orgtypes-change` (and `contact-specialties-change`, `contact-cities-change`, `contact-masterproviders-change`, `contact-linked-change`), `dialog.change-settings`, `row.all-<slug>`, `command.change-add|change-save`, `field.join-and`.
+- **Address Book**:
+  - open by id `address-book` (args.mode `recipient`, or args.connectionRole);
+  - `field.address-contact-<list>`, `command.favourite-<name>`, `command.save-as-default|my-favourites`, `field.address-other-options`, `command.go`;
+  - `dialog.add-external-organization` (`field.new-org-name|new-org-fax|new-org-type`, `command.new-org-ok`);
+  - `dialog.new-provider`, then `dialog.master-provider`;
+  - state `screen.addressBookOption|addressBookAdded`.
+- **Organizations**: `tree.ad-organizations`, `row.organization-<name>`, `field.org-type-<n>`, `field.fax`, `command.save`.
+- **Clinics**: `tree.ad-clinics`, `dialog.new-clinic`, `dialog.clinic-detail`, `command.save-changes`.
+- **Org Roles**:
+  - `tree.ad-org-role-list` / `ad-org-list`, `dialog.new-org-role-profile`;
+  - `field.name|category|signature|ws-daybook|ws-documents|ws-tasks|ws-messages|short-name`, `command.continue`, `dialog.org-role|organization`;
+  - tabs `tab.member|scheduling|location|subscriptions|service`;
+  - Member: `command.add-user|add-provider|add-org-role`, `dialog.member-search`, `command.member-search-ok`, `dialog.provider-team-member`, `field.member-start-date`, `command.member-save`;
+  - Scheduling: `field.private-access`, `command.schedule-access-add`;
+  - Location: `command.location-list-new`, `field.location-location-<n>`;
+  - Subscriptions: `command.subscriptions-add`, `dialog.select-event`, `row.event-temporary-membership`, `command.event-continue`, `dialog.event-subscriber`, `command.subscriber-save`;
+  - `command.deactivate`, `command.save-close`.
+- **Provider**: `row.provider-<name>` (double-click), tabs, `field.payment-mode`, `field.facility`, `field.active`, `command.alias-new`, `field.alias-source-<n>|alias-value-<n>`, `command.associated-user-change`, `command.inbox-forwarding-new`, `field.forward-user-<n>`, `field.forward-rule-copy-<n>`, `command.sharing-workspace-new`, `field.share-user-<n>`, `command.service-new`.
+- **Service Location**: `tree.ad-locations`, `command.new-record`, `field.location-name-<n>`, `field.location-scheduler-<n>`, `lookup.delivery-location-<n>`, `dialog.delivery-location-lookup`, `command.delivery-location-ok`, `command.save`.
+- **DEACON**:
+  - window `deacon`, `group.deacon-chart-service-provider`;
+  - rows `row.deacon-delete-future-daybook-for-selected-provider|deacon-patient-provider-last-seen|deacon-update-patient-status-for-selected-provider`;
+  - fields `field.provider|delete-appointments-from|service-provider|current-chart-status|new-chart-status`;
+  - commands `command.run`, `command.deacon-confirm-yes`, `command.yes`;
+  - state `screen.deaconFunction`.
+- **Provider Type Conversion**: on the Provider List, menu Utilities ▸ Convert to Different Provider Type opens window `provider-type-conversion`.

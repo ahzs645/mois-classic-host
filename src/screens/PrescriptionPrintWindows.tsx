@@ -6,6 +6,8 @@ import { MOIS_TODAY } from '../data/patients'
 import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { STAGE_USER, useMedRows, useMedSession, type Med } from './medication-model'
 import { MED_WINDOWS } from './MedicationWindows'
+import { AddressBookWindow } from './AddressBookWindow'
+import { useSessionState } from '../host/screen-windows'
 import { CurrentPatientBlock, FooterButton, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -44,6 +46,8 @@ export type PrintJob = {
   include: string[]
   /** the Pharmacy / Other Recipient Include tick */
   pharmacy: boolean
+  /** which pharmacy the drop-down named (303227 Pharmacy Selection) */
+  pharmacyName?: string
   printer: string
   fax: string
 }
@@ -389,13 +393,21 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
   const [pharmacy, setPharmacy] = useState(false)
   const [printer, setPrinter] = useState('Default')
   const [fax, setFax] = useState('DEFAULT')
-  const [picking, setPicking] = useState<'printer' | 'fax' | null>(null)
+  const [picking, setPicking] = useState<'printer' | 'fax' | 'pharmacy' | null>(null)
   const [cur, setCur] = useState(0)
   const row = rows[Math.min(cur, Math.max(0, rows.length - 1))]
   const hasGfr = (data?.measure ?? []).some((m) => m.str_code === '27540' || /\bGFR\b/i.test(m.str_description ?? ''))
-  const ph = p.pharmacy
-  const pharmacyLabel = ph?.name ? [ph.name, ph.address].filter(Boolean).join(' - ') : ''
-  const job = (mode: PrintMode): PrintJob => ({ mode, include: rows.filter((m) => include.has(m.id)).map((m) => m.id), pharmacy, printer, fax })
+  /* 303227 "Pharmacy Selection": "Add One" picks a pharmacy from the Address
+     Book for Pharmacy List (`ea24de4d…`, `ae8ae990…`, 2.30.22+ with Limit to
+     Pharmacy List records), which then sits in the drop-down beside the
+     chart's own; with none on file the band reads "No pharmacy on file."
+     (`b8e5665f…`, v2.27) */
+  const [added, setAdded] = useSessionState<NonNullable<typeof p.pharmacy>[]>(`rx-pharmacies:${p.chart}`, [])
+  const pharmacies = [p.pharmacy, ...added].filter((x): x is NonNullable<typeof p.pharmacy> => !!x?.name)
+  const labelOf = (x: NonNullable<typeof p.pharmacy>) => [x.name, x.address].filter(Boolean).join(' - ')
+  const [pharmacyLabel, setPharmacyLabel] = useState(() => (pharmacies[0] ? labelOf(pharmacies[0]) : ''))
+  const ph = pharmacies.find((x) => labelOf(x) === pharmacyLabel) ?? pharmacies[0]
+  const job = (mode: PrintMode): PrintJob => ({ mode, include: rows.filter((m) => include.has(m.id)).map((m) => m.id), pharmacy, pharmacyName: ph?.name, printer, fax })
   const button = (mode: PrintMode, label: string, primary = false) => (
     <FooterButton primary={primary} onClick={() => onPrint(job(mode))} tutorialId={`host.mois.command.${mode === 'print' ? 'print-f2' : pbSlug(label)}`}>{label}</FooterButton>
   )
@@ -418,16 +430,18 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
         <div className="pb-row" style={{ background: pharmacy ? '#d4fdc8' : '#fff', padding: '2px 8px 2px 30px', gap: 10 }}>
           <PBCheckbox label="Include" checked={pharmacy} onChange={setPharmacy} tutorialId="host.mois.field.pharmacy-include" />
           <span style={{ width: 20 }} />
-          <span style={{ fontWeight: 700 }}>
-            <PBSelect w={560} value={pharmacyLabel} options={[pharmacyLabel]} data-tutorial-id="host.mois.field.pharmacy" />
-          </span>
-          <span>Fax:&nbsp;<b>{ph?.fax ?? ''}</b></span>
+          {pharmacies.length ? (
+            <>
+              <span style={{ fontWeight: 700 }}>
+                <PBSelect w={560} value={pharmacyLabel} options={pharmacies.map(labelOf)} onChange={(e) => setPharmacyLabel(e.target.value)} data-tutorial-id="host.mois.field.pharmacy" />
+              </span>
+              <span>Fax:&nbsp;<b>{ph?.fax ?? ''}</b></span>
+            </>
+          ) : <span data-tutorial-id="host.mois.field.pharmacy">No pharmacy on file.</span>}
           <span style={{ flex: '1 1 auto' }} />
-          {/* TODO(user capture 2026-09-25 #40): "Add One" opens the MOIS -
-              Address Book for Pharmacy List (Limit to Pharmacy List records
-              ticked). That window is being built elsewhere; wire it here
-              when it lands. Until then the link does nothing. */}
-          <button type="button" className="pb-link" data-tutorial-id="host.mois.command.add-one" style={{ marginRight: 60 }}>Add One</button>
+          {/* user capture 2026-09-25 #40: "Add One" opens the MOIS - Address
+              Book for Pharmacy List (screens/AddressBookWindow.tsx) */}
+          <button type="button" className="pb-link" data-tutorial-id="host.mois.command.add-one" style={{ marginRight: 60 }} onClick={() => setPicking('pharmacy')}>Add One</button>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, margin: '0 6px', border: '1px solid var(--pb-border)', borderTop: 0, ['--pb-dw-select' as string]: '#fdffc9' }}>
@@ -492,7 +506,20 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
           ))}
         </div>
       </div>
-      {picking && (
+      {picking === 'pharmacy' && (
+        <AddressBookWindow
+          mode="pharmacy"
+          onClose={() => setPicking(null)}
+          onSelect={(entry) => {
+            const picked = { name: entry.name, address: entry.location, phone: entry.phone, fax: entry.fax }
+            if (!pharmacies.some((x) => x.name === picked.name)) setAdded((a) => [...a, picked])
+            setPharmacyLabel(labelOf(picked))
+            setPharmacy(true)
+            setPicking(null)
+          }}
+        />
+      )}
+      {(picking === 'printer' || picking === 'fax') && (
         <SelectPrinterWindow
           onClose={() => setPicking(null)}
           onPick={(name) => { if (picking === 'printer') setPrinter(name); else setFax(name); setPicking(null) }}
@@ -556,7 +583,8 @@ export function PleaseSignWindow({ job, onAccept, onClose }: { job: PrintJob; on
   const [stamp] = useState(signedOn)
   const prescriber = meds.find((m) => m.orderBy)?.orderBy ?? STAGE_USER
   const name = `${p.first}${p.alias ? ` (${p.alias})` : ''} ${p.last}`.toUpperCase()
-  const ph = p.pharmacy
+  const [addedPharmacies] = useSessionState<NonNullable<typeof p.pharmacy>[]>(`rx-pharmacies:${p.chart}`, [])
+  const ph = [p.pharmacy, ...addedPharmacies].find((x) => x?.name && x.name === job.pharmacyName) ?? p.pharmacy
   const section: CSSProperties = { borderBottom: '1px solid #000', padding: '3px 4px' }
   const mono: CSSProperties = { fontFamily: 'var(--pb-font-mono)', whiteSpace: 'pre-wrap', fontSize: 11, lineHeight: '15px' }
   const tag = (text: string) => <span style={{ display: 'inline-block', width: 58 }}>{text}</span>

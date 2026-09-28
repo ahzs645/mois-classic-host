@@ -5,6 +5,7 @@ import { workspaceStore } from '../data/workspaceStore'
 import { PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { MhkMessageNotes, MhkSendToPatient } from './MyHealthKeyChartView'
 
 /* ============================================================================
    Create New Message.
@@ -86,6 +87,11 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
   const [subject, setSubject] = useState(str(args.subject))
   const [detail, setDetail] = useState(str(args.detail))
   const [chart, setChart] = useState(str(args.chart))
+  /* myhealthkey patient messaging (2280708 `8150b451…`; MyHealthKeyChartView.tsx):
+     Send To Patient, and the record's notes (`args.notes`, ';'-separated) */
+  const [toPatient, setToPatient] = useState(false)
+  const [pickedNotes, setPickedNotes] = useState<string[]>([])
+  const notes = str(args.notes) ? str(args.notes).split(';').map((n) => n.trim()).filter(Boolean) : []
 
   const save = () => {
     workspaceStore.addMessage({
@@ -114,6 +120,7 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
             <RecipientGrid caption="Send To" users={sendTo} onChange={setSendTo} id="message-send-to" />
             <div style={{ height: 1, background: '#a0a0a0', flex: 'none' }} />
             <RecipientGrid caption="Copies To" users={copies} onChange={setCopies} id="message-copies-to" />
+            <MhkSendToPatient chart={chart} send={toPatient} onChange={setToPatient} />
           </div>
 
           <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -152,6 +159,7 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
         </div>
       </div>
 
+      {toPatient && notes.length > 0 && <MhkMessageNotes notes={notes} picked={pickedNotes} onPick={setPickedNotes} />}
       <div className="pb-row" style={{ gap: 14, padding: '14px 0', justifyContent: 'center', flex: 'none' }}>
         <DialogButton id="message-save" onClick={save} isDefault>{linked ? 'Save (F2)' : 'Create (F2)'}</DialogButton>
         <DialogButton id="message-cancel" onClick={close}>Cancel</DialogButton>

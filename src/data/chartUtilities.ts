@@ -222,8 +222,12 @@ export type ReviewRow = { date: string; by: string; note: string }
 export const REVIEW_NOUNS: Record<string, string> = {
   /* captured (`7d42bca76bd7`) */
   conditions: 'Health Condition',
-  /* derived from the folder label — never captured */
+  /* captured since: art. 303131 `a4b9f727…png` (v02.24.41) titles it
+     "Reviewing: Reaction Risk". `allergy` is the same folder (the
+     Allergy / Intolerances node opens Reaction Risks). */
   reaction: 'Reaction Risk',
+  allergy: 'Reaction Risk',
+  /* derived from the folder label — never captured */
   ltm: 'Long Term Medication',
 }
 
@@ -307,15 +311,17 @@ export const FORM_LETTER_WIDTHS = {
 }
 
 export type FormLetterRow = {
-  group: 'RECENT' | 'FORMS'
+  group: 'RECENT' | 'FORMS' | 'PHSA eFORMS'
   description: string
   source: string
   docType: string
   spare: string
 }
 
-/** The two bands the tree-grid paints, in painting order. */
-export const FORM_LETTER_GROUPS: FormLetterRow['group'][] = ['RECENT', 'FORMS']
+/** The bands the tree-grid paints, in painting order. PHSA eFORMS is the
+    band 3001613 `4399305d…png` and 3001611 `17e72105…png` add under FORMS
+    and LETTERS (the LETTERS band those captures also show is not built). */
+export const FORM_LETTER_GROUPS: FormLetterRow['group'][] = ['RECENT', 'FORMS', 'PHSA eFORMS']
 
 /* Source/Org and Doc type values are the ones listed in the capture:
    FNHA / MISC / NH / GOVT-BC / GOVT-FED / AHS / IH / AB / PROVIDENCE, and
@@ -337,6 +343,10 @@ export const formLetterRows: FormLetterRow[] = [
   { group: 'FORMS', description: 'PROVIDENCE HEALTH - CARDIAC REFERRAL', source: 'PROVIDENCE', docType: 'REFERRAL', spare: '' },
   { group: 'FORMS', description: 'RESIDENTIAL CARE ACCESS REQUEST', source: 'AHS', docType: 'REQ', spare: '' },
   { group: 'FORMS', description: 'VETERANS AFFAIRS - TREATMENT AUTHORIZATION', source: 'GOVT-FED', docType: 'REQ', spare: '' },
+  /* 3001613 `4399305d…png` / 3001611 `17e72105…png`: the two PHSA eFORMs,
+     Source PHSA; Ok on one opens the eForm Browser (screens/PhsaEformWindows.tsx) */
+  { group: 'PHSA eFORMS', description: '*REQUEST SPECIAL AUTHORITY (BY MEDICATION)*', source: 'PHSA', docType: '', spare: '' },
+  { group: 'PHSA eFORMS', description: 'PAXLOVID PRESCRIPTION', source: 'PHSA', docType: '', spare: '' },
 ]
 
 export type AttachFileRow = {

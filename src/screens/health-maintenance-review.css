@@ -67,3 +67,18 @@
 .pb-hmr__normal { color: #00008b; }
 .pb-hmr__abnormal { color: #8b0000; }
 .pb-hmr__range { color: #a0a0a0; }
+
+/* the stage's note of what Clipboard copied, under the four buttons */
+.pb-hmr__note { grid-column: 1 / -1; color: #404040; text-align: right; white-space: nowrap; }
+
+/* Tear Off: its own window over the review, offset so both title bars show
+   (INFERRED — the torn-off window is not captured) */
+.pb-hmr__tearoff {
+  position: absolute;
+  left: 48px;
+  top: 48px;
+  width: min(640px, calc(100% - 64px));
+  height: min(560px, calc(100% - 64px));
+  z-index: 1;
+}
+.pb-hmr__tearoff .pb-hmr__report { flex: 1 1 auto; }

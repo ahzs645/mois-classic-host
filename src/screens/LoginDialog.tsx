@@ -3,6 +3,7 @@ import { PBButton, PBInput, PBWindow } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { LOCKOUT_WINDOW_ID, useActiveLockout } from './LockoutWindows'
 import { DialogButton } from './WorkspaceDialogFrame'
+import { USER_AGREEMENT_PROMPT, usePendingAgreement } from './UserAgreementWindows'
 
 /* ============================================================================
    MOIS sign-in — a branded splash panel above the credential fields.
@@ -45,9 +46,13 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
      (screens/LockoutWindows.tsx) */
   const lock = useActiveLockout()
   const openWindow = useOpenWindow()
+  /* 3363428: an active User Agreement the user has not yet answered is
+     presented "when they log in" (screens/UserAgreementWindows.tsx) */
+  const agreement = usePendingAgreement()
   const ok = () => {
     onClose()
     if (lock) openWindow(LOCKOUT_WINDOW_ID)
+    else if (agreement) openWindow(USER_AGREEMENT_PROMPT)
   }
 
   return (

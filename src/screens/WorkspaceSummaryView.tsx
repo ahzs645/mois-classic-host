@@ -1,4 +1,7 @@
+import { useEffect } from 'react'
 import { PBBand, PBCommandRow, PBDataWindow } from '../pb'
+import { workspaceExtras } from '../data/workspaceExtras'
+import { expiredDefaults } from './WorkspaceBlendWindows'
 import { workspaceSummary } from '../data/workspaceLists'
 import { useWorkspaceStore } from '../data/workspaceStore'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -18,6 +21,10 @@ import { WorkspaceBanner } from './WorkspaceBanner'
 
    The counts are derived from the folders themselves (data/workspaceLists),
    so following a number into its folder finds that many rows.
+
+   Opening the Workspace with a saved default blend that names a user whose
+   sharing rule has since expired raises Default Blending Changed first
+   (1802767 `47ccdc42…`; WorkspaceBlendWindows.tsx).
    ========================================================================= */
 
 const PRIORITY = [
@@ -31,6 +38,11 @@ export function WorkspaceSummaryView() {
   const ws = useWorkspaceStore()
   const openWindow = useOpenWindow()
   const summary = workspaceSummary(ws)
+  useEffect(() => {
+    const gone = expiredDefaults(workspaceExtras.get().defaultBlend)
+    if (gone.length) openWindow('default-blending-changed', { users: gone })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <>
       <WorkspaceBanner title="Workspace Summary" />

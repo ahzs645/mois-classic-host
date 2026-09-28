@@ -11,9 +11,10 @@ import { registerMenus, type MenuContext } from './index'
 
    PROVENANCE
    · Views   — 303601 image `248dc9d0` (v02.20.02): Unsent To MSP, Sent to
-               MSP | Invoice. 303601/303602 give Alt+9, Alt+0 and Alt+I in
-               their text, but the capture prints no accelerators, so none
-               are shown here.
+               MSP | Invoice. 303600/303601/303602 give Alt+9, Alt+0 and
+               Alt+I in their text; the capture prints no accelerators, but
+               they are carried on the items so the keys work (the frame's
+               hot keys run a menu item by its printed key).
    · Action  — Unsent Claims: 303601 image `23c8a9c2` (v02.20.02).
                Sent Claims: 303602 image `8ad93010` (the cloud build, which
                drops Print Label and adds Create an Appointment against the
@@ -39,15 +40,21 @@ const cmd = (label: string, key: string | undefined, command: Parameters<typeof 
   ({ label, key, onSelect: () => billingCommand(command) })
 
 function views(ctx: MenuContext): PBMenuItem[] {
+  /* The accelerators are 303600 / 303601 / 303602's ("or you can press ALT +
+     9 / ALT + 0 / ALT + I"); `248dc9d0` prints none beside the items, but
+     the keys work in every Billing folder, and the frame's hot keys
+     (host/hotkeys.ts) run a menu item by the key printed on it. */
   return [
-    { label: 'Unsent To MSP', onSelect: () => ctx.go.node?.('bl-unsent') },
-    { label: 'Sent to MSP', onSelect: () => ctx.go.node?.('bl-sent') },
+    { label: 'Unsent To MSP', key: 'Alt+9', onSelect: () => ctx.go.node?.('bl-unsent') },
+    { label: 'Sent to MSP', key: 'Alt+0', onSelect: () => ctx.go.node?.('bl-sent') },
     sep,
-    { label: 'Invoice', onSelect: () => ctx.go.node?.('bl-invoices') },
+    { label: 'Invoice', key: 'Alt+I', onSelect: () => ctx.go.node?.('bl-invoices') },
   ]
 }
 
-const desktopProvider: PBMenuItem = { label: 'Change Desktop Provider', key: 'Alt+D' }
+const desktopProvider = (ctx: MenuContext): PBMenuItem => ({
+  label: 'Change Desktop Provider', key: 'Alt+D', onSelect: () => ctx.go.open?.('desktop-provider'),
+})
 const openChart = (ctx: MenuContext): PBMenuItem => ({
   label: 'Open Chart', key: 'Alt+F9', onSelect: () => { ctx.go.module?.('chart'); ctx.go.node?.('demographic') },
 })
@@ -58,18 +65,18 @@ function unsentAction(ctx: MenuContext): PBMenuItem[] {
     cmd('Prompt Unsent by Patient Name', 'Alt+F2', 'prompt-patient'),
     cmd('Prompt Unsent by Provider', 'Ctrl+F4', 'prompt-doctor'),
     cmd('Prompt Unsent by Service Date', 'Ctrl+F5', 'prompt-service'),
-    { label: 'Fee Code Option 1', key: 'F11' },
-    { label: 'Fee Code Option 2', key: 'F12' },
+    cmd('Fee Code Option 1', 'F11', 'fee-option-1'),
+    cmd('Fee Code Option 2', 'F12', 'fee-option-2'),
     sep,
-    { label: 'Duplicate Claim - NOS', key: 'F3' },
-    { label: 'Duplicate Claim - DOS', key: 'Alt+F3' },
-    { label: 'Duplicate Claim diff Provider', key: 'Ctrl+F3' },
-    { label: 'Change Claim Provider', key: 'Ctrl+D' },
+    cmd('Duplicate Claim - NOS', 'F3', 'duplicate-nos'),
+    cmd('Duplicate Claim - DOS', 'Alt+F3', 'duplicate-dos'),
+    cmd('Duplicate Claim diff Provider', 'Ctrl+F3', 'duplicate-provider'),
+    cmd('Change Claim Provider', 'Ctrl+D', 'change-claim-provider'),
     sep,
-    { label: 'Set as WCB Claim', key: 'Ctrl+W' },
-    { label: 'Set as Pay Patient (PP) Claim', key: 'Ctrl+P' },
+    cmd('Set as WCB Claim', 'Ctrl+W', 'set-wcb'),
+    cmd('Set as Pay Patient (PP) Claim', 'Ctrl+P', 'set-pay-patient'),
     sep,
-    desktopProvider,
+    desktopProvider(ctx),
     openChart(ctx),
   ]
 }
@@ -79,22 +86,23 @@ function sentAction(ctx: MenuContext): PBMenuItem[] {
     cmd('Prompt Sent by Recon Code', 'Alt+F2', 'prompt-recon'),
     cmd('Prompt Sent for Chart', 'Alt+F1', 'prompt-chart'),
     sep,
-    { label: 'Resubmit Claim', key: 'F2' },
-    { label: 'Debit Claim', key: 'Ctrl+F2' },
-    { label: 'Duplicate Claim', key: 'F3' },
+    cmd('Resubmit Claim', 'F2', 'resubmit-claim'),
+    cmd('Debit Claim', 'Ctrl+F2', 'debit-claim'),
+    cmd('Duplicate Claim', 'F3', 'duplicate-sent'),
     sep,
-    { label: 'Toggle - Approve / Adjust', key: 'Ctrl+A' },
-    { label: 'Toggle - Write Off', key: 'Ctrl+W' },
-    { label: 'Toggle - Mark For Delete', key: 'Shift+F2' },
-    { label: 'Toggle - Private Claim Flag' },
+    cmd('Toggle - Approve / Adjust', 'Ctrl+A', 'toggle-approve'),
+    cmd('Toggle - Write Off', 'Ctrl+W', 'toggle-write-off'),
+    cmd('Toggle - Mark For Delete', 'Shift+F2', 'toggle-delete'),
+    cmd('Toggle - Private Claim Flag', undefined, 'toggle-private'),
     sep,
     /* 303602: "Opens the 'Sent Claim Detail' window which will list any
        explanatory codes from MSP" (screens/SentClaimDetailWindow.tsx) */
     { label: 'Detail Expl Code', key: 'Ctrl+E', onSelect: () => ctx.go.open?.('sent-claim-detail') },
-    { label: 'Detail Adjustment Summary', key: 'Alt+Z' },
-    { label: 'Remittance History' },
+    /* screens/billing/SentClaimWindows.tsx */
+    { label: 'Detail Adjustment Summary', key: 'Alt+Z', onSelect: () => ctx.go.open?.('sent-adjustment-summary') },
+    { label: 'Remittance History', onSelect: () => ctx.go.open?.('sent-remittance-history') },
     sep,
-    desktopProvider,
+    desktopProvider(ctx),
     openChart(ctx),
     { label: 'Create an Appointment' },
   ]
@@ -102,18 +110,18 @@ function sentAction(ctx: MenuContext): PBMenuItem[] {
 
 function invoiceAction(ctx: MenuContext): PBMenuItem[] {
   return [
-    { label: 'Prompt by Reconciliation Code', key: 'Alt+F1' },
-    { label: 'Prompt by Payor Code', key: 'Alt+F2' },
-    { label: 'Prompt by Invoice #', key: 'Alt+F3' },
+    cmd('Prompt by Reconciliation Code', 'Alt+F1', 'prompt-invoice-recon'),
+    cmd('Prompt by Payor Code', 'Alt+F2', 'prompt-invoice-payor'),
+    cmd('Prompt by Invoice #', 'Alt+F3', 'prompt-invoice'),
     sep,
     cmd('Pay Balance', 'Ctrl+P', 'pay-balance'),
     cmd('W/O Balance', 'Ctrl+W', 'write-off-balance'),
-    { label: 'Transaction Note' },
-    { label: 'Recalculate Balance Owing' },
+    cmd('Transaction Note', undefined, 'transaction-note'),
+    cmd('Recalculate Balance Owing', undefined, 'recalculate'),
     sep,
-    { label: 'Paste Sent MSP Claim' },
+    cmd('Paste Sent MSP Claim', undefined, 'paste-msp-claim'),
     sep,
-    desktopProvider,
+    desktopProvider(ctx),
     openChart(ctx),
   ]
 }
@@ -124,10 +132,17 @@ function utilities(ctx: MenuContext): PBMenuItem[] {
     { label: 'Provider Address to Clipboard' },
     { label: 'Patient Address to Clipboard (lookup)', onSelect: () => ctx.go.lookup?.() },
   ]
+  /* screens/billing/ClaimWizards.tsx and SentReviewWizard.tsx */
   if (ctx.node === 'bl-unsent') {
-    return [{ label: 'Claim Review Wizard' }, { label: 'Bulk Claim Creation Wizard' }, ...clipboard, sep, teleplan]
+    return [
+      { label: 'Claim Review Wizard', onSelect: () => ctx.go.open?.('unsent-claim-review-wizard') },
+      { label: 'Bulk Claim Creation Wizard', onSelect: () => ctx.go.open?.('batch-claim-wizard') },
+      ...clipboard, sep, teleplan,
+    ]
   }
-  if (ctx.node === 'bl-sent') return [{ label: 'Claim Review Wizard' }, ...clipboard, sep, teleplan]
+  if (ctx.node === 'bl-sent') {
+    return [{ label: 'Claim Review Wizard', onSelect: () => ctx.go.open?.('msp-review-wizard') }, ...clipboard, sep, teleplan]
+  }
   return [...clipboard, sep, teleplan]
 }
 
@@ -136,11 +151,17 @@ const DAY_SHEETS = ['Day Sheet - Desktop Provider', 'Day Sheet - All Providers',
 function print(ctx: MenuContext): PBMenuItem[] {
   const selectText: PBMenuItem = { label: 'Print Select Text', key: 'Ctrl+Shift+N' }
   if (ctx.node === 'bl-invoices') {
-    return [{ label: 'Print Statement', key: 'Ctrl+A' }, { label: 'Print Receipt', key: 'Ctrl+R' }, sep, selectText]
+    return [
+      cmd('Print Statement', 'Ctrl+A', 'print-statement'),
+      cmd('Print Receipt', 'Ctrl+R', 'print-receipt'),
+      sep, selectText,
+    ]
   }
-  /* the day sheets keep the Patient Chart menu's own handlers */
+  /* the day sheets keep the Patient Chart menu's own handlers (the Selection
+     Parameter window, data/schedulerPrintReports.ts); falling back to
+     `go.print` if the base menu ever drops one */
   const base = ctx.base?.Print ?? []
-  const sheets = DAY_SHEETS.map((label) => base.find((item) => item.label === label) ?? { label })
+  const sheets = DAY_SHEETS.map((label) => base.find((item) => item.label === label) ?? { label, onSelect: () => ctx.go.print?.(label) })
   return [...sheets, sep, selectText]
 }
 
@@ -151,7 +172,19 @@ export function registerBillingMenus() {
   registerMenus('billing', billingMenus)
 }
 
+/* The frame's navigation, as the last menu build handed it over. A Billing
+   window that moves the learner on — Sent Claims' Resubmit and Debit Claim
+   "Will open the Unsent to MSP folder" (303602) — has no navigator prop of
+   its own; the menu is rebuilt on every frame render, so this is current. */
+let lastGo: MenuContext['go'] | null = null
+
+/** Select a tree node the way the menu's Views items do. */
+export function billingNavigate(node: string) {
+  lastGo?.node?.(node)
+}
+
 const billingMenus = (ctx: MenuContext) => {
+  lastGo = ctx.go
   const action = ctx.node === 'bl-unsent' ? unsentAction(ctx)
     : ctx.node === 'bl-sent' ? sentAction(ctx)
       : ctx.node === 'bl-invoices' ? invoiceAction(ctx)

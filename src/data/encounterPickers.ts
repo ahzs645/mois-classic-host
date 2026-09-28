@@ -137,6 +137,14 @@ export const universalSearchRows: UniversalSearchRow[] = [
   { term: 'ADV EFF GANGLION-BLOCK', category: 'DIAGNOSIS', code: 'E9423', system: 'ICD-9', alternates: [] },
   { term: 'ADV EFF METHADONE', category: 'DIAGNOSIS', code: 'E9351', system: 'ICD-9', alternates: [] },
   { term: 'ADV EFF PHENOTHIAZ TRANQ', category: 'DIAGNOSIS', code: 'E9391', system: 'ICD-9', alternates: [] },
+  /* The Multiple Code Sets example (2069402 `189d341d`, Associated
+     Mappings): ICD-9 42682 and the three SNOMED-CT terms mapped to it. Billing
+     swaps a SNOMED-CT code for its ICD-9 equivalent (data/billingStore
+     CODE_MAPPINGS). */
+  { term: 'LONG QT SYNDROME', category: 'DIAGNOSIS', code: '42682', system: 'ICD-9', alternates: [] },
+  { term: 'ANDERSEN TAWIL SYNDROME', category: 'DIAGNOSIS', code: '422348008', system: 'SNOMED-CT', alternates: [] },
+  { term: 'CONGENITAL LONG QT SYNDROME', category: 'DIAGNOSIS', code: '442917000', system: 'SNOMED-CT', alternates: [] },
+  { term: 'PROLONGED QT INTERVAL', category: 'FINDING', code: '111975006', system: 'SNOMED-CT', alternates: [] },
 ]
 
 /** A row of the Master Service Code List. */
