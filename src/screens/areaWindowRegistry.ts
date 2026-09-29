@@ -39,6 +39,9 @@ export function registerAreaWindow(id: string, component: ComponentType<AreaWind
 
 export const isAreaWindow = (id: string): boolean => registry.has(id)
 
+/** every registered id, in registration order (the DOM census walks them) */
+export const registeredAreaWindowIds = (): string[] => [...registry.keys()]
+
 export function AreaWindowLayer({
   open, onClose, onOpen,
 }: {
