@@ -104,8 +104,11 @@ export function FooterButton({ children, onClick, primary, disabled, tutorialId,
   tutorialId?: string
   wide?: boolean
 }) {
+  /* a command anchor reports its press like every other command button —
+     it used to be anchored only, so practice mode never saw the click */
+  const command = tutorialId?.match(/^host\.mois\.command\.(.+)$/)?.[1]
   return (
-    <PBButton wide={wide} className={primary ? 'pb-btn--default' : undefined} disabled={disabled} onClick={onClick} data-tutorial-id={tutorialId}>
+    <PBButton wide={wide} command={command} className={primary ? 'pb-btn--default' : undefined} disabled={disabled} onClick={onClick} data-tutorial-id={tutorialId}>
       {children}
     </PBButton>
   )

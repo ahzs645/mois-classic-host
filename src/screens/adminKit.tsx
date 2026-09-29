@@ -1,5 +1,5 @@
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
-import { PBBand, PBButton, PBSelect, pbSlug, usePBInstrumentation, type PBSelectOption } from '../pb'
+import { PBBand, PBButton, PBSelect, pbSlug, type PBSelectOption } from '../pb'
 
 /* ============================================================================
    Small pieces the admin/reference windows share: an edit box that sits in
@@ -61,15 +61,14 @@ export function CellSelect({ value, options, onChange, anchor, disabled }: {
 export function Cmd({ id, children, onClick, w, disabled, sm, primary, style }: {
   id: string; children: ReactNode; onClick?: () => void; w?: number; disabled?: boolean; sm?: boolean; primary?: boolean; style?: CSSProperties
 }) {
-  const host = usePBInstrumentation()
   return (
     <PBButton
+      command={id}
       size={sm ? 'sm' : undefined}
       className={primary ? 'pb-btn--default' : undefined}
       disabled={disabled}
       style={{ ...(w ? { width: w, minWidth: 0 } : null), ...style }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
+      onClick={() => onClick?.()}
     >
       {children}
     </PBButton>

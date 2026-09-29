@@ -20,15 +20,27 @@ export function PBDropGlyph() {
   )
 }
 
-/* --- PBButton ------------------------------------------------------------ */
+/* --- PBButton ------------------------------------------------------------
+   `command` makes it a button a lesson can ring and press: anchored
+   `host.mois.command.{command}` and reported as `host.mois.command` on every
+   click, before the click's own handler runs — so practice mode sees the
+   learner's press and autoplay's `host.mois.command` presses this very
+   control. Every command-button wrapper in the screens (CmdButton,
+   DialogButton, adminKit's Cmd, AdminExchangeKit's Btn, StageWindow's
+   FooterButton) is this with its own size. An explicit `data-tutorial-id`
+   still wins over the command's anchor.                                   */
 export function PBButton({
-  children, size, wide, className, ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm'; wide?: boolean }) {
+  children, size, wide, className, command, onClick, ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm'; wide?: boolean; command?: string }) {
+  const host = usePBInstrumentation()
+  const anchor = command ? host?.anchor('command', command) : undefined
   return (
     <button
       type="button"
       className={cx('pb-btn', size === 'sm' && 'pb-btn--sm', wide && 'pb-btn--wide', className)}
+      {...(anchor ? { 'data-tutorial-id': anchor } : null)}
       {...rest}
+      onClick={command ? (e) => { host?.report('command', { command }); onClick?.(e) } : onClick}
     >
       {children}
     </button>

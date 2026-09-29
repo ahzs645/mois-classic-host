@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { PBButton, PBWindow, usePBInstrumentation } from '../pb'
+import { PBButton, PBWindow } from '../pb'
 
 /* ============================================================================
    The frame the Workspace / Billing / Reports windows share: a modal layer
@@ -62,17 +62,13 @@ export function DialogButton({
   width?: number
   isDefault?: boolean
 }) {
-  const host = usePBInstrumentation()
   return (
     <PBButton
+      command={id}
       className={isDefault ? 'pb-btn--default' : undefined}
       style={{ width, minWidth: 0, height: 24 }}
       disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => {
-        host?.report('command', { command: id })
-        onClick?.()
-      }}
+      onClick={() => onClick?.()}
     >
       {children}
     </PBButton>

@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { MOIS_TODAY } from '../data/patients'
 import { useReportDialog } from '../host/screen-windows'
-import { PBButton, PBCheckbox, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBCheckbox, PBWindow, pbSlug } from '../pb'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -39,14 +39,13 @@ export function Btn({ id, children, onClick, disabled, width, isDefault, style }
   isDefault?: boolean
   style?: CSSProperties
 }) {
-  const host = usePBInstrumentation()
   return (
     <PBButton
+      command={id}
       className={isDefault ? 'pb-btn--default' : undefined}
       style={{ minWidth: 0, height: 23, ...(width ? { width } : { padding: '0 12px' }), ...style }}
       disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
+      onClick={() => onClick?.()}
     >
       {children}
     </PBButton>
