@@ -186,18 +186,10 @@ export const designerScreens: DesignerListScreen[] = [
     detailTitle: 'Concept Mapping Detail',
     /* the Group column repeats, so a row is anchored by its Concept */
     anchorKey: 'concept',
-    /* CHF ADMISSIONS and DIABETES are the captures' own rows (`9c8dcb68…`,
-       `62d4040117d3`, `30a3bdf6…`): CHF ADMISSIONS is not an HM item */
-    rows: [
-      { group: 'ADMISSION', concept: 'CHF ADMISSIONS', desc: 'HOSPITAL ADMISSIONS FOR CHF', hm: false, type: 'GRP' },
-      { group: 'CONSULT', concept: 'CARDIOLOGY', desc: 'Cardiology consultation requests', hm: false, type: 'GRP' },
-      { group: 'FEE CODE', concept: 'CHRONIC CARE', desc: 'Chronic care management fee codes', hm: false, type: 'GRP' },
-      { group: 'HEALTH ISSUE', concept: 'CHF', desc: 'Congestive heart failure', hm: true, type: 'GRP' },
-      { group: 'HEALTH ISSUE', concept: 'DIABETES', desc: 'DIABETES', hm: true, type: 'SYM' },
-      { group: 'HEALTH ISSUE', concept: 'DM', desc: 'Diabetes mellitus', hm: false, type: 'SYM' },
-      { group: 'MEASURE', concept: 'HBA1C', desc: 'Glycated haemoglobin', hm: true, type: 'GRP' },
-      { group: 'MEASURE', concept: 'A1C', desc: 'Glycated haemoglobin', hm: false, type: 'SYM' },
-    ],
+    /* the rows are the clinic's concepts (data/concepts.ts): the user's
+       real TRAINING export, 225 of them, kept in a store so Save Changes,
+       Create Record and Import Concepts show up here */
+    rows: [],
     newDialog: {
       title: 'New Concept Mapping',
       band: 'New Concept Information',
@@ -210,8 +202,9 @@ export const designerScreens: DesignerListScreen[] = [
       source: 'f05574eb03be (fields), art. 302639 (confirm button)',
       fields: [
         { kind: 'radio', label: 'Classification', options: ['Group', 'Synonym'], value: 'Group' },
-        /* the nine groups 302269 names */
-        { kind: 'drop', label: 'Group:', options: ['', 'ADMISSION', 'CONSULT', 'FEE CODE', 'HEALTH ISSUE', 'IMAGE', 'INTERVENTION', 'MEASURE', 'MEDICATION', 'PROCEDURE'], value: '', w: 196 },
+        /* the nine groups 302269 names, and MEASURE CATEGORY / MEASURE CLASS
+           from the TRAINING export */
+        { kind: 'drop', label: 'Group:', options: ['', 'ADMISSION', 'CONSULT', 'FEE CODE', 'HEALTH ISSUE', 'IMAGE', 'INTERVENTION', 'MEASURE', 'MEASURE CATEGORY', 'MEASURE CLASS', 'MEDICATION', 'PROCEDURE'], value: '', w: 196 },
         /* the focused edit takes MOIS's #FFC09C fill */
         { kind: 'text', label: 'Concept:', w: 250, focus: true },
         { kind: 'text', label: 'Description:', w: 250 },
@@ -590,20 +583,6 @@ export const CONCEPT_CODE_RULE_COLUMNS: DesignerColumn[] = [
   { key: 'term', header: 'Code Term', width: 383 },
 ]
 
-/* The rules belong to the concept that is open. CHF ADMISSIONS is
-   `62d4040117d3`: no coded rules and one text rule, CHF → Has CHF. DIABETES
-   is `30a3bdf6…`: ICD-9 250 DIABETES MELLITUS, and DIABETES-but-not-GESTA
-   and DM. CHF carries the ICD-9 428 family. A concept no capture opens,
-   and a new one, starts with no rules. */
-const CONCEPT_CODE_RULES: Record<string, DesignerRow[]> = {
-  'DIABETES': [{ system: 'ICD-9', code: '250', dots: '...', term: 'DIABETES MELLITUS' }],
-  'CHF': [
-    { system: 'ICD9', code: '428', dots: '...', term: 'HEART FAILURE' },
-    { system: 'ICD9', code: '428.0', dots: '...', term: 'CONGESTIVE HEART FAILURE, UNSPECIFIED' },
-    { system: 'ICD9', code: '428.20', dots: '...', term: 'SYSTOLIC HEART FAILURE, UNSPECIFIED' },
-  ],
-}
-
 export const CONCEPT_TEXT_RULE_COLUMNS: DesignerColumn[] = [
   /* the capture really does show `Include String` twice */
   { key: 'inc1', header: 'Include String', width: 197 },
@@ -613,20 +592,9 @@ export const CONCEPT_TEXT_RULE_COLUMNS: DesignerColumn[] = [
   { key: 'rule', header: 'Rule', width: 293, dim: true },
 ]
 
-const CONCEPT_TEXT_RULES: Record<string, DesignerRow[]> = {
-  'CHF ADMISSIONS': [{ inc1: 'CHF', inc2: '', exc: '', rule: 'Has CHF' }],
-  'CHF': [{ inc1: 'CHF', inc2: '', exc: '', rule: 'Has CHF' }],
-  'DIABETES': [
-    /* MOIS's own spelling of "exclude" [sic] */
-    { inc1: 'DIABETES', inc2: '', exc: 'GESTA', rule: 'Has DIABETES but exlude if it has GESTA' },
-    { inc1: 'DM', inc2: '', exc: '', rule: 'Has DM' },
-  ],
-}
-
-/** The coded and text rules of one concept, by its name. */
-export function conceptRules(concept: string): { code: DesignerRow[]; text: DesignerRow[] } {
-  return { code: CONCEPT_CODE_RULES[concept] ?? [], text: CONCEPT_TEXT_RULES[concept] ?? [] }
-}
+/* The rules are the open concept's own, from the TRAINING export
+   (data/concepts.ts). The capture's two sentences — "Has CHF" and "Has
+   DIABETES but exlude if it has GESTA" — are the same concepts' rules there. */
 
 /**
  * Two other versions of this window exist in the corpus and are reported

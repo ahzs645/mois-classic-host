@@ -10,6 +10,7 @@ import {
 import { DesignerDetailWindow, ImportPaperFormsDialog } from './DesignerDetailWindow'
 import { ExportPaperFormsDialog, NewPaperFormDialog } from './PaperFormAdminWindows'
 import { ConceptTransfer } from './ConceptTransferWindows'
+import { addConcept, conceptRow, useConcepts } from '../data/concepts'
 import { CarePlanTemplatesView } from './CarePlanTemplatesView'
 import { useScreenReport } from '../host/screen-state'
 import { DesktopLayer } from './StageWindow'
@@ -61,13 +62,15 @@ const blankRow = (columns: DesignerColumn[]): DesignerRow => ({
  * What the New dialog's fields put on the new row: a field whose label
  * matches a column (Name → name, Concept → concept, Group → group,
  * Description → desc) fills it; Concept Mapping's Classification radio fills
- * Type with GRP or SYM (`f05574eb…`).
+ * Type with GRP or SYN (`f05574eb…`; SYN is the export's own code).
  */
 function rowFromDialog(columns: DesignerColumn[], values: Record<string, string>, defaults?: DesignerRow): DesignerRow {
   const row = { ...blankRow(columns), ...defaults }
   for (const [label, value] of Object.entries(values)) {
     const key = label.replace(/:$/, '').trim().toLowerCase()
-    if (key === 'classification') { row.type = value === 'Synonym' ? 'SYM' : 'GRP'; continue }
+    /* the TRAINING export writes SYN for a synonym (BNP); SYM is its
+       system-defined concepts, which this dialog does not make */
+    if (key === 'classification') { row.type = value === 'Synonym' ? 'SYN' : 'GRP'; continue }
     const col = columns.find((c) => c.header.toLowerCase() === key || c.key === key)
     if (col) row[col.key] = value
   }
@@ -101,7 +104,11 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
   /* the HM Item filter tick (Concept Mapping only) */
   const [onlyTicked, setOnlyTicked] = useState<Record<string, boolean>>({})
 
-  const all = useMemo(() => [...screen.rows, ...added], [screen.rows, added])
+  /* Concept Mapping's rows are the concept store's (data/concepts.ts) */
+  const concepts = useConcepts()
+  const isConcept = screen.node === 'ad-concept'
+  const base = useMemo(() => (isConcept ? concepts.map(conceptRow) : screen.rows), [isConcept, concepts, screen.rows])
+  const all = useMemo(() => [...base, ...added], [base, added])
   const rows = useMemo(() => all.filter((r) => screen.columns.every((c) => {
     if (c.filterCheck && onlyTicked[c.key]) return Boolean(r[c.key])
     const term = filter[c.key]?.trim().toLowerCase()
@@ -120,8 +127,14 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
      Concept Mapping capture shows both windows stacked (f05574eb03be), and
      every other article's step list says the detail window opens next. */
   const createRecord = (values: Record<string, string>) => {
-    const row = rowFromDialog(screen.columns, values, screen.newRow)
-    setAdded((a) => [...a, row])
+    let row = rowFromDialog(screen.columns, values, screen.newRow)
+    if (isConcept) {
+      const c = addConcept({
+        type: String(row.type || 'GRP'), hm: false, group: String(row.group ?? ''), hmCode: '0',
+        concept: String(row.concept ?? '').toUpperCase(), description: String(row.desc ?? ''), rules: [],
+      })
+      row = conceptRow(c)
+    } else setAdded((a) => [...a, row])
     setNewOpen(false)
     setCur(all.length)
     setDetail(row)
@@ -236,8 +249,7 @@ function DesignerList({ screen, onClose }: { screen: DesignerListScreen; onClose
       {conceptTransfer && (
         <ConceptTransfer
           mode={conceptTransfer}
-          concepts={all}
-          onImported={(rows) => setAdded((a) => [...a, ...rows])}
+          concepts={concepts}
           onClose={() => setConceptTransfer(null)}
         />
       )}

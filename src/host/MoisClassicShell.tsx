@@ -34,6 +34,7 @@ import { AdminListsView } from '../screens/AdminListsView'
 /* Designer Section ▸ Quick Entry (art. 3071982) and its template store */
 import { QuickEntryListView } from '../screens/QuickEntryListView'
 import { resetQuickEntryTemplates } from '../data/quickEntryTemplates'
+import { resetConcepts } from '../data/concepts'
 import {
   PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBMessageBox, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
@@ -734,6 +735,8 @@ function Frame({
   useState(() => { resetGoalRecords(); resetSummarySettings() })
   /* the clinic's Quick Entry templates start from the seed list per frame */
   useState(() => resetQuickEntryTemplates())
+  /* Concept Mapping's concepts start from the TRAINING export per frame (data/concepts.ts) */
+  useState(() => resetConcepts())
   /* System Settings' committed values as the menus read them (data/systemSettings.ts) */
   useState(() => resetSystemSettingsMirror())
   const workspace = useWorkspaceStore()
