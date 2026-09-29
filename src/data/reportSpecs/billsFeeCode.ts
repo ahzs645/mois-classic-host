@@ -2,6 +2,7 @@ import type { ReportSpec, RSContext } from './types'
 import { MOIS_TODAY, rsDaysAgo, rsMoney } from './types'
 import { PV_INVOICES, pvDot, pvInRange, pvMoney, pvPatient, pvSum } from './accountsPrivateInv'
 import { MSP_CLAIMS, MSP_PRACT, codeListMatch } from './billsByDiagnosis'
+import { conceptMatches, conceptNames, findConcept } from '../concepts'
 
 /* ============================================================================
    Report specs transcribed from manual article 304047 (Bills - Fee Code):
@@ -20,18 +21,17 @@ import { MSP_CLAIMS, MSP_PRACT, codeListMatch } from './billsByDiagnosis'
    ledger of accountsPrivateInv.ts — fictional training data.
    ========================================================================= */
 
-/** Concept "…": a named group of fee codes (INFERRED — the capture shows the
-    button, never its list) */
-const CONCEPTS: Record<string, string[]> = {
-  'CHRONIC DISEASE MANAGEMENT': ['14050', '14051', '14052', '14053'],
-  'OFFICE VISITS': ['00100', '12100'],
-  'TRAY FEES': ['00044'],
-}
+/** Concept "…": the clinic's FEE CODE concepts (data/concepts.ts — the
+    TRAINING export's CDM INCENTIVE BILLING, LFP CLAIM CODES, …), a fee
+    matching when one of the concept's rules names its code. The capture
+    shows the button, never its list. */
+const feeConcepts = () => conceptNames('FEE CODE')
 
 function feeMatch(ctx: RSContext, fee: string): boolean {
   const list = ctx.val('codes')
-  const concept = CONCEPTS[ctx.val('concept').trim().toUpperCase()]
-  return (!!list && codeListMatch(ctx, list, fee)) || (!!concept && concept.includes(fee))
+  const name = ctx.val('concept').trim()
+  const concept = name ? findConcept(name, 'FEE CODE') : undefined
+  return (!!list && codeListMatch(ctx, list, fee)) || (!!concept && conceptMatches(concept, { code: fee }))
 }
 
 export const specs: ReportSpec[] = [
@@ -41,7 +41,7 @@ export const specs: ReportSpec[] = [
     id: 'bills-fee-msp',
     labelW: 95,
     provenance: '304047 3372ba96 (window), d5e624b4 (page)',
-    inferred: 'The Concept list and its fee codes are invented (the capture shows only the "…" button). Billed by matches the provider name, `*` (or `%`) as the wildcard, as its grey hint says.',
+    inferred: 'The Concept list is the clinic\'s FEE CODE concepts from the TRAINING export (the capture shows only the "…" button). Billed by matches the provider name, `*` (or `%`) as the wildcard, as its grey hint says.',
     fields: [
       {
         kind: 'section', label: 'Date Range (INCLUSIVE)',
@@ -56,7 +56,7 @@ export const specs: ReportSpec[] = [
       { kind: 'section', label: 'Fee Codes' },
       { kind: 'text', id: 'codes', label: 'Code List(s):', w: 280, hint: '(ie 00100,18100,...)' },
       { kind: 'note', text: 'OR...', indent: 6 },
-      { kind: 'text', id: 'concept', label: 'Concept:', w: 310, dots: { title: 'Concept', options: Object.keys(CONCEPTS) } },
+      { kind: 'text', id: 'concept', label: 'Concept:', w: 310, dots: { title: 'Concept', options: feeConcepts() } },
       { kind: 'section', label: 'Providers' },
       { kind: 'text', id: 'billedBy', label: 'Billed by:', w: 200, dots: { title: 'Provider', options: 'providers' }, hint: '(leave blank for ALL, * for a wild card)' },
       { kind: 'section', label: 'Exclude Records' },

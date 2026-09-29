@@ -41,6 +41,11 @@
 import type { PreferenceIdentifiedBy, PreferenceType } from './preferenceVocab'
 import { PREFERENCE_TYPES } from './preferenceVocab'
 import type { QuickEntryGroup, QuickEntryPreference, QuickEntryTemplate } from './quickEntryTemplates'
+import {
+  MOIS_EXPORT_HEADER_KEYS, MoisExportFileError, cdata, children, escapeXml, section, textOf, type MoisExportHeader,
+} from './moisExportXml'
+
+export { decodeLatin1, encodeLatin1 } from './moisExportXml'
 
 export type QuickEntryDetailRecord = Record<string, string | null>
 
@@ -51,16 +56,7 @@ export type QuickEntrySource = {
   detail: QuickEntryDetailRecord[]
 }
 
-export type QuickEntryFileHeader = {
-  supplier: string
-  version: string
-  build: string
-  date: string
-  time: string
-  site: string
-  contact: string
-  reference: string
-}
+export type QuickEntryFileHeader = MoisExportHeader
 
 export type QuickEntryFile = {
   header: QuickEntryFileHeader
@@ -90,65 +86,9 @@ export const CHART_PREFERENCE_DETAIL_KEYS = [
   'str_form', 'str_by', 'str_instruction_code', 'str_instruction', 'str_code_system',
 ] as const
 
-const HEADER_KEYS = ['supplier', 'version', 'build', 'date', 'time', 'site', 'contact', 'reference'] as const
+const HEADER_KEYS = MOIS_EXPORT_HEADER_KEYS
 
-/* --- reading -------------------------------------------------------------- */
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
-const unescapeXml = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
-  if (e[0] === '#') return String.fromCharCode(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10))
-  return ENTITIES[e] ?? m
-})
-
-/** the text of an element's content: CDATA sections verbatim, the rest unescaped */
-function textOf(inner: string): string {
-  let out = ''
-  let rest = inner
-  for (;;) {
-    const at = rest.indexOf('<![CDATA[')
-    if (at < 0) return out + unescapeXml(rest)
-    out += unescapeXml(rest.slice(0, at))
-    const end = rest.indexOf(']]>', at + 9)
-    if (end < 0) throw new QuickEntryFileError('Unterminated CDATA section.')
-    out += rest.slice(at + 9, end)
-    rest = rest.slice(end + 3)
-  }
-}
-
-/** the direct child elements of a flat element body, in order */
-function children(body: string): { tag: string; inner: string }[] {
-  const out: { tag: string; inner: string }[] = []
-  const open = /<([A-Za-z_][\w.-]*)(?:\s[^>]*)?>/g
-  let m: RegExpExecArray | null
-  while ((m = open.exec(body))) {
-    const tag = m[1]!
-    const close = `</${tag}>`
-    let at = m.index + m[0].length
-    /* skip over CDATA so a "</tag>" inside one cannot end the element */
-    let end = -1
-    for (;;) {
-      const cdata = body.indexOf('<![CDATA[', at)
-      const next = body.indexOf(close, at)
-      if (next < 0) break
-      if (cdata >= 0 && cdata < next) { at = body.indexOf(']]>', cdata) + 3; continue }
-      end = next
-      break
-    }
-    if (end < 0) throw new QuickEntryFileError(`<${tag}> is not closed.`)
-    out.push({ tag, inner: body.slice(m.index + m[0].length, end) })
-    open.lastIndex = end + close.length
-  }
-  return out
-}
-
-function section(xml: string, tag: string): string | null {
-  const start = xml.indexOf(`<${tag}>`)
-  if (start < 0) return null
-  const end = xml.lastIndexOf(`</${tag}>`)
-  if (end < start) throw new QuickEntryFileError(`<${tag}> is not closed.`)
-  return xml.slice(start + tag.length + 2, end)
-}
-
-export class QuickEntryFileError extends Error {}
+export class QuickEntryFileError extends MoisExportFileError {}
 
 const typeOf = (classification: string | null | undefined): PreferenceType =>
   PREFERENCE_TYPES.find((t) => t.toUpperCase() === (classification ?? '').trim().toUpperCase()) ?? 'Consent'
@@ -228,8 +168,6 @@ export function parseQuickEntryXml(xml: string, id: (i: number) => string = (i) 
 }
 
 /* --- writing -------------------------------------------------------------- */
-const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const cdata = (s: string) => `<![CDATA[${s.replace(/]]>/g, ']]]]><![CDATA[>')}]]>`
 
 /** the preference's settings laid over the record it came from (or a blank
     one), touching only what changed so an unedited template writes back as
@@ -300,18 +238,4 @@ export function quickEntryExportFiles(templates: QuickEntryTemplate[], header: Q
     { name: 'meta.xml', text: serializeQuickEntryXml({ header, hierarchy: [], templates }) },
     { name: 'quick_entrys.xml', text: serializeQuickEntryXml({ header, hierarchy: ['nvo_quick_entry'], templates }) },
   ]
-}
-
-/* --- bytes ---------------------------------------------------------------- */
-export const decodeLatin1 = (bytes: Uint8Array) => new TextDecoder('iso-8859-1').decode(bytes)
-
-/** ISO-8859-1 bytes; a character outside it becomes "?" as a Windows ANSI
-    write would */
-export function encodeLatin1(text: string): Uint8Array {
-  const out = new Uint8Array(text.length)
-  for (let i = 0; i < text.length; i += 1) {
-    const c = text.charCodeAt(i)
-    out[i] = c < 256 ? c : 63
-  }
-  return out
 }

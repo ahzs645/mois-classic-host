@@ -32,6 +32,7 @@
    ========================================================================= */
 import { CARE_PLAN_CATEGORIES, CARE_PLAN_RULES } from './carePlanVocab'
 import { createSignal } from './sessionStore'
+import { conceptMatches, findConcept } from './concepts'
 import type { MoisChartExport, MoisRecord } from './charts'
 import { CARE_PLAN_SECTIONS, carePlanRows, type CarePlanRow } from './carePlanRows'
 import type { CarePlanTag } from './chartSession'
@@ -166,9 +167,13 @@ export const resetSummarySettings = () => changes.reset()
 
 /* --- resolving a rule against the chart ----------------------------------- */
 
-/** Which chart records a concept means. The export's measures carry codes
-    and descriptions, not concepts, so each concept names the codes and a
-    description pattern (INFERRED — MOIS keeps this in Concept Mapping). */
+/** Which chart records a concept means. MOIS keeps this in Concept Mapping,
+    and a concept in the store (data/concepts.ts — the TRAINING export) is
+    matched by its own rules. The reference chart comes from another
+    database, whose readings are not all under TRAINING's codes (its BP is
+    61826 BLOOD PRESSURE - SITTING, which TRAINING's BP concept does not
+    name), so these older code / description patterns still count as well
+    (INFERRED). */
 const CONCEPT_MATCH: Record<string, { codes: string[]; re: RegExp }> = {
   BMI: { codes: ['951'], re: /BODY MASS INDEX|\bBMI\b/i },
   BP: { codes: ['1950', '61826'], re: /BLOOD PRESSURE/i },
@@ -227,8 +232,12 @@ function matching(data: MoisChartExport | null, e: Pick<CarePlanElement, 'catego
   }
   const concept = e.concept.trim().toUpperCase()
   if (!concept) return []
+  const mapped = findConcept(concept)
   const known = CONCEPT_MATCH[concept]
-  if (known) return all.filter((r) => known.codes.includes(r.code.toUpperCase()) || known.re.test(r.description))
+  if (mapped || known) {
+    return all.filter((r) => (mapped && conceptMatches(mapped, { code: r.code, description: r.description }))
+      || (known && (known.codes.includes(r.code.toUpperCase()) || known.re.test(r.description))))
+  }
   const stem = concept.split(/\s+/)[0]!.slice(0, 6)
   return all.filter((r) => r.description.toUpperCase().includes(concept) || (stem.length >= 4 && r.description.toUpperCase().includes(stem)))
 }

@@ -7,7 +7,7 @@ import {
 import {
   CARE_PLAN_COLUMNS, CARE_PLAN_ROWS,
   CONCEPT_CODE_RULE_COLUMNS, CONCEPT_HM_CAPTION,
-  CONCEPT_HM_WARNING, CONCEPT_TEXT_RULE_COLUMNS, conceptRules,
+  CONCEPT_HM_WARNING, CONCEPT_TEXT_RULE_COLUMNS,
   DETAIL_FOOTERS,
   ENCOUNTER_DATA_TYPES, ENCOUNTER_ELEMENT_COLUMNS, ENCOUNTER_ELEMENT_ROWS,
   ENCOUNTER_FORM_TABS, ENCOUNTER_GROUP_COLUMNS, ENCOUNTER_GROUP_ROWS,
@@ -29,6 +29,8 @@ import { useOpenWindow } from './areaWindowRegistry'
 import { NewLetterDialog } from './LetterEditorDialogs'
 import { TemplatePreview } from './LetterTemplateCanvas'
 import { DesktopLayer } from './StageWindow'
+import { allConcepts, ruleCodeSystem, ruleSentence, saveConcept, type ConceptEntry } from '../data/concepts'
+import type { MoisConceptRule } from '../data/conceptXml'
 
 /* ============================================================================
    Administration ▸ Designer Section — the detail windows ("Skeleton D").
@@ -84,10 +86,17 @@ const RULE = '#646464'
 
 /** A band button: `New Rule`, `New Element`, `New Row`, `Delete …`. */
 function BandButton({ label, width, onPress }: { label: string; width: number; onPress?: () => void }) {
+  const host = usePBInstrumentation()
   return (
-    <PBButton size="sm" style={{ width }} command={pbSlug(label)} onClick={() => onPress?.()}>
+    <button
+      type="button"
+      className="pb-btn pb-btn--sm"
+      style={{ width }}
+      data-tutorial-id={host?.anchor('command', pbSlug(label))}
+      onClick={() => { host?.report('command', { command: pbSlug(label) }); onPress?.() }}
+    >
       {label}
-    </PBButton>
+    </button>
   )
 }
 
@@ -144,7 +153,7 @@ function BandB({ caption, buttons, h = 20 }: { caption: string; buttons: BandCom
  * centred.
  */
 function DetailFrame({
-  title, navy, w, h, footer, leftFooter, onClose, children,
+  title, navy, w, h, footer, leftFooter, onClose, onFooter, children,
 }: {
   title: string
   /** the `#004080` band caption, on the four windows that carry one */
@@ -154,6 +163,8 @@ function DetailFrame({
   footer: readonly string[]
   leftFooter?: boolean
   onClose: () => void
+  /** a footer button was pressed (before a Cancel / Save and Close shuts) */
+  onFooter?: (label: string) => void
   children: ReactNode
 }) {
   const host = usePBInstrumentation()
@@ -190,10 +201,10 @@ function DetailFrame({
             {children}
           </div>
           <div className="pb-footer">
-            {left && <FooterButton label={left} onClose={onClose} />}
+            {left && <FooterButton label={left} onClose={onClose} onPress={onFooter} />}
             <span className="pb-footer__spacer" />
             {centred.map((b) => (
-              <FooterButton key={b} label={b!} onClose={onClose} />
+              <FooterButton key={b} label={b!} onClose={onClose} onPress={onFooter} />
             ))}
             <span className="pb-footer__spacer" />
             {/* balances the left button so the pair stays centred */}
@@ -206,14 +217,17 @@ function DetailFrame({
   )
 }
 
-function FooterButton({ label, onClose }: { label: string; onClose: () => void }) {
+function FooterButton({ label, onClose, onPress }: { label: string; onClose: () => void; onPress?: (label: string) => void }) {
+  const host = usePBInstrumentation()
   /* Save keeps the window open; the two Close/Cancel captions shut it */
   const shuts = label.startsWith('Cancel') || label.startsWith('Save and Close')
   return (
     <PBButton
       wide
-      command={pbSlug(label)}
+      data-tutorial-id={host?.anchor('command', pbSlug(label))}
       onClick={() => {
+        host?.report('command', { command: pbSlug(label) })
+        onPress?.(label)
         if (shuts) onClose()
       }}
     >
@@ -295,80 +309,174 @@ export function DesignerDetailWindow({
 
 type DetailProps = { title: string; row: DesignerRow; onClose: () => void }
 
+/** the Code System choices a code rule can take, and what each writes */
+const CODE_SYSTEMS: { label: string; codeField: string; codeSystem?: string }[] = [
+  { label: 'ICD-9', codeField: 'MOIS', codeSystem: 'ICD-9' },
+  { label: 'SNOMED-CT', codeField: 'MOIS', codeSystem: 'SNOMED-CT' },
+  { label: 'AIHS-INTERVENTION', codeField: 'MOIS', codeSystem: 'AIHS-INTERVENTION' },
+  { label: 'ATC', codeField: 'str_atc_code' },
+  { label: 'MEASURE CLASS', codeField: 'str_class' },
+  { label: 'MOIS', codeField: 'MOIS' },
+]
+
+/** a blank rule for a grid's New Rule — a code rule takes the system the
+    concept's group reads (INFERRED: 302269 says the offer depends on the
+    Group) */
+function blankRule(type: 'CODE' | 'TEXT', group: string): MoisConceptRule {
+  if (type === 'TEXT') return { ruleType: 'TEXT', codeField: 'MOIS', include1: '' }
+  if (group === 'MEDICATION') return { ruleType: 'CODE', codeField: 'str_atc_code', code: '' }
+  if (group === 'MEASURE CLASS' || group === 'MEASURE CATEGORY') return { ruleType: 'CODE', codeField: 'str_class', code: '' }
+  if (group === 'HEALTH ISSUE' || group === 'ADMISSION' || group === 'CONSULT') return { ruleType: 'CODE', codeField: 'MOIS', codeSystem: 'ICD-9', code: '' }
+  if (group === 'IMAGE' || group === 'PROCEDURE') return { ruleType: 'CODE', codeField: 'MOIS', codeSystem: 'SNOMED-CT', code: '' }
+  return { ruleType: 'CODE', codeField: 'MOIS', code: '' }
+}
+
 /* ---------------------------------------------------------------------------
    302269 · Concept Mapping Detail — 968 x 715, navy band `Concept Mapping`.
    Form area 113px, then TWO stacked rule grids, each with its own band and
    its own left-anchored `New Rule` / `Delete Rule` strip (variant B).
+
+   The concept is the store's (data/concepts.ts). The grids are edit fields,
+   as a PB DataWindow's editable columns are; Save Changes (F2) writes the
+   concept back and keeps the window open, Cancel abandons every change.
+   Delete Rule removes the grid's current rule.
    ------------------------------------------------------------------------ */
 function ConceptMappingDetail({ title, row, onClose }: DetailProps) {
-  const [hm, setHm] = useState(Boolean(row.hm))
-  /* the open concept's own rules; New Rule adds an empty one to its grid */
-  const [codeRules, setCodeRules] = useState(() => conceptRules(String(row.concept ?? '')).code)
-  const [textRules, setTextRules] = useState(() => conceptRules(String(row.concept ?? '')).text)
-  useScreenReport({ rows: codeRules.length + textRules.length })
+  const stored = allConcepts().find((c) => c.id === row.__id)
+  const [concept, setConcept] = useState<ConceptEntry>(() => structuredClone(stored ?? {
+    id: String(row.__id ?? ''), type: String(row.type ?? 'GRP'), hm: Boolean(row.hm), group: String(row.group ?? ''),
+    concept: String(row.concept ?? ''), description: String(row.desc ?? ''), rules: [],
+  }))
+  const [curCode, setCurCode] = useState(0)
+  const [curText, setCurText] = useState(0)
+  const [saved, setSaved] = useState(false)
+  /* each grid is a view of the one rule list, which keeps the file's order */
+  const indexed = concept.rules.map((r, i) => ({ r, i }))
+  const code = indexed.filter((x) => x.r.ruleType === 'CODE')
+  const text = indexed.filter((x) => x.r.ruleType === 'TEXT')
+  useScreenReport({ rows: concept.rules.length, conceptSaved: saved })
+  const edit = (i: number, patch: Partial<MoisConceptRule>) => {
+    setSaved(false)
+    setConcept((c) => ({ ...c, rules: c.rules.map((r, j) => (j === i ? { ...r, ...patch } : r)) }))
+  }
+  const add = (type: 'CODE' | 'TEXT') => {
+    setSaved(false)
+    setConcept((c) => ({ ...c, rules: [...c.rules, blankRule(type, c.group)] }))
+    if (type === 'CODE') setCurCode(code.length); else setCurText(text.length)
+  }
+  const remove = (list: typeof code, cur: number) => {
+    const hit = list[Math.min(cur, list.length - 1)]
+    if (!hit) return
+    setSaved(false)
+    setConcept((c) => ({ ...c, rules: c.rules.filter((_, j) => j !== hit.i) }))
+  }
+  const save = () => {
+    /* a rule left blank is not kept, as a PB DataWindow drops an empty new row */
+    const rules = concept.rules.filter((r) => (r.ruleType === 'CODE' ? !!r.code?.trim() : !!(r.include1?.trim() || r.include2?.trim())))
+    const next = { ...concept, rules }
+    setConcept(next)
+    if (allConcepts().some((c) => c.id === next.id)) saveConcept(next)
+    setSaved(true)
+  }
   const buttons = (add: () => void, remove: () => void): BandCommand[] => [
     { label: 'New Rule', width: 81, onPress: add }, { label: 'Delete Rule', width: 81, onPress: remove },
   ]
   /* `62d4040117d3`: Type, Classification and Concept are grey read-only
      fields with bold values; only Description is an edit (the #FFC09C one) */
   const fixed = { background: '#e8e8e8', fontWeight: 700 }
+  const cell = { border: 0, height: 17 }
 
   return (
-    <DetailFrame title={title} navy="Concept Mapping" w={968} h={715} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}>
+    <DetailFrame title={title} navy="Concept Mapping" w={968} h={715} footer={DETAIL_FOOTERS.saveChanges} onClose={onClose}
+      onFooter={(label) => { if (label.startsWith('Save')) save() }}>
       {/* the 113px header form */}
       <div style={{ flex: 'none', background: '#f0f0f0', padding: '5px 8px' }}>
         <div className="pb-form pb-form--cols4" style={{ padding: 0 }}>
           <span className="pb-form__label">Type:</span>
-          <PBInput w={150} value={String(row.group ?? '')} readOnly style={fixed} data-tutorial-id={anchorField('Type')} />
+          <PBInput w={150} value={concept.group} readOnly style={fixed} data-tutorial-id={anchorField('Type')} />
           <span className="pb-form__label pb-form__label--right">Classification:</span>
-          <PBInput w={120} value={String(row.type ?? '')} readOnly style={fixed} data-tutorial-id={anchorField('Classification')} />
+          <PBInput w={120} value={concept.type} readOnly style={fixed} data-tutorial-id={anchorField('Classification')} />
 
           <span className="pb-form__label">Concept:</span>
-          <PBInput w={250} value={String(row.concept ?? '')} readOnly style={fixed} data-tutorial-id={anchorField('Concept')} />
+          <PBInput w={250} value={concept.concept} readOnly style={fixed} data-tutorial-id={anchorField('Concept')} />
           <span className="pb-form__label pb-form__label--right">Description:</span>
           {/* the dirty / focused edit takes MOIS's #FFC09C fill */}
           <PBInput
             w="100%"
-            defaultValue={String(row.desc ?? '')}
+            value={concept.description ?? ''}
+            onChange={(e) => { setSaved(false); setConcept((c) => ({ ...c, description: e.target.value })) }}
             style={{ background: '#ffc09c' }}
             data-tutorial-id={anchorField('Description')}
           />
         </div>
 
         <div className="pb-row" style={{ gap: 6, marginTop: 4 }}>
-          <PBCheckbox label="Health Maintenance Concept" checked={hm} onChange={setHm} tutorialId={anchorField('Health Maintenance Concept')} />
+          <PBCheckbox label="Health Maintenance Concept" checked={concept.hm}
+            onChange={(v) => { setSaved(false); setConcept((c) => ({ ...c, hm: v })) }}
+            tutorialId={anchorField('Health Maintenance Concept')} />
           <span style={{ color: 'var(--pb-text-dim)' }}>{CONCEPT_HM_CAPTION}</span>
         </div>
 
         {/* the warning only appears while the box is ticked, in the form's
             ordinary black (30a3bdf6f957) */}
-        {hm && (
+        {concept.hm && (
           <div style={{ marginTop: 3 }} data-tutorial-id="host.mois.field.hm-warning">
             {CONCEPT_HM_WARNING.map((line) => <div key={line}>{line}</div>)}
           </div>
         )}
       </div>
 
-      <BandB
-        caption="Code Based Concept Rules"
-        buttons={buttons(
-          () => setCodeRules((r) => [...r, { system: '', code: '', dots: '...', term: '' }]),
-          () => setCodeRules((r) => r.slice(0, -1)),
-        )}
-      />
+      <BandB caption="Code Based Concept Rules" buttons={buttons(() => add('CODE'), () => remove(code, curCode))} />
       <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }} data-tutorial-id="host.mois.field.code-rules">
-        <DetailGrid columns={CONCEPT_CODE_RULE_COLUMNS} rows={codeRules} />
+        <PBDataWindow
+          rows={code}
+          current={curCode}
+          onCurrentChange={setCurCode}
+          style={{ ['--pb-dw-row-h' as string]: '18px' }}
+          rowTutorialId={(x) => `host.mois.row.code-rule-${pbSlug(x.r.code || 'new')}`}
+          columns={CONCEPT_CODE_RULE_COLUMNS.map((c) => ({
+            key: c.key,
+            header: c.dim ? <span style={{ color: 'var(--pb-text-dim)' }}>{c.header}</span> : c.header,
+            width: c.width,
+            dots: c.dots,
+            render: (x: (typeof code)[number]) => {
+              if (c.key === 'system') {
+                return (
+                  <PBSelect w="100%" style={cell} value={ruleCodeSystem(x.r)} options={CODE_SYSTEMS.map((o) => o.label)}
+                    onChange={(e) => { const o = CODE_SYSTEMS.find((s) => s.label === e.target.value)!; edit(x.i, { codeField: o.codeField, codeSystem: o.codeSystem }) }} />
+                )
+              }
+              if (c.key === 'code') return <PBInput w="100%" style={cell} value={x.r.code ?? ''} onChange={(e) => edit(x.i, { code: e.target.value.toUpperCase() })} data-tutorial-id="host.mois.field.rule-code" />
+              if (c.key === 'term') return <PBInput w="100%" style={cell} value={x.r.note ?? ''} onChange={(e) => edit(x.i, { note: e.target.value.toUpperCase() })} data-tutorial-id="host.mois.field.rule-term" />
+              return '...'
+            },
+          }))}
+        />
       </div>
 
-      <BandB
-        caption="Text Based Concept Rules"
-        buttons={buttons(
-          () => setTextRules((r) => [...r, { inc1: '', inc2: '', exc: '', rule: '' }]),
-          () => setTextRules((r) => r.slice(0, -1)),
-        )}
-      />
+      <BandB caption="Text Based Concept Rules" buttons={buttons(() => add('TEXT'), () => remove(text, curText))} />
       <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }} data-tutorial-id="host.mois.field.text-rules">
-        <DetailGrid columns={CONCEPT_TEXT_RULE_COLUMNS} rows={textRules} />
+        <PBDataWindow
+          rows={text}
+          current={curText}
+          onCurrentChange={setCurText}
+          style={{ ['--pb-dw-row-h' as string]: '18px' }}
+          rowTutorialId={(x) => `host.mois.row.text-rule-${pbSlug([x.r.include1, x.r.include2].filter(Boolean).join(' ') || 'new')}`}
+          columns={CONCEPT_TEXT_RULE_COLUMNS.map((c) => ({
+            key: c.key,
+            header: c.dim ? <span style={{ color: 'var(--pb-text-dim)' }}>{c.header}</span> : c.header,
+            width: c.width,
+            render: (x: (typeof text)[number]) => {
+              const field = c.key === 'inc1' ? 'include1' : c.key === 'inc2' ? 'include2' : c.key === 'exc' ? 'exclude' : null
+              if (!field) return ruleSentence(x.r)
+              /* the strings are MOIS's upper case, spaces kept */
+              return (
+                <PBInput w="100%" style={cell} value={x.r[field] ?? ''} data-tutorial-id={`host.mois.field.rule-${c.key}`}
+                  onChange={(e) => edit(x.i, { [field]: e.target.value.toUpperCase() })} />
+              )
+            },
+          }))}
+        />
       </div>
     </DetailFrame>
   )
@@ -707,6 +815,7 @@ function MeasurementDetail({ title, row, onClose }: DetailProps) {
    303112 · Paper Form Detail — 1022 x 731, navy band `Paper Form`.
    ------------------------------------------------------------------------ */
 function PaperFormDetail({ title, row, onClose }: DetailProps) {
+  const host = usePBInstrumentation()
   /* 303327: "Click 'Preview Form' · The form will open, with the field number
      in each fillable field … Close the form preview" */
   const [previewing, setPreviewing] = useState(false)
@@ -737,8 +846,8 @@ function PaperFormDetail({ title, row, onClose }: DetailProps) {
               view any changes you have made" */}
           <PBButton
             wide
-            command="preview-form"
-            onClick={() => setPreviewing(true)}
+            data-tutorial-id={host?.anchor('command', 'preview-form')}
+            onClick={() => { host?.report('command', { command: 'preview-form' }); setPreviewing(true) }}
           >
             Preview Form
           </PBButton>
@@ -844,6 +953,7 @@ function CarePlanGrid() {
    ------------------------------------------------------------------------ */
 function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
   const [editing, setEditing] = useState(false)
+  const host = usePBInstrumentation()
   const openWindow = useOpenWindow()
   /* the body the designer saved for this template (data/letterDocs.ts) */
   const [bodies] = useTemplateBodies()
@@ -881,14 +991,15 @@ function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
               <span>Letter Preview</span>
               <span className="pb-band__spacer" />
               {/* the group's own Edit button, at its top-right */}
-              <PBButton
-                size="sm"
+              <button
+                type="button"
+                className="pb-btn pb-btn--sm"
                 style={{ width: 56 }}
-                command="edit"
-                onClick={() => setEditing(true)}
+                data-tutorial-id={host?.anchor('command', 'edit')}
+                onClick={() => { host?.report('command', { command: 'edit' }); setEditing(true) }}
               >
                 Edit
-              </PBButton>
+              </button>
             </div>
             <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#808080', padding: 10 }}>
               {/* the page-shaped white preview: the saved template, small */}
@@ -950,10 +1061,10 @@ export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => v
               <span className="pb-form__label">File (7z):</span>
               <PBInput w={560} readOnly value={file} data-tutorial-id={anchorField('File (7z)')} />
               <PBButton
-                command="browse"
+                data-tutorial-id={host?.anchor('command', 'browse')}
                 /* the OS file picker is the platform's, not MOIS's: the pick
                    is the capture's own archive */
-                onClick={() => setFile('M:\\0222\\paperforms\\LabRequisition.7z')}
+                onClick={() => { host?.report('command', { command: 'browse' }); setFile('M:\\0222\\paperforms\\LabRequisition.7z') }}
               >
                 Browse...
               </PBButton>
@@ -1020,8 +1131,9 @@ export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => v
               <PBButton
                 key={b}
                 wide
-                command={pbSlug(b)}
+                data-tutorial-id={host?.anchor('command', pbSlug(b))}
                 onClick={() => {
+                  host?.report('command', { command: pbSlug(b) })
                   /* Ok brings the ticked forms into the Paper Form List */
                   if (b === 'Ok' && file) onImport?.(PAPER_IMPORT_ROWS.filter((_, j) => picked[j]))
                   onClose()

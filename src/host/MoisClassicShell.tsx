@@ -34,6 +34,7 @@ import { adminListNodes } from '../data/adminLists'
 import { AdminListsView } from '../screens/AdminListsView'
 /* Designer Section ▸ Quick Entry (art. 3071982) and its template store */
 import { QuickEntryListView } from '../screens/QuickEntryListView'
+import { resetConcepts } from '../data/concepts'
 import {
   PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBMessageBox, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
@@ -711,6 +712,9 @@ function Frame({
      app's dynamic-form writes deliberately do not (see their modules). */
   useState(() => resetSessionStores())
   const sched = useSchedulerStore()
+  /* Concept Mapping's concepts start from the TRAINING export per frame
+     (data/concepts.ts keeps its own store, outside data/sessionStore.ts) */
+  useState(() => resetConcepts())
   const workspace = useWorkspaceStore()
   /* the Letter Writer is reached through a two-dialog run-up, so one state
      holds where in it we are rather than three booleans that can disagree */
