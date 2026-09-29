@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react'
 import { usePBInstrumentation } from '../instrumentation'
 
 /* --- PBPatientBannerYellow ----------------------------------------------
@@ -52,6 +52,82 @@ export function PBPatientBannerBlue({ top, bottom }: { top: PBBannerCell[]; bott
     <div className="pb-banner-blue">
       {band(top, 'pb-banner-blue__top')}
       {band(bottom, 'pb-banner-blue__bottom')}
+    </div>
+  )
+}
+
+/* --- PBPatientBand -------------------------------------------------------
+   The single blue patient band a record window or form opens with: CHART
+   NO. / PATIENT (F/M/L) / DATE OF BIRTH / GENDER / PERSONAL HEALTH NO. /
+   PREFERRED PHONE NUMBER, each a small caption over a bold value.
+
+   Not PBPatientBannerBlue: the windows that paint this band do not use the
+   pb-banner-blue classes (their gradients, sizes and padding are their own,
+   several capture-measured), so a single-band mode of the two-band banner
+   would change how they look. This draws their existing markup instead; the
+   container's class, style (gradient included) and anchor are the caller's,
+   and `layout` picks how the cells are laid:
+
+     'stack'   <div style={{ width, flex: w ? 'none' : '1 1 auto', display: flex, column }}>
+                 <span style={{ fontSize: 11 }}>CAPTION</span><strong style={{ fontSize: 13, whiteSpace: nowrap }}>value</strong>
+     'placed'  the same pair in <span style={{ position: absolute, display: flex, column, left, top }}>
+     'inline'  <span style={{ width, display: inline-flex, column }}><span style={{ fontSize: '0.92em' }}>CAPTION</span><b>value</b></span>
+     'grid'    every caption <span style={labelStyle}>, then every value <b> — the
+               container's grid template lays them out in two rows
+     'caption' <span>CAPTION<strong>value</strong></span> (the container's class styles it)
+
+   Replaces:
+     QuickEntryWindows:~579  layout="stack" className="pb-row" anchor="host.mois.field.qe-chart-banner"
+       style={{ background: 'linear-gradient(#2f8fd0, #1d6aa8)', color: '#fff', padding: '4px 8px', gap: 10, flex: 'none', margin: '6px 6px 0' }}
+       cells w 90 / 230 / 240 / 70 / 150 / (none)
+     Phq9FormWindow:~173     layout="placed" className="pb-legacy-dform__patient"
+       style={{ position: 'relative', display: 'block', height: 68, flex: '0 0 auto', padding: 0, background: 'linear-gradient(#1871b5, #4ab2e7)' }}
+       cells at (8,5) (93,5) (310,5) (93,37) (169,37) (310,37) — the capture's positions
+     MarWindows:~126 MarBanner  layout="inline" className="pb-row"
+       style={{ gap: 0, padding: '2px 6px', color: '#fff', background: 'linear-gradient(#27a7e0, #1583c4)' }}
+       cells w 100 / 260 / 220 / 80 / (none); MarBanner's `flex: none` wrapper and children stay
+     scheduler/AppointmentSeriesWindows:~683  layout="grid" labelStyle={{ color: '#fff', fontSize: 10 }}
+       style={{ background: 'linear-gradient(var(--pb-banner-top-a, #2f6fb4), var(--pb-banner-top-b, #1c4f8c))', color: '#fff',
+         padding: '4px 8px', flex: 'none', display: 'grid', gridTemplateColumns: '90px 210px 150px 70px 140px 1fr' }}
+     LegacyDynamicFormWindow:~31  layout="caption" className="pb-legacy-dform__patient"  */
+export type PBPatientBandCell = { label: ReactNode; value: ReactNode; w?: number; left?: number; top?: number }
+
+export function PBPatientBand({
+  cells, layout = 'stack', className, style, anchor, labelStyle,
+}: {
+  cells: PBPatientBandCell[]
+  layout?: 'stack' | 'placed' | 'inline' | 'grid' | 'caption'
+  className?: string
+  style?: CSSProperties
+  /** data-tutorial-id on the band */
+  anchor?: string
+  /** the caption style of the 'grid' layout */
+  labelStyle?: CSSProperties
+}) {
+  const pair = (c: PBPatientBandCell) => (
+    <><span style={{ fontSize: 11 }}>{c.label}</span><strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{c.value}</strong></>
+  )
+  return (
+    <div className={className} data-tutorial-id={anchor} style={style}>
+      {layout === 'grid' ? (
+        <>
+          {cells.map((c, i) => <span key={`l${i}`} style={labelStyle}>{c.label}</span>)}
+          {cells.map((c, i) => <b key={`v${i}`}>{c.value}</b>)}
+        </>
+      ) : cells.map((c, i) => {
+        if (layout === 'placed') {
+          return <span key={i} style={{ position: 'absolute', display: 'flex', flexDirection: 'column', left: c.left, top: c.top }}>{pair(c)}</span>
+        }
+        if (layout === 'inline') {
+          return (
+            <span key={i} style={{ width: c.w, display: 'inline-flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.92em' }}>{c.label}</span><b>{c.value}</b>
+            </span>
+          )
+        }
+        if (layout === 'caption') return <span key={i}>{c.label}<strong>{c.value}</strong></span>
+        return <div key={i} style={{ width: c.w, flex: c.w ? 'none' : '1 1 auto', display: 'flex', flexDirection: 'column' }}>{pair(c)}</div>
+      })}
     </div>
   )
 }
