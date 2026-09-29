@@ -12,6 +12,8 @@ import {
 import { Btn, DetailWindow, FieldLabel, SectionHead, TopMessage } from './AdminExchangeKit'
 import { PrinterRows } from './ComputerSettingsWindow'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
+import { ReadOnlyField } from './formKit'
+import { useColumnFilters, useRecordCursor } from './listKit'
 
 /* ============================================================================
    Administration ▸ Configuration ▸ Field Audit Setup, Printer Configurations
@@ -67,8 +69,9 @@ function ListFolder<T extends Record<string, any>>({
   rowId: (row: T) => string
   children?: ReactNode
 }) {
-  const [filter, setFilter] = useState<Record<string, string>>({})
-  const shown = rows.filter((r) => columns.every((c) => !filter[c.key] || String(r[c.key] ?? '').toLowerCase().includes(filter[c.key]!.toLowerCase())))
+  const { shown, filterRow } = useColumnFilters(rows, columns.map((c) => ({
+    key: c.key, w: '100%', ariaLabel: `Filter ${c.header}`, anchor: `filter-${pbSlug(c.header)}`,
+  })), { match: 'lower' })
   return (
     <>
       <PBViewHeader title={title} />
@@ -80,11 +83,7 @@ function ListFolder<T extends Record<string, any>>({
           onCurrentChange={setCur}
           onActivate={(_, i) => { setCur(i); onActivate() }}
           rowTutorialId={(r) => `host.mois.row.${rowId(r)}`}
-          filters={columns.map((c) => (
-            <PBInput key={c.key} w="100%" value={filter[c.key] ?? ''} aria-label={`Filter ${c.header}`}
-              data-tutorial-id={`host.mois.field.filter-${pbSlug(c.header)}`}
-              onChange={(e) => setFilter((f) => ({ ...f, [c.key]: e.target.value }))} />
-          ))}
+          filters={filterRow}
           columns={columns.map((c) => ({ key: c.key, header: c.header, width: c.width, headAlign: 'center' as const }))}
         />
       </div>
@@ -98,10 +97,10 @@ function ListFolder<T extends Record<string, any>>({
    ======================================================================== */
 function FieldAuditSetupView({ close }: FolderViewProps) {
   const [rows, setRows] = useSessionState<FieldAuditRow[]>(FIELD_AUDIT_KEY, FIELD_AUDIT_ROWS)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, setRows)
+  const { cur, setCur, row } = list
   const [editing, setEditing] = useState(false)
   const [confirm, setConfirm] = useState(false)
-  const row = rows[cur]
   useScreenReport({ rows: rows.length, row: row ? `${row.table}-${row.field}` : null })
   return (
     <ListFolder
@@ -120,14 +119,14 @@ function FieldAuditSetupView({ close }: FolderViewProps) {
         <FieldAuditDetail
           row={row}
           onClose={() => setEditing(false)}
-          onSave={(description) => { setRows((all) => all.map((r, i) => (i === cur ? { ...r, description } : r))); setEditing(false) }}
+          onSave={(description) => { list.edit(cur, { description }); setEditing(false) }}
         />
       )}
       {confirm && (
         <TopMessage id="delete-field-audit" title="Delete Record" icon="question" buttons={['Yes', 'No']} prefix="delete-audit-"
           onClose={(b) => {
             setConfirm(false)
-            if (b === 'Yes') { setRows((all) => all.filter((_, i) => i !== cur)); setCur(0) }
+            if (b === 'Yes') list.remove()
           }}>
           Are you sure you want to delete this record?
         </TopMessage>
@@ -147,8 +146,8 @@ function FieldAuditDetail({ row, onClose, onSave }: { row: FieldAuditRow; onClos
       <div className="pb-groupbox" style={{ margin: 10 }}>
         <PBBand>Field Description</PBBand>
         <div style={{ display: 'grid', gridTemplateColumns: '86px 1fr', gap: 4, padding: '8px 10px' }}>
-          <FieldLabel>Table Name:</FieldLabel><PBInput w="100%" value={row.table} readOnly style={{ background: '#e8e8e8' }} />
-          <FieldLabel>Field Name:</FieldLabel><PBInput w="100%" value={row.field} readOnly style={{ background: '#e8e8e8' }} />
+          <FieldLabel>Table Name:</FieldLabel><ReadOnlyField w="100%" value={row.table} />
+          <FieldLabel>Field Name:</FieldLabel><ReadOnlyField w="100%" value={row.field} />
           <FieldLabel>Description:</FieldLabel>
           <PBInput w="100%" value={description} onChange={(e) => setDescription(e.target.value)} data-tutorial-id="host.mois.field.field-audit-description" />
         </div>
@@ -162,16 +161,16 @@ function FieldAuditDetail({ row, onClose, onSave }: { row: FieldAuditRow; onClos
    ======================================================================== */
 function PrinterConfigurationsView({ close }: FolderViewProps) {
   const [rows, setRows] = useSessionState<PrinterConfiguration[]>(PRINTER_CONFIGS_KEY, PRINTER_CONFIGURATIONS)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, setRows)
+  const { cur, setCur, row } = list
   const [win, setWin] = useState<null | 'new' | 'edit'>(null)
-  const row = rows[cur]
   useScreenReport({ rows: rows.length, row: row ? pbSlug(row.name) : null })
   return (
     <ListFolder
       title="Printer Configuration List"
       commands={[
         { label: 'New Record', onClick: () => setWin('new') },
-        { label: 'Delete Record', onClick: () => { setRows((all) => all.filter((_, i) => i !== cur)); setCur(0) } },
+        { label: 'Delete Record', onClick: () => list.remove() },
         { label: 'Edit Record', onClick: () => { if (row) setWin('edit') } },
         { label: 'Close Window', onClick: close },
       ]}
@@ -183,14 +182,14 @@ function PrinterConfigurationsView({ close }: FolderViewProps) {
       {win === 'new' && (
         <NewPrinterConfiguration
           onClose={() => setWin(null)}
-          onCreate={(c) => { setRows((all) => [...all, c]); setCur(rows.length); setWin(null) }}
+          onCreate={(c) => { list.add(c); setWin(null) }}
         />
       )}
       {win === 'edit' && row && (
         <PrinterConfigurationDetail
           row={row}
           onClose={() => setWin(null)}
-          onSave={(next) => { setRows((all) => all.map((r, i) => (i === cur ? next : r))); setWin(null) }}
+          onSave={(next) => { list.edit(cur, () => next); setWin(null) }}
         />
       )}
     </ListFolder>
@@ -261,16 +260,16 @@ function PrinterConfigurationDetail({ row, onClose, onSave }: { row: PrinterConf
    ======================================================================== */
 function PrinterProfilesView({ close }: FolderViewProps) {
   const [rows, setRows] = useSessionState<PrinterProfile[]>(PRINTER_PROFILES_KEY, PRINTER_PROFILES)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, setRows)
+  const { cur, setCur, row } = list
   const [win, setWin] = useState<null | 'new' | 'edit'>(null)
-  const row = rows[cur]
   useScreenReport({ rows: rows.length, row: row ? pbSlug(row.name) : null })
   return (
     <ListFolder
       title="Printer Profile List"
       commands={[
         { label: 'New Record', onClick: () => setWin('new') },
-        { label: 'Delete Record', onClick: () => { setRows((all) => all.filter((_, i) => i !== cur)); setCur(0) } },
+        { label: 'Delete Record', onClick: () => list.remove() },
         { label: 'Edit Record', onClick: () => { if (row) setWin('edit') } },
         { label: 'Close Window', onClick: close },
       ]}
@@ -285,8 +284,7 @@ function PrinterProfilesView({ close }: FolderViewProps) {
           onCreate={(name, description) => {
             /* 3768908: "Create Record" and then "Select Entry to update
                profile (Double Click on row)" — the new row is the current one */
-            setRows((all) => [...all, { name, description, printers: { ...COMPUTER_PRINTERS } }])
-            setCur(rows.length)
+            list.add({ name, description, printers: { ...COMPUTER_PRINTERS } })
             setWin(null)
           }}
         />
@@ -295,7 +293,7 @@ function PrinterProfilesView({ close }: FolderViewProps) {
         <PrinterProfileDetail
           profile={row}
           onClose={() => setWin(null)}
-          onSave={(next) => { setRows((all) => all.map((r, i) => (i === cur ? next : r))); setWin(null) }}
+          onSave={(next) => { list.edit(cur, () => next); setWin(null) }}
         />
       )}
     </ListFolder>

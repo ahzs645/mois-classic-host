@@ -1,15 +1,18 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  PBButton, PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBRadio, PBSelect, PBTextArea,
+  PBButton, PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBRadio, PBTextArea,
   pbSlug, usePBInstrumentation,
 } from '../pb'
 import { clinicListSpec, type ClinicRow } from '../data/clinicManagement'
 import type { ServiceCodeRow } from '../data/encounterPickers'
+import { S } from '../data/text'
 import { userListSpec } from '../data/userManagement'
 import { useScreenReport } from '../host/screen-state'
 import { CmdButton } from './CmdButton'
 import { ServiceCodeLookupDialog } from './CodeLookupDialogs'
 import { DemographicModal } from './DemographicDialogs'
+import { DialogFooter, FormLine, SectionCaption } from './formKit'
+import { GRID_BOX, MOIS_SEARCH_TITLE, MoisSearchWindow, PickButtons, SearchForRow } from './lookupKit'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -32,8 +35,6 @@ import { DesktopLayer } from './StageWindow'
    the Master Service Code List the encounter window already uses. Nothing
    from the captures' own rosters is reproduced.
    ========================================================================= */
-
-const S = (v: unknown) => (v == null ? '' : String(v))
 
 /** The salmon "Search For:" box with its "…" (#72, #74). */
 const SEARCH_FILL = '#f7c6a2'
@@ -66,9 +67,9 @@ export function SearchForBox({ value, onChange, name, style }: {
 
 /** A caption over a light-blue strip, the way #69 and #70 head a block. */
 const BlueStrip = ({ children, style }: { children: ReactNode; style?: CSSProperties }) => (
-  <div style={{ background: 'linear-gradient(#e6effb, #d2e1f5)', color: '#000080', fontWeight: 700, padding: '3px 5px', flex: 'none', ...style }}>
+  <SectionCaption rule={false} padding="3px 5px" fixed style={{ background: 'linear-gradient(#e6effb, #d2e1f5)', ...style }}>
     {children}
-  </div>
+  </SectionCaption>
 )
 
 /* ===========================================================================
@@ -98,15 +99,13 @@ export function ChangeAssociatedUserDialog({ current, history, onContinue, onClo
   return (
     <DemographicModal title="Change Associated User" width={680} height={474} onClose={onClose} dialog="change-associated-user">
       <div style={{ padding: '8px 10px 6px', background: '#ffffff', flex: 'none' }}>
-        <div className="pb-row" style={{ gap: 6 }}>
-          <span className="pb-form__label" style={{ width: 128 }}>Current Associated User:</span>
+        <FormLine label="Current Associated User:" w={128} labelFlex={false}>
           <PBInput w={260} value={current} readOnly style={{ background: '#e8e8e8' }} data-tutorial-id="host.mois.field.current-associated-user" />
-        </div>
+        </FormLine>
       </div>
       <div style={{ height: 1, background: '#a0a0a0', flex: 'none' }} />
       <div style={{ padding: '6px 10px 6px', background: '#ffffff', flex: 'none' }}>
-        <div className="pb-row" style={{ gap: 6 }}>
-          <span className="pb-form__label" style={{ width: 128 }}>New Associated User:</span>
+        <FormLine label="New Associated User:" w={128} labelFlex={false}>
           {/* a drop-down whose list is a window of its own (#70) */}
           <span className="pb-inputgroup" style={{ width: 252 }}>
             <input
@@ -122,11 +121,10 @@ export function ChangeAssociatedUserDialog({ current, history, onContinue, onClo
               <PBDropGlyph />
             </CmdButton>
           </span>
-        </div>
-        <div className="pb-row" style={{ gap: 6, alignItems: 'flex-start', marginTop: 3 }}>
-          <span className="pb-form__label" style={{ width: 128 }}>Note (optional):</span>
+        </FormLine>
+        <FormLine label="Note (optional):" w={128} labelFlex={false} align="flex-start" style={{ marginTop: 3 }}>
           <PBTextArea rows={3} w={260} value={note} onChange={(e) => setNote(e.target.value)} data-tutorial-id="host.mois.field.note-optional" />
-        </div>
+        </FormLine>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #8a8a8a', margin: '0 1px' }}>
         <BlueStrip>Change History</BlueStrip>
@@ -148,10 +146,10 @@ export function ChangeAssociatedUserDialog({ current, history, onContinue, onClo
           />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '12px 0', flex: 'none' }}>
+      <DialogFooter gap={8} padding="12px 0">
         <CmdButton command="associated-user-continue" style={{ width: 74 }} onClick={() => { if (picked) onContinue(picked, note); else onClose() }}>Continue</CmdButton>
         <CmdButton command="associated-user-cancel" style={{ width: 74 }} onClick={onClose}>Cancel</CmdButton>
-      </div>
+      </DialogFooter>
       {searching && (
         <UserSearchWindow
           initial={picked || current}
@@ -225,59 +223,55 @@ export function UserSearchWindow({ initial, onPick, onClose }: {
   const current = Math.min(cur, Math.max(0, rows.length - 1))
   const row = rows[current]
   const groups = ['', ...(userListSpec('ad-user-groups')?.rows ?? []).map((r) => S(r.name))]
-  const caption = (text: string) => <span style={{ fontWeight: 400, color: '#000' }}>{text}</span>
   return (
-    <DemographicModal title="MOIS - Search Window" width={1000} height={730} onClose={onClose} dialog="user-search">
-      <div style={{ margin: '6px 8px 0', border: '1px solid #8a8a8a', background: '#fff', flex: 'none' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '500px 135px 230px 1fr', background: 'linear-gradient(#e6effb, #d2e1f5)', padding: '3px 5px' }}>
-          {caption('Search for:')}{caption('Include:')}{caption('Membership')}{caption('Record Status:')}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '500px 135px 230px 1fr', padding: '6px 5px 8px', alignItems: 'start' }}>
-          <div>
-            {([['Name:', name, setName], ['Group:', group, setGroup], ['Provider:', provider, setProvider]] as const).map(([label, value, set]) => (
-              <div key={label} className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-                <span className="pb-form__label" style={{ width: 72 }}>{label}</span>
-                <PBInput w={220} value={value} onChange={(e) => set(e.target.value)} data-tutorial-id={`host.mois.field.search-${pbSlug(label)}`} />
-              </div>
-            ))}
-            <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-              <span className="pb-form__label" style={{ width: 72 }}>Members of:</span>
-              <PBSelect w={220} options={groups} value={membersOf} onChange={(e) => setMembersOf(e.target.value)} data-tutorial-id="host.mois.field.search-members-of" />
-            </div>
-          </div>
-          <div>
-            <div><PBCheckbox label="Users" checked={users} onChange={setUsers} tutorialId="host.mois.field.include-users" /></div>
-            <div style={{ paddingTop: 4 }}><PBCheckbox label="Providers" checked={providers} onChange={setProviders} tutorialId="host.mois.field.include-providers" /></div>
-          </div>
-          <div><PBCheckbox label="Limit to My Active Memberships" checked={mine} onChange={setMine} /></div>
-          <div>
-            <div><PBCheckbox label="Active" checked={active} onChange={(v) => { setActive(v); setCur(0) }} tutorialId="host.mois.field.status-active" /></div>
-            <div style={{ paddingTop: 4 }}><PBCheckbox label="Inactive" checked={inactive} onChange={(v) => { setInactive(v); setCur(0) }} tutorialId="host.mois.field.status-inactive" /></div>
-          </div>
-        </div>
-      </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '6px 8px 0', border: '1px solid #8a8a8a', background: '#fff' }}>
-        <PBDataWindow<SearchRow>
-          rows={rows}
-          current={current}
-          onCurrentChange={setCur}
-          onActivate={(r) => onPick(r.name)}
-          rowTutorialId={(r) => `host.mois.row.user-search-${pbSlug(r.name)}`}
-          empty="No users or providers match."
-          columns={[
-            { key: 'name', header: 'Name', width: 274, headAlign: 'left' },
-            { key: 'role', header: 'Role / Group', width: 209, headAlign: 'left' },
-            { key: 'type', header: 'Type', width: 137, headAlign: 'left' },
-            { key: 'members', header: 'Associated Provider(s) / Members', width: 244, headAlign: 'left' },
-            { key: 'status', header: 'Status', width: 68, align: 'center' },
+    <MoisSearchWindow<SearchRow>
+      frame={(content, footer) => (
+        <DemographicModal title={MOIS_SEARCH_TITLE} width={1000} height={730} onClose={onClose} dialog="user-search">{content}{footer}</DemographicModal>
+      )}
+      criteria={{
+        layout: 'rows',
+        fields: ([['Name:', name, setName], ['Group:', group, setGroup], ['Provider:', provider, setProvider]] as const).map(([label, value, set]) => (
+          { label, value, onChange: set, anchor: `host.mois.field.search-${pbSlug(label)}` }
+        )),
+        membersOf: { options: groups, value: membersOf, onChange: setMembersOf, anchor: 'host.mois.field.search-members-of' },
+        include: [
+          { label: 'Users', checked: users, onChange: setUsers, tutorialId: 'host.mois.field.include-users' },
+          { label: 'Providers', checked: providers, onChange: setProviders, tutorialId: 'host.mois.field.include-providers' },
+        ],
+        membership: { label: 'Limit to My Active Memberships', checked: mine, onChange: setMine },
+        status: [
+          { label: 'Active', checked: active, onChange: (v) => { setActive(v); setCur(0) }, tutorialId: 'host.mois.field.status-active' },
+          { label: 'Inactive', checked: inactive, onChange: (v) => { setInactive(v); setCur(0) }, tutorialId: 'host.mois.field.status-inactive' },
+        ],
+      }}
+      gridBox={{ ...GRID_BOX, margin: '6px 8px 0', border: '1px solid #8a8a8a', background: '#fff' }}
+      grid={{
+        rows,
+        current,
+        onCurrentChange: setCur,
+        onActivate: (r) => onPick(r.name),
+        rowTutorialId: (r) => `host.mois.row.user-search-${pbSlug(r.name)}`,
+        empty: 'No users or providers match.',
+        columns: [
+          { key: 'name', header: 'Name', width: 274, headAlign: 'left' },
+          { key: 'role', header: 'Role / Group', width: 209, headAlign: 'left' },
+          { key: 'type', header: 'Type', width: 137, headAlign: 'left' },
+          { key: 'members', header: 'Associated Provider(s) / Members', width: 244, headAlign: 'left' },
+          { key: 'status', header: 'Status', width: 68, align: 'center' },
+        ],
+      }}
+      footer={(
+        <PickButtons
+          className="pb-row"
+          style={{ justifyContent: 'center', gap: 8, padding: '10px 0', flex: 'none' }}
+          size={{ width: 74 }}
+          buttons={[
+            { label: 'Ok', command: 'user-search-ok', disabled: !row, onClick: () => { if (row) onPick(row.name) } },
+            { label: 'Cancel', command: 'user-search-cancel', onClick: onClose },
           ]}
         />
-      </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '10px 0', flex: 'none' }}>
-        <CmdButton command="user-search-ok" style={{ width: 74 }} disabled={!row} onClick={() => row && onPick(row.name)}>Ok</CmdButton>
-        <CmdButton command="user-search-cancel" style={{ width: 74 }} onClick={onClose}>Cancel</CmdButton>
-      </div>
-    </DemographicModal>
+      )}
+    />
   )
 }
 
@@ -382,11 +376,11 @@ export function ServiceConceptSearchWindow({ onPick, onClose }: {
         </div>
       </div>
 
-      <div className="pb-row" style={{ gap: 4, padding: '3px 4px', flex: 'none' }}>
-        <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-        <SearchForBox value={search} onChange={(v) => { setSearch(v); setCur(0) }} name="service-concept-search" />
-        <PBButton style={{ minWidth: 76 }} data-tutorial-id="host.mois.command.service-concept-search-run">Search</PBButton>
-      </div>
+      <SearchForRow
+        style={{ gap: 4, padding: '3px 4px', flex: 'none' }}
+        input={<SearchForBox value={search} onChange={(v) => { setSearch(v); setCur(0) }} name="service-concept-search" />}
+        after={<PBButton style={{ minWidth: 76 }} command="service-concept-search-run">Search</PBButton>}
+      />
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', margin: '0 4px', border: '1px solid #8a8a8a', background: '#fff' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>

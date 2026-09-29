@@ -4,6 +4,7 @@ import type { MoisRecord } from '../data/charts'
 import { favouriteSeed, type FavouriteRow } from '../data/medications'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { useSessionState } from '../host/screen-windows'
 
 /* ============================================================================
@@ -18,7 +19,7 @@ import { useSessionState } from '../host/screen-windows'
    ========================================================================= */
 
 /** The Desktop For user every record the stage writes is stamped with. */
-export const STAGE_USER = 'TECHNICAL SUPPORT'
+export const STAGE_USER = DESKTOP_PROVIDER_DEFAULT
 
 export type Med = {
   id: string

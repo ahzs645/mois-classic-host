@@ -8,6 +8,8 @@ import { useScreenReport } from '../host/screen-state'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
 import { Phq9FormWindow } from './Phq9FormWindow'
 import { MeasureCalculatorBody } from './MeasureCalculatorBodies'
+import { ModalWindow } from './dialogKit'
+import { PatientFieldRow } from './patientKit'
 import { MEASURE_FORMS, type Phq9Answers } from '../data/measureEntry'
 import { usePatient } from '../data/patient-context'
 import {
@@ -95,17 +97,18 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
         style={{ width: 'min(620px, 100%)', height: 'min(438px, 100%)' }}
       >
         {/* the yellow identity strip: which record this measure belongs to */}
-        <div
+        <PatientFieldRow
+          layout="strong"
+          className=""
           style={{
             display: 'flex', gap: 18, flex: 'none', padding: '3px 8px',
             background: 'var(--pb-yellow)', borderBottom: '1px solid var(--pb-yellow-border)',
           }}
-        >
-          <span><strong>ENC #:</strong> {encounter}</span>
-          <span><strong>CHART:</strong> {patient.chart}</span>
-          <span><strong>FIRST:</strong> {patient.first}</span>
-          <span><strong>LAST:</strong> {patient.last}</span>
-        </div>
+          fields={[
+            { label: 'ENC #:', value: encounter }, { label: 'CHART:', value: patient.chart },
+            { label: 'FIRST:', value: patient.first }, { label: 'LAST:', value: patient.last },
+          ]}
+        />
 
         <PBBand>Measurement Detail</PBBand>
 
@@ -200,7 +203,7 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
           <PBButton
             style={{ width: 118, flex: 'none' }}
             className="pb-btn--default"
-            data-tutorial-id="host.mois.command.measurement-ok"
+            command="measurement-ok"
             onClick={() => onOk(draft)}
           >
             Ok
@@ -287,15 +290,13 @@ export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClo
     .map((s) => ({ ...s, value: at(s.code).value, flag: at(s.code).flag || '-', fresh: true })))
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measure-template"
-        title={title}
-        onClose={onClose}
-        style={{ width: 'min(760px, 100%)', height: 'min(700px, 100%)' }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.measure-template"
+      title={title}
+      onClose={onClose}
+      zIndex={96}
+      windowStyle={{ width: 'min(760px, 100%)', height: 'min(700px, 100%)' }}
+    >
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 8 }}>
           <PBDataWindow
             /* the template grid is a data-entry form, not a list: no current
@@ -343,15 +344,14 @@ export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClo
         <div className="pb-row" style={{ justifyContent: 'center', gap: 18, padding: '6px 0 10px', flex: 'none' }}>
           <PBButton
             style={{ minWidth: 168 }}
-            data-tutorial-id="host.mois.command.save-changes"
+            command="save-changes"
             onClick={save}
           >
             Save Changes (F2)
           </PBButton>
           <PBButton style={{ minWidth: 168 }} onClick={onClose}>Close w/o Save</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -368,15 +368,13 @@ export function MeasureTemplateSelectionDialog({ onOpen, onClose }: {
   const [cur, setCur] = useState(0)
   const row = measureTemplates[cur]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measure-template-selection"
-        title="Measure Template / Panel Selection"
-        onClose={onClose}
-        style={{ width: 'min(1000px, 100%)', height: 'min(690px, 100%)' }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.measure-template-selection"
+      title="Measure Template / Panel Selection"
+      onClose={onClose}
+      zIndex={96}
+      windowStyle={{ width: 'min(1000px, 100%)', height: 'min(690px, 100%)' }}
+    >
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
             <div className="pb-band--ruled"><PBBand>Template List</PBBand></div>
@@ -398,15 +396,14 @@ export function MeasureTemplateSelectionDialog({ onOpen, onClose }: {
         <div className="pb-row" style={{ justifyContent: 'center', gap: 18, padding: '2px 0 10px', flex: 'none' }}>
           <PBButton
             style={{ minWidth: 132 }}
-            data-tutorial-id="host.mois.command.open-template"
+            command="open-template"
             onClick={() => row && onOpen(row)}
           >
             Open
           </PBButton>
           <PBButton style={{ minWidth: 132 }} onClick={onClose}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -419,15 +416,13 @@ export function MeasureCalculatorsDialog({ onOpen, onClose }: {
 }) {
   const [cur, setCur] = useState(0)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measure-calculators"
-        title="Measure Calculators"
-        onClose={onClose}
-        style={{ width: 320, height: 300 }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.measure-calculators"
+      title="Measure Calculators"
+      onClose={onClose}
+      zIndex={96}
+      windowStyle={{ width: 320, height: 300 }}
+    >
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
             <div className="pb-band--ruled"><PBBand>Select Calculator</PBBand></div>
@@ -446,15 +441,14 @@ export function MeasureCalculatorsDialog({ onOpen, onClose }: {
         <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '0 0 10px', flex: 'none' }}>
           <PBButton
             style={{ minWidth: 118 }}
-            data-tutorial-id="host.mois.command.open-calculator"
+            command="open-calculator"
             onClick={() => onOpen(measureCalculators[cur]!)}
           >
             Open (F2)
           </PBButton>
           <PBButton style={{ minWidth: 118 }} onClick={onClose}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -500,15 +494,13 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
   if (calculator !== 'BMI') return <MeasureCalculatorBody calculator={calculator} onSave={onSave} onClose={onClose} />
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 97 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measure-calculator"
-        title="Measure Calculator"
-        onClose={onClose}
-        style={{ width: 'min(560px, 100%)', height: 'min(660px, 100%)' }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.measure-calculator"
+      title="Measure Calculator"
+      onClose={onClose}
+      zIndex={97}
+      windowStyle={{ width: 'min(560px, 100%)', height: 'min(660px, 100%)' }}
+    >
         <div style={{ padding: 8, display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <div style={{ border: '1px solid var(--pb-border)', flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
             {/* the BMI calculator (302837 `ff51e56c…`); the BSA, Cardiac Risk,
@@ -598,14 +590,14 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
             style={{ minWidth: 132 }}
             /* Populate pulls the chart's last height and weight in; Save (F2)
                is what files the index as a measure row */
-            data-tutorial-id="host.mois.command.populate"
+            command="populate"
             onClick={populate}
           >
             Populate (Ctrl+P)
           </PBButton>
           <PBButton
             style={{ minWidth: 132 }}
-            data-tutorial-id="host.mois.command.calculator-save"
+            command="calculator-save"
             disabled={!bmi}
             onClick={() => onSave({ code, name: 'BODY MASS INDEX', value: Number(bmi).toFixed(1), flag: '-', units: '', fresh: true })}
           >
@@ -614,8 +606,7 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
           <PBButton style={{ minWidth: 132 }} onClick={onClose}>Cancel</PBButton>
           <PBButton style={{ minWidth: 132 }} onClick={() => { setCms(''); setKgs('') }}>Clear (F5)</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

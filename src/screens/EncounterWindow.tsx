@@ -13,6 +13,7 @@ import {
 } from '../data/encounterPickers'
 import { measureCalculators, type MeasureTemplate } from '../data/measures'
 import { NEW_WCB_FORM, wcbFormFromExport, withDefaultClaim, type WcbFormState } from '../data/wcbForm'
+import { stageStamp } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { usePatient } from '../data/patient-context'
 import { DESKTOP_USER, useEncounterSession, type SessionNote } from '../host/encounterArea'
@@ -41,6 +42,10 @@ import { PrintEncounterNoteDialog } from './PrintEncounterNoteDialog'
 import { PrintNoteForPatientDialog } from './PrintNoteForPatientDialog'
 import { ServiceEventDialog } from './ServiceEventDialog'
 import { WcbFormWindow } from './WcbFormWindow'
+import { ModalLayer, ModalWindow } from './dialogKit'
+import { DialogFooter } from './formKit'
+import { useColumnFilters } from './listKit'
+import { GRID_BOX, LookupBand, PickButtons, PickListWindow, SearchForRow } from './lookupKit'
 import { usePrivateNoteBand, usePrivateNoteMask } from './PrivateNoteWindows'
 
 /* ============================================================================
@@ -105,7 +110,7 @@ type Pending = { text: string; author: string; complete: boolean | null }
 /* a blank New Note is stamped Created when it appears, before it is saved
    (#21/#22: "Created: 2026.09.25 10:41 JALIL, AHMAD" under an empty New
    Note *of 0) */
-const stamp = () => `${MOIS_TODAY} ${new Date().toTimeString().slice(0, 5)}  ${DESKTOP_USER}`
+const stamp = () => `${stageStamp()}  ${DESKTOP_USER}`
 
 /** a dialog the window has open over it; its id is what the tutorial snapshot reports */
 type EncounterDialog =
@@ -738,7 +743,7 @@ export function EncounterWebformWindow({ children, onClose, title = 'MOIS' }: { 
   const [maximized, setMaximized] = useState(false)
   const toggleMaximized = () => setMaximized((value) => !value)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: maximized ? 0 : 8, zIndex: 91 }}>
+    <ModalLayer zIndex={91} style={{ position: 'fixed', padding: maximized ? 0 : 8 }}>
       <PBWindow title={title} child onClose={onClose} onMinimize={onClose}
         tutorialId="host.mois.window.webform"
         maximized={maximized} onMaximize={toggleMaximized}
@@ -751,7 +756,7 @@ export function EncounterWebformWindow({ children, onClose, title = 'MOIS' }: { 
           {children}
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -763,9 +768,6 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
   builtIn?: FormListRow[]
 }) {
   const [cur, setCur] = useState(0)
-  const [type, setType] = useState('')
-  const [name, setName] = useState('')
-  const [version, setVersion] = useState('')
   const [forms, setForms] = useState(loadEncounterForms ? [] : selectFormRows)
   const [loading, setLoading] = useState(Boolean(loadEncounterForms))
   const [error, setError] = useState<string | null>(null)
@@ -779,12 +781,13 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
     })
     return () => { active = false }
   }, [loadEncounterForms])
-  const shown = [...forms, ...(loading ? [] : builtIn)].filter((f) =>
-    f.type.toLowerCase().includes(type.toLowerCase())
-    && f.name.toLowerCase().includes(name.toLowerCase())
-    && f.version.toLowerCase().includes(version.toLowerCase()))
+  const { shown, filterRow } = useColumnFilters([...forms, ...(loading ? [] : builtIn)], [
+    { key: 'type', anchor: 'form-type' },
+    { key: 'name', anchor: 'form-name' },
+    { key: 'version' },
+  ], { match: 'lower', onChange: () => setCur(0) })
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 90 }}>
+    <ModalLayer zIndex={90} style={{ position: 'fixed', padding: 8 }}>
       <PBWindow
         child
         controls={false}
@@ -804,11 +807,7 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
               { key: 'name', header: 'Form Name', headAlign: 'center' },
               { key: 'version', header: 'Version', width: 48, headAlign: 'center' },
             ]}
-            filters={[
-              <PBInput key="type" value={type} onChange={(e) => { setType(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.form-type" />,
-              <PBInput key="name" value={name} onChange={(e) => { setName(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.form-name" />,
-              <PBInput key="version" value={version} onChange={(e) => { setVersion(e.target.value); setCur(0) }} />,
-            ]}
+            filters={filterRow}
             rows={shown}
             empty={loading ? 'Loading MOIS forms…' : 'No matching forms'}
             current={cur}
@@ -819,7 +818,7 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
         <div className="pb-row pb-select-form__actions">
           <PBButton
             style={{ minWidth: 108 }}
-            data-tutorial-id="host.mois.command.create-form"
+            command="create-form"
             disabled={loading || !shown[cur]}
             onClick={() => shown[cur] && onCreate(shown[cur]!)}
           >
@@ -828,7 +827,7 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
           <PBButton style={{ minWidth: 108 }} onClick={onClose}>Cancel</PBButton>
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -942,20 +941,20 @@ function ProgressNotePage({
       <div style={priv.private ? { ['--pb-band' as string]: '#fbf59f' } : undefined} data-tutorial-id={priv.private ? 'host.mois.group.private-note-band' : undefined}>
       <PBBand right={<>
         {priv.button && (
-          <PBButton size="sm" data-tutorial-id={`host.mois.command.${priv.button.id}`}
-            onClick={() => { instrumentation?.report('command', { command: priv.button!.id }); priv.button!.onClick() }}>
+          <PBButton size="sm" command={priv.button.id}
+            onClick={() => priv.button!.onClick()}>
             {priv.button.label}
           </PBButton>
         )}
         <PBButton
           size="sm"
-          data-tutorial-id="host.mois.command.print-note"
-          onClick={() => { instrumentation?.report('command', { command: 'print-note' }); onPrintNote() }}
+          command="print-note"
+          onClick={() => onPrintNote()}
         >
           Print Note
         </PBButton>
-        <PBButton size="sm" data-tutorial-id="host.mois.command.new-note" onClick={onNewNote}>New Note</PBButton>
-        <PBButton size="sm" data-tutorial-id="host.mois.command.delete-note" onClick={onDelete}>Delete Note</PBButton>
+        <PBButton size="sm" command="new-note" onClick={onNewNote}>New Note</PBButton>
+        <PBButton size="sm" command="delete-note" onClick={onDelete}>Delete Note</PBButton>
       </>}>
         <span data-tutorial-id="host.mois.field.note-caption">{caption}</span>
         {priv.private && <span style={{ marginLeft: 60, fontWeight: 400, color: '#9a9a9a' }}>This is a private note.</span>}
@@ -1298,15 +1297,13 @@ function ServiceEpisodesDialog({ onPick, onClose }: {
   const serviceEpisodeRows = serviceEpisodes(useChartExport())
   const row = serviceEpisodeRows[cur]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.service-episodes"
-        title="Patient's Service Episodes"
-        onClose={onClose}
-        style={{ width: 'min(720px, 100%)', height: 'min(420px, 100%)' }}
-      >
+    <ModalWindow
+      id="service-episodes"
+      title="Patient's Service Episodes"
+      onClose={onClose}
+      zIndex={95}
+      windowStyle={{ width: 'min(720px, 100%)', height: 'min(420px, 100%)' }}
+    >
         <PBPatientBannerBlue
           top={[{ label: 'Patient', value: patient.short }, { label: 'Chart', value: patient.chart }]}
           bottom={[{ label: 'DoB', value: patient.dob }, { label: 'Sex', value: patient.sex }]}
@@ -1328,10 +1325,10 @@ function ServiceEpisodesDialog({ onPick, onClose }: {
             rowTutorialId={(r) => `host.mois.row.episode-${pbSlug(String(r.episode))}`}
           />
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '4px 0 10px', flex: 'none' }}>
+        <DialogFooter gap={8} padding="4px 0 10px">
           <PBButton
             style={{ minWidth: 150 }}
-            data-tutorial-id="host.mois.command.use-episode"
+            command="use-episode"
             onClick={() => row && onPick(row)}
           >
             Use This Episode
@@ -1340,9 +1337,8 @@ function ServiceEpisodesDialog({ onPick, onClose }: {
           <PBButton style={{ minWidth: 150 }}>Edit Episode…</PBButton>
           <PBButton style={{ minWidth: 150 }}>Stop Episode</PBButton>
           <PBButton style={{ minWidth: 100 }} onClick={onClose}>Cancel</PBButton>
-        </div>
-      </PBWindow>
-    </div>
+        </DialogFooter>
+    </ModalWindow>
   )
 }
 
@@ -1363,50 +1359,49 @@ function ProviderSearchDialog({ onPick, onClose }: {
   ))
   const row = rows[Math.min(cur, rows.length - 1)]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.provider-search"
-        title="MOIS - Search Window"
-        onClose={onClose}
-        style={{ width: 'min(880px, 100%)', height: 'min(600px, 100%)' }}
-      >
-        <PBBand>Provider List</PBBand>
-        <div className="pb-row" style={{ gap: 4, padding: '3px 4px', flex: 'none' }}>
-          <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-          <PBLookup w="100%" value={search} onChange={setSearch} name="provider-search" />
-        </div>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 4px' }}>
-          <PBDataWindow
-            columns={[
-              { key: 'name', header: 'Name', width: 210 },
-              { key: 'role', header: 'Role', width: 150 },
-              { key: 'type', header: 'Type', width: 96 },
-              { key: 'members', header: 'Members' },
-              { key: 'status', header: 'Status', width: 56, align: 'center' },
-            ]}
-            rows={rows}
-            current={Math.min(cur, Math.max(0, rows.length - 1))}
-            onCurrentChange={setCur}
-            onActivate={(r) => onPick(r)}
-            rowTutorialId={(r) => `host.mois.row.provider-${pbSlug(String(r.name))}`}
-            empty="No provider matches."
-          />
-        </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '8px 0 10px', flex: 'none' }}>
-          <PBButton
-            style={{ minWidth: 108 }}
-            disabled={!row}
-            data-tutorial-id="host.mois.command.select-provider"
-            onClick={() => row && onPick(row)}
-          >
-            Select
-          </PBButton>
-          <PBButton style={{ minWidth: 108 }} onClick={onClose}>Cancel</PBButton>
-        </div>
-      </PBWindow>
-    </div>
+    <PickListWindow<ProviderSearchRow>
+      window={{
+        id: 'provider-search',
+        title: 'MOIS - Search Window',
+        onClose,
+        zIndex: 95,
+        windowStyle: { width: 'min(880px, 100%)', height: 'min(600px, 100%)' },
+      }}
+      band={<LookupBand>Provider List</LookupBand>}
+      search={(
+        <SearchForRow
+          style={{ gap: 4, padding: '3px 4px', flex: 'none' }}
+          input={<PBLookup w="100%" value={search} onChange={setSearch} name="provider-search" />}
+        />
+      )}
+      gridBox={{ ...GRID_BOX, padding: '0 4px' }}
+      grid={{
+        columns: [
+          { key: 'name', header: 'Name', width: 210 },
+          { key: 'role', header: 'Role', width: 150 },
+          { key: 'type', header: 'Type', width: 96 },
+          { key: 'members', header: 'Members' },
+          { key: 'status', header: 'Status', width: 56, align: 'center' },
+        ],
+        rows,
+        current: Math.min(cur, Math.max(0, rows.length - 1)),
+        onCurrentChange: setCur,
+        onActivate: (r) => onPick(r),
+        rowTutorialId: (r) => `host.mois.row.provider-${pbSlug(String(r.name))}`,
+        empty: 'No provider matches.',
+      }}
+      footer={(
+        <PickButtons
+          className="pb-row"
+          style={{ justifyContent: 'center', gap: 14, padding: '8px 0 10px', flex: 'none' }}
+          size={{ minWidth: 108 }}
+          buttons={[
+            { label: 'Select', command: 'select-provider', disabled: !row, onClick: () => row && onPick(row) },
+            { label: 'Cancel', onClick: onClose },
+          ]}
+        />
+      )}
+    />
   )
 }
 

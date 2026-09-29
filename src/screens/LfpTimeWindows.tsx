@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import {
   appointmentsFor, billingPrograms, claimLines, entriesFor, hhmm, hours, isDuplicateClaim, LFP_TIME_PATIENT, LFP_TODAY,
   lfpRegisteredProviders, longDate, minutesOf, minutesOfEntry, overlapsFfs, round15, shiftStamp, TIME_CODES,
   useBillingPrograms, type ClaimLine, type TimeCode, type TimeEntry,
 } from '../data/billingPrograms'
 import type { UnsentClaim } from '../data/claims'
+import { pad2 } from '../data/clock'
 import { schedulerStore, stampOf } from '../data/schedulerStore'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
-import { PBButton, PBCheckbox, PBInput, PBRadio, PBSelect, pbSlug, usePBInstrumentation } from '../pb'
+import { PBCheckbox, PBInput, PBRadio, PBSelect, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { Btn as ExchangeBtn } from './AdminExchangeKit'
 import { Ask, BlueHead, Dim, useUnsentSink } from './billingProgramsKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
@@ -96,19 +98,8 @@ function useTimeTarget(args: Record<string, unknown>) {
 
 const nowMinutes = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() }
 
-function Btn({ id, children, onClick, disabled, width = 74, style }: { id: string; children: ReactNode; onClick: () => void; disabled?: boolean; width?: number; style?: CSSProperties }) {
-  const host = usePBInstrumentation()
-  return (
-    <PBButton
-      disabled={disabled}
-      style={{ width, minWidth: 0, height: 23, ...style }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick() }}
-    >
-      {children}
-    </PBButton>
-  )
-}
+/** AdminExchangeKit's Btn, 74 wide unless given. */
+const Btn = ({ width = 74, ...rest }: ComponentProps<typeof ExchangeBtn>) => <ExchangeBtn width={width} {...rest} />
 
 /* --- Time Logger --------------------------------------------------------------- */
 
@@ -241,7 +232,7 @@ export function TimeManagementWindow({ args, close, open }: AreaWindowProps) {
   const entrySpans = entries.map((e) => ({ e, start: minutesOf(e.start), stop: minutesOf(e.stop), ffs: overlapsFfs(e, appts) }))
 
   const cellStyle: CSSProperties = { borderRight: '1px solid #c8c8c8', height: big ? 14 : 21, position: 'relative' }
-  const timeCol = (t: number) => (t % 60 === 0 ? `${Math.floor(t / 60)}:00` : `:${String(t % 60).padStart(2, '0')}`)
+  const timeCol = (t: number) => (t % 60 === 0 ? `${Math.floor(t / 60)}:00` : `:${pad2(t % 60)}`)
 
   return (
     <WorkspaceDialogFrame id="time-entry" title={`Time Management: ${longDate(date)}`} width={528} height={865} onClose={close}>

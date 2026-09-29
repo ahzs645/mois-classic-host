@@ -5,6 +5,7 @@ import {
 } from '../data/reportParams'
 import { PBCheckbox, PBInput, PBRadio, PBSelect, pbSlug, usePBInstrumentation } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { useTickSet } from './listKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -54,19 +55,13 @@ function below(m: { num: number; den: number }, target: string) {
 function ScorecardWindow({ close, open }: AreaWindowProps) {
   const host = usePBInstrumentation()
   const [retrieved, setRetrieved] = useState(false)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const expanded = useTickSet<string>()
   const [investigate, setInvestigate] = useState('')
   const [viewBy, setViewBy] = useState<'metric' | 'provider'>('metric')
   useScreenReport({
     retrieved,
-    expanded: [...expanded].map((c) => c.toLowerCase()).join(','),
+    expanded: [...expanded.ticked].map((c) => c.toLowerCase()).join(','),
     investigate,
-  })
-
-  const toggle = (code: string) => setExpanded((prev) => {
-    const next = new Set(prev)
-    next.has(code) ? next.delete(code) : next.add(code)
-    return next
   })
 
   const press = (m: ScorecardMetric, passed: boolean) => {
@@ -132,8 +127,8 @@ function ScorecardWindow({ close, open }: AreaWindowProps) {
         <button type="button" className="pb-link" style={{ justifySelf: 'end' }}>Help?</button>
       </div>
       <div className="pb-row" style={{ gap: 20, padding: '4px 8px', flex: 'none', borderBottom: '1px solid #c8c8c8' }}>
-        <button type="button" className="pb-link" onClick={() => retrieved && setExpanded(new Set(SCORECARD_METRICS.map((m) => m.code)))}>Expand All</button>
-        <button type="button" className="pb-link" onClick={() => setExpanded(new Set())}>Collapse All</button>
+        <button type="button" className="pb-link" onClick={() => retrieved && expanded.selectAll(SCORECARD_METRICS.map((m) => m.code))}>Expand All</button>
+        <button type="button" className="pb-link" onClick={expanded.clear}>Collapse All</button>
       </div>
 
       {/* ---- the grid ------------------------------------------------ */}
@@ -150,7 +145,7 @@ function ScorecardWindow({ close, open }: AreaWindowProps) {
             <Fragment key={m.code}>
               <div
                 data-tutorial-id={`host.mois.group.scorecard-${pbSlug(m.code)}`}
-                onClick={() => toggle(m.code)}
+                onClick={() => expanded.flip(m.code)}
                 style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', height: 26, background: BAND, borderBottom: '1px solid #7fb4de', fontWeight: 700, cursor: 'default' }}
               >
                 <span className="pb-row" style={{ gap: 6, paddingLeft: 8 }}>

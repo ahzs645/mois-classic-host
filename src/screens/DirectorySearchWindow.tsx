@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { directoryEntries, type DirectoryEntry, type DirectoryType } from '../data/providers'
 import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBWindow, pbSlug } from '../pb'
+import { ModalLayer } from './dialogKit'
 import './directory-search-window.css'
 
 /* ============================================================================
@@ -55,7 +56,7 @@ export function DirectorySearchWindow({ initial, onPick, onClose, zIndex = 99 }:
     grid.current?.querySelector(`[data-tutorial-id="host.mois.row.directory-${pbSlug(initial)}"]`)?.scrollIntoView({ block: 'center' })
   }, [initial])
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
+    <ModalLayer zIndex={zIndex}>
       <PBWindow child controls={false} title="MOIS - Search Window" onClose={onClose}
         tutorialId="host.mois.dialog.directory-search" className="pb-directory-search"
         style={{ width: 'min(1080px, 100%)', height: 'min(770px, 100%)' }}>
@@ -106,11 +107,11 @@ export function DirectorySearchWindow({ initial, onPick, onClose, zIndex = 99 }:
         <div className="pb-directory-search__footer">
           <PBCheckbox label="Save Filter as My Default" checked={saveFilter} onChange={setSaveFilter} />
           <div className="pb-directory-search__buttons">
-            <PBButton disabled={!row} onClick={() => row && onPick(row)} data-tutorial-id="host.mois.command.directory-ok">Ok</PBButton>
+            <PBButton disabled={!row} onClick={() => row && onPick(row)} command="directory-ok">Ok</PBButton>
             <PBButton onClick={onClose}>Cancel</PBButton>
           </div>
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }

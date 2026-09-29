@@ -138,7 +138,7 @@ export function TeleplanView() {
               />
             ))}
           </div>
-          <PBButton data-tutorial-id="host.mois.command.go" style={{ width: 56, height: 28, marginTop: 16 }} onClick={go}>Go!</PBButton>
+          <PBButton command="go" style={{ width: 56, height: 28, marginTop: 16 }} onClick={go}>Go!</PBButton>
           <span style={{ flex: '1 1 auto' }} />
           <PBCheckbox label="Show Detail" checked={detail} onChange={setDetail} tutorialId="host.mois.field.show-detail" />
         </div>
@@ -218,7 +218,7 @@ function UpdateDobcWindow({ onClose }: { onClose: () => void }) {
             <div style={{ color: '#707070' }}>Fee Code File</div>
             <div className="pb-row" style={{ gap: 6 }}>
               <PBInput w={420} readOnly value={DOBC_UPDATE.file} style={{ background: '#e8e8e8' }} />
-              <PBButton data-tutorial-id="host.mois.command.select-file">Select File</PBButton>
+              <PBButton command="select-file">Select File</PBButton>
             </div>
             <div style={{ color: '#707070' }}>Created: {DOBC_UPDATE.created}&nbsp;&nbsp;&nbsp;&nbsp;Modified: {DOBC_UPDATE.modified}</div>
           </div>
@@ -244,7 +244,7 @@ function UpdateDobcWindow({ onClose }: { onClose: () => void }) {
         <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: 8 }}>
           {/* "click on the 'Update Fees' button at the bottom of the prompt"
               (3134339; the capture is cropped above it) */}
-          <PBButton data-tutorial-id="host.mois.command.update-fees" onClick={() => setDone(true)}>Update Fees</PBButton>
+          <PBButton command="update-fees" onClick={() => setDone(true)}>Update Fees</PBButton>
         </div>
       </PBWindow>
       {done && (

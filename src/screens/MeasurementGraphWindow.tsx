@@ -2,6 +2,7 @@ import {
   useEffect, useLayoutEffect, useMemo, useRef, useState,
   type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode, type RefObject,
 } from 'react'
+import { pad2 } from '../data/clock'
 import { setLetterClipboard } from '../data/letterDocs'
 import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
@@ -9,6 +10,7 @@ import {
   GlyphCheck, GlyphClose, GlyphMaximize, GlyphMinimize, GlyphRestore,
   PBButton, PBGroup, PBInput, PBPopup, PBRadio, PBWindow, pbInPopup, pbSlug, usePBPopupOwner,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    The measurement graph — the Measures folder's (and the Encounter window's
@@ -223,7 +225,7 @@ function timeTics(x0: number, x1: number, s: TimeStep) {
 
 const timeLabel = (sec: number) => {
   const d = utc(sec)
-  return `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+  return `${d.getUTCFullYear()}/${pad2(d.getUTCMonth() + 1)}`
 }
 
 /** Linear tics in [y0, y1]; the step's decimals round away float noise. */
@@ -389,15 +391,14 @@ function PrintSizeDialog({ defaultMm, onClose }: { defaultMm: { w: number; h: nu
     <PBInput w={32} value={size[k]} disabled={disabled} onChange={(e) => setSize((s) => ({ ...s, [k]: e.target.value }))} />
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', zIndex: 97 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Print Size"
-        tutorialId="host.mois.dialog.graph-print-size"
-        onClose={onClose}
-        style={{ width: 408, height: 216 }}
-      >
+    <ModalWindow
+      title="Print Size"
+      tutorialId="host.mois.dialog.graph-print-size"
+      onClose={onClose}
+      zIndex={97}
+      layerStyle={{ position: 'fixed' }}
+      windowStyle={{ width: 408, height: 216 }}
+    >
         <div style={{ position: 'relative', flex: '1 1 auto', background: 'var(--pb-face)' }}>
           <PBGroup title="Size" style={{ position: 'absolute', left: 8, top: 4, width: 314, height: 106 }} bodyStyle={{ position: 'relative', height: 84 }}>
             {cell(2, 2, <PBRadio name="graph-print-size" label="Default Size" checked={!other} onChange={() => setOther(false)} />)}
@@ -414,8 +415,7 @@ function PrintSizeDialog({ defaultMm, onClose }: { defaultMm: { w: number; h: nu
           <PBButton className="pb-btn--default" style={{ position: 'absolute', left: 332, top: 12, width: 66 }} onClick={onClose}>OK</PBButton>
           <PBButton style={{ position: 'absolute', left: 332, top: 56, width: 66 }} onClick={onClose}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

@@ -2,13 +2,16 @@ import { useState, type ReactNode } from 'react'
 import { MHK_ACTIVITY, MHK_ACTIVITY_KEY, daysFromToday, useMhkChart, type MhkActivity } from '../data/myhealthkey'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { savePatient, updatePatient, usePatientEdits } from '../data/patient-edits'
+import { hhmm, toDashes } from '../data/clock'
 import { MOIS_TODAY, type Patient } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
-import { PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBSelect, PBViewHeader, pbSlug } from '../pb'
+import { PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBViewHeader, pbSlug } from '../pb'
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
+import { FormLine } from './formKit'
+import { ChartIdentityStrip } from './patientKit'
 
 /* ============================================================================
    Patient Chart ▸ myhealthkey — registering and deregistering a patient
@@ -74,9 +77,9 @@ import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
 
 const regSlug = (r: string) => pbSlug(r)
 
-function Line({ label, children, w = 110 }: { label: string; children: ReactNode; w?: number }) {
-  return <div className="pb-row" style={{ gap: 6 }}><span style={{ width: w, flex: 'none' }}>{label}</span>{children}</div>
-}
+const Line = ({ label, children, w = 110 }: { label: string; children: ReactNode; w?: number }) => (
+  <FormLine label={label} w={w} labelClass={false}>{children}</FormLine>
+)
 
 function MyHealthKeyChartView(_: FolderViewProps) {
   const base = usePatient()
@@ -90,8 +93,8 @@ function MyHealthKeyChartView(_: FolderViewProps) {
   const log = (event: string) => [{ when: stampNow().replace(/\s+/g, ' '), event, channel: 'MOIS', status: 'DONE' }, ...mhk.log]
   const activity = (registration: string, reason: string) => setActivity((all) => [{
     chart: base.chart, last: (p.last ?? '').toUpperCase(), first: (p.first ?? '').toUpperCase(), registration,
-    validFrom: MOIS_TODAY.replace(/\./g, '-'), validTo: registration === 'INVITED' ? daysFromToday(30).replace(/\./g, '-') : '',
-    reason, createdBy: 'ADMINISTRATOR', updatedBy: '', updated: `${MOIS_TODAY.replace(/\./g, '-')} ${stampNow().slice(-5)}:00`,
+    validFrom: toDashes(MOIS_TODAY), validTo: registration === 'INVITED' ? toDashes(daysFromToday(30)) : '',
+    reason, createdBy: 'ADMINISTRATOR', updatedBy: '', updated: `${toDashes(MOIS_TODAY)} ${hhmm()}:00`,
   }, ...all])
 
   const invite = () => {
@@ -130,15 +133,7 @@ function MyHealthKeyChartView(_: FolderViewProps) {
         { label: 'Check Status', onClick: checkStatus },
         { label: 'Refresh' },
       ]} />
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: (p.first ?? '').toUpperCase(), w: 170 },
-          { label: 'MIDDLE:', value: (p.middle ?? '').toUpperCase(), w: 150 },
-          { label: 'LAST:', value: (p.last ?? '').toUpperCase(), w: 190 },
-          { label: 'DoB:', value: p.dob ?? '' },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
+      <ChartIdentityStrip patient={p} upper widths={{ first: 170, middle: 150, last: 190 }} />
       {mhk.registration !== 'NONE' ? (
         <>
           <div className="pb-groupbox" data-tutorial-id="host.mois.group.mhk-patient-consent" style={{ flex: 'none' }}>
@@ -348,7 +343,7 @@ function MhkRetractMessage({ close }: AreaWindowProps) {
         <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 6, padding: '0 12px 10px 70px' }}>
           <span>User Name:</span><b>ADMINISTRATOR</b>
           <span>Date:</span><span>{MOIS_TODAY}</span>
-          <span>Time:</span><span>{stampNow().slice(-5)}</span>
+          <span>Time:</span><span>{hhmm()}</span>
           <span>Reason:</span>
           <textarea className="pb-field" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} data-tutorial-id="host.mois.field.mhk-retract-reason" style={{ resize: 'none', width: 340 }} />
         </div>

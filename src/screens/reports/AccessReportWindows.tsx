@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useScreenReport } from '../../host/screen-state'
+import { pad2 } from '../../data/clock'
 import { MOIS_TODAY } from '../../data/patients'
 import { RS_PROVIDERS } from '../../data/reportSpecs/types'
 import { daybookFor, RESOURCES, resourceDayFor, visitCodeRows, type Appointment } from '../../data/daybook'
-import { PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, pbSlug, usePBInstrumentation } from '../../pb'
+import { PBBand, PBDataWindow, PBInput, PBRadio, PBSelect, pbSlug, usePBInstrumentation } from '../../pb'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { useTickSet } from '../listKit'
+import { CmdCheck, Hint, ParamLine, ParamSection } from '../reportKit'
 
 /* ============================================================================
    Hand-built Reports-module windows that do not fit the generic Selection
@@ -71,7 +74,6 @@ import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
    row count) — never typed values.
    ========================================================================= */
 
-const NAVY = '#000080'
 const P = 'advance-appt-search'
 
 /* --- the fictional shift templates ----------------------------------------- */
@@ -105,8 +107,7 @@ function parseDate(s: string): number | null {
   const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   return Number.isNaN(t) ? null : t
 }
-const two = (n: number) => String(n).padStart(2, '0')
-const clock = (min: number) => `${two(Math.floor(min / 60))}:${two(min % 60)}`
+const clock = (min: number) => `${pad2(Math.floor(min / 60))}:${pad2(min % 60)}`
 const parseClock = (s: string): number | null => {
   const m = /^(\d{1,2}):?(\d{2})$/.exec(s.trim())
   return m ? Number(m[1]) * 60 + Number(m[2]) : null
@@ -151,7 +152,7 @@ function search(c: Criteria): Hit[] {
     const wins = freeWindows(c, t)
     if (!wins.length) continue
     found++
-    const date = `${d.getUTCFullYear()}.${two(d.getUTCMonth() + 1)}.${two(d.getUTCDate())}`
+    const date = `${d.getUTCFullYear()}.${pad2(d.getUTCMonth() + 1)}.${pad2(d.getUTCDate())}`
     for (const [s, e] of wins) {
       hits.push({
         who: c.who, date, day: DAY_NAMES[d.getUTCDay()]!, month: `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`,
@@ -163,17 +164,6 @@ function search(c: Criteria): Hit[] {
 }
 
 /* --- the window ------------------------------------------------------------- */
-const Section = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '4px 8px 3px', borderBottom: '1px solid #a0a0a0' }}>{children}</div>
-)
-const Line = ({ label, w = 90, align, children }: { label?: ReactNode; w?: number; align?: 'right'; children: ReactNode }) => (
-  <div className="pb-row" style={{ gap: 8, padding: '1px 0', minHeight: 22, alignItems: 'flex-start' }}>
-    <span className="pb-form__label" style={{ width: w, flex: 'none', paddingTop: 3, textAlign: align }}>{label}</span>
-    <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</span>
-  </div>
-)
-const Hint = ({ children }: { children: ReactNode }) => <span style={{ whiteSpace: 'nowrap' }}>{children}</span>
-
 function AdvanceAppointmentSearch({ close }: AreaWindowProps) {
   const host = usePBInstrumentation()
   const [resource, setResource] = useState(false)
@@ -181,7 +171,7 @@ function AdvanceAppointmentSearch({ close }: AreaWindowProps) {
   const [room, setRoom] = useState(RESOURCES[0]!)
   const [start, setStart] = useState(MOIS_TODAY)
   const [allDays, setAllDays] = useState(true)
-  const [days, setDays] = useState<Set<number>>(() => new Set(MF))
+  const days = useTickSet<number>(MF)
   const [visit, setVisit] = useState('')
   const [slots, setSlots] = useState('3')
   const [time, setTime] = useState<Criteria['time']>('any')
@@ -205,7 +195,7 @@ function AdvanceAppointmentSearch({ close }: AreaWindowProps) {
 
   const run = () => {
     setHits(search({
-      resource, who, start, allDays, days, slots: Math.max(1, Math.floor(Number(slots) || 1)), time, from, to, results, weeks,
+      resource, who, start, allDays, days: days.ticked, slots: Math.max(1, Math.floor(Number(slots) || 1)), time, from, to, results, weeks,
     }))
     setSearched(resource ? 'resource' : 'provider')
     setCurrent(0)
@@ -238,54 +228,51 @@ function AdvanceAppointmentSearch({ close }: AreaWindowProps) {
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '12px 26px 0' }}>
         <div style={{ border: '1px solid #646464', background: 'var(--pb-face)', flex: 'none' }}>
           <PBBand>Report Parameters</PBBand>
-          <Section>Search Parameters:</Section>
+          <ParamSection kind="flat">Search Parameters:</ParamSection>
           <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', padding: '4px 12px 6px' }}>
             <div>
-              <Line label="Search For:">
+              <ParamLine stacked label="Search For:">
                 <span className="pb-row" style={{ gap: 32 }}>
                   {radio('for', 'search-for-provider', 'Provider', !resource, () => setResource(false))}
                   {radio('for', 'search-for-resource', 'Resource', resource, () => setResource(true))}
                 </span>
-              </Line>
-              <Line label={resource ? 'Resource:' : 'Provider:'}>
+              </ParamLine>
+              <ParamLine stacked label={resource ? 'Resource:' : 'Provider:'}>
                 {resource
                   ? <PBSelect w={178} options={RESOURCES} value={room} data-tutorial-id={field('resource')} onChange={(e) => setRoom(e.target.value)} />
                   : <PBSelect w={178} options={PROVIDERS} value={provider} data-tutorial-id={field('provider')} onChange={(e) => setProvider(e.target.value)} />}
-              </Line>
-              <Line label="Start Date:">
+              </ParamLine>
+              <ParamLine stacked label="Start Date:">
                 <PBInput w={84} align="center" value={start} data-tutorial-id={field('start-date')} onChange={(e) => setStart(e.target.value)} />
-              </Line>
-              <Line label="Day of Week:">
-                <PBCheckbox label="All Days" checked={allDays} tutorialId={cmd('all-days')} onChange={(v) => { said('all-days'); setAllDays(v) }} />
+              </ParamLine>
+              <ParamLine stacked label="Day of Week:">
+                <CmdCheck id={`${P}-all-days`} label="All Days" checked={allDays} onChange={setAllDays} />
                 {!allDays && (
                   <span className="pb-row" style={{ gap: 10, flexWrap: 'wrap', maxWidth: 270 }}>
                     {DAY_TICKS.map(([n, label]) => (
-                      <PBCheckbox
+                      <CmdCheck
                         key={n}
+                        id={`${P}-day-${label.toLowerCase()}`}
                         label={label}
                         checked={days.has(n)}
-                        tutorialId={cmd(`day-${label.toLowerCase()}`)}
-                        onChange={(v) => {
-                          said(`day-${label.toLowerCase()}`)
-                          setDays((s) => { const next = new Set(s); v ? next.add(n) : next.delete(n); return next })
-                        }}
+                        onChange={(v) => days.set(n, v)}
                       />
                     ))}
                   </span>
                 )}
-              </Line>
+              </ParamLine>
             </div>
             <div>
-              <Line label="Visit Code:" w={82} align="right">
+              <ParamLine stacked label="Visit Code:" w={82} align="right">
                 <PBSelect w={70} options={['', ...visitCodeRows.map((v) => v.code)]} value={visit} data-tutorial-id={field('visit-code')} onChange={(e) => pickVisit(e.target.value)} />
-              </Line>
-              <Line label="Appt. Length:" w={82} align="right">
+              </ParamLine>
+              <ParamLine stacked label="Appt. Length:" w={82} align="right">
                 <span className="pb-row" style={{ gap: 8 }}>
                   <PBInput w={50} align="center" value={slots} data-tutorial-id={field('appt-length')} onChange={(e) => setSlots(e.target.value)} />
                   <Hint>(no. of slots: 1 slot = 5 minutes)</Hint>
                 </span>
-              </Line>
-              <Line label="Time of Day:" w={82} align="right">
+              </ParamLine>
+              <ParamLine stacked label="Time of Day:" w={82} align="right">
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {radio('time', 'time-any', 'Any Time of Day', time === 'any', () => setTime('any'))}
                   {radio('time', 'time-am', 'AM (before 12:00)', time === 'am', () => setTime('am'))}
@@ -301,23 +288,23 @@ function AdvanceAppointmentSearch({ close }: AreaWindowProps) {
                     )}
                   </span>
                 </span>
-              </Line>
+              </ParamLine>
             </div>
           </div>
-          <Section>Result Parameters:</Section>
+          <ParamSection kind="flat">Result Parameters:</ParamSection>
           <div style={{ padding: '6px 12px 6px 18px' }}>
-            <Line label="# of Results:" w={110}>
+            <ParamLine stacked label="# of Results:" w={110}>
               <span className="pb-row" style={{ gap: 8 }}>
                 <PBInput w={50} align="center" value={results} data-tutorial-id={field('results')} onChange={(e) => setResults(e.target.value)} />
                 <Hint>(stop searching when this number of available booking days are found)</Hint>
               </span>
-            </Line>
-            <Line label="Search for # wks:" w={110}>
+            </ParamLine>
+            <ParamLine stacked label="Search for # wks:" w={110}>
               <span className="pb-row" style={{ gap: 8 }}>
                 <PBInput w={50} align="center" value={weeks} data-tutorial-id={field('weeks')} onChange={(e) => setWeeks(e.target.value)} />
                 <Hint>(stop searching this many weeks after the start date)</Hint>
               </span>
-            </Line>
+            </ParamLine>
             <div style={{ paddingLeft: 136, lineHeight: '16px', marginTop: 2 }}>
               <div>- the search will continue until one of the two result parameters are met.</div>
               <div>- to disable a result parameter, simply delete the value in the field.</div>

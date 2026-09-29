@@ -5,9 +5,11 @@ import type { MarEvent, MarOrder } from '../data/marOrders'
 import { usePatient } from '../data/patient-context'
 import { useEncounterSession } from '../host/encounterArea'
 import { MOIS_TODAY } from '../data/patients'
+import { hhmm } from '../data/clock'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
-  PBCheckbox, PBDropDownDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea,
+  PBCheckbox, PBDropDownDataWindow, PBInput, PBLookup, PBPatientBand, PBRadio, PBSelect, PBTextArea,
 } from '../pb'
 import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
 
@@ -63,7 +65,7 @@ export function marDefaults(kind: MarKind | undefined): { action: string; givenB
     case 'witness': return { action: 'WITNESSED', givenBy: 'PATIENT' }
     case 'self': return { action: 'SELF-ADMINISTERED', givenBy: 'PATIENT' }
     case 'history': return { action: 'OTHER PROVIDER', givenBy: '' }
-    default: return { action: 'ADMINISTERED', givenBy: 'TECHNICAL SUPPORT' }
+    default: return { action: 'ADMINISTERED', givenBy: DESKTOP_PROVIDER_DEFAULT }
   }
 }
 
@@ -125,20 +127,17 @@ export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
 /** The blue patient banner every MAR record window opens with. */
 export function MarBanner({ children }: { children?: ReactNode }) {
   const p = usePatient()
-  const cell = (label: string, value: ReactNode, w?: number) => (
-    <span style={{ width: w, display: 'inline-flex', flexDirection: 'column' }}>
-      <span style={{ fontSize: '0.92em' }}>{label}</span><b>{value}</b>
-    </span>
-  )
   return (
     <div style={{ flex: 'none' }}>
-      <div className="pb-row" style={{ gap: 0, padding: '2px 6px', color: '#fff', background: 'linear-gradient(#27a7e0, #1583c4)' }}>
-        {cell('CHART NO.', p.chart, 100)}
-        {cell('PATIENT (F/M/L)', `${p.first} ${p.middle ?? ''} ${p.last}`.replace(/\s+/g, ' ').toUpperCase(), 260)}
-        {cell('DATE OF BIRTH', `${p.dob}  ${p.age}`, 220)}
-        {cell('GENDER', p.sex, 80)}
-        {cell('BC HEALTH NO.', p.bchn ?? p.insurance ?? '')}
-      </div>
+      <PBPatientBand layout="inline" className="pb-row"
+        style={{ gap: 0, padding: '2px 6px', color: '#fff', background: 'linear-gradient(#27a7e0, #1583c4)' }}
+        cells={[
+          { label: 'CHART NO.', value: p.chart, w: 100 },
+          { label: 'PATIENT (F/M/L)', value: `${p.first} ${p.middle ?? ''} ${p.last}`.replace(/\s+/g, ' ').toUpperCase(), w: 260 },
+          { label: 'DATE OF BIRTH', value: `${p.dob}  ${p.age}`, w: 220 },
+          { label: 'GENDER', value: p.sex, w: 80 },
+          { label: 'BC HEALTH NO.', value: p.bchn ?? p.insurance ?? '' },
+        ]} />
       {children}
     </div>
   )
@@ -197,7 +196,7 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
   const opt = (value: string, list: string[]) => [...new Set(['', value, ...list])]
   const entry = (): MarEvent => ({
     id: event?.id ?? `stage-mar-${Date.now()}`,
-    status: act || 'ADMINISTERED', date: event?.date ?? MOIS_TODAY, time: event?.time ?? new Date().toTimeString().slice(0, 5),
+    status: act || 'ADMINISTERED', date: event?.date ?? MOIS_TODAY, time: event?.time ?? hhmm(),
     med, generic: med, dose, units: unit, series, site, lot, by: givenBy, record: r,
   })
   const id = isNew ? MAR_WINDOWS.record : MAR_WINDOWS.detail
@@ -227,8 +226,8 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
       {isNew && (
         <div className="pb-row" style={{ padding: '10px 8px', gap: 8, borderBottom: '1px solid #c9c9c9' }}>
           {/* a history record's order is Unknown and undated (`a405e0ac…png`) */}
-          <span style={{ width: 110 }}>Ordered By:</span><PBLookup w={270} name="mar-ordered-by" defaultValue={history ? 'Unknown' : prefill?.orderBy ?? 'TECHNICAL SUPPORT'} />
-          <span style={{ marginLeft: 50 }}>Order Date / Time:</span><PBInput w={90} align="center" defaultValue={history ? '0000.00.00' : MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={history ? '' : new Date().toTimeString().slice(0, 5)} />
+          <span style={{ width: 110 }}>Ordered By:</span><PBLookup w={270} name="mar-ordered-by" defaultValue={history ? 'Unknown' : prefill?.orderBy ?? DESKTOP_PROVIDER_DEFAULT} />
+          <span style={{ marginLeft: 50 }}>Order Date / Time:</span><PBInput w={90} align="center" defaultValue={history ? '0000.00.00' : MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={history ? '' : hhmm()} />
         </div>
       )}
       <div className="pb-form" style={{ gridTemplateColumns: '110px 280px 90px 1fr', padding: '8px', gap: '3px 6px', borderBottom: '1px solid #c9c9c9' }}>
@@ -246,7 +245,7 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
             </div><span /><span />
           </>
         ) : (
-          <><span>Date / Time</span><div className="pb-row"><PBInput w={90} align="center" defaultValue={event?.date ?? MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={event?.time ?? (isNew && kind !== 'self' ? new Date().toTimeString().slice(0, 5) : '')} /></div><span /><span /></>
+          <><span>Date / Time</span><div className="pb-row"><PBInput w={90} align="center" defaultValue={event?.date ?? MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={event?.time ?? (isNew && kind !== 'self' ? hhmm() : '')} /></div><span /><span /></>
         )}
         <span>Given By:</span><PBInput w={280} value={givenBy} onChange={(e) => setGivenBy(e.target.value)} data-tutorial-id="host.mois.field.mar-given-by" />
         {history ? <><span style={{ textAlign: 'right' }}>Location:</span><PBInput w="100%" data-tutorial-id="host.mois.field.mar-location" /></> : <><span /><span /></>}
@@ -288,7 +287,7 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
       </div>
       <div className="pb-row" style={{ padding: '8px', borderTop: '1px solid #c9c9c9', gap: 0 }}>
         <span style={{ width: 100 }}>Created:</span>
-        <span>{r ? `${(r.stp_date_create ?? '').replace(/\//g, '.').replace(/:\d\d$/, '')}  ${r.stp_user_create ?? ''}` : `${MOIS_TODAY}  TECHNICAL SUPPORT`}</span>
+        <span>{r ? `${(r.stp_date_create ?? '').replace(/\//g, '.').replace(/:\d\d$/, '')}  ${r.stp_user_create ?? ''}` : `${MOIS_TODAY}  ${DESKTOP_PROVIDER_DEFAULT}`}</span>
         <span className="pb-row__spacer" />
         {/* a new record is linked to the active encounter (303427 "Active Enc") */}
         <button type="button" className="pb-link" data-tutorial-id="host.mois.field.mar-encounter">ENC# {r?.id_encounter ?? (isNew ? area.activeEncounter : null) ?? 'EMPTY'}</button>

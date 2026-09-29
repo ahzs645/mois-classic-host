@@ -3,6 +3,7 @@ import {
   IMPORTED_DOCX_BODY, templateCounts, tagToken, useTemplateBodies,
   type DesignerStart, type TemplateBody, type TemplateLine, type TemplateRegion, type TemplateToken,
 } from '../data/letterDocs'
+import { TEMPLATE_PREVIEW } from '../data/letterSetup'
 import { LW } from '../data/letterWriter'
 import { nowStamp } from '../data/letterDocs'
 import { pbSlug } from '../pb'
@@ -194,6 +195,34 @@ export function TemplatePreview({ body }: { body?: TemplateBody }) {
         ? <div key={i} style={{ borderTop: '1px solid #000', margin: '4px 0' }} />
         : <div key={i} style={lineStyle(l)}>{l.tokens.map((t, j) => <Token key={j} tok={t} />)}</div>))}
     </div>
+  )
+}
+
+/** The sample template the pickers show (303589/e3be72c6454f): yellow
+    populators, olive / yellow tags — Letter Setup's Letter Preview pane and
+    the raw Letter Writer page (LetterWriterWindow; LetterFlow draws the same). */
+export function TemplatePreviewLines() {
+  return (
+    <>
+      {TEMPLATE_PREVIEW.map((p, i) => (
+        <div key={i} style={{ marginBottom: p.gap ?? 0, minHeight: '1.4em' }}>
+          {p.tokens.map((t, j) => (
+            <span
+              key={j}
+              style={
+                t.t === 'field'
+                  ? { background: LW.yellow }
+                  : t.t === 'tag'
+                    ? { background: LW.yellow, color: '#6b6b00', fontWeight: 700 }
+                    : undefined
+              }
+            >
+              {t.s}
+            </span>
+          ))}
+        </div>
+      ))}
+    </>
   )
 }
 

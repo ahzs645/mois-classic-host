@@ -2,6 +2,7 @@ import { useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { PBButton, PBCheckbox, PBInput, PBRadio, PBSelect, PBViewHeader } from '../pb'
 import { RESOURCES, VISIT_CODE_FILL, weekdayOf } from '../data/daybook'
 import { daybookProviders } from '../data/mois'
+import { DESKTOP_PROVIDER_DEFAULT, SESSION_LOGIN } from '../data/session'
 import {
   dayRows, resourceRows, schedulerStore, stampOf, useSchedulerStore, type DayRow,
 } from '../data/schedulerStore'
@@ -61,7 +62,7 @@ export function DayGridView({
   const [span, setSpan] = useState<'4' | '8'>(mode === 'week' ? '8' : '4')
   const [hide, setHide] = useState({ noshow: true, rebooked: true, cancelled: true })
   const owners = resource ? RESOURCES : daybookProviders.map((p) => p.provider)
-  const first = resource ? '1' : s.current?.provider ?? 'TECHNICAL SUPPORT'
+  const first = resource ? '1' : s.current?.provider ?? DESKTOP_PROVIDER_DEFAULT
   const [picked, setPicked] = useState<string[]>(() => {
     const list = [first, ...owners.filter((o) => o !== first && (resource || dayRows(s, o, offset).length))]
     while (list.length < columns) list.push('')
@@ -99,7 +100,7 @@ export function DayGridView({
 
   return (
     <>
-      <PBViewHeader title={head} right={mode === 'week' ? 'Current User: JALA2' : 'JALA2'} />
+      <PBViewHeader title={head} right={mode === 'week' ? `Current User: ${SESSION_LOGIN}` : SESSION_LOGIN} />
       <div className="pb-row" style={{ gap: 4, padding: '3px 6px', borderBottom: '1px solid #c9c9c9', flex: 'none', background: 'var(--pb-face)' }}>
         <PBButton style={{ minWidth: 60 }} onClick={() => move('today')}>Today</PBButton>
         <PBButton style={{ minWidth: 60 }}>Refresh</PBButton>

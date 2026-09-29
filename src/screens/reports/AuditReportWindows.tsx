@@ -1,12 +1,14 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useScreenReport } from '../../host/screen-state'
 import { MOIS_TODAY, patients } from '../../data/patients'
 import {
   AMCARE_FACILITIES, AMCARE_SERVICE_CENTERS, AMCARE_VERSIONS, amcareDeficientSheet, amcareScorecardPage, type AmcareOptions,
 } from '../../data/reportSpecs/clinicalAudits'
-import { PBBand, PBCheckbox, PBInput, PBSelect, usePBInstrumentation } from '../../pb'
+import { PBInput, PBSelect } from '../../pb'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { FormLine } from '../formKit'
+import { CmdCheck, CmdRadio, Hint, ParamFrame, ParamLine, ParamRule, ParamSection } from '../reportKit'
 
 /* ============================================================================
    Hand-built Reports-module windows that do not fit the generic Selection
@@ -54,7 +56,6 @@ import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
    previous (open / closed) — never typed values.
    ========================================================================= */
 
-const NAVY = '#000080'
 const P = 'amcare-scorecard'
 
 /** the scorecards built this session, newest first — Previous Scorecard lists them */
@@ -70,20 +71,7 @@ const BUILT: Built[] = [
   },
 ]
 
-const Section = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '5px 8px 3px', borderBottom: '1px solid #a0a0a0', marginTop: 2 }}>{children}</div>
-)
-const Rule = () => <div style={{ borderTop: '1px solid #c8c8c8', margin: '5px 0' }} />
-const Line = ({ label, children }: { label?: ReactNode; children: ReactNode }) => (
-  <div className="pb-row" style={{ gap: 6, padding: '2px 10px', minHeight: 21 }}>
-    <span className="pb-form__label" style={{ width: 90, flex: 'none' }}>{label}</span>
-    {children}
-  </div>
-)
-const Hint = ({ children }: { children: ReactNode }) => <span style={{ whiteSpace: 'nowrap' }}>{children}</span>
-
 function AmcareScorecardParams({ close, open }: AreaWindowProps) {
-  const host = usePBInstrumentation()
   const [version, setVersion] = useState(AMCARE_VERSIONS[0]!)
   const [asOf, setAsOf] = useState(MOIS_TODAY)
   const [period, setPeriod] = useState('3')
@@ -98,9 +86,6 @@ function AmcareScorecardParams({ close, open }: AreaWindowProps) {
     active, previous: previous ? 'open' : 'closed',
   })
 
-  const cmd = (id: string) => host?.anchor('command', `${P}-${id}`)
-  const said = (id: string) => host?.report('command', { command: `${P}-${id}` })
-
   const build = () => {
     const options: AmcareOptions = { version, asOf: asOf || MOIS_TODAY, period, allProviders, facility, service, active }
     BUILT.unshift({ label: `${options.asOf} - ${allProviders ? 'ALL PROVIDERS' : 'CURRENT DESKTOP'} - ${version}`, options })
@@ -113,54 +98,18 @@ function AmcareScorecardParams({ close, open }: AreaWindowProps) {
   }
 
   const radio = (id: string, label: string, checked: boolean, onPick: () => void) => (
-    <label className="pb-check pb-check--radio">
-      <input type="radio" name={`${P}-provider`} checked={checked} data-tutorial-id={cmd(id)} onChange={() => { said(id); onPick() }} />
-      <span className="pb-check__box"><span className="pb-check__dot" /></span>
-      <span className="pb-check__label">{label}</span>
-    </label>
+    <CmdRadio id={`${P}-${id}`} name={`${P}-provider`} label={label} checked={checked} onChange={onPick} />
   )
 
   return (
-    <WorkspaceDialogFrame id={`report-params-${P}`} title="Report: Clinical - Audits - Scorecard" width={661} height={497} controls={false} onClose={close}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '10px 12px 0' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-face)' }}>
-          <PBBand>Selection Parameter</PBBand>
-          <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', paddingBottom: 6 }}>
-            <Section>Scorecard Options:</Section>
-            <Line label="Version:">
-              <PBSelect w={92} options={AMCARE_VERSIONS} value={version} data-tutorial-id={`host.mois.field.${P}-version`} onChange={(e) => setVersion(e.target.value)} />
-            </Line>
-            <Line label="As of Date:">
-              <PBInput w={84} align="center" value={asOf} data-tutorial-id={`host.mois.field.${P}-as-of`} onChange={(e) => setAsOf(e.target.value)} />
-              <Hint>(a cut-off date for problems and events - if blank, will use today)</Hint>
-            </Line>
-            <Line label="Time Period:">
-              <PBInput w={50} align="center" value={period} data-tutorial-id={`host.mois.field.${P}-period`} onChange={(e) => setPeriod(e.target.value)} />
-              <Hint>(number of years from present or as of date, if applicable, since last contact)</Hint>
-            </Line>
-            <Rule />
-            <Line label="Provider(s):">
-              <span className="pb-row" style={{ gap: 26 }}>
-                {radio('provider-current-desktop', 'Current Desktop', !allProviders, () => setAllProviders(false))}
-                {radio('provider-all-providers', 'All Providers', allProviders, () => setAllProviders(true))}
-              </span>
-            </Line>
-            <Line label="Facility Code:">
-              <PBSelect w={116} options={AMCARE_FACILITIES} value={facility} data-tutorial-id={`host.mois.field.${P}-facility`} onChange={(e) => setFacility(e.target.value)} />
-            </Line>
-            <Line label="Service Center:">
-              <PBSelect w={116} options={AMCARE_SERVICE_CENTERS} value={service} data-tutorial-id={`host.mois.field.${P}-service`} onChange={(e) => setService(e.target.value)} />
-            </Line>
-            <Rule />
-            <Line label="Patients List:">
-              <PBCheckbox label="Only Active Patients" checked={active} tutorialId={cmd('active')} onChange={(v) => { said('active'); setActive(v) }} />
-            </Line>
-            <Rule />
-            <Line label="Deficient Items:">
-              <PBCheckbox label="Direct output to Spreadsheet (CSV)" checked={deficient} tutorialId={cmd('deficient')} onChange={(v) => { said('deficient'); setDeficient(v) }} />
-            </Line>
-          </div>
-        </div>
+    <ParamFrame
+      id={`report-params-${P}`}
+      title="Report: Clinical - Audits - Scorecard"
+      w={661}
+      h={497}
+      onOk={build}
+      onCancel={close}
+      footer={(
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 0 10px', flex: 'none' }}>
           <DialogButton id={`${P}-previous`} width={130} onClick={() => setPrevious(true)}>Previous Scorecard...</DialogButton>
           <span style={{ flex: '0 0 72px' }} />
@@ -168,14 +117,48 @@ function AmcareScorecardParams({ close, open }: AreaWindowProps) {
           <span style={{ flex: '0 0 4px' }} />
           <DialogButton id={`${P}-cancel`} width={100} onClick={close}>Cancel</DialogButton>
         </div>
-      </div>
-      {previous && (
+      )}
+      after={previous && (
         <PreviousScorecard
           onCancel={() => setPrevious(false)}
           onView={(b) => { setPrevious(false); open('print-preview', { title: 'Scorecard', pages: amcareScorecardPage(b.options, patients) }) }}
         />
       )}
-    </WorkspaceDialogFrame>
+    >
+      <ParamSection kind="under">Scorecard Options:</ParamSection>
+      <ParamLine label="Version:">
+        <PBSelect w={92} options={AMCARE_VERSIONS} value={version} data-tutorial-id={`host.mois.field.${P}-version`} onChange={(e) => setVersion(e.target.value)} />
+      </ParamLine>
+      <ParamLine label="As of Date:">
+        <PBInput w={84} align="center" value={asOf} data-tutorial-id={`host.mois.field.${P}-as-of`} onChange={(e) => setAsOf(e.target.value)} />
+        <Hint>(a cut-off date for problems and events - if blank, will use today)</Hint>
+      </ParamLine>
+      <ParamLine label="Time Period:">
+        <PBInput w={50} align="center" value={period} data-tutorial-id={`host.mois.field.${P}-period`} onChange={(e) => setPeriod(e.target.value)} />
+        <Hint>(number of years from present or as of date, if applicable, since last contact)</Hint>
+      </ParamLine>
+      <ParamRule />
+      <ParamLine label="Provider(s):">
+        <span className="pb-row" style={{ gap: 26 }}>
+          {radio('provider-current-desktop', 'Current Desktop', !allProviders, () => setAllProviders(false))}
+          {radio('provider-all-providers', 'All Providers', allProviders, () => setAllProviders(true))}
+        </span>
+      </ParamLine>
+      <ParamLine label="Facility Code:">
+        <PBSelect w={116} options={AMCARE_FACILITIES} value={facility} data-tutorial-id={`host.mois.field.${P}-facility`} onChange={(e) => setFacility(e.target.value)} />
+      </ParamLine>
+      <ParamLine label="Service Center:">
+        <PBSelect w={116} options={AMCARE_SERVICE_CENTERS} value={service} data-tutorial-id={`host.mois.field.${P}-service`} onChange={(e) => setService(e.target.value)} />
+      </ParamLine>
+      <ParamRule />
+      <ParamLine label="Patients List:">
+        <CmdCheck id={`${P}-active`} label="Only Active Patients" checked={active} onChange={setActive} />
+      </ParamLine>
+      <ParamRule />
+      <ParamLine label="Deficient Items:">
+        <CmdCheck id={`${P}-deficient`} label="Direct output to Spreadsheet (CSV)" checked={deficient} onChange={setDeficient} />
+      </ParamLine>
+    </ParamFrame>
   )
 }
 
@@ -186,10 +169,9 @@ function PreviousScorecard({ onView, onCancel }: { onView: (b: Built) => void; o
   return (
     <WorkspaceDialogFrame id="amcare-previous" title="Previous Scorecard" width={420} height={150} controls={false} onClose={onCancel} zIndex={90}>
       <div style={{ padding: '14px 12px 6px', flex: '1 1 auto' }}>
-        <div className="pb-row" style={{ gap: 6 }}>
-          <span className="pb-form__label" style={{ width: 70, flex: 'none' }}>Scorecard:</span>
+        <FormLine label="Scorecard:" w={70}>
           <PBSelect w={310} options={BUILT.map((b) => b.label)} value={label} data-tutorial-id="host.mois.field.amcare-previous-build" onChange={(e) => setLabel(e.target.value)} />
-        </div>
+        </FormLine>
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 19, padding: '4px 0 10px', flex: 'none' }}>
         <DialogButton id="amcare-previous-view" width={150} isDefault disabled={!chosen} onClick={() => chosen && onView(chosen)}>View Previous Scorecard</DialogButton>

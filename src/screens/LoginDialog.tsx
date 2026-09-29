@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { PBButton, PBInput, PBWindow } from '../pb'
+import { SESSION_LOGIN } from '../data/session'
+import { PBButton, PBInput } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { ModalWindow } from './dialogKit'
 import { LOCKOUT_WINDOW_ID, useActiveLockout } from './LockoutWindows'
 import { DialogButton } from './WorkspaceDialogFrame'
 import { USER_AGREEMENT_PROMPT, usePendingAgreement } from './UserAgreementWindows'
@@ -39,7 +41,7 @@ function SplashArt() {
 }
 
 export function LoginDialog({ onClose }: { onClose: () => void }) {
-  const [user, setUser] = useState('JALA2')
+  const [user, setUser] = useState(SESSION_LOGIN)
   /* 303352: "After you set the lock, any user who tries to login to MOIS
      will then see your custom message and the time in which it will end" —
      Ok meets the Clinic-wide MOIS Lockout window while a lock is set
@@ -56,13 +58,13 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="pb-modal-layer" style={{ zIndex: 80, background: 'rgba(0,0,0,.18)' }}>
-      <PBWindow
-        /* The capture this panel was transcribed from was taken on the
-           TRAINING site; the frame it locks is the MOIS DEV capture's
-           ("MOIS: MOIS DEV"), and MOIS titles the sign-in panel after the
-           site you are on, so it follows the frame here. */
-        tutorialId="host.mois.dialog.login" child controls={false} title="MOIS: MOIS DEV" onClose={onClose} style={{ width: 752 }}>
+    <ModalWindow
+      /* The capture this panel was transcribed from was taken on the
+         TRAINING site; the frame it locks is the MOIS DEV capture's
+         ("MOIS: MOIS DEV"), and MOIS titles the sign-in panel after the
+         site you are on, so it follows the frame here. */
+      tutorialId="host.mois.dialog.login" title="MOIS: MOIS DEV" onClose={onClose} windowStyle={{ width: 752 }}
+      zIndex={80} layerClassName="pb-modal-layer" layerStyle={{ background: 'rgba(0,0,0,.18)' }}>
         <div className="pb-login__splash">
           <SplashArt />
 
@@ -108,7 +110,6 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
           <DialogButton id="login-ok" isDefault width={96} onClick={ok}>Ok</DialogButton>
           <DialogButton id="login-cancel" width={96} onClick={onClose}>Cancel</DialogButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }

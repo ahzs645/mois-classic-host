@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug,
 } from '../pb'
 import {
   TASK_FILTER, TASK_FILTER_DEFAULT, TASK_PRIORITIES, USER_GROUPS, WORKSPACE_USERS, taskScreenByNode,
   type TaskRow, type TaskScreen,
 } from '../data/tasks'
+import { argStr as str } from '../data/text'
 import { taskListRows } from '../data/workspaceLists'
 import { setCurrentWorkspaceRow, useWorkspaceStore } from '../data/workspaceStore'
 import { useWorkspaceExtras, workspaceExtras } from '../data/workspaceExtras'
 import { useScreenReport } from '../host/screen-state'
-import { usePBInstrumentation } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { FormLabel } from './formKit'
 import { WorkspaceBanner } from './WorkspaceBanner'
 import { SEARCH_FIELDS, matchesSearch } from '../data/workspaceSearch'
 
@@ -55,8 +56,6 @@ const cx = (...v: (string | false | undefined)[]) => v.filter(Boolean).join(' ')
 const yesNo = (v: string, on: boolean | undefined) =>
   v === 'All' || (v === 'Yes') === Boolean(on)
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 export const taskRowSlug = (r: TaskRow) => `task-${pbSlug(String(r.task ?? r.subject ?? '').slice(0, 24))}`
 
 /** What a window opened on the current row carries: Create Message from Task
@@ -75,10 +74,6 @@ export function taskRowArgs(screen: TaskScreen, r: TaskRow): Record<string, unkn
   }
 }
 
-function Label({ children, w = 70 }: { children: string; w?: number }) {
-  return <span className="pb-form__label" style={{ width: w, flex: 'none' }}>{children}</span>
-}
-
 function PriorityRow({ value }: { value: string }) {
   return (
     <span className="pb-row" style={{ gap: 18 }}>
@@ -91,7 +86,6 @@ function PriorityRow({ value }: { value: string }) {
 function TaskDetail({ r }: { r: TaskRow | undefined }) {
   const extras = useWorkspaceExtras()
   const openWindow = useOpenWindow()
-  const host = usePBInstrumentation()
   const slug = r ? taskRowSlug(r) : ''
   const notes = slug ? extras.followUps[slug] ?? [] : []
   const [noteCur, setNoteCur] = useState(0)
@@ -99,16 +93,9 @@ function TaskDetail({ r }: { r: TaskRow | undefined }) {
   const notesTab = `Follow Up Notes (${notes.length})`
   const openNote = (id?: string) => { if (r) openWindow('follow-up-note', { task: slug, note: id ?? '', subject: str(r.task) }) }
   const noteButton = (id: string, label: string, onClick: () => void) => (
-    <button
-      type="button"
-      className="pb-btn pb-btn--sm"
-      style={{ minWidth: 52 }}
-      disabled={!r}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick() }}
-    >
+    <PBButton size="sm" style={{ minWidth: 52 }} disabled={!r} command={id} onClick={onClick}>
       {label}
-    </button>
+    </PBButton>
   )
   const rule = <div style={{ borderTop: '1px solid #b8b8b8', margin: '3px 0' }} />
   return (
@@ -116,7 +103,7 @@ function TaskDetail({ r }: { r: TaskRow | undefined }) {
       {tab === 'Detail' ? (
         <div style={{ padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 auto', minHeight: 0 }} data-tutorial-id="host.mois.field.task-detail-pane">
           <div className="pb-row" style={{ gap: 8 }}>
-            <Label w={80}>Assigned To:</Label>
+            <FormLabel w={80}>Assigned To:</FormLabel>
             <span className="pb-form__label">User:</span>
             <PBSelect w={170} options={['', ...WORKSPACE_USERS]} value={str(r?.user)} onChange={() => {}} />
             <b style={{ margin: '0 20px' }}>AND / OR</b>
@@ -124,24 +111,24 @@ function TaskDetail({ r }: { r: TaskRow | undefined }) {
             <PBSelect w={170} options={USER_GROUPS} value={str(r?.team)} onChange={() => {}} />
           </div>
           <div className="pb-row" style={{ gap: 8 }}>
-            <Label w={80}>Chart:</Label>
+            <FormLabel w={80}>Chart:</FormLabel>
             <b style={{ width: 70 }}>{str(r?.chart)}</b>
             <b>{str(r?.patient)}</b>
           </div>
           {rule}
           <div className="pb-row" style={{ gap: 8 }}>
-            <Label w={80}>Priority:</Label>
+            <FormLabel w={80}>Priority:</FormLabel>
             <PriorityRow value={str(r?.p)} />
           </div>
           <div className="pb-row" style={{ gap: 8 }}>
-            <Label w={80}>Due:</Label>
+            <FormLabel w={80}>Due:</FormLabel>
             <PBInput w={84} align="center" readOnly value={str(r?.due)} />
             <span className="pb-form__label">Group:</span>
             <PBSelect w={176} options={['', str(r?.group)].filter((v, i) => i === 0 || v)} value={str(r?.group)} onChange={() => {}} />
           </div>
           {rule}
           <div className="pb-row" style={{ gap: 8, alignItems: 'flex-start' }}>
-            <Label w={80}>Status:</Label>
+            <FormLabel w={80}>Status:</FormLabel>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
               <PBCheckbox label="Acknowledged" checked={Boolean(r?.ack)} />
               <PBCheckbox label="Completed" checked={Boolean(r?.comp)} />
@@ -152,15 +139,15 @@ function TaskDetail({ r }: { r: TaskRow | undefined }) {
           </div>
           {rule}
           <div className="pb-row" style={{ gap: 8 }}>
-            <Label w={80}>Task:</Label>
+            <FormLabel w={80}>Task:</FormLabel>
             <PBInput w="100%" readOnly value={str(r?.task)} />
           </div>
           <div className="pb-row" style={{ gap: 8, alignItems: 'stretch', flex: '1 1 auto', minHeight: 0 }}>
-            <Label w={80}>Detail:</Label>
+            <FormLabel w={80}>Detail:</FormLabel>
             <PBTextArea readOnly value={str(r?.detail)} style={{ flex: '1 1 auto', minHeight: 44, resize: 'none', fontFamily: 'var(--pb-mono, monospace)' }} />
           </div>
           <div className="pb-row" style={{ gap: 12 }}>
-            <Label w={80}>Created:</Label>
+            <FormLabel w={80}>Created:</FormLabel>
             <span>{str(r?.createdAt) || str(r?.created)}{'   '}{str(r?.createdBy)}</span>
           </div>
         </div>
@@ -220,14 +207,14 @@ function MessageDetail({ r, inbox }: { r: TaskRow | undefined; inbox: boolean })
         {inbox ? (
           <>
             <div className="pb-row" style={{ gap: 8 }}>
-              <Label>Priority:</Label>
+              <FormLabel w={70}>Priority:</FormLabel>
               <PriorityRow value={str(r?.p)} />
               <span style={{ flex: '1 1 auto' }} />
               <span className="pb-form__label">From:</span>
               <span>{str(r?.from)}{'   '}{str(r?.sent)}</span>
             </div>
             <div className="pb-row" style={{ gap: 8, alignItems: 'flex-start' }}>
-              <Label>Status:</Label>
+              <FormLabel w={70}>Status:</FormLabel>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 170 }}>
                 <PBCheckbox label="Acknowledged" checked={Boolean(r?.ack)} />
                 <PBCheckbox label="Completed" checked={Boolean(r?.comp)} />
@@ -241,20 +228,20 @@ function MessageDetail({ r, inbox }: { r: TaskRow | undefined; inbox: boolean })
           </>
         ) : (
           <div className="pb-row" style={{ gap: 8 }}>
-            <Label>Chart:</Label>
+            <FormLabel w={70}>Chart:</FormLabel>
             <span>{[str(r?.chart), str(r?.patient)].filter(Boolean).join(' - ')}</span>
           </div>
         )}
         <div className="pb-row" style={{ gap: 8 }}>
-          <Label>Subject:</Label>
+          <FormLabel w={70}>Subject:</FormLabel>
           <PBInput w="100%" readOnly value={str(r?.subject)} />
         </div>
         <div className="pb-row" style={{ gap: 8, alignItems: 'stretch', flex: '1 1 auto', minHeight: 0 }}>
-          <Label>Detail:</Label>
+          <FormLabel w={70}>Detail:</FormLabel>
           <PBTextArea readOnly value={str(r?.detail)} style={{ flex: '1 1 auto', resize: 'none' }} />
         </div>
         <div className="pb-row" style={{ gap: 12 }}>
-          <Label>Created:</Label>
+          <FormLabel w={70}>Created:</FormLabel>
           <span>{str(r?.sent)}{'   '}{str(r?.from ?? r?.sentBy)}</span>
           <span style={{ marginLeft: 30 }}>Last Modified:</span>
         </div>

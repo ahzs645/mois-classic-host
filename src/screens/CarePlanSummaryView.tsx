@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { PBCommandRow, PBDataWindow, PBIdentityStrip, PBTabs, PBViewHeader } from '../pb'
+import { PBCommandRow, PBDataWindow, PBTabs, PBViewHeader } from '../pb'
 import { useChartExport } from '../data/chart-records'
 import { CARE_PLAN_ACCENT, CARE_PLAN_DEFAULT_ACCENT } from '../data/carePlanRows'
 import { carePlanSummaryRows, carePlanSummarySections, useSummarySettings } from '../data/summarySettings'
@@ -8,6 +8,7 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ChartScreen } from '../data/chartScreens'
 import { useScreenReport } from '../host/screen-state'
 import { useOpenWindow } from './areaWindowRegistry'
+import { ChartIdentityStrip } from './patientKit'
 
 /* ============================================================================
    The Care Plan summary (art. 303472).
@@ -62,10 +63,7 @@ export function CarePlanSummaryView({ screen }: { screen: ChartScreen }) {
   return <>
     <PBViewHeader title="Care Plan" right={<ChartHeaderIdentity />} />
     <PBCommandRow commands={commands} />
-    <PBIdentityStrip fields={[
-      { label: 'FIRST:', value: patient.first }, { label: 'MIDDLE:', value: patient.middle },
-      { label: 'LAST:', value: patient.last }, { label: 'DoB:', value: patient.dob },
-    ]} encounter="NO ENCOUNTER" />
+    <ChartIdentityStrip />
     <div style={{ flex: 1, minHeight: 0, display: 'flex', padding: '3px' }}>
       <PBTabs tabs={['Current Care Plan', 'Care Plan Snapshot']} active={tab} onChange={setTab} compact face>
         {!onSnapshotTab ? <div className="pb-care-summary">

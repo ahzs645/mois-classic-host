@@ -1,3 +1,4 @@
+import { S } from '../data/text'
 import type { ScreenWindow } from '../host/screen-windows'
 import { registerScreenWindows } from '../host/screen-windows'
 import { ContactListDetailWindow, NewContactListDialog } from './AddressBookAdminWindows'
@@ -58,7 +59,7 @@ export function AdminExtraLayer({ window: win, close, open, onAdded }: {
   onAdded?: () => void
 }) {
   if (!win) return null
-  const key = win.args?.key == null ? '' : String(win.args.key)
+  const key = S(win.args?.key)
   switch (win.id) {
     case 'new-org-role-profile': return <NewOrgProfileDialog kind="org-role" close={close} open={open} onAdded={onAdded} />
     case 'new-organization-profile': return <NewOrgProfileDialog kind="organization" close={close} open={open} onAdded={onAdded} />

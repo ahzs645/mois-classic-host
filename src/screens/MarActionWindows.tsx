@@ -4,13 +4,17 @@ import {
 } from '../data/marDrugCodes'
 import type { MarEvent, MarOrder } from '../data/marOrders'
 import { adminSites } from '../data/mois'
+import { hhmm } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { registerScreenWindows } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
 import {
   PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBLookup, PBMenuBar, PBSelect, PBTextArea, pbSlug,
   type PBColumn,
 } from '../pb'
+import { useTickSet } from './listKit'
+import { LookupPager, PAGER_ROW, usePagedCursor } from './lookupKit'
 import { MarBanner } from './MarWindows'
 import { FooterButton, StageWindow } from './StageWindow'
 
@@ -108,7 +112,6 @@ export const RESCHEDULE_REASONS = ['', 'PATIENT REQUEST', 'PATIENT UNAVAILABLE',
 export const NOT_GIVEN_ACTIONS = ['', 'REFUSED', 'WITHHELD', 'OMITTED', 'CANCELLED']
 export const NOT_GIVEN_REASONS = ['', 'PATIENT REFUSED', 'CONTRAINDICATED', 'NOT INDICATED', 'NO SHOW', 'ADVERSE EFFECTS', 'OTHER']
 
-const now = () => new Date().toTimeString().slice(0, 5)
 const LINE = '1px solid #c9c9c9'
 const BLUE_BAND = '#cfe8f7'
 
@@ -129,7 +132,7 @@ function usePicked(picked: { name: string; seq: number } | undefined, set: (v: s
   useEffect(() => { if (picked) set(picked.name) }, [picked?.seq]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-function OrderedByRow({ orderBy = 'TECHNICAL SUPPORT', date = MOIS_TODAY, time = now(), salmon = false }: { orderBy?: string; date?: string; time?: string; salmon?: boolean }) {
+function OrderedByRow({ orderBy = DESKTOP_PROVIDER_DEFAULT, date = MOIS_TODAY, time = hhmm(), salmon = false }: { orderBy?: string; date?: string; time?: string; salmon?: boolean }) {
   return (
     <div className="pb-row" style={{ padding: '10px 8px', gap: 8, borderBottom: LINE }}>
       <span style={{ width: 100 }}>Ordered By:</span>
@@ -198,7 +201,7 @@ export function MarNewOrderWindow({ picked, onLookup, onSubmit, onClose }: {
         <span>Drug Instruction:</span><PBTextArea rows={3} w="100%" value={d.drugInstruction} onChange={(e) => set('drugInstruction')(e.target.value)} />
         <span style={{ lineHeight: '13px' }}>Administration<br />Instruction:</span><PBTextArea rows={3} w="100%" value={d.adminInstruction} onChange={(e) => set('adminInstruction')(e.target.value)} />
       </div>
-      <div className="pb-row" style={{ padding: '6px 10px', gap: 30 }}><span>Created:</span><span>{MOIS_TODAY}&nbsp;&nbsp;{now()}&nbsp;&nbsp;TECHNICAL SUPPORT</span></div>
+      <div className="pb-row" style={{ padding: '6px 10px', gap: 30 }}><span>Created:</span><span>{MOIS_TODAY}&nbsp;&nbsp;{hhmm()}&nbsp;&nbsp;{DESKTOP_PROVIDER_DEFAULT}</span></div>
     </StageWindow>
   )
 }
@@ -287,7 +290,7 @@ export function MarNotGivenWindow({ event, order, picked, onLookup, onSave, onCl
     <PBButton
       className={d.preference === pbSlug(label) ? 'is-pressed' : undefined}
       style={{ minWidth: 104, ...(d.preference === pbSlug(label) ? { boxShadow: 'inset 1px 1px 0 #808080', background: '#dcdcdc' } : null) }}
-      data-tutorial-id={`host.mois.command.mar-preference-${pbSlug(label)}`}
+      command={`mar-preference-${pbSlug(label)}`}
       onClick={() => set('preference')(d.preference === pbSlug(label) ? '' : pbSlug(label))}
     >
       {label}...
@@ -357,7 +360,7 @@ export function MarScheduledRecordWindow({ order, event, onAction, onClose }: {
           <div className="pb-row" style={{ gap: 4 }}>
             {DOSE_ACTIONS.map(([id, label]) => (
               <PBButton key={id} style={{ minWidth: 92 }} disabled={event.status !== 'SCHEDULED'}
-                data-tutorial-id={`host.mois.command.mar-dose-${id}`} onClick={() => onAction(id)}>{label}</PBButton>
+                command={`mar-dose-${id}`} onClick={() => onAction(id)}>{label}</PBButton>
             ))}
           </div>
         </div>
@@ -408,8 +411,8 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
   const [system, setSystem] = useState<string>(MAR_CODE_SYSTEMS[0])
   const [refSet, setRefSet] = useState<string>('')
   const rows = useMemo(() => searchMarDrugCodes(query, system, refSet), [query, system, refSet])
-  const [cur, setCur] = useState(0)
-  const row = rows[Math.min(cur, rows.length - 1)]
+  const c = usePagedCursor(rows.length)
+  const row = rows[c.at]
   useScreenReport({ marDrugRows: rows.length, marReferenceSet: refSet ? pbSlug(refSet) : null })
   const columns: PBColumn<MarDrugCode>[] = [
     { key: 'f', header: 'F', width: 18, align: 'center' },
@@ -430,8 +433,8 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
         <div className="pb-form" style={{ gridTemplateColumns: '70px 1fr', gap: 4, flex: '1 1 auto' }}>
           <span>Search for:</span>
           <PBInput w={400} value={typed} data-tutorial-id="host.mois.field.mar-drug-search"
-            onChange={(e) => { const v = e.target.value; setTyped(v); if (v.length >= 4 || !v) { setQuery(v); setCur(0) } }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setQuery(typed); setCur(0) } }} />
+            onChange={(e) => { const v = e.target.value; setTyped(v); if (v.length >= 4 || !v) { setQuery(v); c.setCurrent(0) } }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setQuery(typed); c.setCurrent(0) } }} />
           <span>Coded search:</span>
           <div style={{ display: 'grid', gridTemplateColumns: '14px 180px 14px 1fr', color: '#333' }}>
             <b>`d</b><span>Search Generic and Brand Names</span><b>`a</b><span>Search ATC Code</span>
@@ -440,10 +443,10 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
         </div>
         <div className="pb-form" style={{ gridTemplateColumns: '90px 240px auto', gap: 4, alignContent: 'start' }}>
           <span style={{ textAlign: 'right' }}>Code System:</span>
-          <PBSelect w={240} value={system} options={[...MAR_CODE_SYSTEMS]} onChange={(e) => { setSystem(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.mar-code-system" />
+          <PBSelect w={240} value={system} options={[...MAR_CODE_SYSTEMS]} onChange={(e) => { setSystem(e.target.value); c.setCurrent(0) }} data-tutorial-id="host.mois.field.mar-code-system" />
           <PBCheckbox label="Save as Default System" />
           <span style={{ textAlign: 'right' }}>Reference Set:</span>
-          <PBSelect w={240} value={refSet} options={[...MAR_REFERENCE_SETS]} onChange={(e) => { setRefSet(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.mar-reference-set" />
+          <PBSelect w={240} value={refSet} options={[...MAR_REFERENCE_SETS]} onChange={(e) => { setRefSet(e.target.value); c.setCurrent(0) }} data-tutorial-id="host.mois.field.mar-reference-set" />
           <PBCheckbox label="Save as Default Reference" />
         </div>
       </div>
@@ -455,7 +458,7 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow flush style={{ flex: '1 1 auto', minHeight: 0 }} columns={columns} rows={rows}
-          current={Math.min(cur, Math.max(0, rows.length - 1))} onCurrentChange={setCur} onActivate={(r) => onPick(r)}
+          current={c.at} onCurrentChange={c.setCurrent} onActivate={(r) => onPick(r)}
           rowTutorialId={(r) => `host.mois.row.mar-drug-${pbSlug(r.agent || r.brand || r.generic).slice(0, 32)}`}
           empty={query ? 'No drug code matches.' : 'Type four letters of the name (or fewer and press Enter).'} />
       </div>
@@ -468,17 +471,12 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
           {info('Agent Name:', row?.agent ?? '', true)}{info('Ref. Sets:', row?.refSets.join(', ') ?? '')}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', flex: 'none', padding: '2px 0' }}>
-        <PBButton wide onClick={() => setCur(0)}>Home</PBButton>
-        <PBButton wide onClick={() => setCur((c) => Math.max(0, c - 12))}>PgUp</PBButton>
-        <span style={{ flex: '1 1 auto' }} />
-        <FooterButton primary disabled={!row} onClick={() => row && onPick(row)} tutorialId="host.mois.command.mar-drug-ok">Ok</FooterButton>
-        <span style={{ width: 14 }} />
-        <FooterButton onClick={onClose}>Cancel</FooterButton>
-        <span style={{ flex: '1 1 auto' }} />
-        <PBButton wide onClick={() => setCur((c) => Math.min(rows.length - 1, c + 12))}>PgDwn</PBButton>
-        <PBButton wide onClick={() => setCur(rows.length - 1)}>End</PBButton>
-      </div>
+      <LookupPager
+        cursor={c}
+        style={{ ...PAGER_ROW, padding: '2px 0' }}
+        ok={{ command: 'mar-drug-ok', tutorialId: 'host.mois.command.mar-drug-ok', isDefault: true, disabled: !row, onClick: () => row && onPick(row) }}
+        cancel={{ onClick: onClose }}
+      />
     </StageWindow>
   )
 }
@@ -489,7 +487,7 @@ export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
   onOk: (codes: string[]) => void
   onClose: () => void
 }) {
-  const [picked, setPicked] = useState<Set<string>>(new Set(selected))
+  const picked = useTickSet(selected)
   const [cur, setCur] = useState(0)
   const rows = MAR_STATUSES.map(([code, description]) => ({ code, description }))
   return (
@@ -497,7 +495,7 @@ export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
       bodyStyle={{ padding: 6, background: '#fff' }}
       footer={<>
         <span className="pb-footer__spacer" />
-        <FooterButton primary onClick={() => onOk([...picked])} tutorialId="host.mois.command.mar-status-ok">Ok (F2)</FooterButton>
+        <FooterButton primary onClick={() => onOk([...picked.ticked])} tutorialId="host.mois.command.mar-status-ok">Ok (F2)</FooterButton>
         <FooterButton onClick={onClose}>Cancel</FooterButton>
         <span className="pb-footer__spacer" />
       </>}>
@@ -507,7 +505,7 @@ export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
           {
             key: 'select', header: 'Select', width: 50, align: 'center',
             render: (r) => <PBCheckbox checked={picked.has(r.code)} tutorialId={`host.mois.cell.mar-status-${pbSlug(r.code)}`}
-              onChange={(on) => setPicked((s) => { const n = new Set(s); on ? n.add(r.code) : n.delete(r.code); return n })} />,
+              onChange={(on) => picked.set(r.code, on)} />,
           },
           { key: 'code', header: 'Code', width: 112 },
           { key: 'description', header: 'Description' },

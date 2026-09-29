@@ -8,10 +8,12 @@ import {
   type ReportSpec, type RSContext, type RSField, type RSPick, type RSTable,
 } from '../data/reportSpecs/types'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBPopup, PBSelect, pbSlug,
-  usePBInstrumentation, usePBPopupOwner,
+  PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBPopup, PBSelect, pbSlug, usePBPopupOwner,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { useTickSet } from './listKit'
+import { CmdCheck, CmdRadio, DotsButton, FieldInput, Hint, ParamFrame, ParamLine, ParamSection } from './reportKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -73,7 +75,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    the value itself).
    ========================================================================= */
 
-const NAVY = '#000080'
 type Values = Record<string, string | boolean>
 
 /* --- initial values ------------------------------------------------------- */
@@ -168,14 +169,6 @@ function excelSheet(spec: ReportSpec, ctx: RSContext): { head: string[]; rows: s
 }
 
 /* --- the controls ----------------------------------------------------------- */
-const Section = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '5px 8px 3px', borderBottom: '1px solid #a0a0a0', borderTop: '1px solid #a0a0a0', marginTop: 4 }}>
-    {children}
-  </div>
-)
-
-const Hint = ({ children }: { children?: ReactNode }) => (children ? <span style={{ whiteSpace: 'nowrap' }}>{children}</span> : null)
-
 const REQUIRED_FILL: CSSProperties = { background: 'var(--pb-dw-flag, #f8c7a8)' }
 
 /** a drop-down a value can be typed into — `%` included */
@@ -230,7 +223,7 @@ export function ReportPicker({ pick, value, onOk, onCancel }: { pick: RSPick; va
   const options = rsOptions(pick.options).filter(Boolean)
   const code = (o: string) => o.split(' - ')[0]!.trim()
   const [cur, setCur] = useState(() => Math.max(0, options.findIndex((o) => code(o) === value || o === value)))
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set(value.split(',').map((s) => s.trim()).filter(Boolean)))
+  const ticked = useTickSet<string>(() => value.split(',').map((s) => s.trim()).filter(Boolean))
   const rows = options.map((o) => ({ o, code: code(o) }))
   const ok = () => {
     if (pick.multi) onOk(options.map(code).filter((c) => ticked.has(c)).join(','))
@@ -249,24 +242,23 @@ export function ReportPicker({ pick, value, onOk, onCancel }: { pick: RSPick; va
               ...(pick.multi ? [{
                 key: 'tick', header: '', width: 26,
                 render: (r: { o: string; code: string }) => (
-                  <PBCheckbox checked={ticked.has(r.code)} onChange={(v) => setTicked((s) => { const n = new Set(s); v ? n.add(r.code) : n.delete(r.code); return n })} />
+                  <PBCheckbox checked={ticked.has(r.code)} onChange={(v) => ticked.set(r.code, v)} />
                 ),
               }] : []),
               { key: 'o', header: pick.multi ? 'Code - Description' : 'Description' },
             ]}
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 19, padding: '4px 0 10px', flex: 'none' }}>
+        <DialogFooter plain gap={19} padding="4px 0 10px">
           <DialogButton id="report-picker-ok" width={75} isDefault onClick={ok}>Ok</DialogButton>
           <DialogButton id="report-picker-cancel" width={75} onClick={onCancel}>Cancel</DialogButton>
-        </div>
+        </DialogFooter>
       </WorkspaceDialogFrame>
   )
 }
 
 /* --- the window ------------------------------------------------------------ */
 function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec: ReportSpec }) {
-  const host = usePBInstrumentation()
   const [values, setValues] = useState<Values>(() => { const v: Values = {}; collect(spec.fields, v, args); return v })
   const [picking, setPicking] = useState<{ key: string; pick: RSPick } | null>(null)
   const set = (k: string, v: string | boolean) => setValues((p) => ({ ...p, [k]: v }))
@@ -328,15 +320,7 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
   }
 
   const dots = (key: string, pick: RSPick | undefined, disabled?: boolean) => pick && (
-    <button
-      type="button"
-      className="pb-inputgroup__btn pb-inputgroup__btn--dots"
-      disabled={disabled}
-      data-tutorial-id={host?.anchor('lookup', `${sid}-${key}`)}
-      onClick={() => { host?.report('lookup', { field: `${sid}-${key}` }); setPicking({ key, pick }) }}
-    >
-      …
-    </button>
+    <DotsButton id={`${sid}-${key}`} disabled={disabled} onClick={() => setPicking({ key, pick })} />
   )
 
   const off = (f: { disabled?: boolean; disabledIf?: { field: string; is: string | boolean } }) =>
@@ -345,13 +329,14 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
     switch (f.kind) {
       case 'text': {
         const input = (
-          <input
-            className={`pb-field${f.align === 'center' ? ' pb-field--center' : f.align === 'right' ? ' pb-field--right' : ''}`}
-            style={{ width: f.dots ? '100%' : f.w ?? 172, ...(f.required ? REQUIRED_FILL : {}) }}
+          <FieldInput
+            id={`${sid}-${f.id}`}
+            align={f.align}
+            w={f.dots ? '100%' : f.w ?? 172}
+            style={f.required ? REQUIRED_FILL : {}}
             value={str(f.id)}
             disabled={off(f)}
-            data-tutorial-id={`host.mois.field.${sid}-${f.id}`}
-            onChange={(e) => set(f.id, e.target.value)}
+            onChange={(v) => set(f.id, v)}
           />
         )
         return (
@@ -363,12 +348,13 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
       }
       case 'range': {
         const box = (end: 'From' | 'To') => (
-          <input
-            className="pb-field pb-field--center"
-            style={{ width: f.w ?? 84, ...(f.required && end === 'From' ? REQUIRED_FILL : {}) }}
+          <FieldInput
+            id={`${sid}-${f.id}-${end.toLowerCase()}`}
+            align="center"
+            w={f.w ?? 84}
+            style={f.required && end === 'From' ? REQUIRED_FILL : {}}
             value={str(`${f.id}${end}`)}
-            data-tutorial-id={`host.mois.field.${sid}-${f.id}-${end.toLowerCase()}`}
-            onChange={(e) => set(`${f.id}${end}`, e.target.value)}
+            onChange={(v) => set(`${f.id}${end}`, v)}
           />
         )
         return <span key={k} className="pb-row" style={{ gap: 6 }}>{box('From')}<span style={{ padding: '0 8px' }}>{f.joiner ?? 'to'}</span>{box('To')}<Hint>{f.hint}</Hint></span>
@@ -389,34 +375,23 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
         return (
           <span key={k} style={{ display: 'flex', flexDirection: f.column ? 'column' : 'row', gap: f.column ? 5 : 18, alignItems: f.column ? 'flex-start' : 'center' }}>
             {f.options.map((o) => {
-              const id = `${sid}-${f.id}-${pbSlug(o)}`
               return (
-                <label key={o} className="pb-check pb-check--radio">
-                  <input
-                    type="radio"
-                    name={`${sid}-${f.id}`}
-                    checked={str(f.id) === o}
-                    data-tutorial-id={host?.anchor('command', id)}
-                    onChange={() => { host?.report('command', { command: id }); set(f.id, o) }}
-                  />
-                  <span className="pb-check__box"><span className="pb-check__dot" /></span>
-                  <span className="pb-check__label">{o}</span>
-                </label>
+                <CmdRadio key={o} id={`${sid}-${f.id}-${pbSlug(o)}`} name={`${sid}-${f.id}`} label={o}
+                  checked={str(f.id) === o} onChange={() => set(f.id, o)} />
               )
             })}
             <Hint>{f.hint}</Hint>
           </span>
         )
       case 'check': {
-        const id = `${sid}-${f.id}`
         return (
           <span key={k} className="pb-row" style={{ gap: 6, color: '#000', fontWeight: 400 }}>
-            <PBCheckbox
+            <CmdCheck
+              id={`${sid}-${f.id}`}
               label={f.text}
               checked={values[f.id] === true}
               disabled={off(f)}
-              tutorialId={host?.anchor('command', id)}
-              onChange={(v) => { host?.report('command', { command: id }); set(f.id, v) }}
+              onChange={(v) => set(f.id, v)}
             />
             <Hint>{f.hint}</Hint>
           </span>
@@ -432,19 +407,16 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
   }
 
   const line = (label: ReactNode, body: ReactNode, key: number | string) => (
-    <div key={key} className="pb-row" style={{ gap: 6, padding: '2px 10px', minHeight: 21 }}>
-      <span className="pb-form__label" style={{ width: labelW, flex: 'none' }}>{label}</span>
-      {body}
-    </div>
+    <ParamLine key={key} label={label} w={labelW}>{body}</ParamLine>
   )
 
   const render = (fields: RSField[]): ReactNode => fields.map((f, i) => {
     switch (f.kind) {
       case 'section':
         return (
-          <Section key={i}>
+          <ParamSection key={i}>
             {f.right ? <span className="pb-row" style={{ gap: 24 }}>{f.label}{control(f.right, 0)}</span> : f.label}
-          </Section>
+          </ParamSection>
         )
       case 'note':
         return <div key={i} style={{ padding: `3px 10px 3px ${10 + (f.indent ?? 0)}px` }}>{f.text}</div>
@@ -465,13 +437,7 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
             {Array.from({ length: f.count }, (_, n) => {
               const key = `${f.id}${n + 1}`
               const input = (
-                <input
-                  className="pb-field"
-                  style={{ width: '100%' }}
-                  value={str(key)}
-                  data-tutorial-id={`host.mois.field.${sid}-${f.id}-${n + 1}`}
-                  onChange={(e) => set(key, e.target.value)}
-                />
+                <FieldInput id={`${sid}-${f.id}-${n + 1}`} w="100%" value={str(key)} onChange={(v) => set(key, v)} />
               )
               const cells = [
                 <span key={`l${n}`} className="pb-form__label">{f.label} {n + 1}:</span>,
@@ -489,25 +455,17 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
   })
 
   return (
-    <WorkspaceDialogFrame
+    <ParamFrame
       id={`report-params-${sid}`}
+      prefix={sid}
       title={spec.title ?? `Report: ${spec.folder} - ${spec.name}`}
-      width={spec.width ?? 640}
-      height={spec.height ?? 505}
-      controls={false}
-      onClose={close}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '10px 12px 0' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-face)' }}>
-          {spec.band !== false && <PBBand>Selection Parameter</PBBand>}
-          <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', paddingBottom: 6 }}>{render(spec.fields)}</div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 19, padding: '12px 0 10px', flex: 'none' }}>
-          <DialogButton id={`${sid}-ok`} width={75} isDefault onClick={ok}>{spec.okLabel ?? 'Ok'}</DialogButton>
-          <DialogButton id={`${sid}-cancel`} width={75} onClick={close}>Cancel</DialogButton>
-        </div>
-      </div>
-      {picking && (
+      w={spec.width ?? 640}
+      h={spec.height ?? 505}
+      band={spec.band !== false}
+      okLabel={spec.okLabel ?? 'Ok'}
+      onOk={ok}
+      onCancel={close}
+      after={picking && (
         <ReportPicker
           pick={picking.pick}
           value={str(picking.key)}
@@ -515,7 +473,9 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
           onOk={(v) => { set(picking.key, v); setPicking(null) }}
         />
       )}
-    </WorkspaceDialogFrame>
+    >
+      {render(spec.fields)}
+    </ParamFrame>
   )
 }
 

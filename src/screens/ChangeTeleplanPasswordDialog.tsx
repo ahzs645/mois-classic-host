@@ -3,6 +3,7 @@ import { PBCheckbox, PBInput } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter, FormLine } from './formKit'
 import { DialogButton, FormBand, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -58,15 +59,13 @@ export function ChangeTeleplanPasswordDialog({ close }: AreaWindowProps) {
           <FormBand>Change Password</FormBand>
           <fieldset style={{ margin: '8px 10px 4px', padding: '2px 10px 6px', border: '1px solid #c8c8c8', borderRadius: 3 }}>
             <legend style={{ fontWeight: 700, padding: '0 3px' }}>Current MSP Login Information</legend>
-            <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
-              <span className="pb-form__label" style={{ width: 62, textAlign: 'right' }}>Username:</span>
+            <FormLine label="Username:" w={62} labelFlex={false} labelAlign="right" padding="2px 0">
               <PBInput w={226} value="ttut9999" readOnly />
-            </div>
-            <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
-              <span className="pb-form__label" style={{ width: 62, textAlign: 'right' }}>Password:</span>
+            </FormLine>
+            <FormLine label="Password:" w={62} labelFlex={false} labelAlign="right" padding="2px 0">
               <PBInput w={226} value={show ? 'oldpass' : '*******'} readOnly />
               <PBCheckbox label="Show Password" checked={show} onChange={setShow} tutorialId="host.mois.check.teleplan-show-password" />
-            </div>
+            </FormLine>
           </fieldset>
           <div style={{ padding: '8px 12px 4px', lineHeight: 1.35 }}>
             MSP requires that your Teleplan password be changed every 42 days. Would you like to change it now?
@@ -97,10 +96,10 @@ export function ChangeTeleplanPasswordDialog({ close }: AreaWindowProps) {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, padding: '8px 0 10px', marginTop: 'auto' }}>
+          <DialogFooter plain fixed={false} gap={10} padding="8px 0 10px" style={{ marginTop: 'auto' }}>
             <DialogButton id="teleplan-password-ok" isDefault width={75} onClick={ok}>Ok</DialogButton>
             <DialogButton id="teleplan-password-cancel" width={75} onClick={close}>Cancel</DialogButton>
-          </div>
+          </DialogFooter>
         </div>
       </div>
     </WorkspaceDialogFrame>

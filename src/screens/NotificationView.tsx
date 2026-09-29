@@ -3,17 +3,19 @@ import { useChartRows } from '../data/chart-records'
 import { notificationTabs } from '../data/mois'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
-import { SESSION_USER } from '../data/chartSession'
+import { SESSION_USER } from '../data/session'
 import { useWorkspaceStore } from '../data/workspaceStore'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow,
-  PBIdentityStrip,
   PBInput, PBRadio, PBSelect, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { FormLabel } from './formKit'
+import { useTickSet } from './listKit'
+import { ChartIdentityStrip } from './patientKit'
 
 /* ============================================================================
    Notification — the Patient Chart's Notifications folder (art. 303528).
@@ -165,14 +167,7 @@ export function NotificationView() {
         ]}
       />
 
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-      />
+      <ChartIdentityStrip noEncounter />
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
         <PBTabs tabs={TABS} active={tab} onChange={(t) => { setTab(t); setCur(0) }} justified>
@@ -231,11 +226,11 @@ export function NotificationView() {
   )
 }
 
-const label = (text: ReactNode, w?: number) => <span className="pb-form__label" style={{ width: w, flex: w ? 'none' : undefined }}>{text}</span>
+const label = (text: ReactNode, w?: number) => <FormLabel w={w} flex={!!w}>{text}</FormLabel>
 
 /* the Reminders / Recalls detail band */
 function ReminderBand({ recall, row, onDetail }: { recall: boolean; row?: NoteRow; onDetail: (v: string) => void }) {
-  const [triggers, setTriggers] = useState<Set<string>>(() => new Set(recall ? ['Patient Arrival'] : TRIGGERS))
+  const triggers = useTickSet<string>(() => (recall ? ['Patient Arrival'] : TRIGGERS))
   const [stopWhen, setStopWhen] = useState('No End')
   return (
     <div data-tutorial-id="host.mois.group.notification-detail" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: '1px solid #9a9a9a', padding: '6px 10px 4px' }}>
@@ -254,7 +249,7 @@ function ReminderBand({ recall, row, onDetail }: { recall: boolean; row?: NoteRo
           {label('Triggering Event:')}
           {TRIGGERS.map((t) => (
             <div key={t} style={{ padding: '1px 0' }}>
-              <PBCheckbox label={t} checked={triggers.has(t)} onChange={(c) => setTriggers((s) => { const n = new Set(s); c ? n.add(t) : n.delete(t); return n })} />
+              <PBCheckbox label={t} checked={triggers.has(t)} onChange={(c) => triggers.set(t, c)} />
             </div>
           ))}
         </div>

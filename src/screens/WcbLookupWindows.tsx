@@ -1,9 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { universalSearchRows } from '../data/encounterPickers'
 import { usePatient } from '../data/patient-context'
 import type { WcbClaimEntry } from '../data/patients'
 import { WCB_AREA_OF_INJURY, type WcbCode, type WcbValidation } from '../data/wcbForm'
-import { PBBand, PBButton, PBDataWindow, PBInput, PBWindow, pbSlug } from '../pb'
+import { PBBand, PBButton, PBDataWindow, PBWindow, pbSlug } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { LookupBand, LookupPager, PickListWindow, SIZE, SearchForRow, usePagedCursor } from './lookupKit'
+import { PatientFieldRow } from './patientKit'
 import { DialogButton } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -47,18 +50,17 @@ export function WcbClaimLookupDialog({ onPick, onClose }: { onPick: (i: number |
     : [{ i: '', doi: '', claim: '', area: '', position: '', nature: '', icd9: '', employee: '' }]
   const pick = (i: number) => onPick(rows[i]?.i ? Number(rows[i]!.i) : null)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={LAYER}>
-      <PBWindow child controls={false} tutorialId="host.mois.dialog.wcb-claim-list" title="WCB Claim Lookup" onClose={onClose}
-        style={{ width: 'min(690px, 100%)', height: 'min(365px, 100%)' }}>
+    <ModalWindow id="wcb-claim-list" title="WCB Claim Lookup" onClose={onClose} layerStyle={LAYER}
+      windowStyle={{ width: 'min(690px, 100%)', height: 'min(365px, 100%)' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 8px 0' }}>
           <div style={{ ...PANEL, flex: '1 1 auto', minHeight: 0 }}>
             <PBBand><b>WCB Claim List</b></PBBand>
-            <div className="pb-row" style={{ gap: 0, padding: '3px 6px', borderBottom: '1px solid #e2e2e2', flex: 'none' }}>
-              <span style={{ width: 150 }}>CHART:&nbsp;&nbsp;&nbsp;<b>{patient.chart}</b></span>
-              <span style={{ width: 170 }}>FIRST:&nbsp;<b>{patient.first.toUpperCase()}</b></span>
-              <span style={{ width: 172 }}>MIDDLE:&nbsp;<b>{patient.middle.toUpperCase()}</b></span>
-              <span>LAST:&nbsp;<b>{patient.last.toUpperCase()}</b></span>
-            </div>
+            <PatientFieldRow layout="inline" sep={'\u00a0'} style={{ gap: 0, padding: '3px 6px', borderBottom: '1px solid #e2e2e2', flex: 'none' }} fields={[
+              { label: 'CHART:', value: patient.chart, w: 150, sep: '\u00a0\u00a0\u00a0' },
+              { label: 'FIRST:', value: patient.first.toUpperCase(), w: 170 },
+              { label: 'MIDDLE:', value: patient.middle.toUpperCase(), w: 172 },
+              { label: 'LAST:', value: patient.last.toUpperCase() },
+            ]} />
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
               <PBDataWindow
                 flush
@@ -84,8 +86,7 @@ export function WcbClaimLookupDialog({ onPick, onClose }: { onPick: (i: number |
           <DialogButton id="wcb-claim-ok" width={75} onClick={() => pick(cur)}>Ok</DialogButton>
           <DialogButton id="wcb-claim-cancel" width={75} onClick={onClose}>Cancel</DialogButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -133,74 +134,66 @@ export function WcbCodeLookupDialog({ kind, initial = '', onPick, onClose }: {
     const want = search.trim().toUpperCase()
     return want ? all.filter((r) => r.code.startsWith(want) || r.description.toUpperCase().startsWith(want)) : all
   }, [all, search])
-  const [cur, setCur] = useState(0)
-  const at = Math.min(cur, Math.max(0, rows.length - 1))
-  const row = rows[at]
-  const step = (to: number) => setCur(Math.max(0, Math.min(rows.length - 1, to)))
+  const cursor = usePagedCursor(rows.length, PAGE)
+  const row = rows[cursor.at]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={LAYER}>
-      <PBWindow child controls={false} tutorialId={`host.mois.dialog.${set.slug}`} title="Advanced Lookup Service" onClose={onClose}
-        style={{ width: 'min(673px, 100%)', height: 'min(673px, 100%)' }}>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0', gap: 0 }}>
-          <div style={{ ...PANEL, flex: '1 1 auto', minHeight: 0 }}>
-            <PBBand><b>{set.band}</b></PBBand>
-            <div className="pb-row" style={{ gap: 4, padding: '2px 4px', flex: 'none' }}>
-              <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-              <PBInput
-                w="100%"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setCur(0) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && row) { e.preventDefault(); onPick(row) } }}
-                style={{ flex: '1 1 auto', background: '#f4caa8' }}
-                data-tutorial-id={`host.mois.field.${set.slug}-search`}
-              />
-              <PBButton size="sm" style={{ minWidth: 20 }} onClick={() => setCur(0)}>…</PBButton>
-            </div>
-            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-              <PBDataWindow
-                flush
-                rules="white"
-                columns={[
-                  { key: 'code', header: 'Code', width: 128, headAlign: 'center' },
-                  { key: 'description', header: 'Description', width: 322, headAlign: 'center' },
-                  { key: 'category', header: 'Category', headAlign: 'center' },
-                ]}
-                rows={rows}
-                current={at}
-                onCurrentChange={setCur}
-                onActivate={(r) => onPick(r)}
-                rowTutorialId={(r) => `host.mois.row.${set.slug}-${pbSlug(r.code)}`}
-                empty={all.length ? 'No code matches.' : 'This code set is not in the practice data.'}
-              />
-            </div>
-            <div style={{ flex: 'none', borderTop: '1px solid #a0a0a0', height: 34, padding: '1px 3px', display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--pb-link)', textDecoration: 'underline' }}>Synonyms:</span>
-              <ScrollStub />
-            </div>
-            <div style={{ flex: 'none', borderTop: '1px solid #a0a0a0', height: 64, padding: '2px 3px' }} data-tutorial-id={`host.mois.field.${set.slug}-note`}>
-              {set.note}
-            </div>
+    <PickListWindow
+      window={{ id: set.slug, title: 'Advanced Lookup Service', onClose, layerStyle: LAYER, windowStyle: { width: 'min(673px, 100%)', height: 'min(673px, 100%)' } }}
+      body={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0', gap: 0 }}
+      panel={{ ...PANEL, flex: '1 1 auto', minHeight: 0 }}
+      band={<LookupBand variant="bold">{set.band}</LookupBand>}
+      search={(
+        <SearchForRow
+          salmon
+          value={search}
+          onChange={(v) => { setSearch(v); cursor.setCurrent(0) }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && row) { e.preventDefault(); onPick(row) } }}
+          inputStyle={{ flex: '1 1 auto' }}
+          field={`${set.slug}-search`}
+          after={<PBButton size="sm" style={{ minWidth: 20 }} onClick={() => cursor.setCurrent(0)}>…</PBButton>}
+        />
+      )}
+      grid={{
+        flush: true,
+        rules: 'white',
+        columns: [
+          { key: 'code', header: 'Code', width: 128, headAlign: 'center' },
+          { key: 'description', header: 'Description', width: 322, headAlign: 'center' },
+          { key: 'category', header: 'Category', headAlign: 'center' },
+        ],
+        rows,
+        current: cursor.at,
+        onCurrentChange: cursor.setCurrent,
+        onActivate: (r) => onPick(r),
+        rowTutorialId: (r) => `host.mois.row.${set.slug}-${pbSlug(r.code)}`,
+        empty: all.length ? 'No code matches.' : 'This code set is not in the practice data.',
+      }}
+      belowGrid={(
+        <>
+          <div style={{ flex: 'none', borderTop: '1px solid #a0a0a0', height: 34, padding: '1px 3px', display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--pb-link)', textDecoration: 'underline' }}>Synonyms:</span>
+            <ScrollStub />
           </div>
-        </div>
-        <div className="pb-row" style={{ gap: 0, padding: '10px 8px', flex: 'none' }}>
-          <LookupButton onClick={() => step(0)}>Home</LookupButton>
-          <LookupButton onClick={() => step(at - PAGE)}>PgUp</LookupButton>
-          <span style={{ flex: '1 1 auto' }} />
-          <DialogButton id={`${set.slug}-ok`} width={74} disabled={!row} onClick={() => row && onPick(row)}>Ok</DialogButton>
-          <span style={{ width: 22 }} />
-          <DialogButton id={`${set.slug}-cancel`} width={74} onClick={onClose}>Cancel</DialogButton>
-          <span style={{ flex: '1 1 auto' }} />
-          <LookupButton onClick={() => step(at + PAGE)}>PgDwn</LookupButton>
-          <LookupButton onClick={() => step(rows.length - 1)}>End</LookupButton>
-        </div>
-      </PBWindow>
-    </div>
+          <div style={{ flex: 'none', borderTop: '1px solid #a0a0a0', height: 64, padding: '2px 3px' }} data-tutorial-id={`host.mois.field.${set.slug}-note`}>
+            {set.note}
+          </div>
+        </>
+      )}
+      footer={(
+        <LookupPager
+          cursor={cursor}
+          className="pb-row"
+          style={{ gap: 0, padding: '10px 8px', flex: 'none' }}
+          navSize={SIZE.lookupNav}
+          pickSize={SIZE.dialog(74)}
+          pickGap={22}
+          ok={{ command: `${set.slug}-ok`, disabled: !row, onClick: () => { if (row) onPick(row) } }}
+          cancel={{ command: `${set.slug}-cancel`, onClick: onClose }}
+        />
+      )}
+    />
   )
 }
-
-const LookupButton = ({ onClick, children }: { onClick: () => void; children: ReactNode }) => (
-  <PBButton style={{ width: 77, minWidth: 0, height: 24 }} onClick={onClick}>{children}</PBButton>
-)
 
 /** the Synonyms box's idle scroll bar: two arrows, nothing to scroll */
 const ScrollStub = () => (

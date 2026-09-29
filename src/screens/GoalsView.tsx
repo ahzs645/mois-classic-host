@@ -13,13 +13,13 @@ import { useScreenReport } from '../host/screen-state'
 import {
   PBCheckbox,
   PBCommandRow, PBDataWindow,
-  PBIdentityStrip,
-  PBInput, PBLookup, PBMessageBox,
+  PBInput, PBMessageBox,
   PBSection, PBSelect,
   PBSlider,
   PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation, type PBColumn,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { ChartIdentityStrip } from './patientKit'
 import {
   FOLDER_OF, GOAL_PHASES, QuantitativeFields, deleteActionRow, goalCountOf, linkedRowAnchor, linkedToGoal,
   unlinkRow, type LinkedRow,
@@ -184,25 +184,14 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
         ]}
       />
 
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
+      <ChartIdentityStrip
+        lookup={{
+          value: search, name: 'goal-search', fieldId: 'host.mois.field.goal-search',
+          onChange: (v) => { setSearch(v); setCur(0) },
+          onDots: () => setAdvanced((a) => !a),
+          onKeyDown: (e) => { if (e.key === 'F4') { e.preventDefault(); setAdvanced((a) => !a) } },
+        }}
       />
-
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <span>Search For:</span>
-        <PBLookup
-          w="100%" value={search} name="goal-search" fieldId="host.mois.field.goal-search"
-          onChange={(v) => { setSearch(v); setCur(0) }}
-          onDots={() => setAdvanced((a) => !a)}
-          onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); setAdvanced((a) => !a) } }}
-        />
-      </div>
       {advanced && (
         <div className="pb-row" style={{ padding: '0 8px 2px' }} data-tutorial-id="host.mois.group.goal-advanced-search">
           <span className="pb-form__label">Phase:</span>

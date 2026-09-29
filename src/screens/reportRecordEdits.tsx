@@ -3,6 +3,7 @@ import type { MoisRecord } from '../data/charts'
 import { useScreenReport } from '../host/screen-state'
 import { usePBInstrumentation, type PBCommand } from '../pb'
 import { RecordHistoryDialog, useRecordSignature } from './ChartBasicsWindows'
+import { useDraftRecords } from './listKit'
 
 /* ============================================================================
    New Record / Delete Record, and the signature link, for the clinical report
@@ -27,37 +28,22 @@ export function useReportRecordEdits(
   setCur: (i: number) => void,
 ) {
   const enabled = node !== 'measures' && node !== 'prefs'
-  const [added, setAdded] = useState(0)
-  const [deleted, setDeleted] = useState<Set<number>>(() => new Set())
-  const listed = useMemo((): Listed[] => {
-    const source = rows.map((row, i) => ({ row, record: records[i], src: i }))
-    if (!enabled) return source
-    const blank = Array.from({ length: added }, (): Listed => ({ row: {}, record: undefined, src: -1 }))
-    return [...blank, ...source.filter((x) => !deleted.has(x.src))]
-  }, [added, deleted, enabled, records, rows])
+  const base = useMemo(() => rows.map((row, i): Listed => ({ row, record: records[i], src: i })), [records, rows])
+  const d = useDraftRecords<Listed>({
+    base,
+    keyOf: (x) => String(x.src),
+    cur,
+    setCur,
+    active: enabled,
+    blank: () => ({ row: {}, record: undefined, src: -1 }),
+    multiNew: true,
+    disableDelete: false,
+    wire: ['New Record', 'Delete Record'],
+  })
 
-  useScreenReport(enabled ? { rows: listed.length, draft: added > 0 } : {})
+  useScreenReport(enabled ? { rows: d.list.length, draft: d.drafts.length > 0 } : {})
 
-  const commands = (cmds: PBCommand[]): PBCommand[] => (!enabled ? cmds : cmds.map((c) => {
-    if (!c) return c
-    if (c.label === 'New Record') return { ...c, onClick: () => { setAdded((n) => n + 1); setCur(0) } }
-    if (c.label === 'Delete Record') {
-      return {
-        ...c,
-        onClick: () => {
-          const at = Math.min(cur, listed.length - 1)
-          const target = listed[at]
-          if (!target) return
-          if (target.src < 0) setAdded((n) => Math.max(0, n - 1))
-          else setDeleted((prev) => new Set(prev).add(target.src))
-          setCur(Math.max(0, at - 1))
-        },
-      }
-    }
-    return c
-  }))
-
-  return { rows: listed.map((x) => x.row), records: listed.map((x) => x.record), commands }
+  return { rows: d.list.map((x) => x.row), records: d.list.map((x) => x.record), commands: (cmds: PBCommand[]) => d.commands(cmds) }
 }
 
 /** A record's identity for its Record History: its own `id_*` key. */

@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { usePatient } from '../data/patient-context'
 import { isPatientSaved, savePatient, updatePatient } from '../data/patient-edits'
 import {
@@ -16,6 +16,8 @@ import {
   PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroup, PBInput, PBLookup, PBMessageBox, PBRadio,
   PBTextArea, PBWindow, pbSlug, usePBInstrumentation,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { FormLine, SectionCaption } from './formKit'
 
 /* ============================================================================
    WCB Form — the encounter form behind a WCB REPORT row (form window
@@ -68,7 +70,6 @@ import {
    Previous Form (reports its press).
    ========================================================================= */
 
-const NAVY = '#000080'
 const LIGHT_RULE = '1px solid #d2d2d2'
 const SECTION_RULE = '1px solid #1d1d1d'
 
@@ -384,19 +385,18 @@ function IdRow({ cells }: { cells: [string, string, number?, number?][] }) {
 function Section({ title, last, children }: { title: string; last?: boolean; children: ReactNode }) {
   return (
     <div style={{ borderBottom: last ? undefined : SECTION_RULE }}>
-      <div style={{ color: NAVY, fontWeight: 700, padding: '3px 12px 2px' }}>{title}</div>
+      <SectionCaption padding="3px 12px 2px" rule={false}>{title}</SectionCaption>
       {children}
     </div>
   )
 }
 
 function Line({ label, top, children }: { label: ReactNode; top?: boolean; children: ReactNode }) {
-  const style: CSSProperties = { display: 'flex', alignItems: top ? 'flex-start' : 'center', gap: 6, padding: '4px 8px 4px 23px', borderTop: LIGHT_RULE, minHeight: 25 }
   return (
-    <div style={style}>
-      <span style={{ width: 142, flex: 'none' }}>{label}</span>
+    <FormLine label={label} w={142} className={false} labelClass={false} align={top ? 'flex-start' : 'center'}
+      padding="4px 8px 4px 23px" minHeight={25} style={{ display: 'flex', borderTop: LIGHT_RULE }}>
       {children}
-    </div>
+    </FormLine>
   )
 }
 
@@ -419,15 +419,8 @@ export function AssignProgressNoteDialog({ notes, onOk, onClose }: {
     onOk(n ? { key: n.key, number: i + 1, author: n.author || n.createdBy, text: n.text } : null)
   }
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 93 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.assign-progress-note"
-        title="Assign Progress Note"
-        onClose={onClose}
-        style={{ width: 'min(640px, 100%)', height: 'min(320px, 100%)' }}
-      >
+    <ModalWindow id="assign-progress-note" title="Assign Progress Note" onClose={onClose} zIndex={93}
+      layerStyle={{ position: 'fixed', padding: 8 }} windowStyle={{ width: 'min(640px, 100%)', height: 'min(320px, 100%)' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 6 }}>
           <PBDataWindow
             columns={[
@@ -446,11 +439,10 @@ export function AssignProgressNoteDialog({ notes, onOk, onClose }: {
           />
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 19, padding: '6px 0 10px', flex: 'none' }}>
-          <CommandButton id="assign-note-ok" disabled={!rows.length} onClick={() => pick(cur)}>Ok</CommandButton>
-          <CommandButton id="assign-note-cancel" onClick={onClose}>Cancel</CommandButton>
+          <PBButton command="assign-note-ok" style={{ minWidth: 75 }} disabled={!rows.length} onClick={() => pick(cur)}>Ok</PBButton>
+          <PBButton command="assign-note-cancel" style={{ minWidth: 75 }} onClick={onClose}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -466,8 +458,8 @@ function UpdateClaimListPrompt({ onClose }: { onClose: (answer: string, isDefaul
         title="MOIS"
         icon="question"
         buttons={[
-          { label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.update-claims-yes' },
-          { label: 'No', value: 'no', tutorialId: 'host.mois.command.update-claims-no' },
+          { label: 'Yes', value: 'yes', default: true, command: 'update-claims-yes', tutorialId: 'host.mois.command.update-claims-yes' },
+          { label: 'No', value: 'no', command: 'update-claims-no', tutorialId: 'host.mois.command.update-claims-no' },
         ]}
         onClose={(v) => onClose(v, isDefault)}
       >
@@ -479,20 +471,6 @@ function UpdateClaimListPrompt({ onClose }: { onClose: (answer: string, isDefaul
         </span>
       </PBMessageBox>
     </div>
-  )
-}
-
-function CommandButton({ id, onClick, disabled, children }: { id: string; onClick?: () => void; disabled?: boolean; children: ReactNode }) {
-  const host = usePBInstrumentation()
-  return (
-    <PBButton
-      style={{ minWidth: 75 }}
-      disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
-    >
-      {children}
-    </PBButton>
   )
 }
 

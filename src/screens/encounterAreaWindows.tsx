@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { type MeasureTemplate } from '../data/measures'
+import { toSlashes } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { PBMessageBox } from '../pb'
@@ -67,7 +68,7 @@ function MeasurementTemplate({ close }: AreaWindowProps) {
   const measures = useChartRecords('measure')
   const [template, setTemplate] = useState<MeasureTemplate | null>(null)
   if (!template) return <MeasureTemplateSelectionDialog onOpen={setTemplate} onClose={close} />
-  const today = MOIS_TODAY.replace(/\./g, '/')
+  const today = toSlashes(MOIS_TODAY)
   return (
     <MeasureTemplateGridDialog
       title={template.name}

@@ -7,9 +7,12 @@ import {
 import { useScreenReport } from '../host/screen-state'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTabs,
-  PBViewHeader, PBWindow, pbSlug,
+  PBViewHeader, pbSlug,
 } from '../pb'
 import { QualityReviewTab } from './CdxMessageViews'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter, ReadOnlyField } from './formKit'
+import { useRecordList } from './listKit'
 import { Body, CellCheck, GreenBand, Heading, Lbl, Radio, ReportPage } from './ExchangeKit'
 import type { ExchangeGo } from './ExchangeView'
 import { LabActionButtons, LabActivityPanel, RoutingPanes, useLabActivity } from './UnmatchedResultViews'
@@ -88,13 +91,11 @@ export function SendReceiveView({ go }: { go: ExchangeGo }) {
     interfaces to list. */
 function ReceivedItemsWindow({ onClose }: { onClose: () => void }) {
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60 }}>
-      <PBWindow child controls={false} title="Summary of Received Items" onClose={onClose}
-        tutorialId="host.mois.dialog.summary-of-received-items" style={{ width: 'min(620px, calc(100% - 20px))', height: 300 }}>
+    <ModalWindow id="summary-of-received-items" title="Summary of Received Items" onClose={onClose} zIndex={60}
+      windowStyle={{ width: 'min(620px, calc(100% - 20px))', height: 300 }}>
         <PBCommandRow commands={[{ label: 'Print List' }, { label: 'Close', onClick: onClose }]} />
         <div style={{ flex: '1 1 auto', minHeight: 0, background: '#fff', margin: 3, border: '1px solid #888' }} />
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -135,7 +136,7 @@ export function LabResultsView({ onTearOff }: { onTearOff?: () => void }) {
             : label.startsWith('Refresh') ? () => { setApplied(status); setCur(0) }
             : undefined,
         }))}
-        right={<PBButton data-tutorial-id="host.mois.command.print-all-reports">Print ALL Reports</PBButton>}
+        right={<PBButton command="print-all-reports">Print ALL Reports</PBButton>}
       />
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '4px 3px 3px', position: 'relative' }}>
         <PBTabs tabs={LAB_RESULTS_TABS} active={tab} onChange={setTab} compact>
@@ -209,9 +210,8 @@ function PatientLabDetailWindow({ onClose, onMatch, resultKey }: { onClose: () =
     <div className="pb-row" style={{ gap: 6 }}><Lbl w={62}>{label}</Lbl><b>{value}</b></div>
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60 }}>
-      <PBWindow child controls={false} title="Patient Lab Detail" onClose={onClose}
-        tutorialId="host.mois.dialog.patient-lab-detail" style={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
+    <ModalWindow id="patient-lab-detail" title="Patient Lab Detail" onClose={onClose} zIndex={60}
+      windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, gap: 3, padding: 3 }}>
           <div className="pb-row" style={{ gap: 4, alignItems: 'stretch', flex: 'none' }}>
             <div className="pb-groupbox" data-tutorial-id="host.mois.group.patient-data-from-lab-provider" style={{ flex: '1 1 auto' }}>
@@ -227,7 +227,7 @@ function PatientLabDetailWindow({ onClose, onMatch, resultKey }: { onClose: () =
               <PBBand>Matching Patient Chart Information</PBBand>
               <div style={{ padding: '4px 8px', whiteSpace: 'normal' }}>
                 {LAB_DETAIL.matchText.map((t) => <div key={t}>{t}</div>)}
-                <PBButton data-tutorial-id="host.mois.command.match-patient" style={{ marginTop: 6 }} onClick={onMatch}>Match Patient</PBButton>
+                <PBButton command="match-patient" style={{ marginTop: 6 }} onClick={onMatch}>Match Patient</PBButton>
               </div>
             </div>
           </div>
@@ -249,12 +249,11 @@ function PatientLabDetailWindow({ onClose, onMatch, resultKey }: { onClose: () =
                 </div>
               ))}
               <LabActivityPanel resultKey={resultKey} />
-              <PBButton data-tutorial-id="host.mois.command.close-window-esc" onClick={onClose}>Close Window (Esc)</PBButton>
+              <PBButton command="close-window-esc" onClick={onClose}>Close Window (Esc)</PBButton>
             </div>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -264,9 +263,8 @@ function ManualLabProcessingWindow({ onClose, onProcess, resultKey }: { onClose:
   /* the Activity record's "User match (manual) — Date, time, user" */
   const { add } = useLabActivity(resultKey)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 65 }}>
-      <PBWindow child controls={false} title="Manual Lab Result Processing" onClose={onClose}
-        tutorialId="host.mois.dialog.manual-lab-result-processing" style={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
+    <ModalWindow id="manual-lab-result-processing" title="Manual Lab Result Processing" onClose={onClose} zIndex={65}
+      windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: 4 }}>
           <div style={{ width: 252, flex: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div className="pb-groupbox" data-tutorial-id="host.mois.group.find-chart">
@@ -301,12 +299,11 @@ function ManualLabProcessingWindow({ onClose, onProcess, resultKey }: { onClose:
             <pre style={{ flex: '1 1 auto', margin: 0, background: '#fff', padding: 10, overflow: 'auto', fontSize: 11 }}>{MANUAL_LAB.report}</pre>
           </div>
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '4px 0 8px' }}>
-          <PBButton data-tutorial-id="host.mois.command.process-lab-report" onClick={() => { add({ kind: 'User Match', text: '' }); onProcess() }}>Process Lab Report</PBButton>
+        <DialogFooter fixed={false} gap={8} padding="4px 0 8px">
+          <PBButton command="process-lab-report" onClick={() => { add({ kind: 'User Match', text: '' }); onProcess() }}>Process Lab Report</PBButton>
           <PBButton onClick={onClose}>Cancel</PBButton>
-        </div>
-      </PBWindow>
-    </div>
+        </DialogFooter>
+    </ModalWindow>
   )
 }
 
@@ -345,8 +342,8 @@ export function InboxDistributionView() {
    window); then one row per interface: Interface Code (a drop-down of NHA,
    EXC, IHA, CDX), Interface User Name, Interface Password, Active. */
 export function SetupRegistrationView() {
-  const [rows, setRows] = useState(SETUP_REGISTRATION.rows)
-  const [cur, setCur] = useState(0)
+  const list = useRecordList(SETUP_REGISTRATION.rows)
+  const { rows, cur, setCur } = list
   const [dirty, setDirty] = useState(false)
   const [inbox, setInbox] = useState(SETUP_REGISTRATION.defaultInbox)
   const [changing, setChanging] = useState(false)
@@ -355,8 +352,8 @@ export function SetupRegistrationView() {
     <>
       <PBViewHeader title="Setup / Registration" />
       <PBCommandRow commands={[
-        { label: 'New Record', onClick: () => { setRows((r) => [...r, { code: 'NHA', user: '', password: '', active: true }]); setCur(rows.length); setDirty(true) } },
-        { label: 'Delete Record', onClick: () => { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0); setDirty(true) } },
+        { label: 'New Record', onClick: () => { list.add({ code: 'NHA', user: '', password: '', active: true }); setDirty(true) } },
+        { label: 'Delete Record', onClick: () => { list.remove(); setDirty(true) } },
         { label: 'Save', disabled: !dirty, onClick: () => setDirty(false) },
         { label: 'Close Window' },
       ]} />
@@ -364,7 +361,7 @@ export function SetupRegistrationView() {
       <RoutingPanes />
       <div className="pb-row" data-tutorial-id="host.mois.group.default-user-inbox" style={{ gap: 8, padding: '6px 10px', background: 'var(--pb-face)', borderBottom: '1px solid #888', flex: 'none' }}>
         <Lbl>Default User Inbox:</Lbl>
-        <PBInput w={170} readOnly value={inbox} style={{ background: '#e8e8e8' }} />
+        <ReadOnlyField w={170} value={inbox} />
         <button type="button" className="pb-link" data-tutorial-id="host.mois.command.change-default" onClick={() => setChanging(true)}>Change Default</button>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3, position: 'relative' }}>
@@ -379,7 +376,7 @@ export function SetupRegistrationView() {
               render: (r, i) => (i === cur && i >= SETUP_REGISTRATION.rows.length
                 ? (
                   <PBSelect w={140} options={SETUP_REGISTRATION.codes} value={r.code} data-tutorial-id="host.mois.field.interface-code"
-                    onChange={(e) => setRows((all) => all.map((x, j) => (j === i ? { ...x, code: e.target.value } : x)))} />
+                    onChange={(e) => list.edit(i, { code: e.target.value })} />
                 )
                 : r.code),
             },
@@ -389,9 +386,8 @@ export function SetupRegistrationView() {
           ]}
         />
         {changing && (
-          <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60 }}>
-            <PBWindow child controls={false} title="Default User Inbox" onClose={() => setChanging(false)}
-              tutorialId="host.mois.dialog.default-user-inbox" style={{ width: 330 }}>
+          <ModalWindow id="default-user-inbox" title="Default User Inbox" onClose={() => setChanging(false)} zIndex={60}
+            windowStyle={{ width: 330 }}>
               <div className="pb-groupbox" style={{ margin: 8 }}>
                 <PBBand>Select User Inbox</PBBand>
                 <div className="pb-row" style={{ gap: 6, padding: 6 }}>
@@ -402,12 +398,11 @@ export function SetupRegistrationView() {
                   {SETUP_REGISTRATION.inboxNote.map((t) => <div key={t} style={{ marginBottom: 6 }}>{t}</div>)}
                 </div>
               </div>
-              <div className="pb-row" style={{ justifyContent: 'center', gap: 10, paddingBottom: 10 }}>
-                <PBButton data-tutorial-id="host.mois.command.default-inbox-save" onClick={() => setChanging(false)}>Save</PBButton>
-                <PBButton data-tutorial-id="host.mois.command.default-inbox-cancel" onClick={() => setChanging(false)}>Cancel</PBButton>
-              </div>
-            </PBWindow>
-          </div>
+              <DialogFooter fixed={false} gap={10} style={{ paddingBottom: 10 }}>
+                <PBButton command="default-inbox-save" onClick={() => setChanging(false)}>Save</PBButton>
+                <PBButton command="default-inbox-cancel" onClick={() => setChanging(false)}>Cancel</PBButton>
+              </DialogFooter>
+          </ModalWindow>
         )}
       </div>
     </>

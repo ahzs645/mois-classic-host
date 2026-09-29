@@ -3,9 +3,10 @@ import { clinicListSpecs } from '../data/clinicManagement'
 import { DEACON_CHART_STATUSES, DEACON_FUNCTIONS, DEACON_GROUPS, DEACON_TITLE, type DeaconFunction } from '../data/deacon'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBButton, PBDataWindow, PBDropDownDataWindow, PBInput, PBSelect, PBWindow, pbSlug, usePBInstrumentation,
+  PBButton, PBDataWindow, PBDropDownDataWindow, PBInput, PBSelect, PBWindow, pbSlug,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ModalLayer } from './dialogKit'
 import { deaconRun } from '../data/billingPrograms'
 import { useUnsentSink } from './billingProgramsKit'
 
@@ -56,7 +57,6 @@ const providers = () => (clinicListSpecs.find((s) => s.node === 'ad-provider-lis
 export const deaconRowId = (f: DeaconFunction) => `deacon-${pbSlug(f.name)}`
 
 export function DeaconWindow({ close }: AreaWindowProps) {
-  const host = usePBInstrumentation()
   const [collapsed, setCollapsed] = useState(() => new Set(DEACON_GROUPS))
   const [cur, setCur] = useState(-1)
   const [params, setParams] = useState<Record<string, string>>({})
@@ -81,7 +81,7 @@ export function DeaconWindow({ close }: AreaWindowProps) {
   })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 75 }}>
+    <ModalLayer zIndex={75}>
       <PBWindow
         child
         controls={false}
@@ -177,9 +177,8 @@ export function DeaconWindow({ close }: AreaWindowProps) {
                 <PBButton
                   wide
                   disabled={!selected?.params}
-                  data-tutorial-id={host?.anchor('command', 'run')}
+                  command="run"
                   onClick={() => {
-                    host?.report('command', { command: 'run' })
                     const result = selected ? deaconRun(selected.name, params) : null
                     if (result && !result.ok) { setOutcome({ ok: false, message: result.message ?? '' }); return }
                     if (result) { sink(result.claims ?? []); setOutcome({ ok: true, message: result.message ?? '' }) }
@@ -211,8 +210,8 @@ export function DeaconWindow({ close }: AreaWindowProps) {
                 <PBButton
                   key={b}
                   className={b === 'Yes' ? 'pb-btn--default' : undefined}
-                  data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                  onClick={() => { host?.report('command', { command: pbSlug(b) }); setAsking(false); setRan(true) }}
+                  command={pbSlug(b)}
+                  onClick={() => { setAsking(false); setRan(true) }}
                 >
                   {b}
                 </PBButton>
@@ -233,8 +232,8 @@ export function DeaconWindow({ close }: AreaWindowProps) {
                 <PBButton
                   key={b}
                   className={b === 'No' ? 'pb-btn--default' : undefined}
-                  data-tutorial-id={host?.anchor('command', `deacon-confirm-${pbSlug(b)}`)}
-                  onClick={() => { host?.report('command', { command: `deacon-confirm-${pbSlug(b)}` }); setConfirming(false); if (b === 'Yes') setAsking(true) }}
+                  command={`deacon-confirm-${pbSlug(b)}`}
+                  onClick={() => { setConfirming(false); if (b === 'Yes') setAsking(true) }}
                 >
                   {b}
                 </PBButton>
@@ -251,12 +250,12 @@ export function DeaconWindow({ close }: AreaWindowProps) {
               <span className="pb-msgbox__text">{outcome.message}</span>
             </div>
             <div className="pb-msgbox__footer">
-              <PBButton className="pb-btn--default" data-tutorial-id={host?.anchor('command', 'deacon-error-ok')} onClick={() => setOutcome(null)}>OK</PBButton>
+              <PBButton className="pb-btn--default" command="deacon-error-ok" onClick={() => setOutcome(null)}>OK</PBButton>
             </div>
           </PBWindow>
         </div>
       )}
-    </div>
+    </ModalLayer>
   )
 }
 

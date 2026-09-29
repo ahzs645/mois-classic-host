@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroupBox, PBInput, PBSelect,
-  PBTabs, PBViewHeader, PBWindow, pbSlug,
+  PBTabs, PBViewHeader, pbSlug,
 } from '../pb'
 import {
   CDX, CDX_COMMAND_W, CDX_GLOSSARY, CDX_GRID, INBOUND_COLUMNS, INBOUND_COMMANDS,
@@ -17,6 +17,8 @@ import {
 } from '../data/cdxMessages'
 import { setTornOff, useTornOff } from '../data/exchangeStore'
 import { usePatient } from '../data/patient-context'
+import { ModalWindow } from './dialogKit'
+import { FormLine } from './formKit'
 
 /* ============================================================================
    CDX secure messaging: Inbound Messages, Outbound Messages, and the two
@@ -338,136 +340,130 @@ export function OutboundMessagesView({
 export function PatientMessageDetailWindow({ onClose }: { onClose?: () => void }) {
   const [cur, setCur] = useState(0)
   const stat = (label: string, value: string) => (
-    <div className="pb-row" key={label} style={{ gap: 6 }}>
-      <span className="pb-form__label" style={{ width: 74 }}>{label}</span>
-      <b>{value}</b>
-    </div>
+    <FormLine key={label} label={label} w={74} labelFlex={false}><b>{value}</b></FormLine>
   )
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Patient Message Detail"
-        onClose={onClose}
-        style={{ width: 'min(1004px, calc(100vw - 40px))', height: 'min(717px, calc(100vh - 60px))' }}
+    <ModalWindow
+      title="Patient Message Detail"
+      onClose={() => onClose?.()}
+      zIndex={80}
+      windowStyle={{ width: 'min(1004px, calc(100vw - 40px))', height: 'min(717px, calc(100vh - 60px))' }}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.patient-message-detail"
+        style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}
       >
-        <div
-          data-tutorial-id="host.mois.dialog.patient-message-detail"
-          style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minWidth: 0, gap: 4, padding: 5 }}>
-            <div className="pb-row" style={{ gap: 6, alignItems: 'stretch' }}>
-              <PBGroupBox title="Patient Data From Message" style={{ flex: '1 1 auto' }}>
-                {stat('Patient:', MESSAGE_DETAIL_PATIENT.patient)}
-                {stat('DOB:', MESSAGE_DETAIL_PATIENT.dob)}
-                {stat('Sex:', MESSAGE_DETAIL_PATIENT.sex)}
-                {stat('Insurance:', MESSAGE_DETAIL_PATIENT.insurance)}
-                {/* the identifier sub-panel: one row per scheme */}
-                <div style={{ border: '1px solid #b6b6b6', marginTop: 4, padding: '2px 4px' }}>
-                  {MESSAGE_DETAIL_PATIENT.identifiers.map((id) => (
-                    <div className="pb-row" key={id.scheme} style={{ gap: 6 }}>
-                      <span className="pb-form__label" style={{ width: 62 }}>{id.scheme}</span>
-                      <b>{id.value}</b>
-                    </div>
-                  ))}
-                </div>
-              </PBGroupBox>
-
-              <PBGroupBox title="Matching Patient Chart Information" style={{ flex: '1 1 auto' }}>
-                <div style={{ whiteSpace: 'normal', lineHeight: 1.35, marginBottom: 6 }}>
-                  {MESSAGE_DETAIL_MATCH_TEXT}
-                </div>
-                <PBButton data-tutorial-id="host.mois.command.match-patient">Match Patient</PBButton>
-              </PBGroupBox>
-            </div>
-
-            <div className="pb-groupbox" style={{ flex: 'none', height: 110, display: 'flex', flexDirection: 'column' }}>
-              <PBBand>Messages</PBBand>
-              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-              <PBDataWindow
-                rows={MESSAGE_DETAIL_ROWS}
-                current={cur}
-                onCurrentChange={setCur}
-                style={gridStyle}
-                flush
-                columns={columns(MESSAGE_DETAIL_COLUMNS, (c, row) => (
-                  c.key === 'docType'
-                    ? (
-                      <span data-tutorial-id={`host.mois.cell.doc-type-${pbSlug(String(row.facilityRef))}`}>
-                        {String(row[c.key] ?? '')}
-                      </span>
-                    )
-                    : String(row[c.key] ?? '')
+        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minWidth: 0, gap: 4, padding: 5 }}>
+          <div className="pb-row" style={{ gap: 6, alignItems: 'stretch' }}>
+            <PBGroupBox title="Patient Data From Message" style={{ flex: '1 1 auto' }}>
+              {stat('Patient:', MESSAGE_DETAIL_PATIENT.patient)}
+              {stat('DOB:', MESSAGE_DETAIL_PATIENT.dob)}
+              {stat('Sex:', MESSAGE_DETAIL_PATIENT.sex)}
+              {stat('Insurance:', MESSAGE_DETAIL_PATIENT.insurance)}
+              {/* the identifier sub-panel: one row per scheme */}
+              <div style={{ border: '1px solid #b6b6b6', marginTop: 4, padding: '2px 4px' }}>
+                {MESSAGE_DETAIL_PATIENT.identifiers.map((id) => (
+                  <div className="pb-row" key={id.scheme} style={{ gap: 6 }}>
+                    <span className="pb-form__label" style={{ width: 62 }}>{id.scheme}</span>
+                    <b>{id.value}</b>
+                  </div>
                 ))}
-              />
               </div>
-            </div>
+            </PBGroupBox>
 
-            {/* --- the CDX print preview: #3196bd row headers, white bold
-                text, over #efefef value cells with navy text ------------- */}
-            <div className="pb-groupbox" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              <PBBand>Detail</PBBand>
-              <div data-tutorial-id="host.mois.field.cdx-preview" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff' }}>
-                <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
-                  <tbody>
-                    {MESSAGE_DETAIL_PREVIEW.map((r) => (
-                      <tr key={r.label}>
-                        <th
-                          style={{
-                            width: 150,
-                            background: CDX.previewHead,
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            textAlign: 'left',
-                            padding: '2px 6px',
-                            border: '1px solid #ffffff',
-                          }}
-                        >
-                          {r.label}
-                        </th>
-                        <td
-                          style={{
-                            background: CDX.previewCell,
-                            color: '#000080',
-                            padding: '2px 6px',
-                            border: '1px solid #ffffff',
-                            whiteSpace: 'normal',
-                          }}
-                        >
-                          {r.value}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <PBGroupBox title="Matching Patient Chart Information" style={{ flex: '1 1 auto' }}>
+              <div style={{ whiteSpace: 'normal', lineHeight: 1.35, marginBottom: 6 }}>
+                {MESSAGE_DETAIL_MATCH_TEXT}
               </div>
+              <PBButton command="match-patient">Match Patient</PBButton>
+            </PBGroupBox>
+          </div>
+
+          <div className="pb-groupbox" style={{ flex: 'none', height: 110, display: 'flex', flexDirection: 'column' }}>
+            <PBBand>Messages</PBBand>
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            <PBDataWindow
+              rows={MESSAGE_DETAIL_ROWS}
+              current={cur}
+              onCurrentChange={setCur}
+              style={gridStyle}
+              flush
+              columns={columns(MESSAGE_DETAIL_COLUMNS, (c, row) => (
+                c.key === 'docType'
+                  ? (
+                    <span data-tutorial-id={`host.mois.cell.doc-type-${pbSlug(String(row.facilityRef))}`}>
+                      {String(row[c.key] ?? '')}
+                    </span>
+                  )
+                  : String(row[c.key] ?? '')
+              ))}
+            />
             </div>
           </div>
 
-          {/* --- right rail: Actions ---------------------------------- */}
-          <div
-            data-tutorial-id="host.mois.group.actions"
-            style={{ width: 240, flex: 'none', padding: '5px 6px 5px 0', display: 'flex', flexDirection: 'column', gap: 6 }}
-          >
-            <span className="pb-form__label">Actions:</span>
-            {MESSAGE_DETAIL_ACTIONS.map((a) => (
-              <button
-                key={a}
-                className="pb-link"
-                data-tutorial-id={`host.mois.command.${pbSlug(a.split(' ')[0]!)}`}
-                style={{ textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.3 }}
-              >
-                {a}
-              </button>
-            ))}
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton onClick={onClose} data-tutorial-id="host.mois.command.close-window">Close Window</PBButton>
+          {/* --- the CDX print preview: #3196bd row headers, white bold
+              text, over #efefef value cells with navy text ------------- */}
+          <div className="pb-groupbox" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <PBBand>Detail</PBBand>
+            <div data-tutorial-id="host.mois.field.cdx-preview" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
+                <tbody>
+                  {MESSAGE_DETAIL_PREVIEW.map((r) => (
+                    <tr key={r.label}>
+                      <th
+                        style={{
+                          width: 150,
+                          background: CDX.previewHead,
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          textAlign: 'left',
+                          padding: '2px 6px',
+                          border: '1px solid #ffffff',
+                        }}
+                      >
+                        {r.label}
+                      </th>
+                      <td
+                        style={{
+                          background: CDX.previewCell,
+                          color: '#000080',
+                          padding: '2px 6px',
+                          border: '1px solid #ffffff',
+                          whiteSpace: 'normal',
+                        }}
+                      >
+                        {r.value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </PBWindow>
-    </div>
+
+        {/* --- right rail: Actions ---------------------------------- */}
+        <div
+          data-tutorial-id="host.mois.group.actions"
+          style={{ width: 240, flex: 'none', padding: '5px 6px 5px 0', display: 'flex', flexDirection: 'column', gap: 6 }}
+        >
+          <span className="pb-form__label">Actions:</span>
+          {MESSAGE_DETAIL_ACTIONS.map((a) => (
+            <button
+              key={a}
+              className="pb-link"
+              data-tutorial-id={`host.mois.command.${pbSlug(a.split(' ')[0]!)}`}
+              style={{ textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.3 }}
+            >
+              {a}
+            </button>
+          ))}
+          <span style={{ flex: '1 1 auto' }} />
+          <PBButton onClick={onClose} command="close-window">Close Window</PBButton>
+        </div>
+      </div>
+    </ModalWindow>
   )
 }
 
@@ -510,104 +506,102 @@ export function RecordNavigatorWindow({ onClose, onOpenRecord }: {
   return (
     /* 303507: "Keeping the Record Navigator open beside the patient's chart"
        — so it stands at the right of the desktop, not over the chart's grid */
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85, placeItems: 'center end', paddingRight: 8, pointerEvents: 'none' }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Record Navigator"
-        onClose={onClose}
-        style={{ width: 'min(600px, calc(100vw - 40px))', height: 'min(706px, calc(100vh - 60px))', pointerEvents: 'auto' }}
+    <ModalWindow
+      title="Record Navigator"
+      onClose={() => onClose?.()}
+      zIndex={85}
+      layerStyle={{ placeItems: 'center end', paddingRight: 8, pointerEvents: 'none' }}
+      windowStyle={{ width: 'min(600px, calc(100vw - 40px))', height: 'min(706px, calc(100vh - 60px))', pointerEvents: 'auto' }}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.record-navigator"
+        style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
       >
-        <div
-          data-tutorial-id="host.mois.dialog.record-navigator"
-          style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
-        >
-        <div className="pb-row" style={{ gap: 12, padding: '4px 6px', flex: 'none' }}>
-          <button className="pb-link" data-tutorial-id="host.mois.command.expand-all" onClick={() => setCollapsed(new Set())}>
-            Expand All
-          </button>
-          <button className="pb-link" data-tutorial-id="host.mois.command.collapse-all" onClick={() => setCollapsed(new Set(patients))}>
-            Collapse All
-          </button>
-        </div>
+      <div className="pb-row" style={{ gap: 12, padding: '4px 6px', flex: 'none' }}>
+        <button className="pb-link" data-tutorial-id="host.mois.command.expand-all" onClick={() => setCollapsed(new Set())}>
+          Expand All
+        </button>
+        <button className="pb-link" data-tutorial-id="host.mois.command.collapse-all" onClick={() => setCollapsed(new Set(patients))}>
+          Collapse All
+        </button>
+      </div>
 
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 5px' }}>
-          <PBDataWindow
-            rows={rows}
-            current={cur}
-            onCurrentChange={setCur}
-            groupBy={(r: NavigatorRecord) => r.patient}
-            groupLabel={(patient, rows) => `${patient} [${rows.length}]`}
-            groupTutorialId={(patient) => `host.mois.group.${pbSlug(patient)}`}
-            collapsed={collapsed}
-            onCollapsedChange={setCollapsed}
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 5px' }}>
+        <PBDataWindow
+          rows={rows}
+          current={cur}
+          onCurrentChange={setCur}
+          groupBy={(r: NavigatorRecord) => r.patient}
+          groupLabel={(patient, rows) => `${patient} [${rows.length}]`}
+          groupTutorialId={(patient) => `host.mois.group.${pbSlug(patient)}`}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          style={{
+            /* header #d6d3ce, patient bands (222,235,255), child rows
+               alternating (239,235,239) with white, selected (247,199,189) */
+            ['--pb-dw-header' as string]: '#d6d3ce',
+            ['--pb-dw-group' as string]: CDX.navGroup,
+            ['--pb-dw-row-alt' as string]: CDX.navRowAlt,
+            ['--pb-dw-select' as string]: CDX.navSelect,
+          }}
+          columns={RECORD_NAVIGATOR_COLUMNS.map((c) => ({
+            key: c.key,
+            header: c.header,
+            width: c.width,
+            align: c.align,
+            render: c.key === 'description'
+              ? (r: NavigatorRecord) => (
+                <span
+                  data-tutorial-id={`host.mois.cell.description-${pbSlug(r.description)}`}
+                  onClick={pap && RECORD_FOLDER[r.type] ? () => onOpenRecord?.(RECORD_FOLDER[r.type]!) : undefined}
+                >
+                  {r.description}
+                </span>
+              )
+              : undefined,
+          }))}
+        />
+      </div>
+
+      <div style={{ flex: 'none', padding: 5, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <PBGroupBox title="Messages">
+          <div className="pb-row" style={{ gap: 6 }} data-tutorial-id="host.mois.field.navigator-message">
+            {pap ? (
+              /* an error, not a warning: the red circle in ed8af8c2 */
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="8" cy="8" r="7" fill="#d33" />
+                <path d="M5 5l6 6M11 5l-6 6" stroke="#fff" strokeWidth="1.8" />
+              </svg>
+            ) : (
+              <svg width="14" height="13" viewBox="0 0 16 15" aria-hidden="true">
+                <path d="M8 1l7 13H1z" fill="#f2c200" stroke="#b08c00" />
+                <path d="M7.2 5.5h1.6v5H7.2z" fill="#3a2f00" />
+                <circle cx="8" cy="12" r="1" fill="#3a2f00" />
+              </svg>
+            )}
+            <span>{pap ? PAP_NAVIGATOR.message : RECORD_NAVIGATOR_MESSAGE}</span>
+          </div>
+        </PBGroupBox>
+
+        <div className="pb-groupbox">
+          <PBBand>Report</PBBand>
+          <div
+            data-tutorial-id="host.mois.field.navigator-report"
             style={{
-              /* header #d6d3ce, patient bands (222,235,255), child rows
-                 alternating (239,235,239) with white, selected (247,199,189) */
-              ['--pb-dw-header' as string]: '#d6d3ce',
-              ['--pb-dw-group' as string]: CDX.navGroup,
-              ['--pb-dw-row-alt' as string]: CDX.navRowAlt,
-              ['--pb-dw-select' as string]: CDX.navSelect,
+              height: 130,
+              overflow: 'auto',
+              background: '#fff',
+              padding: '4px 8px',
+              fontFamily: 'var(--pb-font-mono)',
+              fontSize: 11,
+              whiteSpace: 'pre',
             }}
-            columns={RECORD_NAVIGATOR_COLUMNS.map((c) => ({
-              key: c.key,
-              header: c.header,
-              width: c.width,
-              align: c.align,
-              render: c.key === 'description'
-                ? (r: NavigatorRecord) => (
-                  <span
-                    data-tutorial-id={`host.mois.cell.description-${pbSlug(r.description)}`}
-                    onClick={pap && RECORD_FOLDER[r.type] ? () => onOpenRecord?.(RECORD_FOLDER[r.type]!) : undefined}
-                  >
-                    {r.description}
-                  </span>
-                )
-                : undefined,
-            }))}
-          />
-        </div>
-
-        <div style={{ flex: 'none', padding: 5, display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <PBGroupBox title="Messages">
-            <div className="pb-row" style={{ gap: 6 }} data-tutorial-id="host.mois.field.navigator-message">
-              {pap ? (
-                /* an error, not a warning: the red circle in ed8af8c2 */
-                <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="8" cy="8" r="7" fill="#d33" />
-                  <path d="M5 5l6 6M11 5l-6 6" stroke="#fff" strokeWidth="1.8" />
-                </svg>
-              ) : (
-                <svg width="14" height="13" viewBox="0 0 16 15" aria-hidden="true">
-                  <path d="M8 1l7 13H1z" fill="#f2c200" stroke="#b08c00" />
-                  <path d="M7.2 5.5h1.6v5H7.2z" fill="#3a2f00" />
-                  <circle cx="8" cy="12" r="1" fill="#3a2f00" />
-                </svg>
-              )}
-              <span>{pap ? PAP_NAVIGATOR.message : RECORD_NAVIGATOR_MESSAGE}</span>
-            </div>
-          </PBGroupBox>
-
-          <div className="pb-groupbox">
-            <PBBand>Report</PBBand>
-            <div
-              data-tutorial-id="host.mois.field.navigator-report"
-              style={{
-                height: 130,
-                overflow: 'auto',
-                background: '#fff',
-                padding: '4px 8px',
-                fontFamily: 'var(--pb-font-mono)',
-                fontSize: 11,
-                whiteSpace: 'pre',
-              }}
-            >
-              {pap ? PAP_NAVIGATOR.report : RECORD_NAVIGATOR_REPORT}
-            </div>
+          >
+            {pap ? PAP_NAVIGATOR.report : RECORD_NAVIGATOR_REPORT}
           </div>
         </div>
-        </div>
-      </PBWindow>
-    </div>
+      </div>
+      </div>
+    </ModalWindow>
   )
 }

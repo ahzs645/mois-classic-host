@@ -11,10 +11,12 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBIdentityStrip, PBInput, PBLookup,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput, PBLookup,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation, type PBColumn,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { useColumnFilters } from './listKit'
+import { ChartIdentityStrip } from './patientKit'
 
 /* ============================================================================
    Patient Chart ▸ Determinants of Health — four tabs, each opening on its
@@ -153,15 +155,7 @@ export function DeterminantsView() {
           { label: 'Refresh' },
         ]}
       />
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
+      <ChartIdentityStrip />
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
         <PBTabs tabs={DETERMINANT_TABS} active={tab} onChange={(t) => setTab(t as DeterminantTab)} compact>
@@ -169,7 +163,7 @@ export function DeterminantsView() {
             {/* the status panel */}
             <div style={{ flex: 'none', border: '1px solid var(--pb-border)', margin: '0 0 2px', background: '#fff' }}>
               <div className="pb-row" style={{ gap: 6, padding: '2px 4px', background: 'var(--pb-face)', borderBottom: '1px solid var(--pb-border)' }}>
-                <PBButton size="sm" style={{ minWidth: 64 }} {...command('determinants-update', () => open('determinant-panel', { tab }))}>Update</PBButton>
+                <PBButton size="sm" style={{ minWidth: 64 }} command="determinants-update" onClick={() => open('determinant-panel', { tab })}>Update</PBButton>
                 <b>{cfg.band}</b>
                 <span className="pb-row__spacer" />
                 <button type="button" className="pb-link" {...command('determinants-trend', () => open('determinant-trend', { tab }))}>Trend</button>
@@ -249,12 +243,12 @@ type TabProps = {
   command: Command
 }
 
-function HistoryBand({ title, onNew, onDelete, command, id }: { title: string; onNew: () => void; onDelete: () => void; command: Command; id: string }) {
+function HistoryBand({ title, onNew, onDelete, id }: { title: string; onNew: () => void; onDelete: () => void; id: string }) {
   return (
     <div className="pb-row" style={{ gap: 0, flex: 'none', padding: '0 0 0 4px', height: 24, background: 'linear-gradient(#e4e0dc, #d6d1cc)', borderTop: '1px solid var(--pb-border)', borderBottom: '1px solid var(--pb-border)' }}>
       <b style={{ flex: '1 1 auto' }}>{title}</b>
-      <PBButton style={{ minWidth: 52, height: 23 }} {...command(`${id}-new`, onNew)}>New</PBButton>
-      <PBButton style={{ minWidth: 52, height: 23 }} {...command(`${id}-delete`, onDelete)}>Delete</PBButton>
+      <PBButton style={{ minWidth: 52, height: 23 }} command={`${id}-new`} onClick={() => onNew()}>New</PBButton>
+      <PBButton style={{ minWidth: 52, height: 23 }} command={`${id}-delete`} onClick={() => onDelete()}>Delete</PBButton>
     </div>
   )
 }
@@ -280,8 +274,10 @@ function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, command, filt
   filters: Record<string, string>; setFilter: (k: string, v: string) => void
   onPick: (key: string, field: string, list: string) => void
 }) {
-  const shown = rows.filter((r) => (r.occupation ?? '').toUpperCase().includes((filters.occupation ?? '').toUpperCase())
-    && (r.company ?? '').toUpperCase().includes((filters.company ?? '').toUpperCase()))
+  const { shown, box } = useColumnFilters(rows, [
+    { key: 'occupation', w: 276, anchor: 'employment-search-occupation' },
+    { key: 'company', w: 148, anchor: 'employment-search-company' },
+  ], { match: 'upper', state: [filters, setFilter] })
   const row = shown[Math.min(cur, shown.length - 1)]
   const at = Math.max(0, Math.min(cur, shown.length - 1))
   const total = rows.filter((r) => !r.end).reduce((sum, r) => sum + (Number(r.hrs) || 0), 0)
@@ -303,12 +299,12 @@ function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, command, filt
   ]
   return (
     <>
-      <HistoryBand title="Employment History" onNew={onNew} onDelete={onDelete} command={command} id="employment" />
+      <HistoryBand title="Employment History" onNew={onNew} onDelete={onDelete} id="employment" />
       <div className="pb-row" style={{ gap: 0, padding: '3px 0', flex: 'none' }}>
         <span style={{ width: 186 }} />
-        <PBInput w={276} value={filters.occupation ?? ''} data-tutorial-id="host.mois.field.employment-search-occupation" onChange={(e) => setFilter('occupation', e.target.value)} />
+        {box('occupation')}
         <span style={{ width: 106 }} />
-        <PBInput w={148} value={filters.company ?? ''} data-tutorial-id="host.mois.field.employment-search-company" onChange={(e) => setFilter('company', e.target.value)} />
+        {box('company')}
       </div>
       <div style={{ height: 150, flex: 'none', display: 'flex', padding: '0 2px' }}>
         <PBDataWindow flush columns={columns} rows={shown} current={at} onCurrentChange={setCur} rowTutorialId={(_r, i) => `host.mois.row.employment-${i}`} empty="" />
@@ -348,8 +344,10 @@ function EducationTab({ rows, cur, setCur, edit, onNew, onDelete, command, filte
   filters: Record<string, string>; setFilter: (k: string, v: string) => void
   onPick: (key: string, field: string, list: string) => void
 }) {
-  const shown = rows.filter((r) => (r.institution ?? '').toUpperCase().includes((filters.institution ?? '').toUpperCase())
-    && (r.level ?? '').toUpperCase().includes((filters.level ?? '').toUpperCase()))
+  const { shown, box } = useColumnFilters(rows, [
+    { key: 'institution', w: 276, anchor: 'education-search-institution' },
+    { key: 'level', w: 196, anchor: 'education-search-level' },
+  ], { match: 'upper', state: [filters, setFilter] })
   const at = Math.max(0, Math.min(cur, shown.length - 1))
   const row = shown[at]
   const bind = (field: string) => ({
@@ -372,12 +370,12 @@ function EducationTab({ rows, cur, setCur, edit, onNew, onDelete, command, filte
   ]
   return (
     <>
-      <HistoryBand title="Education History" onNew={onNew} onDelete={onDelete} command={command} id="education" />
+      <HistoryBand title="Education History" onNew={onNew} onDelete={onDelete} id="education" />
       <div className="pb-row" style={{ gap: 0, padding: '3px 0', flex: 'none' }}>
         <span style={{ width: 164 }} />
-        <PBInput w={276} value={filters.institution ?? ''} data-tutorial-id="host.mois.field.education-search-institution" onChange={(e) => setFilter('institution', e.target.value)} />
+        {box('institution')}
         <span style={{ width: 18 }} />
-        <PBInput w={196} value={filters.level ?? ''} data-tutorial-id="host.mois.field.education-search-level" onChange={(e) => setFilter('level', e.target.value)} />
+        {box('level')}
       </div>
       <div style={{ height: 222, flex: 'none', display: 'flex', padding: '0 2px' }}>
         <PBDataWindow flush columns={columns} rows={shown} current={at} onCurrentChange={setCur} rowTutorialId={(_r, i) => `host.mois.row.education-${i}`} empty="" />
@@ -420,7 +418,7 @@ function EducationTab({ rows, cur, setCur, edit, onNew, onDelete, command, filte
 
 /* --- Housing --------------------------------------------------------------- */
 
-function HousingTab({ rows, cur, setCur, edit, onNew, onDelete, command }: TabProps) {
+function HousingTab({ rows, cur, setCur, edit, onNew, onDelete }: TabProps) {
   const patient = usePatient()
   const at = Math.max(0, Math.min(cur, rows.length - 1))
   const row = rows[at]
@@ -467,7 +465,7 @@ function HousingTab({ rows, cur, setCur, edit, onNew, onDelete, command }: TabPr
           </div>
         </div>
       </div>
-      <HistoryBand title="Who Lives with Me" onNew={onNew} onDelete={onDelete} command={command} id="occupants" />
+      <HistoryBand title="Who Lives with Me" onNew={onNew} onDelete={onDelete} id="occupants" />
       <div style={{ flex: '1 1 auto', minHeight: 160, display: 'flex', padding: '0 2px 2px' }}>
         <PBDataWindow flush columns={columns} rows={rows} current={at} onCurrentChange={setCur} rowTutorialId={(_r, i) => `host.mois.row.occupant-${i}`} empty="" />
       </div>

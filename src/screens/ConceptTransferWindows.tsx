@@ -4,6 +4,7 @@ import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { CentredFooter, Cmd, Line } from './adminKit'
 import { DemographicModal } from './DemographicDialogs'
+import { SelectAllPair, useTickSet } from './listKit'
 import { StageMessageBox } from './StageWindow'
 
 /* ============================================================================
@@ -77,7 +78,7 @@ export function ConceptTransfer({ mode, concepts, onImported, onClose }: {
   const [exported, setExported] = useSessionState<ConceptFile[]>(EXPORTED_KEY, [])
   const [step, setStep] = useState<'pick' | 'list' | 'save' | 'done'>(mode === 'import' ? 'pick' : 'list')
   const [file, setFile] = useState<ConceptFile | null>(null)
-  const [picked, setPicked] = useState<Set<number>>(new Set())
+  const picked = useTickSet()
   const [message, setMessage] = useState('')
   const exists = (r: ConceptRow) => concepts.some((x) => x.group === r.group && x.concept === r.concept)
   const listed = mode === 'import' ? file?.concepts ?? [] : concepts
@@ -92,7 +93,7 @@ export function ConceptTransfer({ mode, concepts, onImported, onClose }: {
           const f = [...FOLDER_FILES, ...exported].find((x) => x.name === name)
           if (!f) return
           setFile(f)
-          setPicked(new Set(f.concepts.map((r, i) => (exists(r) ? -1 : i)).filter((i) => i >= 0)))
+          picked.selectAll(f.concepts.map((r, i) => (exists(r) ? -1 : i)).filter((i) => i >= 0))
           setStep('list')
         }}
         onClose={onClose}
@@ -144,7 +145,7 @@ export function ConceptTransfer({ mode, concepts, onImported, onClose }: {
                 <PBCheckbox
                   checked={picked.has(i)}
                   disabled={mode === 'import' && exists(r)}
-                  onChange={(v) => setPicked((p) => { const n = new Set(p); if (v) n.add(i); else n.delete(i); return n })}
+                  onChange={(v) => picked.set(i, v)}
                   tutorialId={`host.mois.field.select-concept-${pbSlug(String(r.concept ?? ''))}`}
                 />
               ),
@@ -158,8 +159,9 @@ export function ConceptTransfer({ mode, concepts, onImported, onClose }: {
         />
       </div>
       <div className="pb-row" style={{ padding: '8px 10px', gap: 8, flex: 'none' }}>
-        <Cmd id="select-all" w={80} onClick={() => setPicked(new Set(listed.map((r, i) => (mode === 'import' && exists(r) ? -1 : i)).filter((i) => i >= 0)))}>Select All</Cmd>
-        <Cmd id="unselect-all" w={80} onClick={() => setPicked(new Set())}>Unselect All</Cmd>
+        <SelectAllPair as="cmd" ids={['select-all', 'unselect-all']} width={80}
+          onSelectAll={() => picked.selectAll(listed.map((r, i) => (mode === 'import' && exists(r) ? -1 : i)).filter((i) => i >= 0))}
+          onUnselectAll={picked.clear} />
         <span style={{ flex: '1 1 auto' }} />
         {mode === 'import'
           ? <Cmd id="import" w={88} disabled={!picked.size} onClick={() => {

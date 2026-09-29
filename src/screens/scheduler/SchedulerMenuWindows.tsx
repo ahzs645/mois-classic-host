@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBTextArea, PBWindow, pbSlug,
+  PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBTextArea, pbSlug,
   usePBInstrumentation,
 } from '../../pb'
 import { daybookProviders } from '../../data/mois'
@@ -8,12 +8,17 @@ import {
   currentRow, dayRows, offsetOfStamp, schedulerBridge, schedulerStore, stampOf, useSchedulerStore, type DayRow,
 } from '../../data/schedulerStore'
 import { CHART_SUMMARIES, schedulerExtras, useSchedulerExtras } from '../../data/schedulerExtras'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
+import { argStr as str } from '../../data/text'
 import { useWorkspaceStore } from '../../data/workspaceStore'
 import { useScreenReport } from '../../host/screen-state'
 import { MasterProviderListDialog } from '../MasterProviderListDialog'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { RaisedMessageBox } from '../RaisedMessageBox'
+import { ModalWindow } from '../dialogKit'
+import { SectionCaption } from '../formKit'
+import { useTickSet } from '../listKit'
 
 /* ============================================================================
    The Scheduler's menu and day-book-form windows that are not a booking.
@@ -58,14 +63,12 @@ import { RaisedMessageBox } from '../RaisedMessageBox'
                             INFERRED chooser.
    ========================================================================= */
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 /* --- Summary All Visit -------------------------------------------------------- */
 type VisitLine = DayRow & { date: string; provider: string; offset: number; patient: string }
 
 function SummaryAllVisit({ close }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const here = s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
+  const here = s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' }
   const selected = currentRow(s)
   const lines = useMemo(() => {
     const out: VisitLine[] = []
@@ -129,7 +132,7 @@ function SummaryAllVisit({ close }: AreaWindowProps) {
 
 /* --- Print Encounter (the Scheduler's) ------------------------------------------ */
 const Caption = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: '#000080', fontWeight: 700, padding: '5px 10px 3px', borderBottom: '1px solid #a0a0a0', boxShadow: '0 1px 0 #fff' }}>{children}</div>
+  <SectionCaption padding="5px 10px 3px" style={{ boxShadow: '0 1px 0 #fff' }}>{children}</SectionCaption>
 )
 
 function SchedulerPrintEncounter({ close, open }: AreaWindowProps) {
@@ -176,8 +179,7 @@ function SchedulerPrintEncounter({ close, open }: AreaWindowProps) {
     open('print-preview', { title: option === 'offset' ? 'Encounter Note' : 'Cumulative Progress Notes', pages: [page], bare: true })
   }
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 88 }}>
-      <PBWindow child controls={false} tutorialId="host.mois.dialog.scheduler-print-encounter" title="Print Encounter Note" onClose={close} style={{ width: 'min(360px, 100%)' }}>
+    <ModalWindow id="scheduler-print-encounter" title="Print Encounter Note" onClose={close} zIndex={88} windowStyle={{ width: 'min(360px, 100%)' }}>
         <div style={{ padding: '14px 12px 0' }} onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); print() } }}>
           <div style={{ border: '1px solid #a0a0a0', boxShadow: 'inset 1px 1px 0 #fff', paddingBottom: 18 }}>
             <Caption>Print Type</Caption>
@@ -198,8 +200,7 @@ function SchedulerPrintEncounter({ close, open }: AreaWindowProps) {
           <DialogButton id="sched-print-encounter-print" width={74} onClick={print} isDefault>Print (F2)</DialogButton>
           <DialogButton id="sched-print-encounter-cancel" width={74} onClick={close}>Cancel</DialogButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -271,7 +272,7 @@ const RESPONSES = ['CONFIRMED', 'CONFIRMED', 'OTHER', 'CANCELED', 'CONFIRMED', '
 
 function DaybookCallList({ close, open }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const here = s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
+  const here = s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' }
   const date = stampOf(here.offset)
   const form = schedulerExtras.daybookForm(here.provider, here.offset)
   const rows = dayRows(s, here.provider, here.offset)
@@ -283,7 +284,7 @@ function DaybookCallList({ close, open }: AreaWindowProps) {
       response: form.noCallList ? '' : RESPONSES[i % RESPONSES.length]!,
     }))
   const [cur, setCur] = useState(0)
-  const [acked, setAcked] = useState<Set<string>>(new Set())
+  const acked = useTickSet<string>()
   const [excluded, setExcluded] = useState(true)
   useScreenReport({ acknowledged: acked.size })
   const current = rows[cur]
@@ -304,7 +305,7 @@ function DaybookCallList({ close, open }: AreaWindowProps) {
         <PBCheckbox label="Show Excluded" checked={excluded} onChange={setExcluded} />
         <DialogButton id="call-list-open-chart" width={84} onClick={() => { close(); schedulerBridge().openNode?.('encounters') }}>Open Chart</DialogButton>
         <DialogButton id="call-list-create-task" width={84} onClick={() => { if (current) open('create-task', { chart: current.chart, patient: `${current.last}, ${current.first}` }) }}>Create Task</DialogButton>
-        <DialogButton id="call-list-ack-all" width={84} onClick={() => setAcked(new Set(rows.map((r) => r.key)))}>Ack. All</DialogButton>
+        <DialogButton id="call-list-ack-all" width={84} onClick={() => acked.selectAll(rows.map((r) => r.key))}>Ack. All</DialogButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '0 4px 4px' }}>
         <PBDataWindow
@@ -325,7 +326,7 @@ function DaybookCallList({ close, open }: AreaWindowProps) {
             {
               key: 'ack', header: 'Acknowledge', width: 76, align: 'center',
               render: (r) => (
-                <PBCheckbox checked={acked.has(r.key)} onChange={(on) => setAcked((x) => { const n = new Set(x); on ? n.add(r.key) : n.delete(r.key); return n })} />
+                <PBCheckbox checked={acked.has(r.key)} onChange={(on) => acked.set(r.key, on)} />
               ),
             },
           ]}
@@ -339,7 +340,7 @@ function DaybookCallList({ close, open }: AreaWindowProps) {
 /* --- Day Book Comment (see more) -------------------------------------------------- */
 function DaybookComment({ close }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const here = s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
+  const here = s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' }
   const [text, setText] = useState(() => schedulerExtras.daybookForm(here.provider, here.offset).comment)
   const save = () => { schedulerExtras.setDaybookForm(here.provider, here.offset, { comment: text }); schedulerExtras.done('daybook-comment-saved'); close() }
   return (

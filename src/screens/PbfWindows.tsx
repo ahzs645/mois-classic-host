@@ -12,6 +12,7 @@ import {
 } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { Ask, Dim, PanelBand, ScreenDialog } from './billingProgramsKit'
+import { FormLine, ReadOnlyField } from './formKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -77,17 +78,11 @@ const PROVIDERS = [...DOCTORS, 'PRACTITIONER, GENERAL']
 const lbl: CSSProperties = { color: '#6d6d6d' }
 const box: CSSProperties = { background: '#fff', border: '1px solid #a0a0a0', display: 'flex', flexDirection: 'column', minHeight: 0 }
 
-function Row({ label, children, w = 92, style }: { label: ReactNode; children: ReactNode; w?: number; style?: CSSProperties }) {
-  return (
-    <div className="pb-row" style={{ gap: 6, padding: '2px 0', ...style }}>
-      <span style={{ ...lbl, width: w, flex: 'none' }}>{label}</span>
-      {children}
-    </div>
-  )
-}
-const RO = ({ value, w = 110, bold }: { value: string; w?: number | string; bold?: boolean }) => (
-  <PBInput w={w} readOnly value={value} style={{ background: '#e8e8e8', fontWeight: bold ? 700 : undefined }} />
+const Row = ({ label, children, w = 92, style }: { label: ReactNode; children: ReactNode; w?: number; style?: CSSProperties }) => (
+  <FormLine label={label} w={w} padding="2px 0" labelClass={false} labelColor="#6d6d6d" style={style}>{children}</FormLine>
 )
+/** the grey read-only box MOIS fills itself */
+const RO = ReadOnlyField
 
 /** Renders whichever PBF screen window is open. Every PBF folder screen
     mounts it, so a window opened by id reaches the screen on display. */

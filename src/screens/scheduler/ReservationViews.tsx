@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, PBViewHeader, PBWindow, PBButton,
+  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, PBViewHeader, PBButton,
 } from '../../pb'
 import { RESOURCES } from '../../data/daybook'
 import { BLOCK_CODES, schedulableProviders, type ReservationBlock } from '../../data/schedulerSetup'
 import { offsetOfStamp, schedulerStore, stampOf, useSchedulerStore } from '../../data/schedulerStore'
 import { weekdayOf } from '../../data/daybook'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from '../areaWindowRegistry'
-import { NAVY, str } from './SchedulerDialog'
+import { LAYER, ModalWindow } from '../dialogKit'
+import { CaptionGroup } from '../formKit'
+import { DAYS, NAVY, str } from './SchedulerDialog'
 
 /* ============================================================================
    Scheduler ▸ Reservation Blocks ▸ Provider / Resource.
@@ -122,8 +124,6 @@ export function ReservationListView({ resource }: { resource?: boolean }) {
   )
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 function ReservationWizard({ args, close }: AreaWindowProps) {
   const resource = args.resource === true
   const s = useSchedulerStore()
@@ -179,15 +179,8 @@ function ReservationWizard({ args, close }: AreaWindowProps) {
 
   const Band = ({ children }: { children: string }) => <div className="pb-band">{children}</div>
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Reservation Block Wizard"
-        tutorialId="host.mois.dialog.reservation-block-wizard"
-        onClose={close}
-        style={{ width: 900, height: 552, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="reservation-block-wizard" title="Reservation Block Wizard" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 900, height: 552, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ display: 'flex', gap: 12, flex: '1 1 auto', minHeight: 0, padding: 12, background: 'var(--pb-face)' }}>
           <div style={{ width: 292, border: '1px solid #646464', display: 'flex', flexDirection: 'column', background: '#fff' }} data-tutorial-id="host.mois.field.wizard-select-items">
             <Band>Select Items</Band>
@@ -204,49 +197,41 @@ function ReservationWizard({ args, close }: AreaWindowProps) {
           <div style={{ flex: '1 1 auto', border: '1px solid #646464', display: 'flex', flexDirection: 'column' }}>
             <Band>Parameters</Band>
             <div style={{ padding: '6px 14px', display: 'grid', gap: 8 }}>
-              <fieldset className="pb-fieldset" data-tutorial-id="host.mois.field.wizard-detail">
-                <legend className="pb-fieldset__legend" style={NAVY}>Reservation Detail</legend>
-                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', rowGap: 4, alignItems: 'center' }}>
-                  <span>Start Time:</span>
-                  <span className="pb-row" style={{ gap: 3 }}><PBInput w={26} value={hr} disabled={allDay} onChange={(e) => setHr(e.target.value)} /><PBInput w={26} value={mn} disabled={allDay} onChange={(e) => setMn(e.target.value)} /><PBCheckbox label="All Day" checked={allDay} onChange={setAllDay} /></span>
-                  <span># of Slots:</span><PBInput w={52} value={slots} disabled={allDay} onChange={(e) => setSlots(e.target.value)} />
-                  <span>Code:</span><PBSelect w={140} options={BLOCK_CODES} value={code} onChange={(e) => setCode(e.target.value)} />
-                  <span style={{ alignSelf: 'start' }}>Note:</span><PBTextArea rows={2} w="100%" value={note} onChange={(e) => setNote(e.target.value)} style={{ background: '#ffc8a8' }} />
+              <CaptionGroup frame="fieldset" anchor="host.mois.field.wizard-detail" title="Reservation Detail"
+                bodyStyle={{ display: 'grid', gridTemplateColumns: '70px 1fr', rowGap: 4, alignItems: 'center' }}>
+                <span>Start Time:</span>
+                <span className="pb-row" style={{ gap: 3 }}><PBInput w={26} value={hr} disabled={allDay} onChange={(e) => setHr(e.target.value)} /><PBInput w={26} value={mn} disabled={allDay} onChange={(e) => setMn(e.target.value)} /><PBCheckbox label="All Day" checked={allDay} onChange={setAllDay} /></span>
+                <span># of Slots:</span><PBInput w={52} value={slots} disabled={allDay} onChange={(e) => setSlots(e.target.value)} />
+                <span>Code:</span><PBSelect w={140} options={BLOCK_CODES} value={code} onChange={(e) => setCode(e.target.value)} />
+                <span style={{ alignSelf: 'start' }}>Note:</span><PBTextArea rows={2} w="100%" value={note} onChange={(e) => setNote(e.target.value)} style={{ background: '#ffc8a8' }} />
+              </CaptionGroup>
+              <CaptionGroup frame="fieldset" anchor="host.mois.field.wizard-recurrence" title="Recurrence" bodyStyle={{ display: 'flex' }}>
+                <div style={{ width: 90, display: 'grid', gap: 18, alignContent: 'start', borderRight: '1px solid #bdbdbd', paddingTop: 16 }}>
+                  <PBRadio name="rbw-pattern" label="Weekly" checked={weekly} onChange={() => setWeekly(true)} />
+                  <PBRadio name="rbw-pattern" label="Monthly" checked={!weekly} onChange={() => setWeekly(false)} />
                 </div>
-              </fieldset>
-              <fieldset className="pb-fieldset" data-tutorial-id="host.mois.field.wizard-recurrence">
-                <legend className="pb-fieldset__legend" style={NAVY}>Recurrence</legend>
-                <div style={{ display: 'flex' }}>
-                  <div style={{ width: 90, display: 'grid', gap: 18, alignContent: 'start', borderRight: '1px solid #bdbdbd', paddingTop: 16 }}>
-                    <PBRadio name="rbw-pattern" label="Weekly" checked={weekly} onChange={() => setWeekly(true)} />
-                    <PBRadio name="rbw-pattern" label="Monthly" checked={!weekly} onChange={() => setWeekly(false)} />
-                  </div>
-                  <div style={{ paddingLeft: 10 }}>
-                    <div className="pb-row" style={{ gap: 6 }}>Recur every <PBInput w={40} value={every} onChange={(e) => setEvery(e.target.value)} /> week(s) on</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 90px)', gap: 3, marginTop: 4 }}>
-                      {DAYS.map((d, i) => <PBCheckbox key={d} label={d} checked={days.includes(i)} onChange={(v) => setDays(v ? [...days, i] : days.filter((x) => x !== i))} />)}
-                    </div>
+                <div style={{ paddingLeft: 10 }}>
+                  <div className="pb-row" style={{ gap: 6 }}>Recur every <PBInput w={40} value={every} onChange={(e) => setEvery(e.target.value)} /> week(s) on</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 90px)', gap: 3, marginTop: 4 }}>
+                    {DAYS.map((d, i) => <PBCheckbox key={d} label={d} checked={days.includes(i)} onChange={(v) => setDays(v ? [...days, i] : days.filter((x) => x !== i))} />)}
                   </div>
                 </div>
-              </fieldset>
-              <fieldset className="pb-fieldset" data-tutorial-id="host.mois.field.wizard-range">
-                <legend className="pb-fieldset__legend" style={NAVY}>Range of Recurrence</legend>
-                <div style={{ display: 'grid', gridTemplateColumns: '60px 110px auto', rowGap: 4, alignItems: 'center' }}>
-                  <span>Start on:</span><PBInput w={90} value={start} onChange={(e) => setStart(e.target.value)} />
-                  <span className="pb-row" style={{ gap: 6 }}><PBRadio name="rbw-end" label="End By:" checked={endBy} onChange={() => setEndBy(true)} /><PBInput w={90} value={end} onChange={(e) => setEnd(e.target.value)} /></span>
-                  <span /><span />
-                  <span className="pb-row" style={{ gap: 6 }}><PBRadio name="rbw-end" label="End after:" checked={!endBy} onChange={() => setEndBy(false)} /><PBInput w={40} value={count} onChange={(e) => setCount(e.target.value)} /> occurrences</span>
-                </div>
-              </fieldset>
+              </CaptionGroup>
+              <CaptionGroup frame="fieldset" anchor="host.mois.field.wizard-range" title="Range of Recurrence"
+                bodyStyle={{ display: 'grid', gridTemplateColumns: '60px 110px auto', rowGap: 4, alignItems: 'center' }}>
+                <span>Start on:</span><PBInput w={90} value={start} onChange={(e) => setStart(e.target.value)} />
+                <span className="pb-row" style={{ gap: 6 }}><PBRadio name="rbw-end" label="End By:" checked={endBy} onChange={() => setEndBy(true)} /><PBInput w={90} value={end} onChange={(e) => setEnd(e.target.value)} /></span>
+                <span /><span />
+                <span className="pb-row" style={{ gap: 6 }}><PBRadio name="rbw-end" label="End after:" checked={!endBy} onChange={() => setEndBy(false)} /><PBInput w={40} value={count} onChange={(e) => setCount(e.target.value)} /> occurrences</span>
+              </CaptionGroup>
             </div>
           </div>
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '6px 0 10px', flex: 'none', background: 'var(--pb-face)' }}>
-          <PBButton style={{ minWidth: 76 }} data-tutorial-id="host.mois.command.wizard-ok" onClick={ok}>Ok</PBButton>
+          <PBButton style={{ minWidth: 76 }} command="wizard-ok" onClick={ok}>Ok</PBButton>
           <PBButton style={{ minWidth: 76 }} onClick={close}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -258,27 +243,19 @@ function DeleteReservationBlock({ args, close }: AreaWindowProps) {
   const block = ((resource ? s.resourceBlocks : s.blocks)[owner] ?? []).find((b) => b.id === id)
   const [series, setSeries] = useState(!!block?.series)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 86 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Delete Reservation Block"
-        tutorialId="host.mois.dialog.delete-reservation-block"
-        onClose={close}
-        style={{ width: 250, height: 134 }}
-      >
+    <ModalWindow id="delete-reservation-block" title="Delete Reservation Block" onClose={close} zIndex={LAYER.detail}
+      windowStyle={{ width: 250, height: 134 }}>
         <div style={{ flex: '1 1 auto', padding: 8, background: 'var(--pb-face)' }}>
           <div style={{ border: '1px solid #9a9a9a', padding: '6px 10px', display: 'grid', gap: 6 }}>
             <PBRadio name="drb" label="Delete Occurrence" checked={!series} onChange={() => setSeries(false)} />
             <PBRadio name="drb" label="Delete Series (except past records)" checked={series} disabled={!block?.series} onChange={() => setSeries(true)} />
           </div>
           <div className="pb-row" style={{ justifyContent: 'center', gap: 8, paddingTop: 8 }}>
-            <PBButton style={{ minWidth: 70 }} data-tutorial-id="host.mois.command.delete-ok" onClick={() => { schedulerStore.deleteBlock(owner, resource, id, series); close() }}>Ok</PBButton>
+            <PBButton style={{ minWidth: 70 }} command="delete-ok" onClick={() => { schedulerStore.deleteBlock(owner, resource, id, series); close() }}>Ok</PBButton>
             <PBButton style={{ minWidth: 70 }} onClick={close}>Cancel</PBButton>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

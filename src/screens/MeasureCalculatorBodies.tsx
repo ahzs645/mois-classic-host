@@ -1,11 +1,14 @@
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { useChartRecords } from '../data/chart-records'
+import { pad2 } from '../data/clock'
 import { date } from '../data/charts/relations'
 import { calculatorMeasureCode } from '../data/measures'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBInput, PBRadio, PBWindow } from '../pb'
+import { PBButton, PBInput, PBRadio } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { NAVY } from './formKit'
 import type { MeasurementRow } from './MeasureDialogs'
 
 /* ============================================================================
@@ -72,7 +75,7 @@ export function MeasureCalculatorBody(props: Props) {
 
 const rule: CSSProperties = { borderTop: '1px solid var(--pb-border)' }
 const grey: CSSProperties = { background: '#e6e6e6' }
-const blue: CSSProperties = { color: '#000094' }
+const blue: CSSProperties = { color: NAVY.dform }
 
 function CalculatorShell({ width, height, band, bandRight, footer, onClose, onKey, children }: {
   width: number
@@ -85,15 +88,13 @@ function CalculatorShell({ width, height, band, bandRight, footer, onClose, onKe
   children: ReactNode
 }) {
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 97 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measure-calculator"
-        title="Measure Calculator"
-        onClose={onClose}
-        style={{ width: `min(${width}px, 100%)`, height: `min(${height}px, 100%)` }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.measure-calculator"
+      title="Measure Calculator"
+      onClose={onClose}
+      zIndex={97}
+      windowStyle={{ width: `min(${width}px, 100%)`, height: `min(${height}px, 100%)` }}
+    >
         <div onKeyDown={onKey} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <div style={{ padding: 8, display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
             <div style={{ border: '1px solid var(--pb-border)', flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
@@ -106,8 +107,7 @@ function CalculatorShell({ width, height, band, bandRight, footer, onClose, onKe
           </div>
           <div className="pb-row" style={{ justifyContent: 'space-between', padding: '0 8px 10px', flex: 'none' }}>{footer}</div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -117,10 +117,10 @@ function StandardFooter({ onPopulate, onSave, canSave, onClose, onClear }: {
 }) {
   return (
     <>
-      <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.populate" onClick={onPopulate}>Populate (Ctrl+P)</PBButton>
-      <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.calculator-save" disabled={!canSave} onClick={onSave}>Save (F2)</PBButton>
-      <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.calculator-cancel" onClick={onClose}>Cancel</PBButton>
-      <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.calculator-clear" onClick={onClear}>Clear (F5)</PBButton>
+      <PBButton style={{ minWidth: 96 }} command="populate" onClick={onPopulate}>Populate (Ctrl+P)</PBButton>
+      <PBButton style={{ minWidth: 96 }} command="calculator-save" disabled={!canSave} onClick={onSave}>Save (F2)</PBButton>
+      <PBButton style={{ minWidth: 96 }} command="calculator-cancel" onClick={onClose}>Cancel</PBButton>
+      <PBButton style={{ minWidth: 96 }} command="calculator-clear" onClick={onClear}>Clear (F5)</PBButton>
     </>
   )
 }
@@ -272,7 +272,7 @@ function CardiacRiskCalculator({ onSave, onClose }: Props) {
         <b style={{ width: 96, textAlign: 'right' }}>SCORE:</b>
         <PBInput w={50} align="center" value={score} readOnly data-tutorial-id="host.mois.field.frs-score" />
         <span>10 Year Risk (%)</span>
-        <PBButton style={{ marginLeft: 20 }} disabled={!complete} data-tutorial-id="host.mois.command.calculate-score" onClick={calculate}>Calculate Score</PBButton>
+        <PBButton style={{ marginLeft: 20 }} disabled={!complete} command="calculate-score" onClick={calculate}>Calculate Score</PBButton>
       </div>
       <div className="pb-row" style={{ ...rule, borderTopWidth: 2, borderTopColor: '#000', gap: 8, padding: '8px 6px' }}>
         <span style={{ width: 90, paddingLeft: 14, lineHeight: '13px' }}>Map Score<br />to MOIS Code:</span>
@@ -369,7 +369,7 @@ function PeakFlowCalculator({ onSave, onClose }: Props) {
       <div className="pb-row" style={{ ...rule, borderTopColor: '#000', gap: 10, padding: '8px 8px', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
           <div className="pb-row" style={{ gap: 6 }}><span>Predicted:</span><PBInput w={50} align="center" value={predicted} readOnly data-tutorial-id="host.mois.field.pef-predicted" /></div>
-          <PBButton style={{ minWidth: 86 }} data-tutorial-id="host.mois.command.pef-calculate" onClick={calculate}>Calculate</PBButton>
+          <PBButton style={{ minWidth: 86 }} command="pef-calculate" onClick={calculate}>Calculate</PBButton>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={green}>Measured as % of Predicted: {pct(predicted)}</span>
@@ -395,7 +395,7 @@ const toDate = (v: string) => {
   const m = /^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/.exec(v.trim())
   return m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : null
 }
-const fromDate = (d: Date) => `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${String(d.getUTCDate()).padStart(2, '0')}`
+const fromDate = (d: Date) => `${d.getUTCFullYear()}.${pad2(d.getUTCMonth() + 1)}.${pad2(d.getUTCDate())}`
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000)
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86400000)
 
@@ -457,10 +457,10 @@ function GestationalAgeCalculator({ onClose }: Props) {
       footer={<>
         <span />
         <span className="pb-row" style={{ gap: 6 }}>
-          <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.gestation-calculate" onClick={calculate}>Calculate (F2)</PBButton>
-          <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.calculator-cancel" onClick={onClose}>Cancel</PBButton>
+          <PBButton style={{ minWidth: 96 }} command="gestation-calculate" onClick={calculate}>Calculate (F2)</PBButton>
+          <PBButton style={{ minWidth: 96 }} command="calculator-cancel" onClick={onClose}>Cancel</PBButton>
         </span>
-        <PBButton style={{ minWidth: 96 }} data-tutorial-id="host.mois.command.calculator-clear" onClick={clear}>Clear (F5)</PBButton>
+        <PBButton style={{ minWidth: 96 }} command="calculator-clear" onClick={clear}>Clear (F5)</PBButton>
       </>}
     >
       <div style={{ padding: '6px 10px', display: 'grid', gridTemplateColumns: '100px auto', rowGap: 3, justifyContent: 'start' }}>

@@ -6,7 +6,7 @@ import { rowsFromExport } from '../data/charts/to-rows'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ReportField, ReportScreen } from '../data/reportScreens'
 import {
-  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBLookup,
+  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
 import { PreferencesDetail } from './PreferencesDetail'
@@ -14,6 +14,7 @@ import { PREFERENCE_SEARCH_FIELDS, preferenceCommands, usePreferenceFolder } fro
 import { CarePlanNoteFolder } from './CarePlanNoteFolder'
 import { useNoKnown } from './NoKnown'
 import { SearchForBand, searchFieldsFor, useFolderSearch } from './SearchForBand'
+import { ChartIdentityStrip } from './patientKit'
 import { PreferenceEncounterDialog } from './PreferenceEncounterDialog'
 import { MeasurePanelPane, MeasureReportPane } from './MeasureReportPane'
 import { useMeasuresFolder } from './measuresFolder'
@@ -202,20 +203,10 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
       <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
       <PBCommandRow commands={docs.commands(commands)} />
 
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
+      <ChartIdentityStrip
+        search={<SearchForBand context={layout.title} fields={searchFields} value={search.text} onChange={search.setText} style={{ padding: 0, flex: '1 1 auto' }}
+          right={screen.viewSelect && <PBSelect options={screen.viewSelect} w={120} />} />}
       />
-
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <SearchForBand context={layout.title} fields={searchFields} value={search.text} onChange={search.setText} style={{ padding: 0, flex: '1 1 auto' }}
-          right={screen.viewSelect && <PBSelect options={screen.viewSelect} w={120} />} />
-      </div>
 
       {screen.filters && (
         <div className="pb-row pb-row--gap-lg" style={{ padding: '0 8px 3px' }}>

@@ -22,6 +22,8 @@ import {
 import { useScreenReport } from '../host/screen-state'
 import { BenefitSourceServiceWindow, SelectBenefitSourceDialog } from './BenefitDialogs'
 import { CmdButton } from './CmdButton'
+import { useRecordCursor } from './listKit'
+import { LookupBand, PickListWindow } from './lookupKit'
 import { AdvancedGenderDialog } from './AdvancedGenderDialog'
 import { PatientDetailPage } from './PatientDetailPage'
 import { patientEdits, renamePatientEdits, savePatient, undoPatient, refreshPatient, updatePatient, usePatientEdits, usePatientSaved } from '../data/patient-edits'
@@ -786,10 +788,10 @@ const CLINIC_CONTACT_PREFERENCES = [{ reason: 'OTHER' }, { reason: 'RECALL' }, {
 function SettingsPage() {
   const patient = usePatient()
   const prefs = patient.contactPreferences ?? []
-  const [cur, setCur] = useState(0)
-  const [picking, setPicking] = useState<number | null>(null)
   const setPrefs = (next: typeof prefs) => updatePatient(patient.chart, { contactPreferences: next })
-  const edit = (i: number, patch: Partial<typeof prefs[number]>) => setPrefs(prefs.map((p, n) => (n === i ? { ...p, ...patch } : p)))
+  const list = useRecordCursor(prefs, (fn) => setPrefs(fn(prefs)))
+  const [picking, setPicking] = useState<number | null>(null)
+  const edit = (i: number, patch: Partial<typeof prefs[number]>) => list.edit(i, patch)
   const prefCols = (editable: boolean): PBColumn<ListRow>[] => [
     { key: 'reason', header: 'Reason', width: 138, align: 'center', render: editable ? (r, i) => cellEdit(r.reason, 'Contact preference reason', (v) => edit(i, { reason: v }), 'center') : undefined },
     { key: 'order', header: 'Order', width: 61, align: 'center', render: editable ? (r, i) => cellEdit(r.order, 'Contact preference order', (v) => edit(i, { order: v }), 'center') : undefined },
@@ -822,13 +824,13 @@ function SettingsPage() {
       </PBGroup>
 
       <PBBand right={<>
-        <CmdButton command="new-contact-preference" size="sm" onClick={() => { setPrefs([...prefs, {}]); setCur(prefs.length) }}>New</CmdButton>
-        <CmdButton command="delete-contact-preference" size="sm" disabled={!prefs.length} onClick={() => { setPrefs(prefs.filter((_, i) => i !== cur)); setCur(0) }}>Delete</CmdButton>
+        <CmdButton command="new-contact-preference" size="sm" onClick={() => list.add({})}>New</CmdButton>
+        <CmdButton command="delete-contact-preference" size="sm" disabled={!prefs.length} onClick={() => list.remove()}>Delete</CmdButton>
       </>}>
         Patient Contact Preferences
       </PBBand>
       <div style={{ height: 200, flex: 'none', display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={prefCols(true)} current={Math.min(cur, Math.max(0, prefs.length - 1))} onCurrentChange={setCur}
+        <PBDataWindow columns={prefCols(true)} current={list.at} onCurrentChange={list.setCur}
           rowTutorialId={(_r, i) => `host.mois.row.contact-preference-${i + 1}`}
           rows={prefs.map((p) => ({ reason: p.reason ?? '', order: p.order ?? '', method: p.method ?? '', source: p.source ?? '', contact: p.contact ?? '' }))} />
       </div>
@@ -859,20 +861,27 @@ function SelectSecondaryContactDialog({ parties, onPick, onClose }: {
   const [cur, setCur] = useState(0)
   const rows = parties.filter((p) => p.name).map((p) => ({ type: p.type ?? '', name: p.name ?? '', relationship: p.relationship ?? '' }))
   return (
-    <DemographicModal title="Select Secondary Contact" width={600} height={380} onClose={onClose} dialog="select-secondary-contact">
-      <div style={{ padding: 10, flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <PBBand>Secondary Contacts</PBBand>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-          <PBDataWindow gutter={false} rows={rows} current={cur} onCurrentChange={setCur} onActivate={(r) => onPick(r.name)}
-            columns={[{ key: 'type', header: 'Type', width: 140 }, { key: 'name', header: 'Name', width: 250 }, { key: 'relationship', header: 'Relationship' }]}
-            empty="No associated parties on file." />
-        </div>
-      </div>
-      <DialogButtons>
-        <CmdButton command="secondary-contact-ok" wide disabled={!rows[cur]} onClick={() => rows[cur] && onPick(rows[cur].name)}>Ok</CmdButton>
-        <CmdButton command="secondary-contact-cancel" wide onClick={onClose}>Cancel</CmdButton>
-      </DialogButtons>
-    </DemographicModal>
+    <PickListWindow
+      frame={(content, footer) => (
+        <DemographicModal title="Select Secondary Contact" width={600} height={380} onClose={onClose} dialog="select-secondary-contact">
+          {content}
+          {footer}
+        </DemographicModal>
+      )}
+      body={{ padding: 10, flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      band={<LookupBand>Secondary Contacts</LookupBand>}
+      grid={{
+        gutter: false, rows, current: cur, onCurrentChange: setCur, onActivate: (r) => onPick(r.name),
+        columns: [{ key: 'type', header: 'Type', width: 140 }, { key: 'name', header: 'Name', width: 250 }, { key: 'relationship', header: 'Relationship' }],
+        empty: 'No associated parties on file.',
+      }}
+      footer={(
+        <DialogButtons>
+          <CmdButton command="secondary-contact-ok" wide disabled={!rows[cur]} onClick={() => rows[cur] && onPick(rows[cur].name)}>Ok</CmdButton>
+          <CmdButton command="secondary-contact-cancel" wide onClick={onClose}>Cancel</CmdButton>
+        </DialogButtons>
+      )}
+    />
   )
 }
 

@@ -13,6 +13,7 @@ import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow, useSessionState } from '../host/screen-windows'
 import { ClinicEditorLayer, EDIT_RECORD_WINDOW, FIND_REPLACE_WINDOW, NEW_RECORD_WINDOW, useClinicRows } from './ClinicEditorWindows'
 import { AdminExtraLayer, EXTRA_EDIT_RECORD, EXTRA_NEW_RECORD, adminOwnList } from './AdminExtraWindows'
+import { useRecordList } from './listKit'
 
 /* ============================================================================
    Administration ▸ Clinic Management — the twelve list screens.
@@ -162,10 +163,9 @@ function Field({ f }: { f: ClinicField }) {
 /* One page of a detail pane: a form, a nested grid, or nothing at all where
    the corpus has no capture of it. */
 function DetailPage({ page }: { page: ClinicPage }) {
-  const [cur, setCur] = useState(0)
   /* a grid page's New adds an empty row (a condition, a lot number) and makes
      it current; Delete removes the current one */
-  const [rows, setRows] = useState<ClinicRow[]>(page.kind === 'grid' ? page.rows : [])
+  const { rows, cur, setCur, add, remove } = useRecordList<ClinicRow>(page.kind === 'grid' ? page.rows : [])
 
   /* The tab is real — it is in the capture's strip — but its contents were
      never captured, so nothing is drawn rather than something invented. */
@@ -182,10 +182,10 @@ function DetailPage({ page }: { page: ClinicPage }) {
                   the button inside */}
               <PBButton
                 size="sm"
-                data-tutorial-id={`host.mois.command.${pbSlug(page.scope ?? page.caption ?? 'detail')}-${pbSlug(b)}`}
+                command={`${pbSlug(page.scope ?? page.caption ?? 'detail')}-${pbSlug(b)}`}
                 onClick={() => {
-                  if (b === 'New') { setRows((r) => [...r, Object.fromEntries(page.columns.map((c) => [c.key, '']))]); setCur(rows.length) }
-                  if (b === 'Delete') { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) }
+                  if (b === 'New') add(Object.fromEntries(page.columns.map((c) => [c.key, ''])))
+                  if (b === 'Delete') remove()
                 }}
               >
                 {b}

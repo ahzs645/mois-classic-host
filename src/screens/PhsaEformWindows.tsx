@@ -3,11 +3,11 @@ import { addressBookEntries } from '../data/addressBook'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
-import { useReportDialog, useSessionState } from '../host/screen-windows'
+import { useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
-import { PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { pbSlug, usePBInstrumentation } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
-import { DesktopLayer } from './StageWindow'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    PHSA eFORMs — the eForm Browser MOIS opens a provincial web form in.
@@ -155,7 +155,6 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
   const area = useEncounterSession()
   const [, setFiled] = useFiledEforms()
   const host = usePBInstrumentation()
-  useReportDialog(PHSA_EFORM_WINDOW)
 
   /* "It may take up to 5 seconds for this information to pre-fill" */
   const [filled, setFilled] = useState(false)
@@ -333,46 +332,42 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
   )
 
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 86 }}>
-        <PBWindow child title="eForm Browser" onClose={close} tutorialId={`host.mois.dialog.${PHSA_EFORM_WINDOW}`}
-          style={{ width: 'min(900px, calc(100% - 24px))', height: 'min(820px, calc(100% - 24px))' }}>
-          <div style={{ ...WEB, flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff', padding: '0 22px 24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '3px solid #fcba19' }}>
-              <span style={{ color: '#003366', fontWeight: 700, lineHeight: '14px' }}>BRITISH<br />COLUMBIA</span>
-              <span style={{ color: '#003366' }}><b>BC PharmaCare</b><br />{form === 'paxlovid' ? 'Paxlovid' : 'Special Authority'}</span>
-            </div>
-            {status === 'submitted' ? (
-              <div data-tutorial-id="host.mois.group.eform-submitted" style={{ padding: '40px 0', textAlign: 'center' }}>
-                <h2 style={{ fontWeight: 400 }}>Thank you. Your {form === 'paxlovid' ? 'prescription' : 'request'} has been submitted.</h2>
-                <p>A copy has been saved to the patient&apos;s chart (Documents).</p>
-                <button type="button" style={{ ...BTN, background: '#337ab7' }} data-tutorial-id="host.mois.command.eform-close" onClick={close}>Close</button>
-              </div>
-            ) : (
-              <>
-                <h1 style={{ fontWeight: 400, fontSize: 28, margin: '16px 0 8px' }}>{title}</h1>
-                <p style={{ margin: '4px 0 12px' }}>Red asterisks indicate mandatory fields.</p>
-                <h4 style={{ margin: '8px 0' }}>1. Complete Patient and Prescriber details:</h4>
-                {!filled && <p style={{ color: '#777', fontStyle: 'italic' }}>Loading patient and prescriber information…</p>}
-                <div style={{ display: 'flex', gap: 16 }}>{patientPanel}{prescriberPanel}</div>
-                {form === 'paxlovid' ? paxlovid : specialAuthority}
-                {missing && !complete && <p style={{ color: '#d9534f', marginTop: 14 }}>Please complete all mandatory fields.</p>}
-                {status === 'draft' && <p style={{ color: '#3c763d', marginTop: 14 }}>Draft saved.</p>}
-                <div style={{ textAlign: 'center', marginTop: 24 }}>
-                  <button type="button" style={{ ...BTN, background: '#0d6efd', padding: '8px 26px' }} data-tutorial-id="host.mois.command.eform-submit" onClick={submit}>Submit</button>
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 10 }}>
-                    <button type="button" style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} data-tutorial-id="host.mois.command.eform-save-draft"
-                      onClick={command('save-draft', () => { file('DRAFT'); setStatus('draft') })}>Save Draft</button>
-                    <button type="button" style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} data-tutorial-id="host.mois.command.eform-download-draft-pdf"
-                      onClick={command('download-draft-pdf', () => undefined)}>Download Draft PDF</button>
-                  </div>
-                </div>
-              </>
-            )}
+    <ModalWindow id={PHSA_EFORM_WINDOW} title="eForm Browser" onClose={close} controls portal="inline" report zIndex={86}
+      windowStyle={{ width: 'min(900px, calc(100% - 24px))', height: 'min(820px, calc(100% - 24px))' }}>
+      <div style={{ ...WEB, flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff', padding: '0 22px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '3px solid #fcba19' }}>
+          <span style={{ color: '#003366', fontWeight: 700, lineHeight: '14px' }}>BRITISH<br />COLUMBIA</span>
+          <span style={{ color: '#003366' }}><b>BC PharmaCare</b><br />{form === 'paxlovid' ? 'Paxlovid' : 'Special Authority'}</span>
+        </div>
+        {status === 'submitted' ? (
+          <div data-tutorial-id="host.mois.group.eform-submitted" style={{ padding: '40px 0', textAlign: 'center' }}>
+            <h2 style={{ fontWeight: 400 }}>Thank you. Your {form === 'paxlovid' ? 'prescription' : 'request'} has been submitted.</h2>
+            <p>A copy has been saved to the patient&apos;s chart (Documents).</p>
+            <button type="button" style={{ ...BTN, background: '#337ab7' }} data-tutorial-id="host.mois.command.eform-close" onClick={close}>Close</button>
           </div>
-        </PBWindow>
+        ) : (
+          <>
+            <h1 style={{ fontWeight: 400, fontSize: 28, margin: '16px 0 8px' }}>{title}</h1>
+            <p style={{ margin: '4px 0 12px' }}>Red asterisks indicate mandatory fields.</p>
+            <h4 style={{ margin: '8px 0' }}>1. Complete Patient and Prescriber details:</h4>
+            {!filled && <p style={{ color: '#777', fontStyle: 'italic' }}>Loading patient and prescriber information…</p>}
+            <div style={{ display: 'flex', gap: 16 }}>{patientPanel}{prescriberPanel}</div>
+            {form === 'paxlovid' ? paxlovid : specialAuthority}
+            {missing && !complete && <p style={{ color: '#d9534f', marginTop: 14 }}>Please complete all mandatory fields.</p>}
+            {status === 'draft' && <p style={{ color: '#3c763d', marginTop: 14 }}>Draft saved.</p>}
+            <div style={{ textAlign: 'center', marginTop: 24 }}>
+              <button type="button" style={{ ...BTN, background: '#0d6efd', padding: '8px 26px' }} data-tutorial-id="host.mois.command.eform-submit" onClick={submit}>Submit</button>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 10 }}>
+                <button type="button" style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} data-tutorial-id="host.mois.command.eform-save-draft"
+                  onClick={command('save-draft', () => { file('DRAFT'); setStatus('draft') })}>Save Draft</button>
+                <button type="button" style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} data-tutorial-id="host.mois.command.eform-download-draft-pdf"
+                  onClick={command('download-draft-pdf', () => undefined)}>Download Draft PDF</button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
-    </DesktopLayer>
+    </ModalWindow>
   )
 }
 

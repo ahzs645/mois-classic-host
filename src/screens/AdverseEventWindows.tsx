@@ -10,10 +10,13 @@ import { SESSION_USER } from '../data/chartSession'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { practiceRecords } from '../data/practiceRecords'
+import { argStr } from '../data/text'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
   PBBand, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, usePBInstrumentation,
 } from '../pb'
+import { FormLabel } from './formKit'
+import { useRecordList } from './listKit'
 import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -138,10 +141,6 @@ function DialogTabs({ prefix, tabs, active, onChange, children }: {
   )
 }
 
-const Label = ({ children, w }: { children: ReactNode; w?: number }) => (
-  <span className="pb-form__label" style={{ width: w, flex: 'none' }}>{children}</span>
-)
-
 /* --- what the folders know about events and risks ------------------------- */
 
 export type RiskInfo = { id: string; onset: string; stop: string; agent: string; reactions: string }
@@ -220,19 +219,19 @@ function AgentBlock({ agent, index, count, current, onPick, onChange, anchor }: 
       <span style={{ textAlign: 'center' }}><PBCheckbox checked={agent.category} onChange={set('category')} tutorialId={id('category')} /></span>
       <PBLookup w="100%" value={agent.agent} onChange={set('agent')} fieldId={id('agent')} />
       <div className="pb-row" style={{ gap: 4 }}>
-        <Label w={120}>Lot Number:</Label><PBInput w={108} value={agent.lot} onChange={(e) => set('lot')(e.target.value)} />
-        <Label w={48}>Route:</Label><PBSelect w={136} options={ROUTES} value={agent.route} onChange={(e) => set('route')(e.target.value)} />
+        <FormLabel w={120}>Lot Number:</FormLabel><PBInput w={108} value={agent.lot} onChange={(e) => set('lot')(e.target.value)} />
+        <FormLabel w={48}>Route:</FormLabel><PBSelect w={136} options={ROUTES} value={agent.route} onChange={(e) => set('route')(e.target.value)} />
       </div>
       <span />
       <PBInput w="100%" value={agent.brand} onChange={(e) => set('brand')(e.target.value)} data-tutorial-id={id('brand')} />
       <div className="pb-row" style={{ gap: 4 }}>
-        <Label w={120}>Series Number:</Label><PBInput w={108} value={agent.series} onChange={(e) => set('series')(e.target.value)} />
-        <Label w={48}>Site:</Label><PBSelect w={136} options={SITES} value={agent.site} onChange={(e) => set('site')(e.target.value)} />
+        <FormLabel w={120}>Series Number:</FormLabel><PBInput w={108} value={agent.series} onChange={(e) => set('series')(e.target.value)} />
+        <FormLabel w={48}>Site:</FormLabel><PBSelect w={136} options={SITES} value={agent.site} onChange={(e) => set('site')(e.target.value)} />
       </div>
       <span style={{ textAlign: 'center' }}>{index + 1} of {count}</span>
       <PBInput w="100%" value={agent.manufacturer} onChange={(e) => set('manufacturer')(e.target.value)} />
       <div className="pb-row" style={{ gap: 4 }}>
-        <Label w={120}>Dose (qnty/unit):</Label>
+        <FormLabel w={120}>Dose (qnty/unit):</FormLabel>
         <PBInput w={46} value={agent.doseQty} onChange={(e) => set('doseQty')(e.target.value)} />
         <PBInput w={58} value={agent.doseUnit} onChange={(e) => set('doseUnit')(e.target.value)} />
       </div>
@@ -292,10 +291,12 @@ export function NewAdverseEventWindow({ onClose, onFiled }: { onClose: () => voi
   const [type, setType] = useState('')
   const [severity, setSeverity] = useState('')
   const [comment, setComment] = useState('')
-  const [agents, setAgents] = useState<EventAgent[]>([])
-  const [agentCur, setAgentCur] = useState(0)
-  const [reactions, setReactions] = useState<EventReaction[]>([])
-  const [reactionCur, setReactionCur] = useState(0)
+  const {
+    rows: agents, setRows: setAgents, cur: agentCur, setCur: setAgentCur, add: addAgent, remove: removeAgent,
+  } = useRecordList<EventAgent>([])
+  const {
+    rows: reactions, setRows: setReactions, cur: reactionCur, setCur: setReactionCur, add: addReaction, remove: removeReaction,
+  } = useRecordList<EventReaction>([])
   const [mode, setMode] = useState<LinkMode>('none')
   const [risk, setRisk] = useState<Record<string, string>>({})
   const [riskCategory, setRiskCategory] = useState(false)
@@ -344,35 +345,35 @@ export function NewAdverseEventWindow({ onClose, onFiled }: { onClose: () => voi
           <div className="pb-groupbox" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', margin: 4 }}>
             <PBBand>New Adverse Event</PBBand>
             <div style={{ display: 'grid', gridTemplateColumns: '54px 1fr auto', gap: '4px 6px', padding: '8px 12px 4px', alignItems: 'center', flex: 'none' }}>
-              <Label>Onset:</Label>
+              <FormLabel>Onset:</FormLabel>
               <div className="pb-row" style={{ gap: 6 }}>
                 <PBInput w={82} value={onset} onChange={(e) => setOnset(e.target.value)} data-tutorial-id="host.mois.field.adverse-event-onset" />
                 <span>Time:</span>
                 <PBInput w={44} align="center" value={time} onChange={(e) => setTime(e.target.value)} data-tutorial-id="host.mois.field.adverse-event-time" />
               </div>
               <span className="pb-row" style={{ gap: 18, paddingRight: 80 }}><span>Event Type:</span><span>NORMAL</span></span>
-              <Label>Type:</Label>
+              <FormLabel>Type:</FormLabel>
               <PBSelect w={160} options={EVENT_TYPES} value={type} onChange={(e) => setType(e.target.value)} data-tutorial-id="host.mois.field.adverse-event-type" />
               <span />
-              <Label>Severity:</Label>
+              <FormLabel>Severity:</FormLabel>
               <PBSelect w={160} options={EVENT_SEVERITIES} value={severity} onChange={(e) => setSeverity(e.target.value)} data-tutorial-id="host.mois.field.adverse-event-severity" />
               <span />
               <span className="pb-form__label" style={{ alignSelf: 'start' }}>Comment:</span>
               <PBTextArea rows={10} w="100%" value={comment} onChange={(e) => setComment(e.target.value)} data-tutorial-id="host.mois.field.adverse-event-comment" style={{ gridColumn: '2 / span 2', width: 712 }} />
             </div>
             <BandCommands commands={[
-              { id: 'adverse-event-new-agent', label: 'New Agent', onClick: () => { setAgents((a) => [...a, blankAgent()]); setAgentCur(agents.length) } },
-              { id: 'adverse-event-delete-agent', label: 'Delete Agent', disabled: !agents.length, onClick: () => { setAgents((a) => a.filter((_, i) => i !== agentCur)); setAgentCur(0) } },
+              { id: 'adverse-event-new-agent', label: 'New Agent', onClick: () => addAgent(blankAgent()) },
+              { id: 'adverse-event-delete-agent', label: 'Delete Agent', disabled: !agents.length, onClick: () => removeAgent() },
             ]} />
             <div style={{ height: 150, flex: 'none', display: 'flex', flexDirection: 'column', background: 'var(--pb-face)' }}>
-              <AgentList agents={agents} cur={agentCur} setCur={setAgentCur} onChange={setAgents} anchor="adverse-event-agent" />
+              <AgentList agents={agents} cur={agentCur} setCur={setAgentCur} onChange={(next) => setAgents(() => next)} anchor="adverse-event-agent" />
             </div>
             <BandCommands commands={[
-              { id: 'adverse-event-new-reaction', label: 'New Reaction', onClick: () => { setReactions((x) => [...x, { code: '', term: '', rank: String(x.length) }]); setReactionCur(reactions.length) } },
-              { id: 'adverse-event-delete-reaction', label: 'Delete Reaction', disabled: !reactions.length, onClick: () => { setReactions((x) => x.filter((_, i) => i !== reactionCur)); setReactionCur(0) } },
+              { id: 'adverse-event-new-reaction', label: 'New Reaction', onClick: () => addReaction({ code: '', term: '', rank: String(reactions.length) }) },
+              { id: 'adverse-event-delete-reaction', label: 'Delete Reaction', disabled: !reactions.length, onClick: () => removeReaction() },
             ]} />
             <div style={{ flex: '1 1 auto', minHeight: 110, display: 'flex' }}>
-              <ReactionGrid reactions={reactions} cur={reactionCur} setCur={setReactionCur} onChange={setReactions} anchor="adverse-event-reaction" />
+              <ReactionGrid reactions={reactions} cur={reactionCur} setCur={setReactionCur} onChange={(next) => setReactions(() => next)} anchor="adverse-event-reaction" />
             </div>
           </div>
         ) : (
@@ -386,24 +387,24 @@ export function NewAdverseEventWindow({ onClose, onFiled }: { onClose: () => voi
               <div className="pb-groupbox" style={{ flex: 'none' }} data-tutorial-id="host.mois.group.link-new-reaction-risk">
                 <PBBand>Link to a New Reaction Risk</PBBand>
                 <div style={{ display: 'grid', gridTemplateColumns: '84px 150px 84px 150px 1fr', gap: '4px 6px', padding: '8px 10px', alignItems: 'center' }}>
-                  <Label>Date of Onset:</Label><PBInput w={100} value={r('onset')} onChange={(e) => setR('onset')(e.target.value)} data-tutorial-id="host.mois.field.link-risk-onset" />
-                  <Label>Stop Date:</Label><PBInput w={100} value={r('stop')} onChange={(e) => setR('stop')(e.target.value)} />
-                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><Label>Phase at Onset:</Label>{sel('phase', PHASES)}</span>
-                  <Label>Certainty:</Label>{sel('certainty', CERTAINTY)}
-                  <Label>Risk Status:</Label>{sel('status', RISK_STATUS)}
-                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><Label>Informant:</Label>{sel('informant', PERSONS)}</span>
-                  <Label>Criticality:</Label>{sel('criticality', CRITICALITY)}
-                  <Label>Severity:</Label>{sel('severity', EVENT_SEVERITIES)}
-                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><Label>Observer:</Label>{sel('observer', PERSONS)}</span>
-                  <Label>Type:</Label>{sel('type', EVENT_TYPES)}
-                  <Label>Category:</Label><PBCheckbox checked={riskCategory} onChange={setRiskCategory} tutorialId="host.mois.field.link-risk-category" />
-                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><Label>Documenter:</Label>{sel('documenter', ['', SESSION_USER])}</span>
-                  <Label>Agent:</Label>
+                  <FormLabel>Date of Onset:</FormLabel><PBInput w={100} value={r('onset')} onChange={(e) => setR('onset')(e.target.value)} data-tutorial-id="host.mois.field.link-risk-onset" />
+                  <FormLabel>Stop Date:</FormLabel><PBInput w={100} value={r('stop')} onChange={(e) => setR('stop')(e.target.value)} />
+                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><FormLabel>Phase at Onset:</FormLabel>{sel('phase', PHASES)}</span>
+                  <FormLabel>Certainty:</FormLabel>{sel('certainty', CERTAINTY)}
+                  <FormLabel>Risk Status:</FormLabel>{sel('status', RISK_STATUS)}
+                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><FormLabel>Informant:</FormLabel>{sel('informant', PERSONS)}</span>
+                  <FormLabel>Criticality:</FormLabel>{sel('criticality', CRITICALITY)}
+                  <FormLabel>Severity:</FormLabel>{sel('severity', EVENT_SEVERITIES)}
+                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><FormLabel>Observer:</FormLabel>{sel('observer', PERSONS)}</span>
+                  <FormLabel>Type:</FormLabel>{sel('type', EVENT_TYPES)}
+                  <FormLabel>Category:</FormLabel><PBCheckbox checked={riskCategory} onChange={setRiskCategory} tutorialId="host.mois.field.link-risk-category" />
+                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><FormLabel>Documenter:</FormLabel>{sel('documenter', ['', SESSION_USER])}</span>
+                  <FormLabel>Agent:</FormLabel>
                   <div className="pb-row" style={{ gap: 0, gridColumn: '2 / span 3' }}>
                     <PBLookup w={100} value={r('agentCode')} onChange={setR('agentCode')} />
                     <PBInput w="100%" style={{ flex: '1 1 auto' }} value={r('agent')} onChange={(e) => setR('agent')(e.target.value)} data-tutorial-id="host.mois.field.link-risk-agent" />
                   </div>
-                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><Label>Agent Category:</Label><PBLookup w={220} disabled /></span>
+                  <span className="pb-row" style={{ justifyContent: 'flex-end' }}><FormLabel>Agent Category:</FormLabel><PBLookup w={220} disabled /></span>
                   <span className="pb-form__label" style={{ alignSelf: 'start' }}>Comment:</span>
                   <PBTextArea rows={8} w="100%" value={r('comment')} onChange={(e) => setR('comment')(e.target.value)} style={{ gridColumn: '2 / span 4' }} />
                 </div>
@@ -530,7 +531,7 @@ export function EventDetailPane({ record }: { record?: MoisRecord }) {
   const k = record?.id_adverse_event ?? 'none'
   return (
     <div key={k} style={{ display: 'grid', gridTemplateColumns: '54px 1fr auto', gap: '4px 6px', padding: '8px 12px', alignItems: 'center', alignContent: 'start', flex: '1 1 auto' }}>
-      <Label>Onset:</Label>
+      <FormLabel>Onset:</FormLabel>
       <div className="pb-row" style={{ gap: 6 }}>
         <PBInput w={82} align="center" defaultValue={dotted(record?.dtm_administered)} data-tutorial-id="host.mois.field.event-onset" />
         <span>Time:</span><PBInput w={44} align="center" defaultValue={hm} />
@@ -538,10 +539,10 @@ export function EventDetailPane({ record }: { record?: MoisRecord }) {
       <span className="pb-row" style={{ gap: 18, paddingRight: 80 }} data-tutorial-id="host.mois.field.event-type">
         <span>Event Type:</span><span>{record?.str_event_type ?? (record ? 'NORMAL' : '')}</span>
       </span>
-      <Label>Type:</Label>
+      <FormLabel>Type:</FormLabel>
       <PBSelect w={160} options={EVENT_TYPES} defaultValue={record?.str_intolerance_type ?? ''} data-tutorial-id="host.mois.field.event-intolerance-type" />
       <span className="pb-row" style={{ gap: 18, paddingRight: 80 }}><span>Owned by:</span><span>{record?.stp_user_create ?? ''}</span></span>
-      <Label>Severity:</Label>
+      <FormLabel>Severity:</FormLabel>
       <PBSelect w={160} options={EVENT_SEVERITIES} defaultValue={record?.str_severity ?? ''} data-tutorial-id="host.mois.field.event-severity" />
       <span className="pb-row" style={{ gap: 18, paddingRight: 80 }} data-tutorial-id="host.mois.field.event-record-state">
         <span>Record State:</span><span>{record ? record.stp_record_state ?? 'UNSIGNED' : ''}</span>
@@ -665,7 +666,7 @@ export function AdverseEventWindows({ win, onMark }: {
   onMark: (what: string, top?: boolean) => void
 }) {
   const ix = useAllergyIndex()
-  const arg = (k: string) => (typeof win.window?.args?.[k] === 'string' ? win.window.args[k] as string : '')
+  const arg = (k: string) => argStr(win.window?.args?.[k])
   const done = (what: string, top = false) => { onMark(what, top); win.close() }
   const linkedTo = (key: 'event' | 'risk', id: string) => new Set(ix.links.filter((l) => l[key] === id).map((l) => (key === 'event' ? l.risk : l.event)))
   return (

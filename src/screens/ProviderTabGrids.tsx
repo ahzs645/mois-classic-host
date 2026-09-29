@@ -1,11 +1,13 @@
-import { useState } from 'react'
 import { PBDataWindow, PBRadio, pbSlug } from '../pb'
 import { ALIAS_SOURCES, clinicListSpec, clinicRowsKey, type ClinicRow } from '../data/clinicManagement'
 import { USER_ALIAS_ROWS, userListSpec } from '../data/userManagement'
 import { MOIS_TODAY } from '../data/patients'
+import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { useStoredList } from './adminSession'
 import { ButtonBand, CellSelect, CellText } from './adminKit'
+import { SectionCaption } from './formKit'
+import { useRecordCursor } from './listKit'
 
 /* ============================================================================
    The editable grids the Provider window (ClinicEditorWindows.tsx) and the
@@ -41,8 +43,6 @@ import { ButtonBand, CellSelect, CellText } from './adminKit'
    access-<n>.
    ========================================================================= */
 
-const S = (v: unknown) => (v == null ? '' : String(v))
-
 export const aliasKey = (owner: string, user: string) => (user ? `admin:alias:user:${user}` : `admin:alias:owner:${owner}`)
 const forwardingKey = (owner: string) => `admin:workspace:${owner}:forwarding`
 const sharingKey = (owner: string) => `admin:workspace:${owner}:sharing`
@@ -61,9 +61,9 @@ export function AliasIdGrid({ owner, user }: { owner: string; user: string }) {
   /* a user account the roster knows opens with its own aliases (copied) */
   const known = user && userNames().includes(user)
   const [rows, update] = useStoredList<ClinicRow>(aliasKey(owner, user), known ? USER_ALIAS_ROWS : EMPTY)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, update)
   useScreenReport({ aliases: rows.length })
-  const edit = (i: number, patch: ClinicRow) => update((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const edit = list.edit
   const text = (key: string, align?: 'center') => (r: ClinicRow, i: number) => (
     <CellText value={r[key]} align={align} onChange={(v) => edit(i, { [key]: v })} anchor={`alias-${key}-${i + 1}`} />
   )
@@ -73,15 +73,15 @@ export function AliasIdGrid({ owner, user }: { owner: string; user: string }) {
         caption="List"
         scope="alias"
         buttons={[
-          { label: 'New', w: 60, onPress: () => { update((all) => [...all, { start: MOIS_TODAY, end: '', source: '', value: '', note: '' }]); setCur(rows.length) } },
-          { label: 'Delete', w: 60, onPress: () => { update((all) => all.filter((_, j) => j !== cur)); setCur(0) } },
+          { label: 'New', w: 60, onPress: () => list.add({ start: MOIS_TODAY, end: '', source: '', value: '', note: '' }) },
+          { label: 'Delete', w: 60, onPress: () => list.remove() },
         ]}
       />
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
         <PBDataWindow<ClinicRow>
           rows={rows}
-          current={Math.min(cur, Math.max(0, rows.length - 1))}
-          onCurrentChange={setCur}
+          current={list.at}
+          onCurrentChange={list.setCur}
           empty=" "
           rowTutorialId={(_r, i) => `host.mois.row.alias-${i + 1}`}
           columns={[
@@ -106,26 +106,26 @@ export function AliasIdGrid({ owner, user }: { owner: string; user: string }) {
 
 export function InboxForwardingGrid({ owner }: { owner: string }) {
   const [rows, update] = useStoredList<ClinicRow>(forwardingKey(owner), EMPTY)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, update)
   const forwardTo = ['', ...userNames(), ...(clinicListSpec('ad-provider-list')?.rows ?? []).map((r) => S(r.name))]
     .filter((x, i, a) => a.indexOf(x) === i)
   useScreenReport({ forwarding: rows.length })
-  const edit = (i: number, patch: ClinicRow) => update((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const edit = list.edit
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #8a8a8a' }}>
       <ButtonBand
         caption="Inbox Forwarding"
         scope="inbox-forwarding"
         buttons={[
-          { label: 'New', w: 60, onPress: () => { update((all) => [...all, { start: MOIS_TODAY, stop: '', forward: '', rule: 'Reassign', note: '' }]); setCur(rows.length) } },
-          { label: 'Delete', w: 60, onPress: () => { update((all) => all.filter((_, j) => j !== cur)); setCur(0) } },
+          { label: 'New', w: 60, onPress: () => list.add({ start: MOIS_TODAY, stop: '', forward: '', rule: 'Reassign', note: '' }) },
+          { label: 'Delete', w: 60, onPress: () => list.remove() },
         ]}
       />
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
         <PBDataWindow<ClinicRow>
           rows={rows}
-          current={Math.min(cur, Math.max(0, rows.length - 1))}
-          onCurrentChange={setCur}
+          current={list.at}
+          onCurrentChange={list.setCur}
           empty=" "
           rowTutorialId={(_r, i) => `host.mois.row.forward-${i + 1}`}
           columns={[
@@ -152,24 +152,24 @@ export function InboxForwardingGrid({ owner }: { owner: string }) {
 
 export function SharingWorkspaceGrid({ owner }: { owner: string }) {
   const [rows, update] = useStoredList<ClinicRow>(sharingKey(owner), EMPTY)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, update)
   useScreenReport({ sharing: rows.length })
-  const edit = (i: number, patch: ClinicRow) => update((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const edit = list.edit
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #8a8a8a' }}>
       <ButtonBand
         caption="Sharing Workspace With"
         scope="sharing-workspace"
         buttons={[
-          { label: 'New', w: 60, onPress: () => { update((all) => [...all, { start: MOIS_TODAY, stop: '', user: '', note: '' }]); setCur(rows.length) } },
-          { label: 'Delete', w: 60, onPress: () => { update((all) => all.filter((_, j) => j !== cur)); setCur(0) } },
+          { label: 'New', w: 60, onPress: () => list.add({ start: MOIS_TODAY, stop: '', user: '', note: '' }) },
+          { label: 'Delete', w: 60, onPress: () => list.remove() },
         ]}
       />
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
         <PBDataWindow<ClinicRow>
           rows={rows}
-          current={Math.min(cur, Math.max(0, rows.length - 1))}
-          onCurrentChange={setCur}
+          current={list.at}
+          onCurrentChange={list.setCur}
           empty=" "
           rowTutorialId={(_r, i) => `host.mois.row.share-${i + 1}`}
           columns={[
@@ -192,11 +192,11 @@ export function ScheduleAccessList({ owner, isPrivate }: { owner: string; isPriv
   const [orgRoles] = useStoredList<ClinicRow>(clinicRowsKey('ad-org-role-list'), clinicListSpec('ad-org-role-list')?.rows ?? EMPTY)
   const [orgs] = useStoredList<ClinicRow>(clinicRowsKey('ad-org-list'), clinicListSpec('ad-org-list')?.rows ?? EMPTY)
   const [rows, update] = useStoredList<ClinicRow>(accessKey(owner), [{ who: owner, access: 'Allow', start: '', stop: '', membersOf: true }])
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, update)
   const who = ['', ...userNames(), ...orgRoles.map((r) => S(r.name)), ...orgs.map((r) => S(r.name))].filter((x, i, a) => a.indexOf(x) === i)
-  const edit = (i: number, patch: ClinicRow) => update((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const edit = list.edit
   useScreenReport({ scheduleAccess: isPrivate ? 'private' : 'public', scheduleAccessRows: isPrivate ? rows.length : 0 })
-  const heading = <div style={{ color: '#000080', fontWeight: 700, padding: '4px 0 2px' }}>Who has access to this schedule</div>
+  const heading = <SectionCaption padding="4px 0 2px" rule={false}>Who has access to this schedule</SectionCaption>
   if (!isPrivate) return <>{heading}<div>All users with access to the scheduling module</div></>
   return (
     <>
@@ -205,14 +205,14 @@ export function ScheduleAccessList({ owner, isPrivate }: { owner: string; isPriv
       <div style={{ flex: '1 1 auto', minHeight: 120, display: 'flex', flexDirection: 'column', border: '1px solid #8a8a8a', background: '#fff' }}>
         {/* the capture parks Add in the grid's header row; a band carries it here */}
         <ButtonBand caption="" scope="schedule-access" buttons={[
-          { label: 'Add', w: 60, onPress: () => { update((all) => [...all, { who: '', access: 'Allow', start: MOIS_TODAY, stop: '' }]); setCur(rows.length) } },
-          { label: 'Remove', w: 60, onPress: () => { if (cur > 0) { update((all) => all.filter((_, j) => j !== cur)); setCur(0) } } },
+          { label: 'Add', w: 60, onPress: () => list.add({ who: '', access: 'Allow', start: MOIS_TODAY, stop: '' }) },
+          { label: 'Remove', w: 60, onPress: () => { if (list.cur > 0) list.remove() } },
         ]} />
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
           <PBDataWindow<ClinicRow>
             rows={rows}
-            current={Math.min(cur, Math.max(0, rows.length - 1))}
-            onCurrentChange={setCur}
+            current={list.at}
+            onCurrentChange={list.setCur}
             empty=" "
             rowTutorialId={(_r, i) => `host.mois.row.access-${i + 1}`}
             columns={[

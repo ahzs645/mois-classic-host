@@ -3,8 +3,9 @@ import { useScreenReport } from '../host/screen-state'
 import { loadReportNavigator, yearsOld } from '../data/reportParams'
 import { patients, MOIS_TODAY, type Patient } from '../data/patients'
 import { RS_FACILITIES, RS_PROVIDERS, RS_SERVICE_CENTERS, RS_STATUS_CODES, rsLike, rsMatchOf } from '../data/reportSpecs/types'
-import { PBBand, PBCheckbox, PBDataWindow, PBMessageBox, PBSelect, pbSlug, usePBInstrumentation } from '../pb'
+import { PBBand, PBDataWindow, PBMessageBox, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { CmdCheck, CmdRadio, DotsButton, FieldInput, FieldSelect } from './reportKit'
 import { ReportPicker } from './ReportSpecWindow'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
@@ -94,41 +95,6 @@ const lastContact = (p: Patient) => {
   return `20${String(24 + (n % 3)).padStart(2, '0')}.${String((n % 12) + 1).padStart(2, '0')}.${String((n % 27) + 1).padStart(2, '0')}`
 }
 
-function Input({ id, value, onChange, w, style, align }: { id?: string; value: string; onChange: (v: string) => void; w: number | string; style?: CSSProperties; align?: 'center' | 'right' }) {
-  return (
-    <input
-      className={`pb-field${align === 'center' ? ' pb-field--center' : align === 'right' ? ' pb-field--right' : ''}`}
-      style={{ width: w, ...style }}
-      value={value}
-      data-tutorial-id={id ? `host.mois.field.${id}` : undefined}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  )
-}
-function Sel({ id, value, options, onChange, w }: { id?: string; value: string; options: readonly string[]; onChange: (v: string) => void; w: number }) {
-  return <PBSelect w={w} value={value} options={options} data-tutorial-id={id ? `host.mois.field.${id}` : undefined} onChange={(e) => onChange(e.target.value)} />
-}
-function Dots({ id, onClick }: { id: string; onClick: () => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--dots" data-tutorial-id={host?.anchor('lookup', id)}
-      onClick={() => { host?.report('lookup', { field: id }); onClick() }}>…</button>
-  )
-}
-function Check({ id, label, checked, onChange }: { id: string; label: ReactNode; checked: boolean; onChange: (v: boolean) => void }) {
-  const host = usePBInstrumentation()
-  return <PBCheckbox label={label} checked={checked} tutorialId={host?.anchor('command', id)} onChange={(v) => { host?.report('command', { command: id }); onChange(v) }} />
-}
-function Radio({ id, name, label, checked, onChange }: { id: string; name: string; label: ReactNode; checked: boolean; onChange: () => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <label className="pb-check pb-check--radio">
-      <input type="radio" name={name} checked={checked} data-tutorial-id={host?.anchor('command', id)} onChange={() => { host?.report('command', { command: id }); onChange() }} />
-      <span className="pb-check__box"><span className="pb-check__dot" /></span>
-      <span className="pb-check__label">{label}</span>
-    </label>
-  )
-}
 const Grey = ({ children, style }: { children: ReactNode; style?: CSSProperties }) => <span style={{ color: '#6d6d6d', ...style }}>{children}</span>
 
 /* ===========================================================================
@@ -303,49 +269,49 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
             <div style={{ padding: '4px 10px 8px', display: 'grid', gridTemplateColumns: '180px 150px 1fr', columnGap: 16, rowGap: 2 }}>
               <div className="pb-row" style={{ gridColumn: '1 / 4', gap: 6 }}>
                 <span>Subject:</span>
-                <Input id="cohort-subject" value={c.subject} w="100%" style={{ background: '#ffffc0' }} onChange={(v) => set({ subject: v })} />
+                <FieldInput id="cohort-subject" value={c.subject} w="100%" style={{ background: '#ffffc0' }} onChange={(v) => set({ subject: v })} />
               </div>
               <div style={{ gridColumn: '1 / 3' }}>
                 <Grey>Service Provider</Grey>
-                <div><Sel id="cohort-provider" value={c.provider} options={RS_PROVIDERS} w={268} onChange={(v) => set({ provider: v })} /></div>
+                <div><FieldSelect id="cohort-provider" value={c.provider} options={RS_PROVIDERS} w={268} onChange={(v) => set({ provider: v })} /></div>
               </div>
               <div style={{ gridRow: '2 / 5', gridColumn: 3 }}>
                 <Grey>Health Condition</Grey>
                 <div>
                   <span className="pb-inputgroup" style={{ width: 290 }}>
-                    <Input id="cohort-condition" value={c.condition} w="100%" onChange={(v) => set({ condition: v.toUpperCase() })} />
-                    <Dots id="cohort-condition" onClick={() => setPicking({ title: 'Health Condition', options: CONDITIONS, value: c.condition, apply: (v) => set({ condition: v }) })} />
+                    <FieldInput id="cohort-condition" value={c.condition} w="100%" onChange={(v) => set({ condition: v.toUpperCase() })} />
+                    <DotsButton id="cohort-condition" onClick={() => setPicking({ title: 'Health Condition', options: CONDITIONS, value: c.condition, apply: (v) => set({ condition: v }) })} />
                   </span>
                 </div>
                 <Grey>Documented in one of the following selected folders</Grey>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 3 }}>
-                  <Check id="cohort-folder-health-concern" label="Health concern" checked={c.folders.concern} onChange={(v) => set({ folders: { ...c.folders, concern: v } })} />
-                  <Check id="cohort-folder-family-history" label="Family history" checked={c.folders.family} onChange={(v) => set({ folders: { ...c.folders, family: v } })} />
-                  <Check id="cohort-folder-risk-for-condition" label="Risk for condition" checked={c.folders.risk} onChange={(v) => set({ folders: { ...c.folders, risk: v } })} />
+                  <CmdCheck id="cohort-folder-health-concern" label="Health concern" checked={c.folders.concern} onChange={(v) => set({ folders: { ...c.folders, concern: v } })} />
+                  <CmdCheck id="cohort-folder-family-history" label="Family history" checked={c.folders.family} onChange={(v) => set({ folders: { ...c.folders, family: v } })} />
+                  <CmdCheck id="cohort-folder-risk-for-condition" label="Risk for condition" checked={c.folders.risk} onChange={(v) => set({ folders: { ...c.folders, risk: v } })} />
                 </div>
               </div>
               <div>
                 <Grey>Patient Status</Grey>
                 <div>
                   <span className="pb-inputgroup" style={{ width: 172 }}>
-                    <Input id="cohort-status" value={c.status} w="100%" onChange={(v) => set({ status: v.toUpperCase() })} />
-                    <Dots id="cohort-status" onClick={() => setPicking({ title: 'Patient Status', options: RS_STATUS_CODES, multi: true, value: c.status, apply: (v) => set({ status: v }) })} />
+                    <FieldInput id="cohort-status" value={c.status} w="100%" onChange={(v) => set({ status: v.toUpperCase() })} />
+                    <DotsButton id="cohort-status" onClick={() => setPicking({ title: 'Patient Status', options: RS_STATUS_CODES, multi: true, value: c.status, apply: (v) => set({ status: v }) })} />
                   </span>
                 </div>
               </div>
               <div>
                 <Grey>Last Contact</Grey>
-                <div className="pb-row" style={{ gap: 3 }}><Input id="cohort-last-contact" value={c.lastContact} w={52} align="center" onChange={(v) => set({ lastContact: v })} /><Grey>(yrs)</Grey></div>
+                <div className="pb-row" style={{ gap: 3 }}><FieldInput id="cohort-last-contact" value={c.lastContact} w={52} align="center" onChange={(v) => set({ lastContact: v })} /><Grey>(yrs)</Grey></div>
               </div>
               <div>
                 <Grey>Age Range</Grey>
                 <div className="pb-row" style={{ gap: 6 }}>
-                  <Input id="cohort-age-from" value={c.ageFrom} w={32} onChange={(v) => set({ ageFrom: v })} /> to <Input id="cohort-age-to" value={c.ageTo} w={32} onChange={(v) => set({ ageTo: v })} />
+                  <FieldInput id="cohort-age-from" value={c.ageFrom} w={32} onChange={(v) => set({ ageFrom: v })} /> to <FieldInput id="cohort-age-to" value={c.ageTo} w={32} onChange={(v) => set({ ageTo: v })} />
                 </div>
               </div>
               <div>
                 <Grey>Gender</Grey>
-                <div><Sel id="cohort-gender" value={c.gender} options={['', 'F', 'M', 'X', 'U']} w={74} onChange={(v) => set({ gender: v })} /></div>
+                <div><FieldSelect id="cohort-gender" value={c.gender} options={['', 'F', 'M', 'X', 'U']} w={74} onChange={(v) => set({ gender: v })} /></div>
               </div>
             </div>
 
@@ -354,10 +320,10 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
             {c.procs.map((r, i) => (
               <div key={i} className="pb-row" style={{ gap: 4, padding: '2px 10px', background: i % 2 ? '#e8e8e8' : '#fff' }}>
                 {marker(i)}
-                <Sel id={`cohort-proc-type-${i + 1}`} value={r.type} options={RECORD_TYPES} w={96} onChange={(v) => setRow('procs', i, { type: v })} />
+                <FieldSelect id={`cohort-proc-type-${i + 1}`} value={r.type} options={RECORD_TYPES} w={96} onChange={(v) => setRow('procs', i, { type: v })} />
                 <span className="pb-inputgroup" style={{ width: 300 }}>
-                  <Input id={`cohort-proc-concept-${i + 1}`} value={r.concept} w="100%" onChange={(v) => setRow('procs', i, { concept: v.toUpperCase() })} />
-                  <Dots id={`cohort-proc-concept-${i + 1}`} onClick={() => setPicking({ title: 'Concept', options: CONCEPTS, value: r.concept, apply: (v) => setRow('procs', i, { concept: v, type: r.type || 'Procedure' }) })} />
+                  <FieldInput id={`cohort-proc-concept-${i + 1}`} value={r.concept} w="100%" onChange={(v) => setRow('procs', i, { concept: v.toUpperCase() })} />
+                  <DotsButton id={`cohort-proc-concept-${i + 1}`} onClick={() => setPicking({ title: 'Concept', options: CONCEPTS, value: r.concept, apply: (v) => setRow('procs', i, { concept: v, type: r.type || 'Procedure' }) })} />
                 </span>
               </div>
             ))}
@@ -367,11 +333,11 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
             {c.prefs.map((r, i) => (
               <div key={i} className="pb-row" style={{ gap: 4, padding: '2px 10px', background: i % 2 ? '#e8e8e8' : '#fff' }}>
                 {marker(i)}
-                <Sel id={`cohort-pref-type-${i + 1}`} value={r.type} options={PREF_TYPES} w={96} onChange={(v) => setRow('prefs', i, { type: v })} />
-                <Sel id={`cohort-pref-subject-${i + 1}`} value={r.subject} options={PREF_SUBJECTS} w={92} onChange={(v) => setRow('prefs', i, { subject: v })} />
-                <Sel id={`cohort-pref-identify-${i + 1}`} value={r.identify} options={IDENTIFY} w={72} onChange={(v) => setRow('prefs', i, { identify: v })} />
+                <FieldSelect id={`cohort-pref-type-${i + 1}`} value={r.type} options={PREF_TYPES} w={96} onChange={(v) => setRow('prefs', i, { type: v })} />
+                <FieldSelect id={`cohort-pref-subject-${i + 1}`} value={r.subject} options={PREF_SUBJECTS} w={92} onChange={(v) => setRow('prefs', i, { subject: v })} />
+                <FieldSelect id={`cohort-pref-identify-${i + 1}`} value={r.identify} options={IDENTIFY} w={72} onChange={(v) => setRow('prefs', i, { identify: v })} />
                 <span style={{ width: 170 }} />
-                <Sel id={`cohort-pref-instruction-${i + 1}`} value={r.instruction} options={INSTRUCTIONS} w={140} onChange={(v) => setRow('prefs', i, { instruction: v })} />
+                <FieldSelect id={`cohort-pref-instruction-${i + 1}`} value={r.instruction} options={INSTRUCTIONS} w={140} onChange={(v) => setRow('prefs', i, { instruction: v })} />
               </div>
             ))}
 
@@ -379,8 +345,8 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
               <>
                 <div>Include patients with</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 10px 2px' }}>
-                  <Radio id="cohort-include-none" name="cohort-include" label="None of the following records" checked={c.include === 'none'} onChange={() => set({ include: 'none' })} />
-                  <Radio id="cohort-include-at-least-one" name="cohort-include" label="At least one of the following records" checked={c.include === 'one'} onChange={() => set({ include: 'one' })} />
+                  <CmdRadio id="cohort-include-none" name="cohort-include" label="None of the following records" checked={c.include === 'none'} onChange={() => set({ include: 'none' })} />
+                  <CmdRadio id="cohort-include-at-least-one" name="cohort-include" label="At least one of the following records" checked={c.include === 'one'} onChange={() => set({ include: 'one' })} />
                 </div>
               </>,
             )}
@@ -388,15 +354,15 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
             {c.incl.map((r, i) => (
               <div key={i} className="pb-row" style={{ gap: 4, padding: '2px 10px', background: i % 2 ? '#e8e8e8' : '#fff' }}>
                 {marker(i)}
-                <Sel id={`cohort-incl-type-${i + 1}`} value={r.type} options={RECORD_TYPES} w={96} onChange={(v) => setRow('incl', i, { type: v })} />
+                <FieldSelect id={`cohort-incl-type-${i + 1}`} value={r.type} options={RECORD_TYPES} w={96} onChange={(v) => setRow('incl', i, { type: v })} />
                 <span className="pb-inputgroup" style={{ width: 300 }}>
-                  <Input id={`cohort-incl-concept-${i + 1}`} value={r.concept} w="100%" onChange={(v) => setRow('incl', i, { concept: v.toUpperCase() })} />
-                  <Dots id={`cohort-incl-concept-${i + 1}`} onClick={() => setPicking({ title: 'Concept', options: CONCEPTS, value: r.concept, apply: (v) => setRow('incl', i, { concept: v }) })} />
+                  <FieldInput id={`cohort-incl-concept-${i + 1}`} value={r.concept} w="100%" onChange={(v) => setRow('incl', i, { concept: v.toUpperCase() })} />
+                  <DotsButton id={`cohort-incl-concept-${i + 1}`} onClick={() => setPicking({ title: 'Concept', options: CONCEPTS, value: r.concept, apply: (v) => setRow('incl', i, { concept: v }) })} />
                 </span>
                 <span style={{ width: 20 }} />
                 <Grey>in the last</Grey>
-                <Input id={`cohort-incl-when-n-${i + 1}`} value={r.n} w={32} align="center" onChange={(v) => setRow('incl', i, { n: v })} />
-                <Sel id={`cohort-incl-when-unit-${i + 1}`} value={r.unit} options={['', 'Day(s)', 'Month(s)', 'Year(s)']} w={80} onChange={(v) => setRow('incl', i, { unit: v })} />
+                <FieldInput id={`cohort-incl-when-n-${i + 1}`} value={r.n} w={32} align="center" onChange={(v) => setRow('incl', i, { n: v })} />
+                <FieldSelect id={`cohort-incl-when-unit-${i + 1}`} value={r.unit} options={['', 'Day(s)', 'Month(s)', 'Year(s)']} w={80} onChange={(v) => setRow('incl', i, { unit: v })} />
               </div>
             ))}
           </div>
@@ -404,7 +370,7 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
       </div>
       <div className="pb-row" style={{ gap: 8, padding: '10px 6px', justifyContent: 'flex-end', borderTop: '1px solid #a0a0a0', flex: 'none' }}>
         <span>Output as:</span>
-        <Sel id="cohort-output" value={output} options={['Printable Report', 'Excel', 'Chart Navigator']} w={130} onChange={setOutput} />
+        <FieldSelect id="cohort-output" value={output} options={['Printable Report', 'Excel', 'Chart Navigator']} w={130} onChange={setOutput} />
         <span style={{ width: 40 }} />
         <DialogButton id="cohort-run" width={74} isDefault onClick={run}>Run Report</DialogButton>
         <DialogButton id="cohort-cancel" width={74} onClick={close}>Cancel</DialogButton>
@@ -581,24 +547,24 @@ function MedicalReportBuilderWindow({ close, open }: AreaWindowProps) {
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '2px 6px' }}>
         <div className="pb-row" style={{ gap: 10, borderBottom: '1px solid #a0a0a0', paddingBottom: 3 }}>
           <span style={{ color: NAVY, fontWeight: 700, width: 180 }}>Patient Characteristics:</span>
-          <Check id="mrb-active" label="Active Patients Only" checked={m.active} onChange={(v) => set({ active: v })} />
-          <span>Provider:</span><Sel id="mrb-provider" value={m.provider} options={RS_PROVIDERS} w={130} onChange={(v) => set({ provider: v })} />
-          <span>Facility Code:</span><Sel id="mrb-facility" value={m.facility} options={RS_FACILITIES} w={112} onChange={(v) => set({ facility: v })} />
-          <span>Service Center:</span><Sel id="mrb-service" value={m.service} options={RS_SERVICE_CENTERS} w={130} onChange={(v) => set({ service: v })} />
+          <CmdCheck id="mrb-active" label="Active Patients Only" checked={m.active} onChange={(v) => set({ active: v })} />
+          <span>Provider:</span><FieldSelect id="mrb-provider" value={m.provider} options={RS_PROVIDERS} w={130} onChange={(v) => set({ provider: v })} />
+          <span>Facility Code:</span><FieldSelect id="mrb-facility" value={m.facility} options={RS_FACILITIES} w={112} onChange={(v) => set({ facility: v })} />
+          <span>Service Center:</span><FieldSelect id="mrb-service" value={m.service} options={RS_SERVICE_CENTERS} w={130} onChange={(v) => set({ service: v })} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', paddingTop: 3 }}>
-          <div className="pb-row" style={{ gap: 6 }}>{lbl('Age Range:')}<Input id="mrb-age-from" value={m.ageFrom} w={44} onChange={(v) => set({ ageFrom: v })} /> to <Input id="mrb-age-to" value={m.ageTo} w={44} onChange={(v) => set({ ageTo: v })} /><span style={{ marginLeft: 12 }}>Sex:</span><Sel id="mrb-sex" value={m.sex} options={['', 'F', 'M']} w={40} onChange={(v) => set({ sex: v })} /></div>
-          <div className="pb-row" style={{ gap: 6 }}>Seen in Last:<Input id="mrb-seen" value={m.seen} w={26} onChange={(v) => set({ seen: v })} />years.</div>
-          <div className="pb-row" style={{ gap: 6 }}>{lbl('Problem Includes:')}<Input id="mrb-problem" value={m.problem} w={280} onChange={(v) => set({ problem: v.toUpperCase() })} /></div>
-          <div className="pb-row" style={{ gap: 6 }}>but excluding:<Input id="mrb-excluding" value={m.excluding} w={280} onChange={(v) => set({ excluding: v.toUpperCase() })} /></div>
-          <div className="pb-row" style={{ gap: 6 }}>{lbl('Procedure:')}<Input id="mrb-procedure" value={m.procedure} w={280} onChange={(v) => set({ procedure: v.toUpperCase() })} /></div>
+          <div className="pb-row" style={{ gap: 6 }}>{lbl('Age Range:')}<FieldInput id="mrb-age-from" value={m.ageFrom} w={44} onChange={(v) => set({ ageFrom: v })} /> to <FieldInput id="mrb-age-to" value={m.ageTo} w={44} onChange={(v) => set({ ageTo: v })} /><span style={{ marginLeft: 12 }}>Sex:</span><FieldSelect id="mrb-sex" value={m.sex} options={['', 'F', 'M']} w={40} onChange={(v) => set({ sex: v })} /></div>
+          <div className="pb-row" style={{ gap: 6 }}>Seen in Last:<FieldInput id="mrb-seen" value={m.seen} w={26} onChange={(v) => set({ seen: v })} />years.</div>
+          <div className="pb-row" style={{ gap: 6 }}>{lbl('Problem Includes:')}<FieldInput id="mrb-problem" value={m.problem} w={280} onChange={(v) => set({ problem: v.toUpperCase() })} /></div>
+          <div className="pb-row" style={{ gap: 6 }}>but excluding:<FieldInput id="mrb-excluding" value={m.excluding} w={280} onChange={(v) => set({ excluding: v.toUpperCase() })} /></div>
+          <div className="pb-row" style={{ gap: 6 }}>{lbl('Procedure:')}<FieldInput id="mrb-procedure" value={m.procedure} w={280} onChange={(v) => set({ procedure: v.toUpperCase() })} /></div>
           <div />
-          <div className="pb-row" style={{ gap: 6 }}>{lbl('Medication:')}<Input id="mrb-medication" value={m.medication} w={280} onChange={(v) => set({ medication: v.toUpperCase() })} /></div>
+          <div className="pb-row" style={{ gap: 6 }}>{lbl('Medication:')}<FieldInput id="mrb-medication" value={m.medication} w={280} onChange={(v) => set({ medication: v.toUpperCase() })} /></div>
         </div>
         <div className="pb-row" style={{ gap: 10, borderTop: '1px solid #a0a0a0', borderBottom: '1px solid #a0a0a0', padding: '3px 0', marginTop: 3 }}>
           <span style={{ color: NAVY, fontWeight: 700, width: 100 }}>Report Criteria:</span>
-          <span>Range:</span><span>In - Last:</span><Input id="mrb-range" value={m.range} w={40} onChange={(v) => set({ range: v })} />
-          {['Days', 'Months', 'Years'].map((u) => <Radio key={u} id={`mrb-range-${pbSlug(u)}`} name="mrb-unit" label={u} checked={m.unit === u} onChange={() => set({ unit: u })} />)}
+          <span>Range:</span><span>In - Last:</span><FieldInput id="mrb-range" value={m.range} w={40} onChange={(v) => set({ range: v })} />
+          {['Days', 'Months', 'Years'].map((u) => <CmdRadio key={u} id={`mrb-range-${pbSlug(u)}`} name="mrb-unit" label={u} checked={m.unit === u} onChange={() => set({ unit: u })} />)}
           <span>(only used only if value is present)</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '110px 290px 90px 150px 1fr', rowGap: 1, alignItems: 'center', paddingTop: 3 }}>
@@ -609,25 +575,25 @@ function MedicalReportBuilderWindow({ close, open }: AreaWindowProps) {
             return [
               <span key={`${i}a`}>{x.item}:</span>,
               i === 0
-                ? <span key={`${i}b`} className="pb-row" style={{ gap: 4 }}><Input id="mrb-look-code" value={c.code} w={62} onChange={(v) => setCrit(0, { code: v.toUpperCase() })} /><Input id={`mrb-look-${slug}`} value={c.look} w={206} onChange={(v) => setCrit(0, { look: v.toUpperCase() })} /></span>
-                : <Input key={`${i}b`} id={`mrb-look-${slug}`} value={c.look} w={280} onChange={(v) => setCrit(i, { look: v.toUpperCase() })} />,
+                ? <span key={`${i}b`} className="pb-row" style={{ gap: 4 }}><FieldInput id="mrb-look-code" value={c.code} w={62} onChange={(v) => setCrit(0, { code: v.toUpperCase() })} /><FieldInput id={`mrb-look-${slug}`} value={c.look} w={206} onChange={(v) => setCrit(0, { look: v.toUpperCase() })} /></span>
+                : <FieldInput key={`${i}b`} id={`mrb-look-${slug}`} value={c.look} w={280} onChange={(v) => setCrit(i, { look: v.toUpperCase() })} />,
               i === 0
-                ? <Input key={`${i}c`} id="mrb-value" value={c.value} w={84} onChange={(v) => setCrit(0, { value: v })} />
-                : <Sel key={`${i}c`} id={`mrb-where-${slug}`} value={c.where} options={['Contains', 'Begins With']} w={84} onChange={(v) => setCrit(i, { where: v })} />,
+                ? <FieldInput key={`${i}c`} id="mrb-value" value={c.value} w={84} onChange={(v) => setCrit(0, { value: v })} />
+                : <FieldSelect key={`${i}c`} id={`mrb-where-${slug}`} value={c.where} options={['Contains', 'Begins With']} w={84} onChange={(v) => setCrit(i, { where: v })} />,
               i === 0
-                ? <span key={`${i}d`} className="pb-row" style={{ gap: 6 }}><Radio id="mrb-greater" name="mrb-gl" label="Greater T/" checked={m.greater} onChange={() => set({ greater: true })} /><Radio id="mrb-less" name="mrb-gl" label="Less T/" checked={!m.greater} onChange={() => set({ greater: false })} /></span>
-                : <Sel key={`${i}d`} value={c.field} options={[x.where]} w={146} onChange={() => undefined} />,
+                ? <span key={`${i}d`} className="pb-row" style={{ gap: 6 }}><CmdRadio id="mrb-greater" name="mrb-gl" label="Greater T/" checked={m.greater} onChange={() => set({ greater: true })} /><CmdRadio id="mrb-less" name="mrb-gl" label="Less T/" checked={!m.greater} onChange={() => set({ greater: false })} /></span>
+                : <FieldSelect key={`${i}d`} value={c.field} options={[x.where]} w={146} onChange={() => undefined} />,
               <span key={`${i}e`} className="pb-row" style={{ gap: 8 }}>
-                <Sel id={`mrb-when-${slug}`} value={c.when} options={WHEN_TO_CONSIDER} w={112} onChange={(v) => setCrit(i, { when: v })} />
-                {i === 0 && <><Radio id="mrb-most-recent" name="mrb-recent" label="Most Recent" checked={m.recent} onChange={() => set({ recent: true })} /><Radio id="mrb-all-in-range" name="mrb-recent" label="All within Range" checked={!m.recent} onChange={() => set({ recent: false })} /></>}
+                <FieldSelect id={`mrb-when-${slug}`} value={c.when} options={WHEN_TO_CONSIDER} w={112} onChange={(v) => setCrit(i, { when: v })} />
+                {i === 0 && <><CmdRadio id="mrb-most-recent" name="mrb-recent" label="Most Recent" checked={m.recent} onChange={() => set({ recent: true })} /><CmdRadio id="mrb-all-in-range" name="mrb-recent" label="All within Range" checked={!m.recent} onChange={() => set({ recent: false })} /></>}
               </span>,
             ]
           })}
         </div>
         <div className="pb-row" style={{ gap: 6, paddingTop: 6 }}>
-          {lbl('Name:', 44)}<Input id="mrb-name" value={m.name} w={260} onChange={(v) => set({ name: v.toUpperCase() })} />
-          <span>Group:</span><Input id="mrb-group" value={m.group} w={70} onChange={(v) => set({ group: v.toUpperCase() })} />
-          <span>Description:</span><Input id="mrb-description" value={m.description} w={380} onChange={(v) => set({ description: v })} />
+          {lbl('Name:', 44)}<FieldInput id="mrb-name" value={m.name} w={260} onChange={(v) => set({ name: v.toUpperCase() })} />
+          <span>Group:</span><FieldInput id="mrb-group" value={m.group} w={70} onChange={(v) => set({ group: v.toUpperCase() })} />
+          <span>Description:</span><FieldInput id="mrb-description" value={m.description} w={380} onChange={(v) => set({ description: v })} />
         </div>
       </div>
       {message && (

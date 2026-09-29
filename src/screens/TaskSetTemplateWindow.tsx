@@ -6,6 +6,7 @@ import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { CentredFooter, Cmd, NavyBand, onF2 } from './adminKit'
 import { DemographicModal } from './DemographicDialogs'
+import { useRecordList } from './listKit'
 
 /* ============================================================================
    Designer Section ▸ Task Set Templates ▸ Task Set Detail — creating and
@@ -51,12 +52,12 @@ export function TaskSetTemplateWindow({ title, row, onClose }: { title: string; 
   const [stored, setStored] = useSessionState<TaskSetTemplate | null>(taskSetKey(desc), null)
   const initial: TaskSetTemplate = stored ?? { detail: String(row.detail ?? ''), tasks: shipped ? TASK_SET_ROWS : [] }
   const [detail, setDetail] = useState(initial.detail)
-  const [tasks, setTasks] = useState<TaskSetRow[]>(() => initial.tasks.map((t) => ({ ...t })))
-  const [cur, setCur] = useState(0)
+  const list = useRecordList<TaskSetRow>(() => initial.tasks.map((t) => ({ ...t })), { afterRemove: 'previous' })
+  const { rows: tasks, cur, setCur } = list
   const [saved, setSaved] = useState(false)
   useScreenReport({ dialog: 'task-set-detail', tasks: tasks.length, saved })
 
-  const edit = (i: number, patch: Partial<TaskSetRow>) => { setTasks((all) => all.map((t, j) => (j === i ? { ...t, ...patch } : t))); setSaved(false) }
+  const edit = (i: number, patch: Partial<TaskSetRow>) => { list.edit(i, patch); setSaved(false) }
   const save = () => {
     setStored({ detail, tasks: tasks.filter((t) => t.task.trim()) })
     setSaved(true)
@@ -81,10 +82,10 @@ export function TaskSetTemplateWindow({ title, row, onClose }: { title: string; 
         <div className="pb-band" style={{ flex: 'none', fontWeight: 700 }}>Task List</div>
         <div className="pb-row" style={{ gap: 0, padding: 1, background: '#dcd7d2', borderBottom: '1px solid #a0a0a0', flex: 'none' }}>
           <Cmd id="new-row" w={82} onClick={() => {
-            setTasks((all) => [...all, { priority: 'Medium', task: '', group: '', dueAfter: '0', dueUnit: 'Days', detail: '' }])
-            setCur(tasks.length); setSaved(false)
+            list.add({ priority: 'Medium', task: '', group: '', dueAfter: '0', dueUnit: 'Days', detail: '' })
+            setSaved(false)
           }}>New Row</Cmd>
-          <Cmd id="delete-row" w={80} disabled={!tasks.length} onClick={() => { setTasks((all) => all.filter((_, j) => j !== cur)); setCur(Math.max(0, cur - 1)); setSaved(false) }}>Delete Row</Cmd>
+          <Cmd id="delete-row" w={80} disabled={!tasks.length} onClick={() => { list.remove(); setSaved(false) }}>Delete Row</Cmd>
         </div>
 
         <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff' }}>

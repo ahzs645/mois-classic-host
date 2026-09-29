@@ -10,9 +10,11 @@ import {
 import { DOCTORS } from '../../data/claims'
 import { usePatient, usePatientRoster } from '../../data/patient-context'
 import { MOIS_TODAY } from '../../data/patients'
+import { yn } from '../../data/text'
 import { useScreenReport } from '../../host/screen-state'
 import { useOpenWindow } from '../areaWindowRegistry'
 import { AdvancedLookupDialog } from '../AdvancedLookupDialog'
+import { FormLabel, FormLine } from '../formKit'
 import { useInvoicePrint } from './InvoiceWindows'
 
 /* ============================================================================
@@ -68,14 +70,6 @@ const PAYMENT_METHODS = ['Cash', 'Cheque', 'Interact', 'Mastercard', 'Other', 'V
 
 /** MOIS's money format prints zero as "-". */
 function money(n: number) { return Math.abs(n) < 0.005 ? '-' : n.toFixed(2) }
-
-function L({ children, w = 92 }: { children: React.ReactNode; w?: number }) {
-  return <span className="pb-form__label" style={{ width: w, flex: 'none' }}>{children}</span>
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return <div className="pb-row" style={{ gap: 6, padding: '1px 0', flex: 'none', alignItems: 'center' }}>{children}</div>
-}
 
 export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => void }) {
   const { state, setState, current: inv, patchCurrent } = useInvoices()
@@ -172,7 +166,7 @@ export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => voi
     taxable: inv.taxable,
     trans: inv.trans.length,
     balance: totals.owed > 0 ? 'owing' : 'paid',
-    writeOff: inv.writtenOff > 0 ? 'Y' : 'N',
+    writeOff: yn(inv.writtenOff > 0),
     ...(lookup ? { dialog: 'invoice-change-patient' } : message ? { dialog: 'invoice-message' } : {}),
   })
 
@@ -223,8 +217,8 @@ export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => voi
           <span>Work: {inv.chart === '75' ? '(250) 555-1234' : ''}</span>
         </div>
 
-        <Row>
-          <L w={70}>Invoice #:</L>
+        <FormLine noLabel padding="1px 0" align="center" style={{ flex: 'none' }}>
+          <FormLabel w={70}>Invoice #:</FormLabel>
           {/* "Press F4 to prompt a list of all invoices for the patient" */}
           <span className="pb-inputgroup" style={{ width: 107 }}>
             <input className="pb-field" readOnly value={inv.no} style={GREY} data-tutorial-id="host.mois.field.invoice-number"
@@ -232,9 +226,9 @@ export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => voi
             <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--dots" data-tutorial-id="host.mois.lookup.invoice-number"
               onClick={() => openWindow('invoice-prompt', { by: 'invoice', chart: inv.chart })}>…</button>
           </span>
-          <L w={62}>Provider:</L>
+          <FormLabel w={62}>Provider:</FormLabel>
           <PBSelect w={200} options={DOCTORS} value={inv.provider} style={YELLOW} onChange={(e) => patchCurrent({ provider: e.target.value })} data-tutorial-id="host.mois.field.invoice-provider" />
-          <L w={50}>Payor:</L>
+          <FormLabel w={50}>Payor:</FormLabel>
           <PBDropDownDataWindow
             w={150}
             listW={320}
@@ -245,37 +239,37 @@ export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => voi
             onSelect={(r) => patchCurrent({ payor: r.code })}
             tutorialId="host.mois.field.invoice-payor"
           />
-          <L w={84}>Recon Code:</L>
+          <FormLabel w={84}>Recon Code:</FormLabel>
           <PBInput w={30} align="center" value={inv.recon} style={GREY} readOnly />
-        </Row>
-        <Row>
-          <L w={70}>Bill Date:</L>
+        </FormLine>
+        <FormLine noLabel padding="1px 0" align="center" style={{ flex: 'none' }}>
+          <FormLabel w={70}>Bill Date:</FormLabel>
           <span>1:</span><PBInput w={90} value={inv.billDate} onChange={(e) => patchCurrent({ billDate: e.target.value })} data-tutorial-id="host.mois.field.invoice-bill-date" />
           <span>2:</span><PBInput w={90} />
           <span>3:</span><PBInput w={90} />
-          <L w={66}>Claim No.:</L>
+          <FormLabel w={66}>Claim No.:</FormLabel>
           <span className="pb-inputgroup" style={{ width: 137 }}>
             <input className="pb-field" value={inv.claimNo} onChange={(e) => patchCurrent({ claimNo: e.target.value })} data-tutorial-id="host.mois.field.invoice-claim-no" />
             <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--dots" onClick={() => openWindow('paste-msp-claim')}>…</button>
           </span>
-          <L w={72}>Write Off:</L>
-          <PBInput w={30} align="center" value={inv.writtenOff > 0 ? 'Y' : 'N'} style={GREY} readOnly data-tutorial-id="host.mois.field.invoice-write-off" />
-        </Row>
-        <Row>
-          <L w={92}>No. Billings:</L>
+          <FormLabel w={72}>Write Off:</FormLabel>
+          <PBInput w={30} align="center" value={yn(inv.writtenOff > 0)} style={GREY} readOnly data-tutorial-id="host.mois.field.invoice-write-off" />
+        </FormLine>
+        <FormLine noLabel padding="1px 0" align="center" style={{ flex: 'none' }}>
+          <FormLabel w={92}>No. Billings:</FormLabel>
           <PBInput w={40} align="right" value={String(inv.trans.filter((t) => t.tran === 'B').length)} style={GREY} readOnly />
-          <L w={84}>Invoice Code:</L>
+          <FormLabel w={84}>Invoice Code:</FormLabel>
           <PBSelect w={140} options={INVOICE_CODES} value={inv.code} onChange={(e) => patchCurrent({ code: e.target.value })} data-tutorial-id="host.mois.field.invoice-code" />
-          <L w={60}>Taxable:</L>
+          <FormLabel w={60}>Taxable:</FormLabel>
           <PBCheckbox label="Apply Tax" checked={inv.taxable} onChange={(v) => patchCurrent({ taxable: v })} tutorialId="host.mois.check.apply-tax" />
-          <PBButton size="sm" data-tutorial-id="host.mois.command.change-tax-rates" onClick={() => openWindow('invoice-tax-rates')}>Change Tax Rates</PBButton>
-          <L w={90}>Payment Due:</L>
+          <PBButton size="sm" command="change-tax-rates" onClick={() => openWindow('invoice-tax-rates')}>Change Tax Rates</PBButton>
+          <FormLabel w={90}>Payment Due:</FormLabel>
           <PBInput w={100} value={inv.due} onChange={(e) => patchCurrent({ due: e.target.value })} data-tutorial-id="host.mois.field.invoice-payment-due" />
-        </Row>
+        </FormLine>
         <div className="pb-row" style={{ gap: 6, flex: 'none', padding: '2px 0', alignItems: 'flex-start' }}>
-          <L w={70}>Comment:</L>
+          <FormLabel w={70}>Comment:</FormLabel>
           <PBTextArea rows={2} w={320} style={{ height: 40, resize: 'none' }} value={inv.comment} onChange={(e) => patchCurrent({ comment: e.target.value })} data-tutorial-id="host.mois.field.invoice-comment" />
-          <L w={62}>Message:</L>
+          <FormLabel w={62}>Message:</FormLabel>
           <PBTextArea rows={2} w={320} style={{ height: 40, resize: 'none' }} value={inv.message} onChange={(e) => patchCurrent({ message: e.target.value })} data-tutorial-id="host.mois.field.invoice-message" />
         </div>
 

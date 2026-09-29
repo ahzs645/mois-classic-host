@@ -14,6 +14,7 @@ import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBMessag
 import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { PatientFieldRow, patientPhn } from './patientKit'
 
 /* ============================================================================
    The windows around the Letter Writer that open by name.
@@ -61,18 +62,15 @@ function PatientBlock() {
   const p = usePatient()
   return (
     <div style={{ background: '#ffffc0', padding: '2px 10px', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-      <div className="pb-row" style={{ gap: 0 }}>
-        <span>FIRST:&nbsp;</span><b style={{ width: 150 }}>{p.first}</b>
-        <span>MIDDLE:&nbsp;</span><b style={{ width: 130 }}>{p.middle}</b>
-        <span>LAST:&nbsp;</span><b style={{ width: 170 }}>{p.last}</b>
-        <span>DoB:&nbsp;</span><b style={{ width: 90 }}>{p.dob}</b><b>{p.sex}</b>
-      </div>
-      <div className="pb-row" style={{ gap: 0 }}>
-        <span>PHN:&nbsp;</span><b style={{ width: 160 }}>{[p.insuranceBy, p.bchn ?? p.insurance, p.dep].filter(Boolean).join(' ')}</b>
-        <span>Home:&nbsp;</span><b style={{ width: 120 }}>{p.home}</b>
-        <span>Work:&nbsp;</span><b style={{ width: 120 }}>{p.work}</b>
-        <span style={{ textDecoration: 'underline' }}>Cell:</span>&nbsp;<b>{p.cell}</b>
-      </div>
+      <PatientFieldRow fields={[
+        { label: 'FIRST:', value: p.first, w: 150 }, { label: 'MIDDLE:', value: p.middle, w: 130 },
+        { label: 'LAST:', value: p.last, w: 170 }, { label: 'DoB:', value: p.dob, w: 90 }, { value: p.sex },
+      ]} />
+      <PatientFieldRow fields={[
+        { label: 'PHN:', value: patientPhn(p), w: 160 }, { label: 'Home:', value: p.home, w: 120 },
+        { label: 'Work:', value: p.work, w: 120 },
+        { node: <><span style={{ textDecoration: 'underline' }}>Cell:</span>&nbsp;<b>{p.cell}</b></> },
+      ]} />
     </div>
   )
 }
@@ -159,7 +157,7 @@ function OrderDetailWindow({ args, close, open }: AreaWindowProps) {
         <fieldset style={{ margin: '6px 8px 0', border: '1px solid #c8c8c8', padding: '2px 8px 6px' }}>
           <legend>Order Information</legend>
           <div style={{ display: 'grid', gridTemplateColumns: '90px 200px 90px 1fr', rowGap: 3, columnGap: 6, alignItems: 'center' }}>
-            {field('Order Date:', dot(order?.dtm_ord_date) || '2026.09.18', 82)}
+            {field('Order Date:', dot(order?.dtm_ord_date) || MOIS_TODAY, 82)}
             {field('Code:', order?.str_code ?? '', 110, true)}
             {field('Order By:', order?.str_order_by ?? DESKTOP_PROVIDER, 180, true)}
             {field('Description:', order?.str_description ?? '', 280)}
@@ -292,13 +290,10 @@ function SendInformationRequestWindow({ close, open }: AreaWindowProps) {
       </div>
       <div style={{ margin: '12px 16px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
         <PBBand>Send New Information Request</PBBand>
-        <div className="pb-row" style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }}>
-          <span>FIRST:&nbsp;</span><b style={{ width: 160 }}>{p.first}</b>
-          <span>MIDDLE:&nbsp;</span><b style={{ width: 150 }}>{p.middle}</b>
-          <span>LAST:&nbsp;</span><b style={{ width: 180 }}>{p.last}</b>
-          <span>DoB:&nbsp;</span><b style={{ width: 110 }}>{p.dob}</b>
-          <span>SEX:&nbsp;</span><b>{p.sex}</b>
-        </div>
+        <PatientFieldRow style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }} fields={[
+          { label: 'FIRST:', value: p.first, w: 160 }, { label: 'MIDDLE:', value: p.middle, w: 150 },
+          { label: 'LAST:', value: p.last, w: 180 }, { label: 'DoB:', value: p.dob, w: 110 }, { label: 'SEX:', value: p.sex },
+        ]} />
         <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr 110px', rowGap: 4, padding: '8px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
           <span className="pb-form__label">Document Type:</span>
           <span><b style={{ border: '1px solid #9a9a9a', padding: '1px 8px', background: 'var(--pb-face)' }}>INFORMATION REQUEST</b></span><span />
@@ -444,13 +439,10 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
     <WorkspaceDialogFrame id="create-distribution" title="Create Distribution" width={1000} height={700} onClose={close} zIndex={96}>
       <div style={{ margin: '8px 10px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#fff' }}>
         <PBBand>{header.title}</PBBand>
-        <div className="pb-row" style={{ gap: 0, padding: '3px 8px', borderBottom: '1px solid #9a9a9a' }}>
-          <span>FIRST:&nbsp;</span><b style={{ width: 180 }}>{p.first}</b>
-          <span>MIDDLE:&nbsp;</span><b style={{ width: 150 }}>{p.middle}</b>
-          <span>LAST:&nbsp;</span><b style={{ width: 180 }}>{p.last}</b>
-          <span>DoB:&nbsp;</span><b style={{ width: 110 }}>{p.dob}</b>
-          <span>SEX:&nbsp;</span><b>{p.sex}</b>
-        </div>
+        <PatientFieldRow style={{ gap: 0, padding: '3px 8px', borderBottom: '1px solid #9a9a9a' }} fields={[
+          { label: 'FIRST:', value: p.first, w: 180 }, { label: 'MIDDLE:', value: p.middle, w: 150 },
+          { label: 'LAST:', value: p.last, w: 180 }, { label: 'DoB:', value: p.dob, w: 110 }, { label: 'SEX:', value: p.sex },
+        ]} />
         <div style={{ background: `linear-gradient(to bottom, ${LW.headerTop}, ${LW.headerBottom})`, padding: '6px 12px', display: 'grid', gridTemplateColumns: '140px 300px 150px 1fr', rowGap: 4 }}>
           {[0, 1, 2, 3].map((i) => (
             <span key={i} style={{ display: 'contents' }}>
@@ -504,7 +496,7 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
             <div className="pb-band">
               <span>Preview</span><span className="pb-band__spacer" />
               <b style={{ color: '#0000ff', marginRight: 10 }} data-tutorial-id="host.mois.field.filesize">Filesize: {filesize}</b>
-              <PBButton size="sm" style={{ width: 80 }} data-tutorial-id="host.mois.command.distribution-print">Print</PBButton>
+              <PBButton size="sm" style={{ width: 80 }} command="distribution-print">Print</PBButton>
             </div>
             <DistributionPreview lines={letterLines} />
           </>
@@ -526,7 +518,7 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
       </div>
       {queued && (
         /* 2616562 `c85ea0f7…` */
-        <PBMessageBox title="Success: Fax Queued" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.fax-queued-ok' }]} onClose={() => { setQueued(false); finish() }}>
+        <PBMessageBox title="Success: Fax Queued" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'fax-queued-ok' }]} onClose={() => { setQueued(false); finish() }}>
           Successfully queued file to SRFax.<br />Please check your SRFax account for the faxing status.
         </PBMessageBox>
       )}

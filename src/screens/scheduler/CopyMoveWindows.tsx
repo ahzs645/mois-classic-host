@@ -4,6 +4,7 @@ import { daybookProviders } from '../../data/mois'
 import {
   currentRow, offsetOfStamp, schedulerStore, stampOf, useSchedulerStore,
 } from '../../data/schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogGroup, DialogRow, NAVY, SchedulerDialog, str } from './SchedulerDialog'
 
@@ -109,7 +110,7 @@ function CopyMoveAppointment({ args, close }: AreaWindowProps) {
 
 function CopyMoveDayBook({ args, close }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const [from] = useState(() => s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' })
+  const [from] = useState(() => s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' })
   const [provider, setProvider] = useState(from.provider)
   const [date, setDate] = useState(stampOf(from.offset))
   const [move, setMove] = useState(true)

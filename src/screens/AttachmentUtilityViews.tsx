@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { pad2 } from '../data/clock'
 import { ATTACH_FILES, SCAN_FILES } from '../data/exchange'
 import { useScreenReport } from '../host/screen-state'
 import {
@@ -6,6 +7,7 @@ import {
   PBViewHeader, pbSlug,
 } from '../pb'
 import { Lbl } from './ExchangeKit'
+import { useRecordList } from './listKit'
 import { ControlledRxRecordBlock, useFileControlledRx } from './ControlledRxWindows'
 
 /** 303227: the TYPE a controlled prescription's scanned copy is attached as */
@@ -70,7 +72,7 @@ export function ScanFilesView() {
   }
   const start = () => {
     setScanned((n) => n + 1)
-    setFiles((all) => [...all, `20260918_0930${String(scanned).padStart(2, '0')}.pdf`])
+    setFiles((all) => [...all, `20260918_0930${pad2(scanned)}.pdf`])
   }
 
   return (
@@ -84,16 +86,16 @@ export function ScanFilesView() {
       <div className="pb-row" data-tutorial-id="host.mois.group.scan-folder" style={{ gap: 8, padding: '6px 8px', background: 'var(--pb-face)', flex: 'none' }}>
         <Lbl w={60}>Folder:</Lbl>
         <PBSelect w={420} options={[SCAN_FILES.folder]} />
-        <PBButton data-tutorial-id="host.mois.command.browse">Browse...</PBButton>
+        <PBButton command="browse">Browse...</PBButton>
         <span style={{ width: 30 }} />
         <PBCheckbox label="Run OCR After Scanning Finishes" checked={ocr} onChange={setOcr} tutorialId="host.mois.field.run-ocr-after-scanning-finishes" />
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 3, padding: '0 3px 3px' }}>
         <div style={{ width: 300, flex: 'none', display: 'flex', flexDirection: 'column' }}>
           <div className="pb-row" data-tutorial-id="host.mois.group.split-merge" style={{ gap: 0, padding: '2px 0 2px 54px', background: 'var(--pb-face)' }}>
-            <PBButton style={{ width: 82 }} data-tutorial-id="host.mois.command.split" onClick={split}>Split</PBButton>
-            <PBButton style={{ width: 82 }} data-tutorial-id="host.mois.command.merge" onClick={merge}>Merge</PBButton>
-            <PBButton style={{ width: 82 }} data-tutorial-id="host.mois.command.delete" onClick={() => setFiles((all) => all.filter((f) => !order.includes(f)))}>Delete</PBButton>
+            <PBButton style={{ width: 82 }} command="split" onClick={split}>Split</PBButton>
+            <PBButton style={{ width: 82 }} command="merge" onClick={merge}>Merge</PBButton>
+            <PBButton style={{ width: 82 }} command="delete" onClick={() => setFiles((all) => all.filter((f) => !order.includes(f)))}>Delete</PBButton>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '50px 44px 1fr', background: '#c8dcfa', padding: '1px 0', textAlign: 'center' }}>
             <span>Select</span><span>Order</span><span>Filename</span>
@@ -121,7 +123,7 @@ export function ScanFilesView() {
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', border: '1px solid #888' }}>
           <div className="pb-band">
             <span>Preview</span><span className="pb-band__spacer" />
-            <PBButton data-tutorial-id="host.mois.command.rotate-pages">Rotate Pages...</PBButton>
+            <PBButton command="rotate-pages">Rotate Pages...</PBButton>
             <PBButton style={{ width: 90 }}>Print</PBButton>
           </div>
           <PreviewToolbar zoom="66%" />
@@ -141,8 +143,7 @@ export function ScanFilesView() {
    files the current file and drops it greyed to the bottom of the list;
    Unattach lifts it back. */
 export function AttachFilesView({ go }: { go: ExchangeGo }) {
-  const [files, setFiles] = useState(ATTACH_FILES.files.map((name) => ({ name, attached: false })))
-  const [cur, setCur] = useState(0)
+  const { rows: files, setRows: setFiles, cur, setCur, remove } = useRecordList(ATTACH_FILES.files.map((name) => ({ name, attached: false })))
   const [tab, setTab] = useState('Preview')
   const [type, setType] = useState('')
   const [chart, setChart] = useState('')
@@ -178,7 +179,7 @@ export function AttachFilesView({ go }: { go: ExchangeGo }) {
           : label === 'Unattach' ? unattach
           /* 303488: removes the file from the list "AND will permanently
              delete it from the folder on your computer" */
-          : label === 'Delete File' ? () => { setFiles((all) => all.filter((_, i) => i !== cur)); setCur(0) }
+          : label === 'Delete File' ? () => remove()
           : label === 'Open Chart' ? () => go.node('summary')
           : label === 'Link to Order' ? () => go.open('order-linking-service')
           : undefined,
@@ -188,7 +189,7 @@ export function AttachFilesView({ go }: { go: ExchangeGo }) {
           <PBBand>Files</PBBand>
           <div className="pb-row" data-tutorial-id="host.mois.group.files-folder" style={{ gap: 2, padding: 3, background: 'var(--pb-face)' }}>
             <PBSelect w={164} options={[ATTACH_FILES.folder]} />
-            <PBButton size="sm" data-tutorial-id="host.mois.command.select-folder">…</PBButton>
+            <PBButton size="sm" command="select-folder">…</PBButton>
           </div>
           <div data-tutorial-id="host.mois.group.attach-list" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff' }}>
             {files.map((f, i) => (
@@ -218,9 +219,9 @@ export function AttachFilesView({ go }: { go: ExchangeGo }) {
                  four sit in one row here. */
               <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 4, gap: 4 }}>
                 <div className="pb-row" style={{ gap: 6 }}>
-                  <PBButton data-tutorial-id="host.mois.command.run-ocr">Run OCR</PBButton>
-                  <PBButton data-tutorial-id="host.mois.command.keep-only-selected">Keep Only Selected</PBButton>
-                  <PBButton data-tutorial-id="host.mois.command.copy-to-record">Copy to Record</PBButton>
+                  <PBButton command="run-ocr">Run OCR</PBButton>
+                  <PBButton command="keep-only-selected">Keep Only Selected</PBButton>
+                  <PBButton command="copy-to-record">Copy to Record</PBButton>
                   <PBCheckbox label="Disable Text Formatting" checked={false} />
                 </div>
                 <PBTextArea data-tutorial-id="host.mois.field.ocr-text" defaultValue={ATTACH_FILES.preview.join('\n')} style={{ flex: '1 1 auto', resize: 'none', fontFamily: 'var(--pb-font-mono)' }} />

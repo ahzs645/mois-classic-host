@@ -84,9 +84,9 @@ export function ShiftSchedulerView({ resource }: { resource?: boolean }) {
         ]}
       />
       <div className="pb-row" style={{ gap: 4, padding: '3px 8px', borderBottom: '1px solid #c9c9c9', flex: 'none', background: 'var(--pb-face)' }}>
-        <PBButton size="sm" style={{ width: 24 }} onClick={() => setWeek(week - 7)} data-tutorial-id="host.mois.command.shift-prev-week">&lt;&lt;</PBButton>
+        <PBButton size="sm" style={{ width: 24 }} onClick={() => setWeek(week - 7)} command="shift-prev-week">&lt;&lt;</PBButton>
         <PBInput w={86} align="center" value={stampOf(week)} readOnly style={{ background: '#fff' }} />
-        <PBButton size="sm" style={{ width: 24 }} onClick={() => setWeek(week + 7)} data-tutorial-id="host.mois.command.shift-next-week">&gt;&gt;</PBButton>
+        <PBButton size="sm" style={{ width: 24 }} onClick={() => setWeek(week + 7)} command="shift-next-week">&gt;&gt;</PBButton>
         <span style={{ marginLeft: 60 }}>Populate with:</span>
         <PBRadio name="shift-pop" label="Shift Schedule + Daybook Header" checked={header} onChange={() => setHeader(true)} />
         <PBRadio name="shift-pop" label="Shift Schedule Only" checked={!header} onChange={() => setHeader(false)} />

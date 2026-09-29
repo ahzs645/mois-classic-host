@@ -4,12 +4,14 @@ import { useChartExport } from '../data/chart-records'
 import { marDrugName } from '../data/marDrugCodes'
 import { marOrdersFromExport, practiceOrder, type MarEvent, type MarOrder } from '../data/marOrders'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { hhmm, pad2 } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow, useSessionState } from '../host/screen-windows'
 import {
-  PBButton, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBLookup, PBRadio, PBSelect, PBViewHeader, pbSlug,
+  PBButton, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBViewHeader, pbSlug,
   type PBMenuItem,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -21,6 +23,8 @@ import {
   MAR_CHOICES, MAR_WINDOWS, MarCancelOrderWindow, MarCancelWarningBox, MarChooserWindow,
   MarDeleteWindow, MarOrderWindow, MarRecordWindow, type MarKind,
 } from './MarWindows'
+import { useTickSet } from './listKit'
+import { ChartIdentityStrip } from './patientKit'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
 import { StageMessageBox } from './StageWindow'
 import './mar.css'
@@ -107,13 +111,12 @@ const ACTION_KIND: Partial<Record<MarDoseAction, MarKind>> = {
   administered: 'administer', witnessed: 'witness', 'self-administered': 'self', 'other-provider': 'history',
 }
 
-const stamp = () => new Date().toTimeString().slice(0, 5)
 const newId = (p: string) => `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
 function addDays(date: string, n: number): string {
   const [y, m, d] = date.split('.').map(Number)
   const t = new Date(Date.UTC(y || 2026, (m || 1) - 1, (d || 1) + n))
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
+  return `${t.getUTCFullYear()}.${pad2(t.getUTCMonth() + 1)}.${pad2(t.getUTCDate())}`
 }
 
 export function MarView() {
@@ -134,7 +137,7 @@ export function MarView() {
   const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(defaults.limit ?? LIMITS[0]!)
   const [gridPage, setGridPage] = useState(0)
-  const [open, setOpen] = useState<Set<string>>(new Set())
+  const open = useTickSet<string>()
   const [sel, setSel] = useState<Sel | null>(null)
   const [menuAt, setMenuAt] = useState<ContextMenuAt>(null)
   const [menuFor, setMenuFor] = useState<'order' | 'event'>('order')
@@ -216,15 +219,15 @@ export function MarView() {
   /* ---- what the windows write ---------------------------------------- */
   const addOrder = (order: MarOrder) => setSession((s) => ({ ...s, added: [order, ...s.added] }))
   const changeEvent = (id: string, patch: Partial<MarEvent>) => setSession((s) => ({ ...s, changes: { ...(s.changes ?? {}), [id]: { ...(s.changes?.[id] ?? {}), ...patch } } }))
-  const oneDose = (entry: MarEvent, orderBy = 'TECHNICAL SUPPORT'): MarOrder => ({
+  const oneDose = (entry: MarEvent, orderBy = DESKTOP_PROVIDER_DEFAULT): MarOrder => ({
     id: newId('stage-order'),
     orderDate: MOIS_TODAY, orderTime: entry.time, med: entry.generic || '(no medication)', orderBy,
     detail: `${[entry.dose, entry.units].filter(Boolean).join(' ')}   for 1 DOSE`, dosage: entry.dose, dosageUnit: entry.units,
-    frequency: '', duration: '1', durationUnit: 'DOSE', route: '', signed: { action: 'SIGNED', note: '', on: `${MOIS_TODAY} - TECHNICAL SUPPORT` },
-    created: `${MOIS_TODAY}  TECHNICAL SUPPORT`, modified: '', events: [{ ...entry, id: newId('stage-event') }],
+    frequency: '', duration: '1', durationUnit: 'DOSE', route: '', signed: { action: 'SIGNED', note: '', on: `${MOIS_TODAY} - ${DESKTOP_PROVIDER_DEFAULT}` },
+    created: `${MOIS_TODAY}  ${DESKTOP_PROVIDER_DEFAULT}`, modified: '', events: [{ ...entry, id: newId('stage-event') }],
   })
   const blankEvent = (status: string, med: string, extra: Partial<MarEvent> = {}): MarEvent => ({
-    id: newId('stage-event'), status, date: MOIS_TODAY, time: stamp(), med, generic: med, dose: '', units: '', series: '', site: '', lot: '', by: 'TECHNICAL SUPPORT', ...extra,
+    id: newId('stage-event'), status, date: MOIS_TODAY, time: hhmm(), med, generic: med, dose: '', units: '', series: '', site: '', lot: '', by: DESKTOP_PROVIDER_DEFAULT, ...extra,
   })
 
   const startNew = () => {
@@ -246,7 +249,7 @@ export function MarView() {
   const doseAction = (action: MarDoseAction, eventId: string) => {
     setPicked(undefined)
     if (action === 'dispensed') {
-      changeEvent(eventId, { status: 'DISPENSED', date: MOIS_TODAY, time: stamp(), by: 'TECHNICAL SUPPORT' })
+      changeEvent(eventId, { status: 'DISPENSED', date: MOIS_TODAY, time: hhmm(), by: DESKTOP_PROVIDER_DEFAULT })
       setRecord('dispensed')
       win.close()
       return
@@ -263,8 +266,8 @@ export function MarView() {
     if (selEvent.status === 'SCHEDULED') win.open(MAR_ACTION_WINDOWS.scheduled, { event: selEvent.id })
     else win.open(MAR_WINDOWS.detail, { event: selEvent.id })
   }
-  const expandAll = () => setOpen(new Set(groups.map((g) => g.key)))
-  const collapseAll = () => setOpen(new Set())
+  const expandAll = () => open.selectAll(groups.map((g) => g.key))
+  const collapseAll = () => open.clear()
 
   /* Maintenance ▸ Save Window Options as My Defaults arrives by name */
   const slot = win.window?.id
@@ -337,11 +340,11 @@ export function MarView() {
               className={['pb-mar-order', sel?.order === o.id && !sel.event ? 'is-current' : '', struck ? 'pb-mar-struck' : ''].join(' ')}
               data-tutorial-id={`host.mois.row.mar-order-${pbSlug(o.med).slice(0, 40)}`}
               onMouseDown={() => setSel({ order: o.id })}
-              onDoubleClick={() => setOpen((s) => { const n = new Set(s); n.has(g.key) ? n.delete(g.key) : n.add(g.key); return n })}
+              onDoubleClick={() => open.flip(g.key)}
             >
               <button type="button" className="pb-mar__box" aria-expanded={isOpen}
                 data-tutorial-id={`host.mois.group.mar-${pbSlug(o.med).slice(0, 40)}`}
-                onClick={() => setOpen((s) => { const n = new Set(s); n.has(g.key) ? n.delete(g.key) : n.add(g.key); return n })}>
+                onClick={() => open.flip(g.key)}>
                 {isOpen ? '−' : '+'}
               </button>
               <span>{view === 'Group by Medication' ? '' : o.orderDate}</span>
@@ -411,7 +414,7 @@ export function MarView() {
   const cellFill = (st: string) => (st === 'ADMINISTERED' || st === 'WITNESSED' || st === 'SELF-ADMINISTERED' || st === 'OTHER PROVIDER' || st === 'DISPENSED'
     ? '#b3c795' : st === 'SCHEDULED' ? '#dbe9f7' : st === 'CANCELLED' || st === 'REFUSED' || st === 'WITHHELD' || st === 'OMITTED' ? '#d8d8d8' : undefined)
   const gridButton = (id: string, label: string, onClick: () => void) => (
-    <PBButton style={{ minWidth: 30 }} data-tutorial-id={`host.mois.command.mar-grid-${id}`} onClick={onClick}>{label}</PBButton>
+    <PBButton style={{ minWidth: 30 }} command={`mar-grid-${id}`} onClick={onClick}>{label}</PBButton>
   )
   const grid = (
     <div className="pb-mar-list" data-tutorial-id="host.mois.group.mar-grid" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -477,15 +480,7 @@ export function MarView() {
           { label: 'Refresh', onClick: () => setRecord('') },
         ]}
       />
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
+      <ChartIdentityStrip />
       <div className="pb-mar-filter" data-tutorial-id="host.mois.group.mar-filters">
         <span>Record Status:</span>
         <div className="pb-row" style={{ gap: 0 }}>
@@ -575,7 +570,7 @@ export function MarView() {
           onClose={() => win.open(MAR_WINDOWS.cancelOrder)}
           onYes={() => {
             setSession((s) => ({ ...s, cancelled: [...s.cancelled, orderWin.id] }))
-            setOpen((o) => new Set(o).add(orderWin.id))
+            open.set(orderWin.id, true)
             setSel({ order: orderWin.id })
             setRecord('cancelled')
             win.close()
@@ -604,11 +599,11 @@ export function MarView() {
               med, generic: med, dose: d.dosage, units: d.dosageUnit, series: d.series, site: d.site, lot: '', by: '',
             })).reverse()
             addOrder({
-              id: newId('stage-order'), orderDate: MOIS_TODAY, orderTime: stamp(), med, orderBy: 'TECHNICAL SUPPORT',
+              id: newId('stage-order'), orderDate: MOIS_TODAY, orderTime: hhmm(), med, orderBy: DESKTOP_PROVIDER_DEFAULT,
               detail: `${[d.dosage, d.dosageUnit, d.frequency.split(' ')[0]].filter(Boolean).join(' ')}   for ${d.duration || n} ${(d.durationUnit || 'DOSE').split(' ')[0]}`,
               dosage: d.dosage, dosageUnit: d.dosageUnit, frequency: d.frequency, duration: d.duration || String(n), durationUnit: d.durationUnit || 'DOSE',
-              route: d.route, signed: signed ? { action: 'SIGNED', note: '', on: `${MOIS_TODAY} ${stamp()} - TECHNICAL SUPPORT` } : { action: '', note: '', on: '' },
-              created: `${MOIS_TODAY}  ${stamp()}  TECHNICAL SUPPORT`, modified: '', events,
+              route: d.route, signed: signed ? { action: 'SIGNED', note: '', on: `${MOIS_TODAY} ${hhmm()} - ${DESKTOP_PROVIDER_DEFAULT}` } : { action: '', note: '', on: '' },
+              created: `${MOIS_TODAY}  ${hhmm()}  ${DESKTOP_PROVIDER_DEFAULT}`, modified: '', events,
             })
             setRecord(signed ? 'order-signed' : 'order-saved')
             win.close()
@@ -653,7 +648,7 @@ export function MarView() {
           onLookup={lookupFrom(MAR_ACTION_WINDOWS.notGiven)}
           onClose={win.close}
           onSave={(d) => {
-            if (rescheduling) changeEvent(rescheduling.e.id, { status: d.action, date: MOIS_TODAY, time: stamp() })
+            if (rescheduling) changeEvent(rescheduling.e.id, { status: d.action, date: MOIS_TODAY, time: hhmm() })
             else addOrder(oneDose(blankEvent(d.action, d.med)))
             setRecord(pbSlug(d.action))
             win.close()

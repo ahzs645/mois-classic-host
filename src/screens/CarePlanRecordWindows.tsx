@@ -4,8 +4,10 @@ import { linkGoal, linkedGoalIds, useCarePlanRecords, type GoalLinkObject } from
 import { date } from '../data/charts/relations'
 import { useGoalRecords } from '../data/goalRecords'
 import { usePatient } from '../data/patient-context'
+import { argStr } from '../data/text'
 import { PBBand, PBCheckbox, PBDataWindow } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -55,7 +57,7 @@ function LinkGoalWindow({ args, close }: AreaWindowProps) {
   const data = useChartExport()
   const store = useCarePlanRecords(chart)
   const object = (typeof args.object === 'string' ? args.object : 'action') as GoalLinkObject
-  const objectId = typeof args.objectId === 'string' ? args.objectId : ''
+  const objectId = argStr(args.objectId)
   const already = new Set(linkedGoalIds(data, store, object, objectId).map((l) => l.goalId))
   const rows = useChartGoals().filter((g) => !already.has(g.id))
   const [cur, setCur] = useState(0)
@@ -87,10 +89,10 @@ function LinkGoalWindow({ args, close }: AreaWindowProps) {
           />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={10} padding="10px 0">
         <DialogButton id="link-goal-link" width={75} isDefault disabled={!pick} onClick={() => link(pick?.id)}>Link</DialogButton>
         <DialogButton id="link-goal-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

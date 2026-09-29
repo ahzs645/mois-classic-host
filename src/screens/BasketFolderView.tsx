@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
   BASKET_CHARTS, BASKET_COMMAND_WIDTH, BASKET_PANELS, CHART_FOLDER_FOR_BASKET, basketCommands, basketFolderById,
@@ -20,6 +20,7 @@ import {
 import { schedulerStore } from '../data/schedulerStore'
 import { useScreenReport } from '../host/screen-state'
 import { useOpenWindow } from './areaWindowRegistry'
+import { toggled } from './listKit'
 import { WorkspaceBanner } from './WorkspaceBanner'
 
 /* ============================================================================
@@ -230,15 +231,13 @@ function PanelTab({ r, onGraph }: { r: BasketRow | undefined; onGraph: (test: st
       <div className="pb-row" style={{ gap: 8, flex: 'none' }}>
         <span className="pb-form__label pb-form__label--dim">Panel:</span><b>{String(r?.panel ?? '')}</b>
         <span className="pb-row__spacer" />
-        <button
-          type="button"
-          className="pb-btn"
+        <PBButton
           disabled={!pick}
-          data-tutorial-id="host.mois.command.panel-graph"
+          command="panel-graph"
           onClick={() => { if (pick) onGraph(pick.test, pick.value, pick.units, pick.range) }}
         >
           Graph
-        </button>
+        </PBButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
@@ -595,11 +594,7 @@ export function BasketFolderView({
                     <PBCheckbox
                       tutorialId={`host.mois.check.${pbSlug(String(r.patient).split(',')[0] ?? '')}`}
                       checked={checked.has(keyOf(r))}
-                      onChange={(v) => setChecked((s) => {
-                        const next = new Set(s)
-                        v ? next.add(keyOf(r)) : next.delete(keyOf(r))
-                        return next
-                      })}
+                      onChange={(v) => setChecked((s) => toggled(s, keyOf(r), v))}
                     />
                   </span>
                 ),

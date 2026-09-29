@@ -16,6 +16,8 @@ import {
   PBBand, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroup, PBInput, PBLookup, PBRadio, PBTextArea, pbSlug,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { PatientFieldRow } from './patientKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -128,10 +130,10 @@ function AttachedLettersWindow({ args, close, open }: AreaWindowProps) {
           <OptionsGrid rows={shown} cur={cur} setCur={setCur} prefix="attached-letter" />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 6, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={6} padding="10px 0">
         <DialogButton id="attached-letters-continue" width={78} isDefault onClick={go}>Continue (F2)</DialogButton>
         <DialogButton id="attached-letters-cancel" width={78} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -170,10 +172,10 @@ function RespondToOrderWindow({ args, close, open }: AreaWindowProps) {
           <OptionsGrid rows={shown} cur={cur} setCur={setCur} prefix="response" />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '12px 0', flex: 'none' }}>
+      <DialogFooter gap={14} padding="12px 0">
         <DialogButton id="respond-ok" width={88} isDefault onClick={ok}>Ok</DialogButton>
         <DialogButton id="respond-cancel" width={88} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -222,13 +224,13 @@ function SendDocumentWindow({ args, close, open }: AreaWindowProps) {
       </div>
       <div style={{ margin: '12px 16px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
         <PBBand>{band}</PBBand>
-        <div className="pb-row" style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }}>
-          <span>FIRST:&nbsp;</span><b style={{ width: 160 }}>{p.first}</b>
-          <span>MIDDLE:&nbsp;</span><b style={{ width: 150 }}>{p.middle}</b>
-          <span>LAST:&nbsp;</span><b style={{ width: 180 }}>{p.last}</b>
-          <span>DoB:&nbsp;</span><b style={{ width: 110 }}>{p.dob}</b>
-          <span>SEX:&nbsp;</span><b>{p.sex}</b>
-        </div>
+        <PatientFieldRow style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }} fields={[
+          { label: 'FIRST:', value: p.first, w: 160 },
+          { label: 'MIDDLE:', value: p.middle, w: 150 },
+          { label: 'LAST:', value: p.last, w: 180 },
+          { label: 'DoB:', value: p.dob, w: 110 },
+          { label: 'SEX:', value: p.sex },
+        ]} />
         <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr 110px', rowGap: 4, padding: '8px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
           <span className="pb-form__label">Document Type:</span>
           <span className="pb-row" style={{ gap: 12 }}>
@@ -278,7 +280,7 @@ function SendDocumentWindow({ args, close, open }: AreaWindowProps) {
           />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '12px 0', flex: 'none' }}>
+      <DialogFooter gap={14} padding="12px 0">
         <DialogButton
           id="send-document-next"
           width={93}
@@ -297,7 +299,7 @@ function SendDocumentWindow({ args, close, open }: AreaWindowProps) {
           Next...
         </DialogButton>
         <DialogButton id="send-document-cancel" width={93} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
 
       {letterhead && (
           <WorkspaceDialogFrame id="report-letterhead" title="Report Letterhead" width={648} height={310} onClose={() => setLetterhead(false)} controls={false} zIndex={97}>
@@ -320,7 +322,7 @@ function SendDocumentWindow({ args, close, open }: AreaWindowProps) {
               </div>
               <PBCheckbox label="Save as default source" checked={false} />
             </div>
-            <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '12px 0', flex: 'none' }}>
+            <DialogFooter gap={10} padding="12px 0">
               <DialogButton id="letterhead-continue" width={75} isDefault onClick={() => {
                 const head = source === 'None' ? [] : source === 'Clinic' ? CLINIC_LINES : [DESKTOP_PROVIDER, ...CLINIC_LINES.slice(1)]
                 setReport(carePlanSnapshotText(carePlanRows(data, session.tags), p, MOIS_TODAY, head))
@@ -330,7 +332,7 @@ function SendDocumentWindow({ args, close, open }: AreaWindowProps) {
                 Continue (F2)
               </DialogButton>
               <DialogButton id="letterhead-cancel" width={75} onClick={() => setLetterhead(false)}>Cancel</DialogButton>
-            </div>
+            </DialogFooter>
           </WorkspaceDialogFrame>
       )}
     </WorkspaceDialogFrame>

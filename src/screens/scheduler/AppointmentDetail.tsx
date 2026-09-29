@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { PBButton, PBDropDownDataWindow, PBInput, PBLookup, PBSelect, PBWindow, type PBMenuItem } from '../../pb'
+import { PBButton, PBDropDownDataWindow, PBInput, PBLookup, PBSelect, type PBMenuItem } from '../../pb'
 import { APPOINTMENT_STATUSES, VISIT_CODE_FILL } from '../../data/daybook'
 import { daybookProviders } from '../../data/mois'
 import { currentRow, schedulerStore, stampOf, useSchedulerStore } from '../../data/schedulerStore'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
+import { LAYER, ModalWindow } from '../dialogKit'
 import { ContextMenu } from './DaybookMenus'
 import { NAVY } from './SchedulerDialog'
 
@@ -76,15 +77,8 @@ function AppointmentDetail({ close }: AreaWindowProps) {
     close()
   }
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Appointment Detail"
-        tutorialId="host.mois.dialog.appointment-detail"
-        onClose={close}
-        style={{ width: 560, height: 560, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="appointment-detail" title="Appointment Detail" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 560, height: 560, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, padding: 10, background: 'var(--pb-face)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ border: '1px solid #646464', flex: '1 1 auto' }}>
             <div className="pb-band">Appointment Detail</div>
@@ -138,7 +132,7 @@ function AppointmentDetail({ close }: AreaWindowProps) {
                       size="sm"
                       title="Ctrl+T"
                       style={{ minWidth: 22 }}
-                      data-tutorial-id={`host.mois.command.stamp-${label.toLowerCase().replace(/[^a-z]/g, '')}`}
+                      command={`stamp-${label.toLowerCase().replace(/[^a-z]/g, '')}`}
                       onClick={() => stamp(label)}
                     >
                       ⌚
@@ -150,12 +144,11 @@ function AppointmentDetail({ close }: AreaWindowProps) {
           </div>
           <div className="pb-row" style={{ padding: '10px 0 2px', gap: 10 }}>
             <span style={{ width: 150 }}>F2 = Save and Close</span>
-            <PBButton style={{ minWidth: 100 }} data-tutorial-id="host.mois.command.save-close" onClick={save}>Save / Close</PBButton>
+            <PBButton style={{ minWidth: 100 }} command="save-close" onClick={save}>Save / Close</PBButton>
             <PBButton style={{ minWidth: 100 }} onClick={close}>Cancel</PBButton>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

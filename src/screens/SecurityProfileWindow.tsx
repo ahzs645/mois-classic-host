@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBGroup, PBInput, PBTabs, PBWindow,
+  PBBand, PBCheckbox, PBDataWindow, PBGroup, PBInput, PBTabs, PBWindow,
   pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
@@ -8,6 +8,8 @@ import {
   SECURITY_PROFILE_FOOTER, SECURITY_PROFILE_SIZE, SECURITY_PROFILE_TABS,
   SECURITY_PROFILE_TITLE, UM_FOCUS, userListSpec, type UserRow,
 } from '../data/userManagement'
+import { DialogFooter, footerButtons } from './formKit'
+import { useTickSet } from './listKit'
 import { UM_CSS, umColumns } from './UserManagementKit'
 import { ModuleWindowAccessTab, ReportAccessTab, SpecialFunctionsTab } from './UserAccessTabs'
 import { useScreenReport } from '../host/screen-state'
@@ -77,23 +79,7 @@ export function SecurityProfileWindow({ row, onClose }: { row: UserRow; onClose:
             </PBTabs>
           </div>
 
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {SECURITY_PROFILE_FOOTER.map((b) => (
-              <PBButton
-                key={b}
-                wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => {
-                  host?.report('command', { command: pbSlug(b) })
-                  onClose()
-                }}
-              >
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(SECURITY_PROFILE_FOOTER, { wide: true, onPress: onClose })} />
         </PBWindow>
       </div>
     </div>
@@ -160,15 +146,9 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
 }) {
   const host = usePBInstrumentation()
   const [cur, setCur] = useState(0)
-  const [picked, setPicked] = useState<Set<string>>(new Set(selected))
+  const picked = useTickSet<string>(selected)
   const rows = userListSpec('ad-security-profiles')?.rows ?? []
   useScreenReport({ dialog: pbSlug(PROFILE_PICKER.title) })
-
-  const toggle = (name: string) => {
-    const next = new Set(picked)
-    next.has(name) ? next.delete(name) : next.add(name)
-    setPicked(next)
-  }
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
@@ -200,7 +180,7 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
                         /* the anchor rides the input, not the cell around it */
                         <PBCheckbox
                           checked={picked.has(String(r.profile))}
-                          onChange={() => toggle(String(r.profile))}
+                          onChange={() => picked.flip(String(r.profile))}
                           tutorialId={`host.mois.cell.select-${pbSlug(String(r.profile ?? ''))}`}
                         />
                       ),
@@ -213,24 +193,10 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
             </PBGroup>
           </div>
 
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {PROFILE_PICKER.buttons.map((b) => (
-              <PBButton
-                key={b}
-                wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => {
-                  host?.report('command', { command: pbSlug(b) })
-                  if (b === 'Change Privileges') onApply([...picked])
-                  else onClose()
-                }}
-              >
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(PROFILE_PICKER.buttons, {
+            wide: true,
+            onPress: (b) => (b === 'Change Privileges' ? onApply([...picked.ticked]) : onClose()),
+          })} />
         </PBWindow>
       </div>
     </div>

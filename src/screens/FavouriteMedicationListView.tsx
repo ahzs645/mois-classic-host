@@ -11,6 +11,7 @@ import {
   workspaceSettingsStore, type FavouriteMed,
 } from '../data/workspaceSettings'
 import { useScreenReport } from '../host/screen-state'
+import { FormLabel } from './formKit'
 
 /* ============================================================================
    Workspace ▸ My Settings ▸ Favourite Medications — "Favourite Medication List".
@@ -51,7 +52,7 @@ const COMMANDS = [...CLINIC_COMMANDS['inline-save'], 'Close Window']
 const EDITABLE = new Set(['identifier', 'cdic', 'dose', 'amount'])
 
 function Label({ children, w = 96 }: { children: ReactNode; w?: number }) {
-  return <span className="pb-form__label" style={{ width: w, flex: 'none', alignSelf: 'flex-start', paddingTop: 2 }}>{children}</span>
+  return <FormLabel w={w} style={{ alignSelf: 'flex-start', paddingTop: 2 }}>{children}</FormLabel>
 }
 
 export function FavouriteMedicationListView({ onClose }: { onClose?: () => void }) {

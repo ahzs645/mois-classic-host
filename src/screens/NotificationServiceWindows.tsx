@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { MOIS_TODAY } from '../data/patients'
+import { argStr } from '../data/text'
 import { CURRENT_USER, WORKSPACE_USERS, type TaskRow } from '../data/tasks'
 import { taskListRows } from '../data/workspaceLists'
 import { useWorkspaceStore, workspaceStore } from '../data/workspaceStore'
@@ -73,8 +74,6 @@ const PRIORITIES: { code: string; label: string }[] = [
   { code: 'L', label: 'Low' }, { code: 'M', label: 'Medium' }, { code: 'H', label: 'High' }, { code: 'V', label: 'V. High' },
 ]
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 /** The dark header both windows open on, with the signed-in user at its right. */
 function NotificationHeader({ title, navy }: { title: string; navy?: boolean }) {
   return (
@@ -100,8 +99,8 @@ export function TaskReminderWindow({ close, open }: AreaWindowProps) {
   const ws = useWorkspaceStore()
   /* overdue and not completed, from the Task Inbox as the session left it */
   const rows = useMemo<Row[]>(() => taskListRows('ws-task-inbox', ws)
-    .filter((r) => !r.comp && str(r.due) !== '' && str(r.due) < MOIS_TODAY)
-    .map((r, i) => ({ ...r, __key: `${i}:${str(r.task)}` })), [ws])
+    .filter((r) => !r.comp && argStr(r.due) !== '' && argStr(r.due) < MOIS_TODAY)
+    .map((r, i) => ({ ...r, __key: `${i}:${argStr(r.task)}` })), [ws])
   const [ticks, setTicks] = useState<Record<string, { ack?: boolean; comp?: boolean }>>({})
   const [cur, setCur] = useState(0)
   const r = rows[Math.min(cur, rows.length - 1)]
@@ -143,15 +142,15 @@ export function TaskReminderWindow({ close, open }: AreaWindowProps) {
         <div className="pb-row" style={{ gap: 6 }}>
           <span className="pb-form__label" style={{ width: 54 }}>Resp&apos;blty:</span>
           <span className="pb-form__label">Owner:</span>
-          <PBSelect w={150} options={['', ...WORKSPACE_USERS]} value={str(r?.user)} onChange={() => {}} />
+          <PBSelect w={150} options={['', ...WORKSPACE_USERS]} value={argStr(r?.user)} onChange={() => {}} />
           <b style={{ padding: '0 14px' }}>AND / OR</b>
           <span className="pb-form__label">Team:</span>
-          <PBSelect w={190} options={['', 'TEAM MOA', 'TEAM NURSE', 'TEAM SUPPORT STAFF']} value={r?.team ? `TEAM ${str(r.team)}` : ''} onChange={() => {}} />
+          <PBSelect w={190} options={['', 'TEAM MOA', 'TEAM NURSE', 'TEAM SUPPORT STAFF']} value={r?.team ? `TEAM ${argStr(r.team)}` : ''} onChange={() => {}} />
         </div>
         <span />
         <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 6, alignSelf: 'start' }}>
-          <span className="pb-form__label">Created By:</span><span>{str(r?.createdBy)}</span>
-          <span /><span>{r ? withWeekday(str(r.created)) : ''}</span>
+          <span className="pb-form__label">Created By:</span><span>{argStr(r?.createdBy)}</span>
+          <span /><span>{r ? withWeekday(argStr(r.created)) : ''}</span>
         </div>
         <div className="pb-row" style={{ gap: 14 }}>
           <span className="pb-form__label" style={{ width: 54 }}>Priority:</span>
@@ -162,7 +161,7 @@ export function TaskReminderWindow({ close, open }: AreaWindowProps) {
       </div>
       <div style={{ flex: 'none', borderTop: '1px solid #a0a0a0', padding: '4px 8px 8px', display: 'grid', gridTemplateColumns: '60px 1fr 1fr', columnGap: 8, height: 118 }}>
         <span className="pb-form__label">Detail:</span>
-        <PBTextArea readOnly value={str(r?.detail)} style={{ height: '100%', resize: 'none' }} />
+        <PBTextArea readOnly value={argStr(r?.detail)} style={{ height: '100%', resize: 'none' }} />
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <span className="pb-form__label">Follow Up Notes:</span>
           <PBTextArea readOnly value="" style={{ flex: '1 1 auto', resize: 'none' }} />
@@ -171,7 +170,7 @@ export function TaskReminderWindow({ close, open }: AreaWindowProps) {
       <ButtonRow>
         <DialogButton id="create-message-from-task" width={168} onClick={() => {
           if (!r) return
-          open('create-message', { chart: str(r.chart), patient: str(r.patient), subject: str(r.task), detail: str(r.detail) })
+          open('create-message', { chart: argStr(r.chart), patient: argStr(r.patient), subject: argStr(r.task), detail: argStr(r.detail) })
         }}>Create Message From Task</DialogButton>
         <DialogButton id="reminder-open-chart" width={96}>Open Chart</DialogButton>
         <DialogButton id="acknowledge-only-all" width={184} onClick={() => all(false)}>Acknowledge Only ALL</DialogButton>
@@ -193,7 +192,7 @@ export function MessageListWindow({ close, open }: AreaWindowProps) {
      not make it vanish until the window is opened again */
   const [rows] = useState<Row[]>(() => taskListRows('ws-msg-inbox', ws)
     .filter((r) => !r.ack && !r.comp)
-    .map((r, i) => ({ ...r, __key: `${i}:${str(r.subject)}` })))
+    .map((r, i) => ({ ...r, __key: `${i}:${argStr(r.subject)}` })))
   const [ticks, setTicks] = useState<Record<string, { ack?: boolean; comp?: boolean }>>({})
   const [cur, setCur] = useState(0)
   const r = rows[Math.min(cur, rows.length - 1)]
@@ -204,14 +203,14 @@ export function MessageListWindow({ close, open }: AreaWindowProps) {
   const all = (read: boolean) => setTicks(Object.fromEntries(rows.map((row) => [row.__key, { ack: true, comp: read || compOf(row) }])))
   /* Save (F2): the acknowledgements reach the Message Inbox */
   const save = () => {
-    for (const row of rows) if (ackOf(row)) workspaceStore.ackMessage(str(row.subject))
+    for (const row of rows) if (ackOf(row)) workspaceStore.ackMessage(argStr(row.subject))
     close()
   }
   const reply = (all: boolean) => {
     if (!r) return
     open('create-message', {
-      sendTo: str(r.from), copiesTo: all ? str(r.copiedTo) : '',
-      subject: `RE: ${str(r.subject)}`, chart: str(r.chart), patient: str(r.patient),
+      sendTo: argStr(r.from), copiesTo: all ? argStr(r.copiedTo) : '',
+      subject: `RE: ${argStr(r.subject)}`, chart: argStr(r.chart), patient: argStr(r.patient),
     })
   }
 
@@ -242,19 +241,19 @@ export function MessageListWindow({ close, open }: AreaWindowProps) {
       </div>
       <div style={{ flex: 'none', borderTop: '1px solid #a0a0a0', padding: '6px 8px 8px', display: 'grid', gridTemplateColumns: '60px 1fr 60px', columnGap: 8, height: 196 }}>
         <span className="pb-form__label">Detail:</span>
-        <PBTextArea readOnly value={str(r?.detail)} style={{ height: '100%', resize: 'none' }} />
+        <PBTextArea readOnly value={argStr(r?.detail)} style={{ height: '100%', resize: 'none' }} />
         <span />
       </div>
       <ButtonRow center>
         <DialogButton id="message-list-reply" width={88} onClick={() => reply(false)}>Reply</DialogButton>
         <DialogButton id="message-list-reply-to-all" width={88} onClick={() => reply(true)}>Reply To All</DialogButton>
         <DialogButton id="message-list-forward" width={88} onClick={() => {
-          if (r) open('create-message', { subject: `FW: ${str(r.subject)}`, detail: str(r.detail), chart: str(r.chart), patient: str(r.patient) })
+          if (r) open('create-message', { subject: `FW: ${argStr(r.subject)}`, detail: argStr(r.detail), chart: argStr(r.chart), patient: argStr(r.patient) })
         }}>Forward</DialogButton>
       </ButtonRow>
       <ButtonRow center>
         <DialogButton id="create-task-from-message" width={150} onClick={() => {
-          if (r) open('confirm-task-from-message', { fromMessage: str(r.subject), priority: str(r.p), patient: str(r.patient), chart: str(r.chart), detail: str(r.detail) })
+          if (r) open('confirm-task-from-message', { fromMessage: argStr(r.subject), priority: argStr(r.p), patient: argStr(r.patient), chart: argStr(r.chart), detail: argStr(r.detail) })
         }}>Create Task from Message</DialogButton>
         <DialogButton id="print-message" width={92}>Print Message</DialogButton>
         <DialogButton id="message-list-open-chart" width={88}>Open Chart</DialogButton>

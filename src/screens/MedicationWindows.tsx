@@ -4,12 +4,16 @@ import {
   type DrugRow, type FavouriteRow,
 } from '../data/medications'
 import { usePatient } from '../data/patient-context'
+import { stageStamp } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug, type PBColumn,
 } from '../pb'
 import { STAGE_USER, useMedRows, useMedSession, type Med, type PrintLogEntry } from './medication-model'
+import { useColumnFilters, useTickSet } from './listKit'
+import { LookupPager, usePagedCursor } from './lookupKit'
+import { PatientFieldRow } from './patientKit'
 import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -49,7 +53,6 @@ export const MED_WINDOWS = {
 registerScreenWindows(Object.values(MED_WINDOWS))
 
 const today = MOIS_TODAY
-const nowStamp = () => `${today}  ${new Date().toTimeString().slice(0, 5)}`
 
 /* --- Advanced Lookup Service — Medications / Drug List --------------------
    303229 `f23fd642…png` (v02.1x, "CDIC Medications / Drug List") and 303236
@@ -63,16 +66,15 @@ export function DrugLookupWindow({ initial = '', onPick, onClose }: {
   onPick: (drug: DrugRow) => void
   onClose: () => void
 }) {
-  const [filters, setFilters] = useState<Partial<Record<keyof DrugRow, string>>>({ generic: initial })
   const [source, setSource] = useState('ALL')
-  const rows = useMemo(() => drugList.filter((d) => (Object.keys(filters) as (keyof DrugRow)[])
-    .every((k) => !filters[k] || String(d[k]).toUpperCase().includes(filters[k]!.toUpperCase()))), [filters])
-  const [cur, setCur] = useState(0)
-  const row = rows[Math.min(cur, rows.length - 1)]
-  const filterBox = (k: keyof DrugRow) => (
-    <PBInput value={filters[k] ?? ''} onChange={(e) => { setFilters((f) => ({ ...f, [k]: e.target.value })); setCur(0) }}
-      data-tutorial-id={`host.mois.field.drug-${k}`} />
+  const box = (key: keyof DrugRow) => ({ key, anchor: `drug-${key}` })
+  const { shown: rows, filterRow } = useColumnFilters(
+    drugList,
+    [box('f'), box('generic'), box('brand'), box('atc'), box('atcName'), null, null],
+    { match: 'upper', initial: { generic: initial }, onChange: () => cursor.setCurrent(0) },
   )
+  const cursor = usePagedCursor(rows.length)
+  const row = rows[cursor.at]
   const columns: PBColumn<DrugRow>[] = [
     { key: 'f', header: 'F', width: 18, align: 'center' },
     { key: 'generic', header: 'Generic Name', width: 300 },
@@ -96,9 +98,9 @@ export function DrugLookupWindow({ initial = '', onPick, onClose }: {
           style={{ flex: '1 1 auto', minHeight: 0 }}
           columns={columns}
           rows={rows}
-          filters={[filterBox('f'), filterBox('generic'), filterBox('brand'), filterBox('atc'), filterBox('atcName'), null, null]}
-          current={Math.min(cur, Math.max(0, rows.length - 1))}
-          onCurrentChange={setCur}
+          filters={filterRow}
+          current={cursor.at}
+          onCurrentChange={cursor.setCurrent}
           onActivate={(r) => onPick(r)}
           rowTutorialId={(r) => `host.mois.row.drug-${r.cdic}`}
           empty="No medication matches those filters."
@@ -117,17 +119,11 @@ export function DrugLookupWindow({ initial = '', onPick, onClose }: {
       <div className="pb-field" style={{ height: 38, flex: 'none', padding: '3px 5px', background: '#fff' }}>
         Medication &amp; Natural Product Selection List
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-        <PBButton wide onClick={() => setCur(0)}>Home</PBButton>
-        <PBButton wide onClick={() => setCur((c) => Math.max(0, c - 12))}>PgUp</PBButton>
-        <span style={{ flex: '1 1 auto' }} />
-        <FooterButton primary disabled={!row} onClick={() => row && onPick(row)} tutorialId="host.mois.command.drug-lookup-ok">Ok</FooterButton>
-        <span style={{ width: 14 }} />
-        <FooterButton onClick={onClose}>Cancel</FooterButton>
-        <span style={{ flex: '1 1 auto' }} />
-        <PBButton wide onClick={() => setCur((c) => Math.min(rows.length - 1, c + 12))}>PgDwn</PBButton>
-        <PBButton wide onClick={() => setCur(rows.length - 1)}>End</PBButton>
-      </div>
+      <LookupPager
+        cursor={cursor}
+        ok={{ command: 'drug-lookup-ok', tutorialId: 'host.mois.command.drug-lookup-ok', isDefault: true, disabled: !row, onClick: () => row && onPick(row) }}
+        cancel={{ onClick: onClose }}
+      />
       <div className="pb-row" style={{ flex: 'none', gap: 8 }} data-tutorial-id="host.mois.field.drug-source">
         <span>Source:</span>
         <PBSelect w={190} value={source} onChange={(e) => setSource(e.target.value)} options={['ALL', 'CDIC', 'NATUROPATHIC DRUG LIST']} />
@@ -201,13 +197,10 @@ export function DoseWizardWindow({ med, multi: startMulti = false, onSave, onClo
         <span className="pb-footer__spacer" />
       </>}>
       <div style={{ background: '#fff', borderBottom: '1px solid var(--pb-border)', padding: '4px 8px', flex: 'none' }}>
-        <div className="pb-row" style={{ gap: 0 }}>
-          <span style={{ width: 180 }}>FIRST:&nbsp; <b>{p.first}</b></span>
-          <span style={{ width: 150 }}>MIDDLE:&nbsp; <b>{p.middle}</b></span>
-          <span style={{ width: 160 }}>LAST:&nbsp; <b>{p.last}</b></span>
-          <span style={{ width: 120 }}>DoB:&nbsp; <b>{p.dob}</b></span>
-          <span>SEX:&nbsp; <b>{p.sex}</b></span>
-        </div>
+        <PatientFieldRow layout="inline" sep={'\u00a0 '} fields={[
+          { label: 'FIRST:', value: p.first, w: 180 }, { label: 'MIDDLE:', value: p.middle, w: 150 },
+          { label: 'LAST:', value: p.last, w: 160 }, { label: 'DoB:', value: p.dob, w: 120 }, { label: 'SEX:', value: p.sex },
+        ]} />
         <div className="pb-form" style={{ gridTemplateColumns: '84px 1fr auto', gap: '0 6px', padding: '4px 0 0', minHeight: 44 }}>
           <span>CDIC (DIN):</span><b>{med?.cdic}</b><span>Order Date: <b>{med?.order ?? today}</b></span>
           <span>Brand Name:</span><b>{med?.med}</b><span />
@@ -288,12 +281,13 @@ export function DoseWizardWindow({ med, multi: startMulti = false, onSave, onClo
 export function FavouriteListWindow({ onPick, onClose }: { onPick: (f: FavouriteRow) => void; onClose: () => void }) {
   const [session, update] = useMedSession()
   const [source, setSource] = useState('ALL')
-  const [filter, setFilter] = useState<Record<string, string>>({})
-  const rows = session.favourites.filter((f) => (source === 'ALL' || (source === 'My Favourites') === (f.type === 'USER'))
-    && Object.entries(filter).every(([k, v]) => !v || String(f[k as keyof FavouriteRow]).toUpperCase().includes(v.toUpperCase())))
+  const { shown: rows, filterRow } = useColumnFilters(
+    session.favourites.filter((f) => source === 'ALL' || (source === 'My Favourites') === (f.type === 'USER')),
+    [{ key: 'type' }, { key: 'identifier' }, { key: 'med' }, null, null],
+    { match: 'upper' },
+  )
   const [cur, setCur] = useState(0)
   const row = rows[Math.min(cur, rows.length - 1)]
-  const box = (k: string) => <PBInput value={filter[k] ?? ''} onChange={(e) => setFilter((f) => ({ ...f, [k]: e.target.value }))} />
   return (
     <StageWindow id={MED_WINDOWS.favourites} title="Favourite Medication List" width={866} height={674} onClose={onClose}
       bodyStyle={{ padding: 8, gap: 6 }}>
@@ -305,7 +299,7 @@ export function FavouriteListWindow({ onPick, onClose }: { onPick: (f: Favourite
           current={Math.min(cur, Math.max(0, rows.length - 1))}
           onCurrentChange={setCur}
           onActivate={(r) => onPick(r)}
-          filters={[box('type'), box('identifier'), box('med'), null, null]}
+          filters={filterRow}
           rowTutorialId={(r) => `host.mois.row.favourite-${pbSlug(r.identifier)}`}
           columns={[
             { key: 'type', header: 'Type', width: 58 },
@@ -410,7 +404,7 @@ export function PrescriptionHistoryWindow({ onReprint, onClose }: { onReprint: (
   const entry = entries[Math.min(cur, entries.length - 1)]
   const reprint = () => {
     if (!entry) return
-    update((s) => ({ ...s, printLog: [{ ...entry, date: nowStamp(), by: STAGE_USER, station: 'MOIS-STAGE', version: 'Copy' }, ...s.printLog] }))
+    update((s) => ({ ...s, printLog: [{ ...entry, date: stageStamp('  '), by: STAGE_USER, station: 'MOIS-STAGE', version: 'Copy' }, ...s.printLog] }))
     setCur(0)
     onReprint()
   }
@@ -469,12 +463,12 @@ export function RenewLtmWindow({ preselect, onRenewed, onClose }: {
   const all = useMedRows('ltm')
   const running = all.filter((m) => !m.end)
   const stopped = all.filter((m) => m.end)
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set(preselect ? [preselect] : []))
+  const tick = useTickSet<string>(() => (preselect ? [preselect] : []))
   const [amounts, setAmounts] = useState<Record<string, string>>({})
   const [cur, setCur] = useState(Math.max(0, running.findIndex((m) => m.id === preselect)))
   const row = running[cur]
   const renew = (print: boolean) => {
-    const made = running.filter((m) => ticked.has(m.id)).map((m) => {
+    const made = running.filter((m) => tick.has(m.id)).map((m) => {
       const amount = amounts[m.id]?.trim()
       return { ...m, amount: amount || '0 ENTER ON RENEW' }
     })
@@ -493,8 +487,8 @@ export function RenewLtmWindow({ preselect, onRenewed, onClose }: {
           ? { key: 'na', header: 'N/A', width: 40, align: 'center' as const }
           : {
               key: 'renew', header: 'Renew', width: 40, align: 'center' as const,
-              render: (m: Med) => <PBCheckbox checked={ticked.has(m.id)} tutorialId={`host.mois.check.renew-${pbSlug(m.med).slice(0, 24)}`}
-                onChange={(on) => setTicked((s) => { const n = new Set(s); on ? n.add(m.id) : n.delete(m.id); return n })} />,
+              render: (m: Med) => <PBCheckbox checked={tick.has(m.id)} tutorialId={`host.mois.check.renew-${pbSlug(m.med).slice(0, 24)}`}
+                onChange={(on) => tick.set(m.id, on)} />,
             },
         { key: stoppedList ? 'end' : 'order', header: stoppedList ? 'End' : 'Start', width: 70, align: 'center' as const },
         { key: 'med', header: stoppedList ? 'Stopped Medication' : 'Current Medication' },
@@ -503,13 +497,13 @@ export function RenewLtmWindow({ preselect, onRenewed, onClose }: {
         {
           key: 'amount', header: 'Amount', width: 128,
           render: (m: Med) => (stoppedList ? '' : (
-            <input className="pb-field" style={{ width: '100%', height: 16, border: 0, background: ticked.has(m.id) ? '#fff' : '#c8c8c8' }}
-              disabled={!ticked.has(m.id)} value={amounts[m.id] ?? ''}
+            <input className="pb-field" style={{ width: '100%', height: 16, border: 0, background: tick.has(m.id) ? '#fff' : '#c8c8c8' }}
+              disabled={!tick.has(m.id)} value={amounts[m.id] ?? ''}
               /* 303229: the first amount entered is prefilled for the other
                  ticked medications, each still editable on its own row */
               onChange={(e) => {
                 const v = e.target.value
-                setAmounts((a) => ({ ...a, ...Object.fromEntries([...ticked].filter((id) => id !== m.id && !a[id]).map((id) => [id, v])), [m.id]: v }))
+                setAmounts((a) => ({ ...a, ...Object.fromEntries([...tick.ticked].filter((id) => id !== m.id && !a[id]).map((id) => [id, v])), [m.id]: v }))
               }} />
           )),
         },

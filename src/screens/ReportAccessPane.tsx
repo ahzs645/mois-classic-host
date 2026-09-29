@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useScreenReport } from '../host/screen-state'
 import { REPORT_FOLDERS, reportRows, type ReportRow } from '../data/reportCatalogue'
-import { PBBand, PBCheckbox, PBDataWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBBand, PBDataWindow, pbSlug } from '../pb'
+import { CmdCheck } from './reportKit'
 
 /* ============================================================================
    Report Access — the tab that decides which reports a user (or a Security
@@ -47,7 +48,6 @@ const keyOf = (r: ReportRow) => `${pbSlug(r.folder)}-${pbSlug(r.name)}`
 export const profileGrants = (r: ReportRow): boolean => !NOT_GRANTED.has(r.folder)
 
 export function ReportAccessPane({ override = false }: { override?: boolean }) {
-  const host = usePBInstrumentation()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(REPORT_FOLDERS))
   const [cur, setCur] = useState(-1)
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
@@ -61,7 +61,6 @@ export function ReportAccessPane({ override = false }: { override?: boolean }) {
   const granted = (r: ReportRow) => access[keyOf(r)] ?? profileGrants(r)
   const tick = (kind: 'override' | 'access', r: ReportRow, v: boolean) => {
     const cell = `${kind}-${keyOf(r)}`
-    host?.report('command', { command: `report-${cell}` })
     if (kind === 'override') {
       setOverrides((o) => ({ ...o, [keyOf(r)]: v }))
       /* clearing an override drops the user's own value back to the profile's */
@@ -96,33 +95,26 @@ export function ReportAccessPane({ override = false }: { override?: boolean }) {
             { key: 'desc', header: '', render: (r) => r.desc ?? '' },
             ...(override ? [{
               key: 'override', header: '', width: 104,
-              render: (r: ReportRow) => {
-                const id = `report-override-${keyOf(r)}`
-                return (
-                  <PBCheckbox
-                    label="Override"
-                    checked={overrides[keyOf(r)] === true}
-                    tutorialId={host?.anchor('command', id)}
-                    onChange={(v) => tick('override', r, v)}
-                  />
-                )
-              },
+              render: (r: ReportRow) => (
+                <CmdCheck
+                  id={`report-override-${keyOf(r)}`}
+                  label="Override"
+                  checked={overrides[keyOf(r)] === true}
+                  onChange={(v) => tick('override', r, v)}
+                />
+              ),
             }] : []),
             {
               key: 'access', header: '', width: 124,
-              render: (r: ReportRow) => {
-                const id = `report-access-${keyOf(r)}`
-                const blocked = override && overrides[keyOf(r)] !== true
-                return (
-                  <PBCheckbox
-                    label="Access / Print"
-                    checked={granted(r)}
-                    disabled={blocked}
-                    tutorialId={host?.anchor('command', id)}
-                    onChange={(v) => tick('access', r, v)}
-                  />
-                )
-              },
+              render: (r: ReportRow) => (
+                <CmdCheck
+                  id={`report-access-${keyOf(r)}`}
+                  label="Access / Print"
+                  checked={granted(r)}
+                  disabled={override && overrides[keyOf(r)] !== true}
+                  onChange={(v) => tick('access', r, v)}
+                />
+              ),
             },
           ]}
         />

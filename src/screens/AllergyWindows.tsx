@@ -109,7 +109,7 @@ export function NewReactionRiskWindow({ onSaved, onClose }: {
         <div className="pb-row" style={{ justifyContent: 'flex-end' }}>
           {linkEvents.length > 0 && <span style={{ marginRight: 'auto' }} data-tutorial-id="host.mois.field.reaction-linked-events">{linkEvents.length} event(s) to link</span>}
           <PBButton wide>More...</PBButton>
-          <PBButton wide data-tutorial-id="host.mois.command.reaction-risk-link-events" onClick={() => setLinking(true)}>Link Event(s)...</PBButton>
+          <PBButton wide command="reaction-risk-link-events" onClick={() => setLinking(true)}>Link Event(s)...</PBButton>
         </div>
       </div>
       {linking && (

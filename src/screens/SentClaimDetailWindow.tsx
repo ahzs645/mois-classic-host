@@ -2,6 +2,7 @@ import { MSP_EXPLANATORY_CODES, SENT_CLAIM_KEY, explanatoryCodes, type SentClaim
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -66,9 +67,9 @@ export function SentClaimDetailWindow({ close }: AreaWindowProps) {
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 10, flex: 'none' }}>
+        <DialogFooter plain style={{ paddingTop: 10 }}>
           <DialogButton id="sent-claim-detail-ok" isDefault width={94} onClick={close}>Ok</DialogButton>
-        </div>
+        </DialogFooter>
       </div>
     </WorkspaceDialogFrame>
   )

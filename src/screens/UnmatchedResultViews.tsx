@@ -13,6 +13,7 @@ import {
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
 import { GreenBand, Lbl } from './ExchangeKit'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
+import { useRecordCursor } from './listKit'
 import { WorkspaceBanner } from './WorkspaceBanner'
 
 /* ============================================================================
@@ -158,7 +159,8 @@ function UserAliasReviewView({ close, open }: FolderViewProps) {
   const [source, setSource] = useState('')
   const [value, setValue] = useState('')
   const [inactiveAlias, setInactiveAlias] = useState(false)
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(rows, setRows)
+  const { cur, setCur } = list
   const [win, setWin] = useState<null | 'new' | 'edit' | 'delete'>(null)
   const inactive = (r: AliasRow) => r.expiry !== '-' && r.expiry < MOIS_TODAY
   const aliasEnded = (r: AliasRow) => r.stop !== '-' && r.stop < MOIS_TODAY
@@ -235,7 +237,7 @@ function UserAliasReviewView({ close, open }: FolderViewProps) {
       )}
       {win === 'delete' && row && (
         <TopMessage id="delete-alias" title="Delete" icon="question" buttons={['Yes', 'No']} prefix="delete-alias-"
-          onClose={(b) => { if (b === 'Yes') { setRows((all) => all.filter((_, i) => i !== index)); setCur(0) } setWin(null) }}>
+          onClose={(b) => { if (b === 'Yes') list.remove(index); setWin(null) }}>
           {'Delete this alias record?\nIf the user is being inactivated, use Edit and add an end date instead.'}
         </TopMessage>
       )}

@@ -2,9 +2,10 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { date } from '../data/charts/relations'
 import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
-import { MOIS_TODAY } from '../data/patients'
-import { clockNow } from '../data/measureEntry'
-import { PBButton, PBCheckbox, PBDropField, PBInput, PBTextArea, PBWindow } from '../pb'
+import { MOIS_TODAY, stageStamp } from '../data/clock'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
+import { PBButton, PBCheckbox, PBDropField, PBInput, PBPatientBand, PBTextArea, PBWindow } from '../pb'
+import { NAVY } from './formKit'
 import './legacy-dynamic-form.css'
 
 /* ============================================================================
@@ -50,10 +51,6 @@ import './legacy-dynamic-form.css'
 const W = 785
 const H = 695
 const TITLEBAR_H = 22
-const NAVY = '#000094'
-
-/** the emulator's desktop user — the Day Book's default provider */
-const DESKTOP_USER = 'TECHNICAL SUPPORT'
 
 /** capture coordinates → position inside the form box (x 7, y 163) */
 const at = (captureX: number, captureY: number): CSSProperties => ({
@@ -105,20 +102,11 @@ function readingFrom(header: MoisRecord | undefined, records: MoisRecord[] | und
 const stamp = (v?: string) => v?.replace(/\//g, '.') ?? ''
 
 function Caption({ style, children }: { style: CSSProperties; children: ReactNode }) {
-  return <div style={{ ...style, color: NAVY, fontSize: 13 }}>{children}</div>
+  return <div style={{ ...style, color: NAVY.dform, fontSize: 13 }}>{children}</div>
 }
 
 function Label({ style, children }: { style: CSSProperties; children: ReactNode }) {
   return <div style={{ ...style, lineHeight: '13px' }}>{children}</div>
-}
-
-function PatientCell({ label, style, children }: { label: string; style: CSSProperties; children: ReactNode }) {
-  return (
-    <span style={{ position: 'absolute', display: 'flex', flexDirection: 'column', ...style }}>
-      <span style={{ fontSize: 11 }}>{label}</span>
-      <strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{children}</strong>
-    </span>
-  )
 }
 
 export function BloodPressureFormWindow({ header, records, initial, onSave, onClose }: {
@@ -137,9 +125,9 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
   const set = (key: keyof Reading) => (v: string) => setForm((f) => ({ ...f, [key]: v }))
 
   const [formDate, setFormDate] = useState(header ? date(header.dtm_form) : MOIS_TODAY)
-  const [createdBy, setCreatedBy] = useState(header ? header.stp_user_create ?? '' : DESKTOP_USER)
+  const [createdBy, setCreatedBy] = useState(header ? header.stp_user_create ?? '' : DESKTOP_PROVIDER_DEFAULT)
   const [provider, setProvider] = useState(
-    header ? (header.id_provider && header.id_provider !== '-1' ? header.id_provider : '') : DESKTOP_USER,
+    header ? (header.id_provider && header.id_provider !== '-1' ? header.id_provider : '') : DESKTOP_PROVIDER_DEFAULT,
   )
   const [allowOthers, setAllowOthers] = useState(header ? header.str_lock_to_user !== 'Y' : true)
   /* Save Form keeps the window open and stamps Last Modified with the date,
@@ -165,28 +153,32 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
         }}
       >
         {/* the blue patient band, 22–90 */}
-        <div
+        <PBPatientBand
+          layout="placed"
           className="pb-legacy-dform__patient"
           style={{
             position: 'relative', display: 'block', height: 68, flex: '0 0 auto', padding: 0,
             background: 'linear-gradient(#1871b5, #4ab2e7)',
           }}
-        >
-          <PatientCell label="CHART NO." style={{ left: 8, top: 5 }}>{patient.chart}</PatientCell>
-          <PatientCell label="PATIENT (F/M/L)" style={{ left: 93, top: 5 }}>{name}</PatientCell>
-          <PatientCell label="DATE OF BIRTH" style={{ left: 310, top: 5 }}>
-            {patient.dob}&nbsp;&nbsp;{patient.age}
-          </PatientCell>
-          <PatientCell label="GENDER" style={{ left: 93, top: 37 }}>{patient.sex}</PatientCell>
-          <PatientCell label="PERSONAL HEALTH NO." style={{ left: 169, top: 37 }}>
-            {patient.bchn ? <>{patient.insuranceBy ?? 'BC'}&nbsp;&nbsp;{patient.bchn}</> : ''}
-          </PatientCell>
-          <PatientCell label="PREFERRED PHONE NUMBER" style={{ left: 310, top: 37 }}>
-            {phone ?? ''}
-            {/* inline: the band's css makes every span in it a flex column */}
-            {phone && <span style={{ display: 'inline', minWidth: 0, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>{phoneKind} Phone</span>}
-          </PatientCell>
-        </div>
+          cells={[
+            { label: 'CHART NO.', left: 8, top: 5, value: patient.chart },
+            { label: 'PATIENT (F/M/L)', left: 93, top: 5, value: name },
+            { label: 'DATE OF BIRTH', left: 310, top: 5, value: <>{patient.dob}&nbsp;&nbsp;{patient.age}</> },
+            { label: 'GENDER', left: 93, top: 37, value: patient.sex },
+            {
+              label: 'PERSONAL HEALTH NO.', left: 169, top: 37,
+              value: patient.bchn ? <>{patient.insuranceBy ?? 'BC'}&nbsp;&nbsp;{patient.bchn}</> : '',
+            },
+            {
+              label: 'PREFERRED PHONE NUMBER', left: 310, top: 37,
+              value: <>
+                {phone ?? ''}
+                {/* inline: the band's css makes every span in it a flex column */}
+                {phone && <span style={{ display: 'inline', minWidth: 0, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>{phoneKind} Phone</span>}
+              </>,
+            },
+          ]}
+        />
 
         {/* metadata strip, 90–137, then Last Modified 137–162 */}
         <div style={{ position: 'relative', height: 47, flex: '0 0 auto', background: '#fff', borderBottom: '1px solid #4ab2e7' }}>
@@ -218,7 +210,7 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
         <div className="pb-legacy-dform__body" style={{ padding: 0, overflowY: 'scroll', overflowX: 'hidden' }}>
           <div style={{ position: 'relative', margin: '0 0 0 6px', width: 760, height: 391, border: '1px solid #000', borderTop: 0 }}>
             <Caption style={{ ...at(15, 170) }}>BLOOD PRESSURE MEASUREMENT</Caption>
-            <div style={{ position: 'absolute', left: 0, right: 0, top: 188 - 163, borderTop: `1px solid ${NAVY}` }} />
+            <div style={{ position: 'absolute', left: 0, right: 0, top: 188 - 163, borderTop: `1px solid ${NAVY.dform}` }} />
 
             <Caption style={at(15, 194)}>Clinical Data:</Caption>
             <Label style={at(28, 216)}>Systolic</Label>
@@ -275,9 +267,9 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
         >
           <PBButton
             style={{ width: 93, height: 25, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.save-form"
+            command="save-form"
             onClick={() => {
-              setSavedAt(`${MOIS_TODAY} ${clockNow()}  ${createdBy}`)
+              setSavedAt(`${stageStamp()}  ${createdBy}`)
               onSave({ systolic: form.systolic, diastolic: form.diastolic })
             }}
           >
@@ -285,7 +277,7 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
           </PBButton>
           <PBButton
             style={{ width: 93, height: 25, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.close-form"
+            command="close-form"
             onClick={onClose}
           >
             Close Form

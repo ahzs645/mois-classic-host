@@ -15,6 +15,8 @@ import { UniversalSearchDialog } from '../CodeLookupDialogs'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { RaisedMessageBox } from '../RaisedMessageBox'
+import { NAVY } from '../formKit'
+import { useTickSet } from '../listKit'
 
 /* ============================================================================
    Group Bookings — the windows behind the Group Visit List's Prepare for
@@ -60,8 +62,6 @@ import { RaisedMessageBox } from '../RaisedMessageBox'
    `clone-group-booking`, `print-name-tags`. Each acts on the Group Visit
    List's current row (`schedulerExtras.currentVisit`).
    ========================================================================= */
-
-const NAVY = '#000080'
 
 /** The two patients the training group visits open with. */
 export const SEED_PATIENTS: GroupPatient[] = [
@@ -309,7 +309,7 @@ function GroupVisitBillMsp({ close }: AreaWindowProps) {
   const [refer2, setRefer2] = useState('N/A')
   const [referBy, setReferBy] = useState('')
   const [note, setNote] = useState('')
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const excluded = useTickSet<string>()
   const [lookup, setLookup] = useState<number | null>(null)
   const [done, setDone] = useState<number | null>(null)
   useScreenReport({ excluded: excluded.size, fees: fees.filter(Boolean).length })
@@ -404,7 +404,7 @@ function GroupVisitBillMsp({ close }: AreaWindowProps) {
                   <PBCheckbox
                     checked={excluded.has(p.chart)}
                     tutorialId={`host.mois.cell.bill-exclude-${p.chart}`}
-                    onChange={(on) => setExcluded((s) => { const n = new Set(s); on ? n.add(p.chart) : n.delete(p.chart); return n })}
+                    onChange={(on) => excluded.set(p.chart, on)}
                   />
                 )),
               },
@@ -444,9 +444,9 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
      the selection" (303808) */
   const [topicOk, setTopicOk] = useState(false)
   const [tab, setTab] = useState('Patient List')
-  const [incPatients, setIncPatients] = useState<Set<string>>(() => new Set(lists.patients.map((p) => p.chart)))
-  const [incProviders, setIncProviders] = useState<Set<string>>(() => new Set(lists.providers.map((p) => p.name)))
-  const [incResources, setIncResources] = useState<Set<string>>(() => new Set(lists.resources.map((p) => p.name)))
+  const incPatients = useTickSet<string>(() => lists.patients.map((p) => p.chart))
+  const incProviders = useTickSet<string>(() => lists.providers.map((p) => p.name))
+  const incResources = useTickSet<string>(() => lists.resources.map((p) => p.name))
   const [stage, setStage] = useState<'' | 'topic' | 'refused'>('')
   useScreenReport({ window: stage === 'topic' ? 'universal-search' : stage === 'refused' ? 'reselect-topic' : '', topicConfirmed: topicOk })
   if (!v) return null
@@ -463,12 +463,10 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
     schedulerExtras.done('group-visit-cloned')
     close()
   }
-  const toggler = (set: (f: (s: Set<string>) => Set<string>) => void) => (k: string, on: boolean) =>
-    set((s) => { const n = new Set(s); on ? n.add(k) : n.delete(k); return n })
-  const include = (has: Set<string>, toggle: (k: string, on: boolean) => void, key: string, prefix: string) => ({
+  const include = (tick: ReturnType<typeof useTickSet<string>>, key: string, prefix: string) => ({
     key: 'include', header: 'Include', width: 56, align: 'center' as const,
     render: (r: Record<string, string>) => (
-      <PBCheckbox checked={has.has(r[key]!)} onChange={(on) => toggle(r[key]!, on)} tutorialId={`host.mois.cell.clone-${prefix}-${pbSlug(r[key]!)}`} />
+      <PBCheckbox checked={tick.has(r[key]!)} onChange={(on) => tick.set(r[key]!, on)} tutorialId={`host.mois.cell.clone-${prefix}-${pbSlug(r[key]!)}`} />
     ),
   })
 
@@ -481,7 +479,7 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
             <VisitDetail v={v} />
           </div>
           <div style={{ flex: '1 1 auto', border: '1px solid #b8c8e0', background: '#fff' }} data-tutorial-id="host.mois.group.new-group-visit-information">
-            <div style={{ ...BAND, color: NAVY }}>New Group Visit Information</div>
+            <div style={{ ...BAND, color: NAVY.win }}>New Group Visit Information</div>
             <div style={{ padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div className="pb-row" style={{ gap: 8 }}>
                 <span style={{ width: 70 }}>Appt Date</span><span style={{ width: 54 }}>Time</span><span style={{ width: 54 }}>Duration</span><span>Visit Code</span>
@@ -517,7 +515,7 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
                   flush gutter={false}
                   rows={lists.patients as unknown as Record<string, string>[]}
                   columns={[
-                    include(incPatients, toggler(setIncPatients), 'chart', 'patient'),
+                    include(incPatients, 'chart', 'patient'),
                     { key: 'last', header: 'Last Name', width: 140 },
                     { key: 'first', header: 'First Name', width: 140 },
                     { key: 'chart', header: 'Chart', width: 70 },
@@ -530,7 +528,7 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
                 <PBDataWindow
                   flush gutter={false}
                   rows={lists.providers as unknown as Record<string, string>[]}
-                  columns={[include(incProviders, toggler(setIncProviders), 'name', 'provider'), { key: 'name', header: 'Provider', width: 240 }, { key: 'note', header: 'Note' }]}
+                  columns={[include(incProviders, 'name', 'provider'), { key: 'name', header: 'Provider', width: 240 }, { key: 'note', header: 'Note' }]}
                   empty="No other providers on the original visit."
                 />
               )}
@@ -538,7 +536,7 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
                 <PBDataWindow
                   flush gutter={false}
                   rows={lists.resources as unknown as Record<string, string>[]}
-                  columns={[include(incResources, toggler(setIncResources), 'name', 'resource'), { key: 'name', header: 'Resource', width: 240 }, { key: 'note', header: 'Note' }]}
+                  columns={[include(incResources, 'name', 'resource'), { key: 'name', header: 'Resource', width: 240 }, { key: 'note', header: 'Note' }]}
                   empty="No resources on the original visit."
                 />
               )}

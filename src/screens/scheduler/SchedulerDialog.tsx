@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { PBBand, PBButton } from '../../pb'
 import { LAYER, ModalWindow } from '../dialogKit'
+import { NAVY_BOLD } from '../formKit'
 
 /* ============================================================================
    The shape every Scheduler utility window shares in the captures: a grey
@@ -9,7 +10,12 @@ import { LAYER, ModalWindow } from '../dialogKit'
    rule under the group, and the buttons centred underneath.
    ========================================================================= */
 
-export const NAVY: CSSProperties = { color: '#000080', fontWeight: 700 }
+/** bold navy caption text — formKit's NAVY_BOLD */
+export const NAVY: CSSProperties = NAVY_BOLD
+
+/** the weekday and month names the Scheduler's windows spell dates with */
+export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 export function SchedulerDialog({
   id, title, width, height, band, buttons, onClose, children, bodyStyle,
@@ -77,4 +83,4 @@ export function DialogRow({ label, width = 96, children }: { label: ReactNode; w
   )
 }
 
-export const str = (v: unknown) => (typeof v === 'string' ? v : '')
+export { argStr as str } from '../../data/text'

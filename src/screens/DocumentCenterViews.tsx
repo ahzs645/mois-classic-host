@@ -8,6 +8,7 @@ import {
 import { TopMessage } from './AdminExchangeKit'
 import { GreenBand, Lbl, Radio } from './ExchangeKit'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
+import { NAVY } from './formKit'
 
 /* ============================================================================
    Data Exchange ▸ Document Center — Inbound Documents (3797121) and
@@ -109,14 +110,14 @@ function InboundDocumentsView({ close, openNode, open }: FolderViewProps) {
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 3, padding: '0 3px' }}>
         <div style={{ width: 230, flex: 'none', display: 'flex', flexDirection: 'column' }}>
           <PBBand right={<>
-            <PBButton size="sm" data-tutorial-id="host.mois.command.split">Split</PBButton>
-            <PBButton size="sm" data-tutorial-id="host.mois.command.merge" onClick={() => {
+            <PBButton size="sm" command="split">Split</PBButton>
+            <PBButton size="sm" command="merge" onClick={() => {
               if (ticked.length < 2) return
               const merged = { name: `MERGED_${ticked[0]!.name}`, order: 0 }
               setFiles([merged, ...files.filter((f) => f.order === 0)])
               setCur(0)
             }}>Merge</PBButton>
-            <PBButton size="sm" data-tutorial-id="host.mois.command.delete-file" onClick={() => { setFiles(files.filter((_, i) => i !== cur)); setCur(0) }}>Delete</PBButton>
+            <PBButton size="sm" command="delete-file" onClick={() => { setFiles(files.filter((_, i) => i !== cur)); setCur(0) }}>Delete</PBButton>
           </>}>Files</PBBand>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
             <PBDataWindow
@@ -213,13 +214,13 @@ function OutboundDocumentsView({ close, openNode, open }: FolderViewProps) {
       ]} />
       <GreenBand anchor="host.mois.group.outbound-filter" style={{ display: 'flex', gap: 30, alignItems: 'flex-start' }}>
         <div data-tutorial-id="host.mois.group.outbound-status">
-          <b style={{ color: '#0a246a' }}>Status</b>
+          <b style={{ color: NAVY.caption }}>Status</b>
           {['ALL', 'FAIL', 'QUEUED', 'SUCCESS'].map((s) => (
             <div key={s}><Radio name="outbound-status" label={s} checked={status === s} onChange={() => { setStatus(s); setCur(0) }} anchor={`host.mois.field.outbound-status-${pbSlug(s)}`} /></div>
           ))}
         </div>
         <div data-tutorial-id="host.mois.group.outbound-time-frame">
-          <b style={{ color: '#0a246a' }}>Time Frame</b>
+          <b style={{ color: NAVY.caption }}>Time Frame</b>
           <div><Radio name="outbound-frame" label="All" checked={frame === 'All'} onChange={() => setFrame('All')} anchor="host.mois.field.outbound-frame-all" /></div>
           <div className="pb-row" style={{ gap: 6 }}>
             <Radio name="outbound-frame" label="In Last" checked={frame === 'In Last'} onChange={() => setFrame('In Last')} anchor="host.mois.field.outbound-frame-in-last" />
@@ -230,7 +231,7 @@ function OutboundDocumentsView({ close, openNode, open }: FolderViewProps) {
           <div className="pb-row" style={{ gap: 6 }}><Radio name="outbound-frame" label="Between" checked={frame === 'Between'} onChange={() => setFrame('Between')} anchor="host.mois.field.outbound-frame-between" /><PBInput w={90} /><span>and</span><PBInput w={90} /></div>
         </div>
         <div data-tutorial-id="host.mois.group.outbound-other" style={{ display: 'grid', gridTemplateColumns: 'auto 150px auto 150px', gap: '2px 6px', alignItems: 'center' }}>
-          <b style={{ color: '#0a246a', gridColumn: 'span 4' }}>Other</b>
+          <b style={{ color: NAVY.caption, gridColumn: 'span 4' }}>Other</b>
           <Lbl>Record Type:</Lbl><PBSelect w={150} options={['ALL', 'CONSULT', 'DOCUMENT', 'PAPER FORM', 'PRESCRIPTION']} /><Lbl>Sender:</Lbl><PBInput w={150} />
           <Lbl>Pat. First Name:</Lbl><PBInput w={150} value={first} onChange={(e) => setFirst(e.target.value)} /><Lbl>Recipient:</Lbl><PBInput w={150} />
           <Lbl>Pat. Last Name:</Lbl><PBInput w={150} value={last} onChange={(e) => setLast(e.target.value)} /><Lbl>Fax Num:</Lbl><PBInput w={150} />

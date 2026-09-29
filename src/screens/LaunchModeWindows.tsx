@@ -4,15 +4,19 @@ import {
   NOTE_TEMPLATES, SERVICE_LOCATIONS, VISIT_CODES, VISIT_REASONS, dayOffset,
   type LiteChart, type LiteEncounter, type LitePermissions, type MoisLaunchMode, type MoisLaunchStart,
 } from '../data/launchModes'
+import { pad2 } from '../data/clock'
 import { usePatientRoster } from '../data/patient-context'
 import { MOIS_TODAY, type Patient } from '../data/patients'
 import { BILLING_ENC_TIMES_ROW, isYes, useSystemSetting } from '../data/systemSettings'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import {
-  PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, PBWindow, pbSlug,
+  PBButton, PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, PBWindow, pbSlug,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { ModalLayer } from './dialogKit'
+import { NAVY, ReadOnlyField } from './formKit'
+import { GRID_BOX, LookupBand, PickListWindow } from './lookupKit'
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
 
 /* ============================================================================
@@ -100,7 +104,7 @@ function dayCaption(date: string): string {
   if (date === MOIS_TODAY) return 'Today'
   const [y, m, d] = date.split('.').map(Number)
   const t = new Date(Date.UTC(y!, m! - 1, d!))
-  return `${WEEKDAYS[t.getUTCDay()]} ${MONTHS[t.getUTCMonth()]} ${String(d).padStart(2, '0')}, ${y}`
+  return `${WEEKDAYS[t.getUTCDay()]} ${MONTHS[t.getUTCMonth()]} ${pad2(d!)}, ${y}`
 }
 const nowHM = () => stampNow().slice(-5)
 const norm = (s: string) => s.replace(/[\s.-]/g, '').toLowerCase()
@@ -164,12 +168,12 @@ export function LaunchModeHost({ initial, mainShown, onLaunchMain }: {
   if (stage === 'closed') {
     if (mainShown) return null
     return (
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 5 }}>
+      <ModalLayer zIndex={5}>
         <div style={{ textAlign: 'center', color: '#fff', textShadow: '0 1px 2px #000' }} data-tutorial-id="host.mois.group.mois-closed">
           <div style={{ marginBottom: 8 }}>MOIS has been closed.</div>
           <Btn id="relaunch-mois" onClick={() => setStage(initial)}>Launch MOIS</Btn>
         </div>
-      </div>
+      </ModalLayer>
     )
   }
   if (stage === 'main') return null
@@ -195,22 +199,26 @@ function LaunchChooser({ id, title, header, rows, buttons, onPick, onCancel }: {
   const [cur, setCur] = useState(rows.length - 1)
   const pick = () => onPick(rows[cur]!.mode)
   return (
-    <DetailWindow id={id} title={title} width={520} height={420} zIndex={40} onClose={onCancel}
-      buttons={buttons === 'ok-cancel'
+    <PickListWindow<Record<string, string>>
+      frame={(content, footer) => (
+        <DetailWindow id={id} title={title} width={520} height={420} zIndex={40} onClose={onCancel} buttons={footer}>
+          {content}
+        </DetailWindow>
+      )}
+      gridBox={{ ...GRID_BOX, padding: 8 }}
+      grid={{
+        rows: rows.map((r) => Object.fromEntries(r.cells.map((c, i) => [`c${i}`, c]))),
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (_, i) => onPick(rows[i]!.mode),
+        gutter: false,
+        rowTutorialId: (r) => `host.mois.row.launch-${pbSlug(Object.values(r).join(' '))}`,
+        columns: header.map((h, i) => ({ key: `c${i}`, header: h, width: i === 0 ? 250 : 230, headAlign: 'left' as const })),
+      }}
+      footer={buttons === 'ok-cancel'
         ? <><Btn id="launch-mode-ok" isDefault width={96} onClick={pick}>Ok</Btn><Btn id="launch-mode-cancel" width={96} onClick={onCancel}>Cancel</Btn></>
-        : <Btn id="service-group-continue" isDefault width={96} onClick={pick}>Continue</Btn>}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 8 }}>
-        <PBDataWindow
-          rows={rows.map((r) => Object.fromEntries(r.cells.map((c, i) => [`c${i}`, c])))}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(_, i) => onPick(rows[i]!.mode)}
-          gutter={false}
-          rowTutorialId={(r) => `host.mois.row.launch-${pbSlug(Object.values(r).join(' '))}`}
-          columns={header.map((h, i) => ({ key: `c${i}`, header: h, width: i === 0 ? 250 : 230, headAlign: 'left' as const }))}
-        />
-      </div>
-    </DetailWindow>
+        : <Btn id="service-group-continue" isDefault width={96} onClick={pick}>Continue</Btn>}
+    />
   )
 }
 
@@ -621,19 +629,24 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
 function ChartAdvanceSearchList({ charts, onPick, onClose }: { charts: LiteChart[]; onPick: (c: LiteChart) => void; onClose: () => void }) {
   const [cur, setCur] = useState(0)
   return (
-    <DetailWindow id="chart-advance-search-list" title="Chart Advance Search List" width={820} height={320} zIndex={45} onClose={onClose}
-      buttons={<><Btn id="advance-search-ok" isDefault width={80} onClick={() => onPick(charts[cur]!)}>OK</Btn><Btn id="advance-search-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
-      <div style={{ background: '#a8cdf0', fontWeight: 700, padding: '3px 8px' }}>Search Results</div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-        <PBDataWindow rows={charts} current={cur} onCurrentChange={setCur} onActivate={(c) => onPick(c)}
-          rowTutorialId={(c) => `host.mois.row.search-result-${c.chart}`}
-          columns={[
-            { key: 'chart', header: 'Chart', width: 60 }, { key: 'first', header: 'First Name', width: 100 }, { key: 'middle', header: 'Middle Name', width: 100 },
-            { key: 'last', header: 'Last Name', width: 110 }, { key: 'dob', header: 'DoB', width: 80 }, { key: 'gender', header: 'Gender', width: 50, align: 'center' },
-            { key: 'insuranceBy', header: 'Inc.', width: 36 }, { key: 'insurance', header: 'Insurance No.', width: 100 }, { key: 'home', header: 'Home #', width: 110 },
-          ]} />
-      </div>
-    </DetailWindow>
+    <PickListWindow<LiteChart>
+      frame={(content, footer) => (
+        <DetailWindow id="chart-advance-search-list" title="Chart Advance Search List" width={820} height={320} zIndex={45} onClose={onClose} buttons={footer}>
+          {content}
+        </DetailWindow>
+      )}
+      band={<LookupBand variant="lite">Search Results</LookupBand>}
+      grid={{
+        rows: charts, current: cur, onCurrentChange: setCur, onActivate: (c) => onPick(c),
+        rowTutorialId: (c) => `host.mois.row.search-result-${c.chart}`,
+        columns: [
+          { key: 'chart', header: 'Chart', width: 60 }, { key: 'first', header: 'First Name', width: 100 }, { key: 'middle', header: 'Middle Name', width: 100 },
+          { key: 'last', header: 'Last Name', width: 110 }, { key: 'dob', header: 'DoB', width: 80 }, { key: 'gender', header: 'Gender', width: 50, align: 'center' },
+          { key: 'insuranceBy', header: 'Inc.', width: 36 }, { key: 'insurance', header: 'Insurance No.', width: 100 }, { key: 'home', header: 'Home #', width: 110 },
+        ],
+      }}
+      footer={<><Btn id="advance-search-ok" isDefault width={80} onClick={() => onPick(charts[cur]!)}>OK</Btn><Btn id="advance-search-cancel" width={80} onClick={onClose}>Cancel</Btn></>}
+    />
   )
 }
 
@@ -645,12 +658,12 @@ function QuickPatientRegistration({ initialLast, onClose, onRegister }: { initia
     <DetailWindow id="quick-patient-registration-form" title="Quick Patient Registration Form" width={560} zIndex={45} onClose={onClose}
       buttons={<><Btn id="quick-reg-register" isDefault width={100} disabled={!ok} onClick={() => onRegister(c)}>Register (F2)</Btn><Btn id="quick-reg-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
       <div style={{ padding: '6px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <b style={{ color: '#0a246a' }}>Patient Identification</b>
+        <b style={{ color: NAVY.caption }}>Patient Identification</b>
         <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Name (F/M/L): *</FieldLabel>{f('first', 110)}{f('middle', 90)}{f('last', 130)}</div>
         <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Birth Date: *</FieldLabel>{f('dob', 90)}<FieldLabel w={60}>Gender: *</FieldLabel>
           <PBSelect w={60} options={['', 'M', 'F', 'X', 'U']} value={c.gender} onChange={(e) => setC({ ...c, gender: e.target.value })} data-tutorial-id="host.mois.field.quick-reg-gender" /></div>
         <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Insurance by: *</FieldLabel>{f('insuranceBy', 50)}<FieldLabel w={90}>Insurance No.: *</FieldLabel>{f('insurance', 120)}</div>
-        <b style={{ color: '#0a246a', marginTop: 4 }}>Contact Information</b>
+        <b style={{ color: NAVY.caption, marginTop: 4 }}>Contact Information</b>
         <div className="pb-row" style={{ gap: 4 }}><FieldLabel>City: *</FieldLabel>{f('city', 150)}<FieldLabel w={60}>Province:</FieldLabel>{f('province', 50)}</div>
         <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Postal Code: *</FieldLabel>{f('postal', 90)}</div>
         <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Home:</FieldLabel>{f('home', 110)}<FieldLabel w={40}>Work:</FieldLabel>{f('work', 110)}</div>
@@ -668,9 +681,9 @@ function CareComplete({ enc, onClose, onContinue }: { enc: LiteEncounter; onClos
     <DetailWindow id="my-encounter-care-complete" title="My Encounter - Care Complete" width={450} zIndex={45} onClose={onClose}
       buttons={<><Btn id="care-complete-continue" isDefault width={80} onClick={() => onContinue({ reason, healthIssues: [...issues, ...enc.healthIssues.slice(2)], services: [...services, ...enc.services.slice(2)] })}>Continue</Btn><Btn id="care-complete-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
       <div style={{ margin: 8, border: '1px solid #b8b8b8', background: '#fff' }}>
-        <div style={{ background: '#a8cdf0', fontWeight: 700, padding: '3px 8px' }}>Encounter Detail</div>
+        <LookupBand variant="lite">Encounter Detail</LookupBand>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', padding: '6px 8px' }}>
-          <div><div style={{ color: '#666' }}>Patient</div><PBInput w={180} readOnly value={enc.name} style={{ background: '#f0f0f0' }} /></div>
+          <div><div style={{ color: '#666' }}>Patient</div><ReadOnlyField w={180} value={enc.name} face="#f0f0f0" /></div>
           <div><div style={{ color: '#666' }}>Visit Reason</div><PBLookup w={190} value={reason} name="care-complete-reason" fieldId="host.mois.field.care-complete-reason" onChange={setReason} /></div>
           <div><div style={{ color: '#666' }}>Encounter Date / Time</div><span className="pb-row" style={{ gap: 2 }}><PBInput w={76} readOnly value={enc.date} /><PBInput w={26} readOnly value={enc.hh} /><PBInput w={26} readOnly value={enc.mm} /></span></div>
           <div><div style={{ color: '#666' }}>Care Stop Date / Time</div><span className="pb-row" style={{ gap: 2 }}><PBInput w={76} readOnly value={enc.finish ? enc.date : '0000.00.00'} /><PBInput w={26} readOnly value={enc.finish.slice(0, 2)} /><PBInput w={26} readOnly value={enc.finish.slice(3)} /></span></div>
@@ -694,36 +707,50 @@ function TemplateList({ onClose, onSelect }: { onClose: () => void; onSelect: (t
   const row = rows[cur]
   const heart = (on: boolean) => <span style={{ color: on ? '#e0245e' : '#b0b0b0' }}>{on ? '♥' : '♡'}</span>
   return (
-    <DetailWindow id="note-template-list" title="Templates" width={620} height={520} zIndex={45} onClose={onClose}
-      buttons={<><Btn id="template-select" isDefault width={80} disabled={!row} onClick={() => row && onSelect(row.text)}>Select</Btn><Btn id="template-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
-      <div className="pb-row" style={{ gap: 6, padding: 6 }}>
-        <PBInput w={400} value={search} placeholder="Author, Name or Description" onChange={(e) => { setSearch(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.template-search" />
-        <button type="button" className="pb-btn" style={{ minWidth: 0, width: 26 }} data-tutorial-id="host.mois.command.template-favourites" onClick={() => setOnlyFavs((v) => !v)}>{heart(onlyFavs)}</button>
-      </div>
-      <div style={{ flex: '1 1 55%', minHeight: 0, display: 'flex', padding: '0 6px' }}>
-        <PBDataWindow rows={rows} current={cur} onCurrentChange={setCur} onActivate={(t) => onSelect(t.text)}
-          rowTutorialId={(t) => `host.mois.row.template-${pbSlug(t.name)}`}
-          columns={[
-            { key: 'fav', header: '', width: 24, align: 'center', render: (t) => <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.favourite-${pbSlug(t.name)}`} onClick={() => setFavs((f) => (f.includes(t.name) ? f.filter((x) => x !== t.name) : [...f, t.name]))}>{heart(favs.includes(t.name))}</button> },
-            { key: 'author', header: 'Author', width: 130 }, { key: 'name', header: 'Name', width: 150 }, { key: 'description', header: 'Description', width: 230 },
-          ]} />
-      </div>
-      <pre style={{ flex: '1 1 45%', margin: 6, background: '#fff', border: '1px solid #a0a0a0', padding: 6, fontFamily: 'inherit' }} data-tutorial-id="host.mois.field.template-preview">{row?.text ?? ''}</pre>
-    </DetailWindow>
+    <PickListWindow<(typeof NOTE_TEMPLATES)[number]>
+      frame={(content, footer) => (
+        <DetailWindow id="note-template-list" title="Templates" width={620} height={520} zIndex={45} onClose={onClose} buttons={footer}>
+          {content}
+        </DetailWindow>
+      )}
+      search={(
+        <div className="pb-row" style={{ gap: 6, padding: 6 }}>
+          <PBInput w={400} value={search} placeholder="Author, Name or Description" onChange={(e) => { setSearch(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.template-search" />
+          <PBButton style={{ minWidth: 0, width: 26 }} command="template-favourites" onClick={() => setOnlyFavs((v) => !v)}>{heart(onlyFavs)}</PBButton>
+        </div>
+      )}
+      gridBox={{ flex: '1 1 55%', minHeight: 0, display: 'flex', padding: '0 6px' }}
+      grid={{
+        rows, current: cur, onCurrentChange: setCur, onActivate: (t) => onSelect(t.text),
+        rowTutorialId: (t) => `host.mois.row.template-${pbSlug(t.name)}`,
+        columns: [
+          { key: 'fav', header: '', width: 24, align: 'center', render: (t) => <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.favourite-${pbSlug(t.name)}`} onClick={() => setFavs((f) => (f.includes(t.name) ? f.filter((x) => x !== t.name) : [...f, t.name]))}>{heart(favs.includes(t.name))}</button> },
+          { key: 'author', header: 'Author', width: 130 }, { key: 'name', header: 'Name', width: 150 }, { key: 'description', header: 'Description', width: 230 },
+        ],
+      }}
+      below={<pre style={{ flex: '1 1 45%', margin: 6, background: '#fff', border: '1px solid #a0a0a0', padding: 6, fontFamily: 'inherit' }} data-tutorial-id="host.mois.field.template-preview">{row?.text ?? ''}</pre>}
+      footer={<><Btn id="template-select" isDefault width={80} disabled={!row} onClick={() => row && onSelect(row.text)}>Select</Btn><Btn id="template-cancel" width={80} onClick={onClose}>Cancel</Btn></>}
+    />
   )
 }
 
 function ReasonPicker({ onClose, onPick }: { onClose: () => void; onPick: (r: string) => void }) {
   const [cur, setCur] = useState(0)
   return (
-    <DetailWindow id="visit-reason-lookup" title="Visit Reason" width={360} height={300} zIndex={45} onClose={onClose}
-      buttons={<><Btn id="visit-reason-ok" isDefault width={80} onClick={() => onPick(VISIT_REASONS[cur]!)}>Ok</Btn><Btn id="visit-reason-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
-      <div style={{ flex: '1 1 auto', display: 'flex', padding: 6 }}>
-        <PBDataWindow rows={VISIT_REASONS.map((r) => ({ r }))} current={cur} onCurrentChange={setCur} onActivate={(x) => onPick(x.r)}
-          rowTutorialId={(x) => `host.mois.row.visit-reason-${pbSlug(x.r)}`}
-          columns={[{ key: 'r', header: 'Reason', width: 300 }]} />
-      </div>
-    </DetailWindow>
+    <PickListWindow<{ r: string }>
+      frame={(content, footer) => (
+        <DetailWindow id="visit-reason-lookup" title="Visit Reason" width={360} height={300} zIndex={45} onClose={onClose} buttons={footer}>
+          {content}
+        </DetailWindow>
+      )}
+      gridBox={{ flex: '1 1 auto', display: 'flex', padding: 6 }}
+      grid={{
+        rows: VISIT_REASONS.map((r) => ({ r })), current: cur, onCurrentChange: setCur, onActivate: (x) => onPick(x.r),
+        rowTutorialId: (x) => `host.mois.row.visit-reason-${pbSlug(x.r)}`,
+        columns: [{ key: 'r', header: 'Reason', width: 300 }],
+      }}
+      footer={<><Btn id="visit-reason-ok" isDefault width={80} onClick={() => onPick(VISIT_REASONS[cur]!)}>Ok</Btn><Btn id="visit-reason-cancel" width={80} onClick={onClose}>Cancel</Btn></>}
+    />
   )
 }
 

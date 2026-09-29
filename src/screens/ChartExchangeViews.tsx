@@ -2,9 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { CHART_IMPORT, EXPORT_CHARTS, EXPORT_LOGS, IMPORT_CHARTS, IMPORT_LOGS } from '../data/exchange'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBDataWindow, PBInput, PBTextArea, PBViewHeader, PBWindow, pbSlug,
+  PBBand, PBButton, PBDataWindow, PBInput, PBTextArea, PBViewHeader, pbSlug,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
 import { Body, Heading, Lbl, PrintPreviewWindow, Prompt, Radio } from './ExchangeKit'
+import { DialogFooter, FormLine } from './formKit'
 
 /* ============================================================================
    Data Exchange ▸ Chart Exchange — MOIS-to-MOIS chart transfer.
@@ -33,9 +35,7 @@ export function ExportChartsView() {
       : stage === 'log' ? { dialog: 'print-preview' } : {}),
   })
   const row = (label: string, body: ReactNode) => (
-    <div className="pb-row" style={{ gap: 6, padding: '2px 12px', alignItems: 'flex-start' }}>
-      <Lbl w={66}>{label}</Lbl>{body}
-    </div>
+    <FormLine label={label} w={66} padding="2px 12px" align="flex-start">{body}</FormLine>
   )
   return (
     <>
@@ -54,7 +54,7 @@ export function ExportChartsView() {
         </div>
         <div data-tutorial-id="host.mois.group.export-options">
           <Heading style={{ marginTop: 6 }}>Export Options:</Heading>
-          {row('Output:', <span className="pb-row" style={{ gap: 4 }}><PBInput w={356} defaultValue={EXPORT_CHARTS.output} /><PBButton data-tutorial-id="host.mois.command.browse">Browse...</PBButton></span>)}
+          {row('Output:', <span className="pb-row" style={{ gap: 4 }}><PBInput w={356} defaultValue={EXPORT_CHARTS.output} /><PBButton command="browse">Browse...</PBButton></span>)}
           {row('Format:', (
             <span className="pb-row" style={{ gap: 44 }}>
               {EXPORT_CHARTS.formats.map((o) => (
@@ -72,7 +72,7 @@ export function ExportChartsView() {
             <PBTextArea w={284} rows={2} defaultValue={EXPORT_CHARTS.note} />
             <span className="pb-row__spacer" />
             <PBButton
-              data-tutorial-id="host.mois.command.export-chart-s"
+              command="export-chart-s"
               style={{ alignSelf: 'flex-end' }}
               onClick={() => setStage('confirm')}
             >
@@ -155,7 +155,7 @@ export function ImportChartsView() {
           <Heading>Import Options:</Heading>
           <div className="pb-row" style={{ gap: 6, padding: '2px 12px' }}>
             <Lbl w={66}>File (7z):</Lbl><PBInput w={356} defaultValue={IMPORT_CHARTS.file} />
-            <PBButton data-tutorial-id="host.mois.command.browse">Browse...</PBButton>
+            <PBButton command="browse">Browse...</PBButton>
           </div>
           <div className="pb-row" style={{ gap: 6, padding: '2px 12px' }}>
             <Lbl w={66}>Encrypt Key:</Lbl><PBInput w={150} defaultValue={IMPORT_CHARTS.key} data-tutorial-id="host.mois.field.encrypt-key" />
@@ -163,7 +163,7 @@ export function ImportChartsView() {
           <div style={{ padding: '0 0 0 84px' }}>(supplied by the data provider)</div>
         </div>
         <div style={{ padding: '8px 84px' }}>
-          <PBButton data-tutorial-id="host.mois.command.import-chart-s" onClick={() => setStage('import')}>Import Chart(s)</PBButton>
+          <PBButton command="import-chart-s" onClick={() => setStage('import')}>Import Chart(s)</PBButton>
         </div>
         {stage === 'import' && <ChartImportWindow onContinue={() => setStage('log')} onCancel={() => setStage(null)} />}
         {stage === 'log' && <PrintPreviewWindow report={IMPORT_LOGS.report} onClose={() => setStage(null)} />}
@@ -180,75 +180,73 @@ function ChartImportWindow({ onContinue, onCancel }: { onContinue: () => void; o
   const [mapped, setMapped] = useState<Record<string, string>>({})
   const [cur, setCur] = useState(0)
   const pairs = (list: string[][]) => list.map(([k, v]) => (
-    <div key={k} className="pb-row" style={{ gap: 6 }}><Lbl w={70}>{k}</Lbl><b>{v}</b></div>
+    <FormLine key={k} label={k} w={70}><b>{v}</b></FormLine>
   ))
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60 }}>
-      <PBWindow child controls={false} title="Chart Import" onClose={onCancel}
-        tutorialId="host.mois.dialog.chart-import" style={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, gap: 4, padding: 4 }}>
-          <div className="pb-row" style={{ gap: 30, alignItems: 'flex-start', border: '1px solid #888', padding: '2px 8px 6px', flex: 'none' }}>
-            <div><div style={{ color: '#000080', fontWeight: 700 }}>Data Provider:</div>{pairs(CHART_IMPORT.provider)}</div>
-            <div><div style={{ color: '#000080', fontWeight: 700 }}>Software Provider:</div>{pairs(CHART_IMPORT.software)}</div>
-            <div style={{ paddingTop: 34 }}>{pairs(CHART_IMPORT.build)}</div>
-          </div>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4 }}>
-            <div className="pb-groupbox" data-tutorial-id="host.mois.group.provider-mapping" style={{ width: 372, flex: 'none', display: 'flex', flexDirection: 'column' }}>
-              <PBBand>Provider Mapping</PBBand>
-              <div style={{ padding: '2px 6px', whiteSpace: 'normal' }}>{CHART_IMPORT.mappingText}</div>
-              <div className="pb-row" style={{ justifyContent: 'space-around', padding: 2 }}>
-                <button type="button" className="pb-link">Show ALL</button><button type="button" className="pb-link">Show MAPPED</button>
-              </div>
-              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                <PBDataWindow
-                  flush
-                  rows={CHART_IMPORT.providers.map((p) => ({ provider: p, map: mapped[p] ?? '' }))}
-                  current={cur}
-                  onCurrentChange={setCur}
-                  rowTutorialId={(r) => `host.mois.row.provider-${pbSlug(r.provider)}`}
-                  columns={[
-                    { key: 'provider', header: 'Provider Name / ID', width: 176 },
-                    {
-                      key: 'map', header: 'Map To New Provider',
-                      render: (r) => (
-                        <input
-                          className="pb-field"
-                          style={{ width: '100%', border: 0 }}
-                          value={r.map}
-                          onChange={(e) => setMapped((m) => ({ ...m, [r.provider]: e.target.value }))}
-                        />
-                      ),
-                    },
-                  ]}
-                />
-              </div>
-              <div style={{ padding: '2px 6px', borderTop: '1px solid #888' }}>* Inactive at the data provider&apos;s clinic.</div>
+    <ModalWindow id="chart-import" title="Chart Import" onClose={onCancel} zIndex={60}
+      windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, gap: 4, padding: 4 }}>
+        <div className="pb-row" style={{ gap: 30, alignItems: 'flex-start', border: '1px solid #888', padding: '2px 8px 6px', flex: 'none' }}>
+          <div><div style={{ color: '#000080', fontWeight: 700 }}>Data Provider:</div>{pairs(CHART_IMPORT.provider)}</div>
+          <div><div style={{ color: '#000080', fontWeight: 700 }}>Software Provider:</div>{pairs(CHART_IMPORT.software)}</div>
+          <div style={{ paddingTop: 34 }}>{pairs(CHART_IMPORT.build)}</div>
+        </div>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4 }}>
+          <div className="pb-groupbox" data-tutorial-id="host.mois.group.provider-mapping" style={{ width: 372, flex: 'none', display: 'flex', flexDirection: 'column' }}>
+            <PBBand>Provider Mapping</PBBand>
+            <div style={{ padding: '2px 6px', whiteSpace: 'normal' }}>{CHART_IMPORT.mappingText}</div>
+            <div className="pb-row" style={{ justifyContent: 'space-around', padding: 2 }}>
+              <button type="button" className="pb-link">Show ALL</button><button type="button" className="pb-link">Show MAPPED</button>
             </div>
-            <div className="pb-groupbox" data-tutorial-id="host.mois.group.included-patient-records" style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <PBBand>Included Patient Records</PBBand>
-              <div style={{ padding: '2px 6px', whiteSpace: 'normal' }}>{CHART_IMPORT.recordsText}</div>
-              <div style={{ padding: '2px 6px', fontWeight: 700 }}>MOIS DOES NOT AUTOMATICALLY MERGE CHARTS.</div>
-              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                <PBDataWindow
-                  flush
-                  rows={CHART_IMPORT.records}
-                  columns={[
-                    { key: 'n', header: '', width: 30, align: 'center' }, { key: 'last', header: 'Last Name', width: 130 },
-                    { key: 'first', header: 'First Name', width: 100 }, { key: 'middle', header: 'Middle Name', width: 84 },
-                    { key: 'sex', header: 'Sex', width: 30, align: 'center' }, { key: 'dob', header: 'DoB', width: 84, align: 'center' },
-                    { key: 'ins', header: 'Ins By', width: 50 }, { key: 'number', header: 'Insurance Number' },
-                  ]}
-                />
-              </div>
-              <div style={{ padding: '2px 18px' }}>{CHART_IMPORT.records.length}&nbsp;&nbsp;&nbsp;Total Charts</div>
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+              <PBDataWindow
+                flush
+                rows={CHART_IMPORT.providers.map((p) => ({ provider: p, map: mapped[p] ?? '' }))}
+                current={cur}
+                onCurrentChange={setCur}
+                rowTutorialId={(r) => `host.mois.row.provider-${pbSlug(r.provider)}`}
+                columns={[
+                  { key: 'provider', header: 'Provider Name / ID', width: 176 },
+                  {
+                    key: 'map', header: 'Map To New Provider',
+                    render: (r) => (
+                      <input
+                        className="pb-field"
+                        style={{ width: '100%', border: 0 }}
+                        value={r.map}
+                        onChange={(e) => setMapped((m) => ({ ...m, [r.provider]: e.target.value }))}
+                      />
+                    ),
+                  },
+                ]}
+              />
             </div>
+            <div style={{ padding: '2px 6px', borderTop: '1px solid #888' }}>* Inactive at the data provider&apos;s clinic.</div>
           </div>
-          <div className="pb-row" style={{ justifyContent: 'center', gap: 6, flex: 'none' }}>
-            <PBButton data-tutorial-id="host.mois.command.continue-import" onClick={onContinue}>Continue Import</PBButton>
-            <PBButton data-tutorial-id="host.mois.command.cancel-import" onClick={onCancel}>Cancel Import</PBButton>
+          <div className="pb-groupbox" data-tutorial-id="host.mois.group.included-patient-records" style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <PBBand>Included Patient Records</PBBand>
+            <div style={{ padding: '2px 6px', whiteSpace: 'normal' }}>{CHART_IMPORT.recordsText}</div>
+            <div style={{ padding: '2px 6px', fontWeight: 700 }}>MOIS DOES NOT AUTOMATICALLY MERGE CHARTS.</div>
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+              <PBDataWindow
+                flush
+                rows={CHART_IMPORT.records}
+                columns={[
+                  { key: 'n', header: '', width: 30, align: 'center' }, { key: 'last', header: 'Last Name', width: 130 },
+                  { key: 'first', header: 'First Name', width: 100 }, { key: 'middle', header: 'Middle Name', width: 84 },
+                  { key: 'sex', header: 'Sex', width: 30, align: 'center' }, { key: 'dob', header: 'DoB', width: 84, align: 'center' },
+                  { key: 'ins', header: 'Ins By', width: 50 }, { key: 'number', header: 'Insurance Number' },
+                ]}
+              />
+            </div>
+            <div style={{ padding: '2px 18px' }}>{CHART_IMPORT.records.length}&nbsp;&nbsp;&nbsp;Total Charts</div>
           </div>
         </div>
-      </PBWindow>
-    </div>
+        <DialogFooter gap={6}>
+          <PBButton command="continue-import" onClick={onContinue}>Continue Import</PBButton>
+          <PBButton command="cancel-import" onClick={onCancel}>Cancel Import</PBButton>
+        </DialogFooter>
+      </div>
+    </ModalWindow>
   )
 }

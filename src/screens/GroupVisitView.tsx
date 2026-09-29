@@ -3,6 +3,7 @@ import { RESOURCES } from '../data/daybook'
 import { daybookProviders, groupVisitRows } from '../data/mois'
 import { usePatientRoster } from '../data/patient-context'
 import { schedulerStore } from '../data/schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { groupKeyOf, schedulerExtras, useSchedulerExtras, type GroupVisitRow } from '../data/schedulerExtras'
 import { useScreenReport } from '../host/screen-state'
 import {
@@ -11,6 +12,7 @@ import {
 } from '../pb'
 import { AdvancedLookupDialog } from './AdvancedLookupDialog'
 import { useOpenWindow } from './areaWindowRegistry'
+import { GRID_BOX, PickButtons, PickListWindow, SIZE } from './lookupKit'
 import { groupListsFor, updateGroup } from './scheduler/GroupBookingWindows'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
@@ -88,7 +90,7 @@ export function GroupVisitView() {
   useScreenReport({ visit: visit ? `${visit.date.replace(/\./g, '')}-${visit.hr}${visit.min}` : '', patients: lists.patients.length })
 
   const newAppt = () => {
-    setDrafts([{ date: '2026.08.18', hr: '13', min: '00', n: '12', provider: 'TECHNICAL SUPPORT', topic: '', desc: '', code: 'G', loc: 'PRINCE GEORGE CLINIC', series: false }, ...drafts])
+    setDrafts([{ date: '2026.08.18', hr: '13', min: '00', n: '12', provider: DESKTOP_PROVIDER_DEFAULT, topic: '', desc: '', code: 'G', loc: 'PRINCE GEORGE CLINIC', series: false }, ...drafts])
     setCur(0)
   }
   const reserve = (i: number) => {
@@ -281,22 +283,30 @@ function OtherPicker({ kind, onPick, onClose }: { kind: 'provider' | 'resource';
     : RESOURCES.map((r) => ({ name: r, detail: 'Resource' }))
   const [cur, setCur] = useState(0)
   return (
-    <WorkspaceDialogFrame id={`group-${kind}-list`} title="MOIS - Search Window" width={480} height={320} onClose={onClose} controls={false} zIndex={90}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: 8 }}>
-        <PBDataWindow
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(r) => onPick(r.name)}
-          rowTutorialId={(r) => `host.mois.row.group-${kind}-${pbSlug(r.name.split(',')[0]!)}`}
-          columns={[{ key: 'name', header: 'Name', width: 240 }, { key: 'detail', header: kind === 'provider' ? 'Type' : '' }]}
-        />
-      </div>
-      <div className="pb-row" style={{ gap: 8, padding: '0 0 10px', justifyContent: 'center', flex: 'none' }}>
-        <DialogButton id={`group-${kind}-ok`} width={75} onClick={() => { const r = rows[cur]; if (r) onPick(r.name) }} isDefault>Ok</DialogButton>
-        <DialogButton id={`group-${kind}-cancel`} width={75} onClick={onClose}>Cancel</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id={`group-${kind}-list`} title="MOIS - Search Window" width={480} height={320} onClose={onClose} controls={false} zIndex={90}>
+          {content}
+          {footer}
+        </WorkspaceDialogFrame>
+      )}
+      gridBox={{ ...GRID_BOX, margin: 8 }}
+      grid={{
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (r) => onPick(r.name),
+        rowTutorialId: (r) => `host.mois.row.group-${kind}-${pbSlug(r.name.split(',')[0]!)}`,
+        columns: [{ key: 'name', header: 'Name', width: 240 }, { key: 'detail', header: kind === 'provider' ? 'Type' : '' }],
+      }}
+      footer={(
+        <PickButtons className="pb-row" style={{ gap: 8, padding: '0 0 10px', justifyContent: 'center', flex: 'none' }} size={SIZE.dialog(75)}
+          buttons={[
+            { label: 'Ok', command: `group-${kind}-ok`, onClick: () => { const r = rows[cur]; if (r) onPick(r.name) }, isDefault: true },
+            { label: 'Cancel', command: `group-${kind}-cancel`, onClick: onClose },
+          ]} />
+      )}
+    />
   )
 }
 

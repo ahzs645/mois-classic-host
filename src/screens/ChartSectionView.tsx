@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ChartScreen } from '../data/chartScreens'
 import type { FormListRow } from '../data/encounterForms'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { ChartHeaderIdentity } from '../data/patient-context'
 import { useChartRecords, useNodeRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts/types'
 import type { HostShellProps } from '../host/types'
@@ -11,8 +11,9 @@ import { DESKTOP_USER } from '../host/encounterArea'
 import { MOIS_TODAY } from '../data/patients'
 import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
 import { SearchForBand, searchFieldsFor, useFolderSearch } from './SearchForBand'
+import { ChartIdentityStrip } from './patientKit'
 import {
-  PBCommandRow, PBDataWindow, PBIdentityStrip, PBTabs, PBTextArea,
+  PBCommandRow, PBDataWindow, PBTabs, PBTextArea,
   PBViewHeader, type PBColumn, type PBCommand,
 } from '../pb'
 
@@ -26,7 +27,6 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   loadEncounterForms?: HostShellProps['loadEncounterForms']
   encounterFormSlot?: HostShellProps['encounterFormSlot']
 }) {
-  const patient = usePatient()
   const [current, setCurrent] = useState(0)
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
   const [openedDynamicForm, setOpenedDynamicForm] = useState<MoisRecord | null>(null)
@@ -134,20 +134,11 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
       <PBViewHeader title={screen.title} right={screen.noPatient ? undefined : <ChartHeaderIdentity />} />
       <PBCommandRow commands={commands} />
 
-      {!screen.noPatient && <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter={screen.noEncounter ? undefined : 'NO ENCOUNTER'}
+      {!screen.noPatient && <ChartIdentityStrip
+        noEncounter={screen.noEncounter}
+        /* a screen with per-column filters has no Search For band (chartScreens `noSearch`) */
+        search={!screen.noSearch && <SearchForBand context={screen.title} fields={searchFields} value={search.text} onChange={search.setText} style={{ padding: 0, flex: '1 1 auto' }} />}
       />}
-
-      {/* a screen with per-column filters has no Search For band (chartScreens `noSearch`) */}
-      {!screen.noPatient && !screen.noSearch && <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <SearchForBand context={screen.title} fields={searchFields} value={search.text} onChange={search.setText} style={{ padding: 0, flex: '1 1 auto' }} />
-      </div>}
 
       {content ? (
         <div className="pb-host-slot">{content}</div>

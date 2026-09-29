@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
-import {
-  PBBand, PBButton, PBDataWindow, PBDropDownDataWindow, PBInput, PBWindow, type PBColumn,
-} from '../pb'
+import { PBDropDownDataWindow, type PBColumn } from '../pb'
 import { chartStatusRows } from '../data/mois'
-import { CmdButton } from './CmdButton'
 import { patients as fallbackRoster, type Patient } from '../data/patients'
+import { useColumnFilters } from './listKit'
+import {
+  FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, LookupNote, LookupPager, PickListWindow, usePagedCursor,
+} from './lookupKit'
 
 /* ============================================================================
    Advanced Lookup Service — the Patient Chart List.
@@ -57,20 +57,26 @@ export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, o
       wizard's Find / Add) passes one above it */
   zIndex?: number
 }) {
-  const [filters, setFilters] = useState<Partial<Record<Key, string>>>({})
+  const filters = useColumnFilters<Patient>(roster, COLUMNS.map((c) => (c.filter ? {
+    key: c.key,
+    box: c.key === 'status'
+      ? (value: string, set: (v: string) => void) => (
+        <PBDropDownDataWindow
+          key={c.key}
+          w="100%"
+          value={value}
+          display="code"
+          columns={[{ key: 'code', header: 'St', width: 44 }, { key: 'status', header: 'Chart status' }]}
+          rows={chartStatusRows}
+          onSelect={(row) => set(String(row.code))}
+        />
+      )
+      : undefined,
+  } : null)))
+  const rows = filters.shown
 
-  const rows = useMemo(() => roster.filter((p) => (
-    COLUMNS.every(({ key }) => {
-      const want = filters[key]?.trim().toUpperCase()
-      if (!want) return true
-      return String(p[key as keyof Patient] ?? '').toUpperCase().includes(want)
-    })
-  )), [filters, roster])
-
-  const [current, setCurrent] = useState(() => Math.max(0, roster.findIndex((p) => p.chart === chart)))
-  const row = rows[Math.min(current, rows.length - 1)]
-
-  const step = (delta: number) => setCurrent((i) => Math.max(0, Math.min(rows.length - 1, i + delta)))
+  const cursor = usePagedCursor(rows.length, PAGE, () => Math.max(0, roster.findIndex((p) => p.chart === chart)))
+  const row = rows[cursor.at]
 
   const columns: PBColumn<Patient>[] = COLUMNS.map((c) => ({
     key: c.key,
@@ -79,86 +85,41 @@ export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, o
     align: c.key === 'status' || c.key === 'insuranceBy' ? 'center' : 'left',
   }))
 
-  const filterRow = COLUMNS.map((c) => {
-    if (!c.filter) return null
-    const set = (v: string) => setFilters((f) => ({ ...f, [c.key]: v }))
-    if (c.key === 'status') {
-      return (
-        <PBDropDownDataWindow
-          key={c.key}
-          w="100%"
-          value={filters.status ?? ''}
-          display="code"
-          columns={[{ key: 'code', header: 'St', width: 44 }, { key: 'status', header: 'Chart status' }]}
-          rows={chartStatusRows}
-          onSelect={(row) => set(String(row.code))}
-        />
-      )
-    }
-    return <PBInput key={c.key} value={filters[c.key] ?? ''} onChange={(e) => set(e.target.value)} />
-  })
-
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
-      <PBWindow
-        tutorialId="host.mois.dialog.chart-lookup"
-        child
-        controls={false}
-        title="Advanced Lookup Service"
-        onClose={onClose}
-        style={{ width: 'min(1120px, calc(100vw - 60px))', height: 'min(620px, calc(100vh - 80px))' }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            {/* the capture rules the band off from the filter strip below */}
-            <div className="pb-band--ruled">
-              <PBBand>Patient Chart List</PBBand>
-            </div>
-            <PBDataWindow
-              flush
-              rules="white"
-              /* the list fills the dialog: MOIS shows the empty rows below the
-                 last match rather than shrinking the box to fit them */
-              style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={columns}
-              rows={rows}
-              filters={filterRow}
-              current={Math.min(current, Math.max(0, rows.length - 1))}
-              onCurrentChange={setCurrent}
-              onActivate={(r) => onPick(r.chart)}
-              empty="No chart matches those filters."
-            />
-          </div>
-
-          {/* the pane MOIS explains the current list in */}
-          <div
-            className="pb-field"
-            style={{ height: 64, flex: 'none', padding: '3px 5px', whiteSpace: 'pre-wrap', background: '#fff' }}
-          >
-            ALL Patient charts.
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-            <PBButton wide onClick={() => setCurrent(0)}>Home</PBButton>
-            <PBButton wide onClick={() => step(-PAGE)}>PgUp</PBButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <CmdButton
-              command="lookup-ok"
-              wide
-              className="pb-btn--default"
-              disabled={!row}
-              onClick={() => row && onPick(row.chart)}
-            >
-              Ok
-            </CmdButton>
-            <span style={{ width: 14 }} />
-            <CmdButton command="lookup-cancel" wide onClick={onClose}>Cancel</CmdButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton wide onClick={() => step(PAGE)}>PgDwn</PBButton>
-            <PBButton wide onClick={() => setCurrent(rows.length - 1)}>End</PBButton>
-          </div>
-        </div>
-      </PBWindow>
-    </div>
+    <PickListWindow<Patient>
+      window={{
+        id: 'chart-lookup', title: 'Advanced Lookup Service', onClose, zIndex,
+        windowStyle: { width: 'min(1120px, calc(100vw - 60px))', height: 'min(620px, calc(100vh - 80px))' },
+      }}
+      body={LOOKUP_BODY}
+      panel={LOOKUP_PANEL}
+      /* the capture rules the band off from the filter strip below */
+      band={<LookupBand variant="ruled">Patient Chart List</LookupBand>}
+      gridBox={null}
+      grid={{
+        flush: true,
+        rules: 'white',
+        /* the list fills the dialog: MOIS shows the empty rows below the
+           last match rather than shrinking the box to fit them */
+        style: FILL_GRID,
+        columns,
+        rows,
+        filters: filters.filterRow,
+        current: cursor.at,
+        onCurrentChange: cursor.setCurrent,
+        onActivate: (r) => onPick(r.chart),
+        empty: 'No chart matches those filters.',
+      }}
+      /* the pane MOIS explains the current list in */
+      below={<LookupNote height={64} preWrap>ALL Patient charts.</LookupNote>}
+      footerInside
+      footer={(
+        <LookupPager
+          cursor={cursor}
+          ok={{ command: 'lookup-ok', isDefault: true, disabled: !row, onClick: () => { if (row) onPick(row.chart) } }}
+          cancel={{ command: 'lookup-cancel', onClick: onClose }}
+        />
+      )}
+    />
   )
 }

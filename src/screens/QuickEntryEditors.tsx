@@ -10,6 +10,8 @@ import {
   preferenceInstructions, preferenceTerms, type PreferenceType,
 } from '../data/preferenceVocab'
 import { PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTabs, pbSlug } from '../pb'
+import { DialogFooter, SectionCaption } from './formKit'
+import { GRID_BOX, PickButtons, PickListWindow, SIZE, SearchForRow } from './lookupKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -49,7 +51,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    Attach dialog's layout (described in text only).
    ========================================================================= */
 
-const NAVY = '#000080'
 const fieldId = (s: string) => `host.mois.field.qe-${pbSlug(s)}`
 
 /** the light-blue caption band the Quick Entry windows are built from */
@@ -62,7 +63,7 @@ export function QeBand({ children, style }: { children: ReactNode; style?: CSSPr
 }
 
 function Question({ children }: { children: ReactNode }) {
-  return <div style={{ color: NAVY, fontWeight: 700, padding: '6px 0 4px' }}>{children}</div>
+  return <SectionCaption padding="6px 0 4px" rule={false}>{children}</SectionCaption>
 }
 
 /* --- the "…" prompt ------------------------------------------------------- */
@@ -79,30 +80,38 @@ export function CodePrompt({ id, title, rows, onPick, onClose }: {
   const shown = rows.filter((r) => `${r.code} ${r.term}`.toLowerCase().includes(find.trim().toLowerCase()))
   const pick = (r?: QuickEntryCodeTerm) => { if (r) { onPick(r); onClose() } }
   return (
-    <WorkspaceDialogFrame id={id} title={title} width={460} height={360} onClose={onClose} controls={false} zIndex={97}>
-      <div className="pb-row" style={{ padding: '8px 10px 4px', flex: 'none' }}>
-        <span>Find:</span>
-        <PBInput w="100%" value={find} data-tutorial-id={`host.mois.field.${id}-find`} onChange={(e) => { setFind(e.target.value); setCur(0) }} />
-      </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 10px' }}>
-        <PBDataWindow
-          rows={shown}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(r) => pick(r)}
-          rowTutorialId={(r) => `host.mois.row.${id}-${pbSlug(r.term || r.code)}`}
-          columns={[
-            { key: 'code', header: 'Code', width: 100 },
-            { key: 'term', header: 'Description' },
-          ]}
-          empty="No matching entries."
-        />
-      </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '8px 0', flex: 'none' }}>
-        <DialogButton id={`${id}-ok`} width={75} isDefault onClick={() => pick(shown[cur])}>OK</DialogButton>
-        <DialogButton id={`${id}-cancel`} width={75} onClick={onClose}>Cancel</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id={id} title={title} width={460} height={360} onClose={onClose} controls={false} zIndex={97}>
+          {content}
+          {footer}
+        </WorkspaceDialogFrame>
+      )}
+      search={(
+        <SearchForRow label="Find:" link={false} style={{ padding: '8px 10px 4px', flex: 'none' }} value={find} field={`${id}-find`}
+          onChange={(v) => { setFind(v); setCur(0) }} />
+      )}
+      gridBox={{ ...GRID_BOX, padding: '0 10px' }}
+      grid={{
+        rows: shown,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (r) => pick(r),
+        rowTutorialId: (r) => `host.mois.row.${id}-${pbSlug(r.term || r.code)}`,
+        columns: [
+          { key: 'code', header: 'Code', width: 100 },
+          { key: 'term', header: 'Description' },
+        ],
+        empty: 'No matching entries.',
+      }}
+      footer={(
+        <PickButtons className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '8px 0', flex: 'none' }} size={SIZE.dialog(75)}
+          buttons={[
+            { label: 'OK', command: `${id}-ok`, isDefault: true, onClick: () => pick(shown[cur]) },
+            { label: 'Cancel', command: `${id}-cancel`, onClick: onClose },
+          ]} />
+      )}
+    />
   )
 }
 
@@ -308,14 +317,14 @@ function AttachDialog({ onPick, onClose }: { onPick: (name: string) => void; onC
           )}
         </PBTabs>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '6px 0 10px', flex: 'none' }}>
+      <DialogFooter gap={10} padding="6px 0 10px">
         <DialogButton id="qe-attach-ok" width={75} isDefault onClick={() => {
           const name = tab === 'Attach Files' ? file.split('\\').pop() ?? '' : rows[cur]?.name ?? ''
           if (name) onPick(name)
           onClose()
         }}>OK</DialogButton>
         <DialogButton id="qe-attach-cancel" width={75} onClick={onClose}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

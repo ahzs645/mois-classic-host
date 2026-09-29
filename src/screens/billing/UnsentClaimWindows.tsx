@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { PBBand, PBDataWindow, PBInput } from '../../pb'
+import { PBInput } from '../../pb'
 import { CLAIM_FEE_ROWS } from '../../data/billingStore'
 import { DOCTORS } from '../../data/claims'
 import { registerScreenWindows, useReportDialog } from '../../host/screen-windows'
 import { useScreenReport } from '../../host/screen-state'
-import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, PickButtons, PickListWindow, SIZE } from '../lookupKit'
 
 /* ============================================================================
    The small pickers Unsent MSP raises over itself.
@@ -50,39 +51,46 @@ export function FeeCodeLookupWindow({ onPick, onClose }: { onPick: (row: FeeRow)
   useScreenReport({ rows: rows.length })
   const picked = rows[Math.min(cur, rows.length - 1)]
   return (
-    <WorkspaceDialogFrame id={UNSENT_WINDOWS.fee} title="Advanced Lookup Service" width={640} height={460} controls={false} onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-          <div className="pb-band--ruled"><PBBand>MSP Fee Code List</PBBand></div>
-          <PBDataWindow
-            flush
-            rules="white"
-            style={{ flex: '1 1 auto', minHeight: 0 }}
-            columns={[
-              { key: 'code', header: 'Fee Code', width: 70 },
-              { key: 'desc', header: 'Description', width: 330 },
-              { key: 'fee', header: 'Amount', width: 70, align: 'right' },
-              { key: 'timeText', header: 'Time', width: 100 },
-            ]}
-            rows={rows}
-            filters={[
-              <PBInput key="code" value={code} onChange={(e) => setCode(e.target.value)} data-tutorial-id="host.mois.field.fee-filter-code" />,
-              <PBInput key="desc" value={desc} onChange={(e) => setDesc(e.target.value)} data-tutorial-id="host.mois.field.fee-filter-description" />,
-              null, null,
-            ]}
-            current={Math.min(cur, Math.max(0, rows.length - 1))}
-            onCurrentChange={setCur}
-            onActivate={() => picked && onPick(picked)}
-            rowTutorialId={(r) => `host.mois.row.fee-${r.code}`}
-            empty="No fee code matches."
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }}>
-          <DialogButton id="fee-select" isDefault disabled={!picked} onClick={() => picked && onPick(picked)}>Select</DialogButton>
-          <DialogButton id="fee-cancel" onClick={onClose}>Cancel</DialogButton>
-        </div>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id={UNSENT_WINDOWS.fee} title="Advanced Lookup Service" width={640} height={460} controls={false} onClose={onClose}>
+          {content}{footer}
+        </WorkspaceDialogFrame>
+      )}
+      body={LOOKUP_BODY}
+      panel={LOOKUP_PANEL}
+      band={<LookupBand variant="ruled">MSP Fee Code List</LookupBand>}
+      gridBox={null}
+      grid={{
+        flush: true,
+        rules: 'white',
+        style: FILL_GRID,
+        columns: [
+          { key: 'code', header: 'Fee Code', width: 70 },
+          { key: 'desc', header: 'Description', width: 330 },
+          { key: 'fee', header: 'Amount', width: 70, align: 'right' },
+          { key: 'timeText', header: 'Time', width: 100 },
+        ],
+        rows,
+        filters: [
+          <PBInput key="code" value={code} onChange={(e) => setCode(e.target.value)} data-tutorial-id="host.mois.field.fee-filter-code" />,
+          <PBInput key="desc" value={desc} onChange={(e) => setDesc(e.target.value)} data-tutorial-id="host.mois.field.fee-filter-description" />,
+          null, null,
+        ],
+        current: Math.min(cur, Math.max(0, rows.length - 1)),
+        onCurrentChange: setCur,
+        onActivate: () => picked && onPick(picked),
+        rowTutorialId: (r) => `host.mois.row.fee-${r.code}`,
+        empty: 'No fee code matches.',
+      }}
+      footerInside
+      footer={(
+        <PickButtons style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }} size={SIZE.dialog()} buttons={[
+          { label: 'Select', command: 'fee-select', isDefault: true, disabled: !picked, onClick: () => picked && onPick(picked) },
+          { label: 'Cancel', command: 'fee-cancel', onClick: onClose },
+        ]} />
+      )}
+    />
   )
 }
 
@@ -96,22 +104,30 @@ export function ProviderListWindow({ title = 'Registered Provider List', onPick,
   const rows = DOCTORS.map((d) => ({ doctor: d }))
   const picked = rows[cur]?.doctor
   return (
-    <WorkspaceDialogFrame id={UNSENT_WINDOWS.provider} title={title} width={360} height={320} controls={false} onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-        <PBDataWindow
-          style={{ flex: '1 1 auto', minHeight: 0 }}
-          columns={[{ key: 'doctor', header: 'Provider', width: 300 }]}
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={() => picked && onPick(picked)}
-          rowTutorialId={(r) => `host.mois.row.provider-${r.doctor.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`}
-        />
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }}>
-          <DialogButton id="provider-select" isDefault disabled={!picked} onClick={() => picked && onPick(picked)}>Select</DialogButton>
-          <DialogButton id="provider-cancel" onClick={onClose}>Cancel</DialogButton>
-        </div>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id={UNSENT_WINDOWS.provider} title={title} width={360} height={320} controls={false} onClose={onClose}>
+          {content}{footer}
+        </WorkspaceDialogFrame>
+      )}
+      body={LOOKUP_BODY}
+      gridBox={null}
+      grid={{
+        style: FILL_GRID,
+        columns: [{ key: 'doctor', header: 'Provider', width: 300 }],
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: () => picked && onPick(picked),
+        rowTutorialId: (r) => `host.mois.row.provider-${r.doctor.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`,
+      }}
+      footerInside
+      footer={(
+        <PickButtons style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }} size={SIZE.dialog()} buttons={[
+          { label: 'Select', command: 'provider-select', isDefault: true, disabled: !picked, onClick: () => picked && onPick(picked) },
+          { label: 'Cancel', command: 'provider-cancel', onClick: onClose },
+        ]} />
+      )}
+    />
   )
 }

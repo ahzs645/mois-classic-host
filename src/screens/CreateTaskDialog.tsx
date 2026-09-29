@@ -1,11 +1,14 @@
 import { useState } from 'react'
+import { daysFromToday } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
+import { argStr } from '../data/text'
 import {
   CURRENT_USER, TASK_GROUPS, TASK_PRIORITIES, TASK_SETS, USER_GROUPS, WORKSPACE_USERS, assigneeLabel,
 } from '../data/tasks'
 import { workspaceStore } from '../data/workspaceStore'
 import { PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
 import { registerAreaWindow, type AreaWindowArgs, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter, FormLabel } from './formKit'
 import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -43,17 +46,7 @@ import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './Worksp
    (a pre-filled subject), `user` / `team` / `priority` (L M H V).
    ========================================================================= */
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 const PEACH = '#ffc09c'
-
-/** yyyy.mm.dd plus `days`. */
-function addDays(stamp: string, days: number): string {
-  const [y, m, d] = stamp.split('.').map(Number)
-  const at = new Date(Date.UTC(y!, m! - 1, d! + days))
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${at.getUTCFullYear()}.${pad(at.getUTCMonth() + 1)}.${pad(at.getUTCDate())}`
-}
 
 /** Raise one task from the window's values. */
 function raiseTask(args: AreaWindowArgs, values: {
@@ -63,7 +56,7 @@ function raiseTask(args: AreaWindowArgs, values: {
   workspaceStore.addTask({
     p: values.priority,
     due: values.due,
-    patient: str(args.patient),
+    patient: argStr(args.patient),
     task: values.task || '(no subject)',
     assignee: values.team ? 'TEAM' : assigneeLabel(values.user || CURRENT_USER.name),
     team: values.team,
@@ -97,24 +90,22 @@ function PriorityRadios({ name, value, onChange, inline }: {
    Create New Task
    ------------------------------------------------------------------------ */
 export function CreateTaskDialog({ args, close, open }: AreaWindowProps) {
-  const linked = str(args.linkedTo)
+  const linked = argStr(args.linkedTo)
   /* a lesson "types" by passing the values (`user`, `team`, `priority`,
      `task`), the way the New Appointment window takes them */
-  const [user, setUser] = useState(str(args.user))
-  const [team, setTeam] = useState(str(args.team))
-  const [priority, setPriority] = useState(str(args.priority) || 'M')
+  const [user, setUser] = useState(argStr(args.user))
+  const [team, setTeam] = useState(argStr(args.team))
+  const [priority, setPriority] = useState(argStr(args.priority) || 'M')
   const [due, setDue] = useState(MOIS_TODAY)
-  const [task, setTask] = useState(str(args.task))
+  const [task, setTask] = useState(argStr(args.task))
   const [group, setGroup] = useState('')
-  const [detail, setDetail] = useState(str(args.detail))
-  const [chart, setChart] = useState(str(args.chart))
+  const [detail, setDetail] = useState(argStr(args.detail))
+  const [chart, setChart] = useState(argStr(args.chart))
 
   const create = () => {
     raiseTask(args, { user, team, priority, due, task, chart })
     close()
   }
-
-  const label = (text: string, w = 64) => <span className="pb-form__label" style={{ width: w, flex: 'none' }}>{text}</span>
 
   return (
     <WorkspaceDialogFrame id="create-task" title="Create New Task" width={856} height={606} onClose={close}>
@@ -130,7 +121,7 @@ export function CreateTaskDialog({ args, close, open }: AreaWindowProps) {
         </FormBand>
 
         <div className="pb-row" style={{ gap: 8, padding: '10px 10px', flex: 'none' }}>
-          {label('Assign To:')}
+          <FormLabel w={64}>Assign To:</FormLabel>
           <PBSelect w={214} options={['', ...WORKSPACE_USERS]} value={user} data-tutorial-id="host.mois.field.task-assign-to" onChange={(e) => setUser(e.target.value)} />
           <b style={{ margin: '0 24px' }}>AND / OR</b>
           <span className="pb-form__label">User Group:</span>
@@ -139,7 +130,7 @@ export function CreateTaskDialog({ args, close, open }: AreaWindowProps) {
         <FormRule />
 
         <div className="pb-row" style={{ gap: 8, padding: '10px 10px', flex: 'none', alignItems: 'flex-start' }}>
-          {label('Priority:')}
+          <FormLabel w={64}>Priority:</FormLabel>
           <span data-tutorial-id="host.mois.field.task-priority"><PriorityRadios name="task-priority" value={priority} onChange={setPriority} /></span>
           <span style={{ flex: '1 1 auto' }} />
           <span className="pb-form__label">Due Date:</span>
@@ -149,7 +140,7 @@ export function CreateTaskDialog({ args, close, open }: AreaWindowProps) {
         <FormRule />
 
         <div style={{ display: 'grid', gridTemplateColumns: '74px 1fr', rowGap: 6, padding: '10px 10px', flex: '1 1 auto', minHeight: 0, gridTemplateRows: 'auto auto 1fr' }}>
-          {label('Task:')}
+          <FormLabel w={64}>Task:</FormLabel>
           <PBInput
             w="100%"
             value={task}
@@ -157,9 +148,9 @@ export function CreateTaskDialog({ args, close, open }: AreaWindowProps) {
             style={task ? undefined : { background: PEACH }}
             onChange={(e) => setTask(e.target.value)}
           />
-          {label('Group:')}
+          <FormLabel w={64}>Group:</FormLabel>
           <PBSelect w={208} options={TASK_GROUPS} value={group} onChange={(e) => setGroup(e.target.value)} />
-          {label('Detail:')}
+          <FormLabel w={64}>Detail:</FormLabel>
           <PBTextArea
             value={detail}
             data-tutorial-id="host.mois.field.task-detail"
@@ -172,11 +163,11 @@ export function CreateTaskDialog({ args, close, open }: AreaWindowProps) {
         {/* linked to a record: the chart is read-only and the record named;
             raised from nothing: an editable Chart with the chart lookup */}
         <div className="pb-row" style={{ gap: 8, padding: '10px 10px 14px', flex: 'none' }} data-tutorial-id="host.mois.field.task-chart">
-          {label('Chart:', 74)}
+          <FormLabel w={74}>Chart:</FormLabel>
           {linked ? (
             <>
               <span style={{ width: 128 }}>{chart}</span>
-              <span style={{ flex: '1 1 auto' }}>{str(args.patient)}</span>
+              <span style={{ flex: '1 1 auto' }}>{argStr(args.patient)}</span>
               <span className="pb-form__label">Linked to:</span>
               <span style={{ width: 220 }}>{linked}</span>
             </>
@@ -205,13 +196,13 @@ type SetRow = { user: string; priority: string; task: string; group: string; due
 function rowsFor(setName: string, recordText: string): SetRow[] {
   const set = TASK_SETS.find((s) => s.name === setName)
   return (set?.tasks ?? []).map((t) => ({
-    user: '', priority: t.priority, task: t.task, group: '', due: addDays(MOIS_TODAY, t.dueIn),
+    user: '', priority: t.priority, task: t.task, group: '', due: daysFromToday(t.dueIn),
     detail: recordText ? `${t.detail}\n\n\n${recordText}` : t.detail,
   }))
 }
 
 export function CreateTaskSetDialog({ args, close }: AreaWindowProps) {
-  const record = str(args.detail)
+  const record = argStr(args.detail)
   const [setName, setSetName] = useState(TASK_SETS[0]!.name)
   const [everyone, setEveryone] = useState('')
   const [rows, setRows] = useState<SetRow[]>(() => rowsFor(TASK_SETS[0]!.name, record))
@@ -222,7 +213,7 @@ export function CreateTaskSetDialog({ args, close }: AreaWindowProps) {
 
   const create = () => {
     for (const r of rows) {
-      raiseTask(args, { user: r.user || everyone, team: '', priority: r.priority, due: r.due, task: r.task, chart: str(args.chart) })
+      raiseTask(args, { user: r.user || everyone, team: '', priority: r.priority, due: r.due, task: r.task, chart: argStr(args.chart) })
     }
     close()
   }
@@ -248,13 +239,13 @@ export function CreateTaskSetDialog({ args, close }: AreaWindowProps) {
           onChange={(e) => { setSetName(e.target.value); setRows(rowsFor(e.target.value, record)); setCur(0) }}
         />
         <span style={{ color: '#fff' }}>
-          Chart: <span style={white}>{str(args.chart) || '-'}</span>
-          <span style={{ ...white, marginLeft: 30 }}>{str(args.patient)}</span>
+          Chart: <span style={white}>{argStr(args.chart) || '-'}</span>
+          <span style={{ ...white, marginLeft: 30 }}>{argStr(args.patient)}</span>
         </span>
         <span style={{ color: '#fff' }}>Assignee (All Tasks):</span>
         <PBSelect w={150} options={['', ...WORKSPACE_USERS]} value={everyone} data-tutorial-id="host.mois.field.task-set-assignee" onChange={(e) => setEveryone(e.target.value)} />
         <span style={{ color: '#fff' }}>
-          Linked To: <span style={white}>{str(args.linkedTo) || '-'}</span>
+          Linked To: <span style={white}>{argStr(args.linkedTo) || '-'}</span>
         </span>
       </div>
 
@@ -301,10 +292,10 @@ export function CreateTaskSetDialog({ args, close }: AreaWindowProps) {
         </div>
       </div>
 
-      <div className="pb-row" style={{ gap: 12, padding: '12px 0', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={12} padding="12px 0">
         <DialogButton id="task-set-create" onClick={create} isDefault>Create (F2)</DialogButton>
         <DialogButton id="task-set-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

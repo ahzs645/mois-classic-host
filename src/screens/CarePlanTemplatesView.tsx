@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   SECTION_FOR_CATEGORY, TEMPLATE_CATEGORIES, TEMPLATE_CONCEPTS, TEMPLATE_RULES, TEMPLATE_SECTIONS,
   addCarePlanTemplate, blankTemplateElement, deleteCarePlanTemplate, updateCarePlanTemplate, useCarePlanTemplates,
   type CarePlanTemplate, type TemplateElement,
 } from '../data/carePlanTemplates'
 import { DESIGNER_COMMANDS, DESIGNER_COMMAND_WIDTH, designerScreen } from '../data/designerSection'
+import { argStr } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import {
   PBButton, PBCommandRow, PBDataWindow, PBInput, PBMessageBox, PBRadio, PBSelect, PBTextArea, PBViewHeader,
   PBWindow, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { useColumnFilters, useRecordList } from './listKit'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -63,21 +66,23 @@ export function CarePlanTemplatesView({ onClose }: { onClose?: () => void }) {
   const screen = designerScreen(NODE)
   const templates = useCarePlanTemplates()
   const openWindow = useOpenWindow()
-  const [filter, setFilter] = useState<Record<string, string>>({})
   const [cur, setCur] = useState(0)
   const [confirm, setConfirm] = useState(false)
-  const rows = useMemo(() => templates.filter((t) => (['desc', 'detail'] as const).every((k) => {
-    const term = filter[k]?.trim().toLowerCase()
-    return !term || t[k].toLowerCase().includes(term)
-  })), [templates, filter])
-  const row = rows[Math.min(cur, Math.max(0, rows.length - 1))]
-  useScreenReport({ rows: templates.length, row: row ? pbSlug(row.desc) : null })
-
-  const open = (t?: CarePlanTemplate) => openWindow('care-plan-template-detail', t ? { template: t.id } : {})
   const columns = screen?.columns ?? [
     { key: 'desc', header: 'Description', width: 299, filter: true },
     { key: 'detail', header: 'Detail', width: 457, filter: true },
   ]
+  /* only Description and Detail filter; the other columns' boxes type but do not */
+  const filters = useColumnFilters(templates, columns.map((c) => ({
+    key: c.key,
+    anchor: `filter-${pbSlug(c.header)}`,
+    ...(c.key === 'desc' || c.key === 'detail' ? null : { test: () => true }),
+  })), { match: 'lower-trim', onChange: () => setCur(0) })
+  const rows = filters.shown
+  const row = rows[Math.min(cur, Math.max(0, rows.length - 1))]
+  useScreenReport({ rows: templates.length, row: row ? pbSlug(row.desc) : null })
+
+  const open = (t?: CarePlanTemplate) => openWindow('care-plan-template-detail', t ? { template: t.id } : {})
 
   return (
     <>
@@ -102,14 +107,7 @@ export function CarePlanTemplatesView({ onClose }: { onClose?: () => void }) {
           onActivate={(t) => open(t)}
           style={{ ['--pb-dw-row-h' as string]: `${screen?.pitch ?? 19}px` }}
           columns={columns.map((c) => ({ key: c.key, header: c.header, width: c.width }))}
-          filters={columns.map((c) => (
-            <PBInput
-              key={c.key}
-              data-tutorial-id={`host.mois.field.filter-${pbSlug(c.header)}`}
-              value={filter[c.key] ?? ''}
-              onChange={(e) => { setFilter({ ...filter, [c.key]: e.target.value }); setCur(0) }}
-            />
-          ))}
+          filters={filters.filterRow}
           rowTutorialId={(t) => `host.mois.row.${pbSlug(t.desc.slice(0, 32))}`}
           empty="No rows retrieved."
         />
@@ -118,8 +116,8 @@ export function CarePlanTemplatesView({ onClose }: { onClose?: () => void }) {
         <PBMessageBox
           title="Delete Record" icon="question"
           buttons={[
-            { label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.template-delete-yes' },
-            { label: 'No', value: 'no', tutorialId: 'host.mois.command.template-delete-no' },
+            { label: 'Yes', value: 'yes', default: true, command: 'template-delete-yes' },
+            { label: 'No', value: 'no', command: 'template-delete-no' },
           ]}
           onClose={(v) => { if (v === 'yes') { deleteCarePlanTemplate(row.id); setCur(0) } setConfirm(false) }}
         >
@@ -135,25 +133,8 @@ const BAND = '#dcd7d2'
 const RULE = '#646464'
 
 function StripButton({ id, label, width, onPress, disabled }: { id: string; label: string; width: number; onPress: () => void; disabled?: boolean }) {
-  const host = usePBInstrumentation()
   return (
-    <button
-      type="button"
-      className="pb-btn pb-btn--sm"
-      style={{ width }}
-      disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onPress() }}
-    >
-      {label}
-    </button>
-  )
-}
-
-function FooterButton({ id, label, onPress }: { id: string; label: string; onPress: () => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <PBButton wide data-tutorial-id={host?.anchor('command', id)} onClick={() => { host?.report('command', { command: id }); onPress() }}>
+    <PBButton size="sm" command={id} style={{ width }} disabled={disabled} onClick={() => onPress()}>
       {label}
     </PBButton>
   )
@@ -162,12 +143,13 @@ function FooterButton({ id, label, onPress }: { id: string; label: string; onPre
 function TemplateDetailWindow({ args, close }: AreaWindowProps) {
   const host = usePBInstrumentation()
   const templates = useCarePlanTemplates()
-  const [id, setId] = useState(typeof args.template === 'string' ? args.template : '')
+  const [id, setId] = useState(argStr(args.template))
   const stored = templates.find((t) => t.id === id)
   const [desc, setDesc] = useState(stored?.desc ?? '')
   const [detail, setDetail] = useState(stored?.detail ?? '')
-  const [elements, setElements] = useState<TemplateElement[]>(() => stored?.elements.map((e) => ({ ...e })) ?? [])
-  const [cur, setCur] = useState(0)
+  const {
+    rows: elements, setRows: setElements, cur, setCur, add, remove,
+  } = useRecordList<TemplateElement>(() => stored?.elements.map((e) => ({ ...e })) ?? [], { afterRemove: 'previous' })
   const [saved, setSaved] = useState(Boolean(stored))
   const title = 'Care Plan Tag Template Detail'
   useScreenReport({ dialog: pbSlug(title), rows: elements.length, saved })
@@ -193,7 +175,7 @@ function TemplateDetailWindow({ args, close }: AreaWindowProps) {
   })
   const refresh = () => {
     const t = templates.find((x) => x.id === id)
-    setElements(t?.elements.map((e) => ({ ...e })) ?? [])
+    setElements(() => t?.elements.map((e) => ({ ...e })) ?? [])
     setCur(0)
     setSaved(Boolean(t))
   }
@@ -230,8 +212,8 @@ function TemplateDetailWindow({ args, close }: AreaWindowProps) {
 
               <div className="pb-band" style={{ background: BAND, height: 20, minHeight: 20, borderTop: `1px solid ${RULE}` }}>Element List</div>
               <div className="pb-row" style={{ background: BAND, height: 20, gap: 0, padding: '0 1px', flex: 'none', borderBottom: `1px solid ${RULE}` }}>
-                <StripButton id="template-new-row" label="New Row" width={82} onPress={() => { setElements((l) => [...l, blankTemplateElement()]); setCur(elements.length); setSaved(false) }} />
-                <StripButton id="template-delete-row" label="Delete Row" width={81} disabled={!elements.length} onPress={() => { setElements((l) => l.filter((_, j) => j !== cur)); setCur(Math.max(0, cur - 1)); setSaved(false) }} />
+                <StripButton id="template-new-row" label="New Row" width={82} onPress={() => { add(blankTemplateElement()); setSaved(false) }} />
+                <StripButton id="template-delete-row" label="Delete Row" width={81} disabled={!elements.length} onPress={() => { remove(); setSaved(false) }} />
                 <StripButton id="template-refresh" label="Refresh" width={81} onPress={refresh} />
               </div>
 
@@ -304,12 +286,10 @@ function TemplateDetailWindow({ args, close }: AreaWindowProps) {
                 />
               </div>
             </div>
-            <div className="pb-footer">
-              <span className="pb-footer__spacer" />
-              <FooterButton id="template-save-changes" label="Save Changes (F2)" onPress={save} />
-              <FooterButton id="template-cancel" label="Cancel" onPress={close} />
-              <span className="pb-footer__spacer" />
-            </div>
+            <DialogFooter frame="pb" buttons={[
+              { label: 'Save Changes (F2)', command: 'template-save-changes', wide: true, onClick: save },
+              { label: 'Cancel', command: 'template-cancel', wide: true, onClick: close },
+            ]} />
           </PBWindow>
         </div>
       </div>

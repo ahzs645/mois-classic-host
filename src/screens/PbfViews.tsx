@@ -3,6 +3,7 @@ import {
   billingPrograms, enrolmentOf, feeCaption, isEnrolledNow, patientName, patientOf, PBF_TODAY, shiftStamp,
   useBillingPrograms, type ChangeRequest, type EnrolmentClaim, type PbfConfig,
 } from '../data/billingPrograms'
+import { hhmm } from '../data/clock'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow } from '../host/screen-windows'
 import {
@@ -11,6 +12,7 @@ import {
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { Ask, CellButton, CellLink, Dim, Field, FilterGroup, RadioSet } from './billingProgramsKit'
+import { NAVY, SectionCaption } from './formKit'
 import { PBF_WINDOWS, PbfWindows, pcpcScore, providerOptions } from './PbfWindows'
 
 /* ============================================================================
@@ -705,14 +707,14 @@ export function PcpcCalculatorView({ onClose, onOpenChart }: PbfViewProps) {
     if (provider === 'Desktop Provider') charts = charts.filter((c) => enrolmentOf(s, c)?.provider === 'BEARDWOOD, WALTER')
     if (limit) charts = charts.slice(0, Number(limitN) || charts.length)
     const index = charts.length ? (charts.reduce((n, c) => n + Number(pcpcScore(c)), 0) / charts.length).toFixed(2) : '0.00'
-    const stamp = `${PBF_TODAY} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
+    const stamp = `${PBF_TODAY} ${hhmm()}`
     const r = billingPrograms.recordPcpcRun({ date: stamp, include: include === 'PBF Enrolled' ? 'enrolled' : 'other', provider: provider === 'All Providers' ? 'all' : 'desktop', output, charts, index, measured: measure })
     if (output === 'Printable Report') win.open(PBF_WINDOWS.report, { run: r.id })
     else if (output === 'Chart Navigator') openWindow('chart-navigator', { charts })
     else setMessage(`${output === 'MoH File' ? 'The MoH file' : 'The CSV file'} was written for ${charts.length} patients${measure ? `; a Final Index measure (${s.pbf.indexCode}) was added to each chart` : ''}.`)
   }
 
-  const section = (title: string) => <div style={{ borderBottom: '1px solid #b8b8b8', padding: '10px 10px 2px', fontWeight: 700, color: '#0b3d8c' }}>{title}</div>
+  const section = (title: string) => <SectionCaption color={NAVY.billing} padding="10px 10px 2px" rule="#b8b8b8">{title}</SectionCaption>
   return (
     <>
       <PBViewHeader title="PCPC Complexity Index Calculator" />
@@ -776,9 +778,7 @@ export function PbfConfigView({ onClose }: PbfViewProps) {
   const set = (k: keyof PbfConfig) => (v: string | boolean) => { setD((x) => ({ ...x, [k]: v })); setSaved(false) }
   useScreenReport({ pbfActive: d.active, draft: dirty, saved: saved && !dirty, payees: d.payees.length })
   const head = (t: string, right?: ReactNode) => (
-    <div className="pb-row" style={{ borderBottom: '1px solid #b8b8b8', padding: '6px 10px 2px' }}>
-      <b style={{ color: '#0b3d8c' }}>{t}</b>{right && <><span className="pb-row__spacer" />{right}</>}
-    </div>
+    <SectionCaption inner="b" color={NAVY.billing} padding="6px 10px 2px" rule="#b8b8b8" row right={right}>{t}</SectionCaption>
   )
   const note = <Dim>(please note, multiple entries should be comma separated)</Dim>
   const pair = (label: string, fee: keyof PbfConfig, diag: keyof PbfConfig) => (

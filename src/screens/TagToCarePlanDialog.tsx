@@ -5,7 +5,9 @@ import { addCarePlanTag } from '../data/chartSession'
 import { tagCarePlanRecords, type TagCarePlanRecord } from '../data/chartUtilities'
 import type { MoisChartExport, MoisRecord } from '../data/charts'
 import { usePatient } from '../data/patient-context'
-import { PBButton, PBGroup, PBInput, PBSelect, PBWindow } from '../pb'
+import { PBButton, PBGroup, PBInput, PBSelect } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter } from './formKit'
 
 /* ============================================================================
    Tag Information to Care Plan — the right-click option list's
@@ -94,90 +96,82 @@ export function TagToCarePlanDialog({ node, source, record, onOk, onClose }: {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Tag Information to Care Plan"
-        onClose={onClose}
-        style={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    <ModalWindow
+      title="Tag Information to Care Plan"
+      onClose={onClose}
+      zIndex={80}
+      windowStyle={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.tag-to-care-plan"
+        style={{
+          position: 'relative', flex: '1 1 auto', minHeight: 0,
+          background: 'var(--pb-face)',
+          /* the two group captions are #000078, a shade darker than the
+             #000080 the rest of the kit paints a navy caption in */
+          ['--pb-text-head' as string]: '#000078',
+        }}
       >
-        <div
-          data-tutorial-id="host.mois.dialog.tag-to-care-plan"
-          style={{
-            position: 'relative', flex: '1 1 auto', minHeight: 0,
-            background: 'var(--pb-face)',
-            /* the two group captions are #000078, a shade darker than the
-               #000080 the rest of the kit paints a navy caption in */
-            ['--pb-text-head' as string]: '#000078',
-          }}
-        >
-          {/* group 1 runs from the top of the client area down to y ≈487 */}
-          <div style={{ position: 'absolute', left: 10, right: 10, top: 8, height: y(487) - 8 }}>
-            <PBGroup title="Record Information">
-              <div className="pb-row" style={{ gap: 6, padding: '4px 0' }}>
-                <span className="pb-form__label pb-form__label--dim">Category</span>
-                <PBInput w={150} readOnly value={rec.category} style={READONLY} />
-              </div>
-              <div className="pb-row" style={{ gap: 6, padding: '2px 0 4px' }}>
-                <span className="pb-form__label pb-form__label--dim">Code:</span>
-                <PBInput w={64} readOnly value={rec.code} style={READONLY} />
-                {/* the wide description shares the row and carries no label */}
-                <PBInput w={218} readOnly value={rec.description} style={READONLY} />
-              </div>
-            </PBGroup>
-          </div>
-
-          {/* group 2 begins where group 1 ends; its body is otherwise empty —
-              a large blank area down to y ≈620 in the capture */}
-          <div style={{ position: 'absolute', left: 10, right: 10, top: y(487), height: y(628) - y(487) }}>
-            <PBGroup title="Care Plan Location" fill style={{ height: '100%' }}>
-              <div className="pb-row" style={{ gap: 6, padding: '4px 0' }}>
-                <span className="pb-form__label">Section:</span>
-                <PBSelect
-                  w={200}
-                  value={section}
-                  options={['', ...CARE_PLAN_SECTIONS]}
-                  data-tutorial-id="host.mois.field.care-plan-section"
-                  onChange={(e) => setSection(e.target.value)}
-                />
-              </div>
-              <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
-                <span className="pb-form__label">Rank:</span>
-                <PBInput
-                  w={44}
-                  align="center"
-                  value={rank}
-                  data-tutorial-id="host.mois.field.care-plan-rank"
-                  onChange={(e) => setRank(e.target.value)}
-                />
-              </div>
-            </PBGroup>
-          </div>
-
-          <div
-            style={{
-              position: 'absolute', left: 0, right: 0, top: y(635),
-              display: 'flex', justifyContent: 'center', gap: 14,
-            }}
-          >
-            <PBButton
-              style={{ width: 75, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.tag-to-care-plan-ok"
-              onClick={ok}
-            >
-              Ok
-            </PBButton>
-            <PBButton
-              style={{ width: 75, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.tag-to-care-plan-cancel"
-              onClick={onClose}
-            >
-              Cancel
-            </PBButton>
-          </div>
+        {/* group 1 runs from the top of the client area down to y ≈487 */}
+        <div style={{ position: 'absolute', left: 10, right: 10, top: 8, height: y(487) - 8 }}>
+          <PBGroup title="Record Information">
+            <div className="pb-row" style={{ gap: 6, padding: '4px 0' }}>
+              <span className="pb-form__label pb-form__label--dim">Category</span>
+              <PBInput w={150} readOnly value={rec.category} style={READONLY} />
+            </div>
+            <div className="pb-row" style={{ gap: 6, padding: '2px 0 4px' }}>
+              <span className="pb-form__label pb-form__label--dim">Code:</span>
+              <PBInput w={64} readOnly value={rec.code} style={READONLY} />
+              {/* the wide description shares the row and carries no label */}
+              <PBInput w={218} readOnly value={rec.description} style={READONLY} />
+            </div>
+          </PBGroup>
         </div>
-      </PBWindow>
-    </div>
+
+        {/* group 2 begins where group 1 ends; its body is otherwise empty —
+            a large blank area down to y ≈620 in the capture */}
+        <div style={{ position: 'absolute', left: 10, right: 10, top: y(487), height: y(628) - y(487) }}>
+          <PBGroup title="Care Plan Location" fill style={{ height: '100%' }}>
+            <div className="pb-row" style={{ gap: 6, padding: '4px 0' }}>
+              <span className="pb-form__label">Section:</span>
+              <PBSelect
+                w={200}
+                value={section}
+                options={['', ...CARE_PLAN_SECTIONS]}
+                data-tutorial-id="host.mois.field.care-plan-section"
+                onChange={(e) => setSection(e.target.value)}
+              />
+            </div>
+            <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
+              <span className="pb-form__label">Rank:</span>
+              <PBInput
+                w={44}
+                align="center"
+                value={rank}
+                data-tutorial-id="host.mois.field.care-plan-rank"
+                onChange={(e) => setRank(e.target.value)}
+              />
+            </div>
+          </PBGroup>
+        </div>
+
+        <DialogFooter plain fixed={false} gap={14} style={{ position: 'absolute', left: 0, right: 0, top: y(635) }}>
+          <PBButton
+            style={{ width: 75, minWidth: 0 }}
+            data-tutorial-id="host.mois.command.tag-to-care-plan-ok"
+            onClick={ok}
+          >
+            Ok
+          </PBButton>
+          <PBButton
+            style={{ width: 75, minWidth: 0 }}
+            data-tutorial-id="host.mois.command.tag-to-care-plan-cancel"
+            onClick={onClose}
+          >
+            Cancel
+          </PBButton>
+        </DialogFooter>
+      </div>
+    </ModalWindow>
   )
 }

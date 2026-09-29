@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useChartExport } from '../data/chart-records'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
@@ -7,6 +7,7 @@ import { rsLike } from '../data/reportSpecs/types'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBInput, PBLookup, PBSelect } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ParamLine, ParamSection } from './reportKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -27,19 +28,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    stage's only chart with records behind it is the one open, so that is the
    chart the list can find.
    ========================================================================= */
-
-const NAVY = '#000080'
-const Section = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '5px 8px 3px', borderBottom: '1px solid #a0a0a0', borderTop: '1px solid #a0a0a0', marginTop: 4 }}>
-    {children}
-  </div>
-)
-const Line = ({ label, children }: { label?: ReactNode; children: ReactNode }) => (
-  <div className="pb-row" style={{ gap: 6, padding: '2px 10px', minHeight: 21 }}>
-    <span className="pb-form__label" style={{ width: 80, flex: 'none' }}>{label}</span>
-    {children}
-  </div>
-)
 
 function PatientsByProcedureParams({ close, open }: AreaWindowProps) {
   const data = useChartExport()
@@ -84,27 +72,27 @@ function PatientsByProcedureParams({ close, open }: AreaWindowProps) {
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: 12, background: 'var(--pb-face)' }}>
         <div style={{ flex: '1 1 auto', border: '1px solid var(--pb-border)', background: 'var(--pb-face)' }}>
           <PBBand>Selection Parameter</PBBand>
-          <Section>Enter search string(s) for Procedure Description</Section>
+          <ParamSection>Enter search string(s) for Procedure Description</ParamSection>
           {contains.map((c, i) => (
-            <Line key={i} label="Contains:">
+            <ParamLine w={80} key={i} label="Contains:">
               <PBInput w={326} value={c} data-tutorial-id={i === 0 ? 'host.mois.field.rp-procedure-contains' : undefined}
                 style={i === 0 ? { background: 'var(--pb-dw-flag, #f8c7a8)' } : undefined}
                 onChange={(e) => setContains((all) => all.map((x, j) => (j === i ? e.target.value : x)))} />
-            </Line>
+            </ParamLine>
           ))}
-          <Line label="OR…"><span /></Line>
-          <Line label="Concept:"><PBLookup w={326} /></Line>
-          <Section>Date Range (INCLUSIVE)</Section>
-          <Line label="Start Date:">
+          <ParamLine w={80} label="OR…"><span /></ParamLine>
+          <ParamLine w={80} label="Concept:"><PBLookup w={326} /></ParamLine>
+          <ParamSection>Date Range (INCLUSIVE)</ParamSection>
+          <ParamLine w={80} label="Start Date:">
             <PBInput w={84} align="center" value={from} onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.rp-procedure-from" />
             <span>to</span>
             <PBInput w={84} align="center" value={to} onChange={(e) => setTo(e.target.value)} />
-          </Line>
-          <Section>Other Options:</Section>
-          <Line label="Patients List:"><PBCheckbox label="Active Patients Only" checked={active} onChange={setActive} /></Line>
-          <Line label="Provider:"><PBSelect w={140} options={['']} /></Line>
-          <Line label="Facility Code:"><PBSelect w={110} options={['']} /></Line>
-          <Line label="Service Center:"><PBSelect w={140} options={['']} /></Line>
+          </ParamLine>
+          <ParamSection>Other Options:</ParamSection>
+          <ParamLine w={80} label="Patients List:"><PBCheckbox label="Active Patients Only" checked={active} onChange={setActive} /></ParamLine>
+          <ParamLine w={80} label="Provider:"><PBSelect w={140} options={['']} /></ParamLine>
+          <ParamLine w={80} label="Facility Code:"><PBSelect w={110} options={['']} /></ParamLine>
+          <ParamLine w={80} label="Service Center:"><PBSelect w={140} options={['']} /></ParamLine>
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 19, paddingTop: 10 }}>
           <DialogButton id="procedure-ok" isDefault onClick={ok}>Ok</DialogButton>

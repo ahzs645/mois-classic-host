@@ -4,8 +4,9 @@ import { date } from '../data/charts/relations'
 import { type OrderLinkRow } from '../data/chartUtilities'
 import { usePatient } from '../data/patient-context'
 import { useEncounterSession } from '../host/encounterArea'
-import { PBDataWindow, PBDropField, PBGroup, PBTextArea, PBWindow, pbSlug } from '../pb'
+import { PBDataWindow, PBDropField, PBGroup, PBTextArea, pbSlug } from '../pb'
 import { CmdButton } from './CmdButton'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Order Linking Service — the Patient Chart's Taskbar `Link to Order`.
@@ -82,14 +83,12 @@ export function OrderLinkingServiceDialog({ onLink, onClose }: {
   const picked = rows[Math.min(current, Math.max(0, rows.length - 1))]
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Order Linking Service"
-        onClose={onClose}
-        style={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
-      >
+    <ModalWindow
+      title="Order Linking Service"
+      onClose={onClose}
+      zIndex={80}
+      windowStyle={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    >
         <div
           data-tutorial-id="host.mois.dialog.order-linking-service"
           style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)' }}
@@ -196,7 +195,6 @@ export function OrderLinkingServiceDialog({ onLink, onClose }: {
             </CmdButton>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }

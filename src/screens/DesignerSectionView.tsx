@@ -366,9 +366,8 @@ function DesignerNewRecordDialog({
             <PBButton
               key={b}
               wide
-              data-tutorial-id={host?.anchor('command', pbSlug(b))}
+              command={pbSlug(b)}
               onClick={() => {
-                host?.report('command', { command: pbSlug(b) })
                 if (b === 'Create Record') onCreate(values)
                 else onClose()
               }}

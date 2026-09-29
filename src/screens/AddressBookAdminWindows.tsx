@@ -1,16 +1,18 @@
 import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
-import { PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, pbSlug } from '../pb'
 import {
   CONNECTION_ROLES, CONTACT_CITIES, FAVOURITES_LIST, SEED_CONTACT_DETAILS, SPECIALTIES, blankContactDetail,
   type ContactListDetail, type ContactListType,
 } from '../data/addressBook'
 import { CONTACT_LIST_GROUP, EXTERNAL_ORGANIZATION_TYPE, valueSetValues } from '../data/codesets'
 import type { ClinicRow } from '../data/clinicManagement'
+import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { useValueSets } from './adminSession'
 import { ButtonBand, CentredFooter, Cmd, Line, NavyBand, onF2 } from './adminKit'
 import { DemographicModal } from './DemographicDialogs'
+import { toggled } from './listKit'
 import { useListRows } from './ExternalServiceWindows'
 import { userNames } from './ProviderTabGrids'
 
@@ -61,8 +63,6 @@ import { userNames } from './ProviderTabGrids'
    change-save, change-cancel; rows host.mois.row.all-<slug>,
    selected-<slug>.
    ========================================================================= */
-
-const S = (v: unknown) => (v == null ? '' : String(v))
 
 export const CONTACT_DETAILS_KEY = 'admin:contact-list-details'
 
@@ -350,17 +350,13 @@ export function ContactListDetailWindow({ rowKey, close }: { rowKey: string; clo
 export function ChangeSettingsDialog({ column, all, selected, onSave, onClose }: {
   column: string; all: string[]; selected: string[]; onSave: (values: string[]) => void; onClose: () => void
 }) {
-  const host = usePBInstrumentation()
   const [chosen, setChosen] = useState<string[]>(selected)
   const [search, setSearch] = useState('')
   const [left, setLeft] = useState<Set<string>>(new Set())
   const [right, setRight] = useState<Set<string>>(new Set())
   const shown = all.filter((v) => v.toUpperCase().includes(search.trim().toUpperCase()))
-  const pick = (set: Set<string>, setSet: (s: Set<string>) => void, v: string, multi: boolean) => {
-    const n = new Set(multi ? set : [])
-    if (n.has(v)) n.delete(v); else n.add(v)
-    setSet(n)
-  }
+  const pick = (set: Set<string>, setSet: (s: Set<string>) => void, v: string, multi: boolean) =>
+    setSet(toggled(multi ? set : new Set<string>(), v))
   const add = (vals: string[]) => { setChosen((c) => [...c, ...vals.filter((v) => !c.includes(v))]); setLeft(new Set()) }
   const remove = (vals: string[]) => { setChosen((c) => c.filter((v) => !vals.includes(v))); setRight(new Set()) }
   useScreenReport({ dialog: 'change-settings', selectedValues: chosen.length })
@@ -377,7 +373,7 @@ export function ChangeSettingsDialog({ column, all, selected, onSave, onClose }:
   )
   const arrow = (id: string, glyph: string, caption: string, act: () => void) => (
     <div style={{ textAlign: 'center' }}>
-      <button type="button" className="pb-btn" style={{ width: 56, minWidth: 0 }} data-tutorial-id={host?.anchor('command', id)} onClick={() => { host?.report('command', { command: id }); act() }}>{glyph}</button>
+      <PBButton command={id} style={{ width: 56, minWidth: 0 }} onClick={() => act()}>{glyph}</PBButton>
       <div style={{ fontSize: 11 }}>{caption}</div>
     </div>
   )

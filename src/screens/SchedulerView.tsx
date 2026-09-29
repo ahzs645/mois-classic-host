@@ -4,6 +4,7 @@ import {
   PBDropDownDataWindow, PBSelect, PBTextArea, PBViewHeader,
   pbSlug, usePBInstrumentation, type PBColumn, type PBCommand,
 } from '../pb'
+import { dotsOf } from '../data/clock'
 import { daybookProviders } from '../data/mois'
 import {
   APPOINTMENT_STATUSES, HIDDEN_BY_DEFAULT, RESOURCES, VISIT_CODE_FILL, weekdayOf,
@@ -13,6 +14,7 @@ import {
   type DayRow, type EncounterOpen,
 } from '../data/schedulerStore'
 import { shiftMinutes } from '../data/schedulerSetup'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { schedulerExtras, useSchedulerExtras } from '../data/schedulerExtras'
 import { useWorkspaceStore } from '../data/workspaceStore'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -211,9 +213,7 @@ export function daybookDate(offset: number): Date {
 
 /** `2026.08.11`, the way the Date field prints it. */
 export function daybookStamp(offset: number): string {
-  const d = daybookDate(offset)
-  const two = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}.${two(d.getMonth() + 1)}.${two(d.getDate())}`
+  return dotsOf(daybookDate(offset))
 }
 
 /** Where a move lands, so the frame can hold the offset rather than a date. */
@@ -231,7 +231,7 @@ const pbDate = (f: Intl.DateTimeFormat, d: Date) => f.format(d).replace(', ', ' 
 const NAME_LEFT = 3 + 13 + 30 + 32 + 42 + 44 + 26 + 68
 
 export function SchedulerView({
-  mode = 'provider', offset = 0, onMove, provider = 'TECHNICAL SUPPORT', onProvider,
+  mode = 'provider', offset = 0, onMove, provider = DESKTOP_PROVIDER_DEFAULT, onProvider,
   apptRow = 0, onApptRow, onApptStatus, chart, onOpenEncounter, onOpenNode,
 }: {
   mode?: 'provider' | 'resource'

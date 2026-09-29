@@ -1,8 +1,9 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { MOIS_TODAY } from '../data/patients'
+import { stageStamp } from '../data/clock'
 import { useReportDialog } from '../host/screen-windows'
 import { PBButton, PBCheckbox, PBMessageBox, pbSlug } from '../pb'
 import { DesktopLayer, FACE, LAYER, ModalWindow, clampTo } from './dialogKit'
+import { FormLabel, NAVY, SectionCaption } from './formKit'
 
 /* ============================================================================
    Small shared pieces for the Administration ▸ Configuration, Data Exchange
@@ -25,8 +26,7 @@ import { DesktopLayer, FACE, LAYER, ModalWindow, clampTo } from './dialogKit'
 
 /** `yyyy.mm.dd hh:mm` on the stage's day. */
 export function stampNow(): string {
-  const now = new Date()
-  return `${MOIS_TODAY}  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  return stageStamp('  ')
 }
 
 /** A push button that reports itself as `host.mois.command.{id}`. */
@@ -54,12 +54,7 @@ export function Btn({ id, children, onClick, disabled, width, isDefault, style }
 
 /** The navy section caption with the rule under it ("Identification"). */
 export function SectionHead({ children, right }: { children: ReactNode; right?: ReactNode }) {
-  return (
-    <div className="pb-row" style={{ color: '#0a246a', fontWeight: 700, padding: '6px 6px 3px', borderBottom: '1px solid #b8b8b8', flex: 'none' }}>
-      <span style={{ flex: '1 1 auto' }}>{children}</span>
-      {right}
-    </div>
-  )
+  return <SectionCaption color={NAVY.caption} padding="6px 6px 3px" rule="#b8b8b8" fixed row grow right={right}>{children}</SectionCaption>
 }
 
 /** A detail or new-record window: title bar, optional navy heading, body, centred buttons. */
@@ -124,7 +119,7 @@ export function TopMessage({ id, title, icon = 'info', children, buttons, onClos
 
 /** A label column cell, right-aligned the way MOIS forms print them. */
 export const FieldLabel = ({ children, w = 90, right }: { children: ReactNode; w?: number; right?: boolean }) => (
-  <span className="pb-form__label" style={{ width: w, flex: 'none', textAlign: right ? 'right' : undefined }}>{children}</span>
+  <FormLabel w={w} align={right ? 'right' : undefined}>{children}</FormLabel>
 )
 
 /** The blue-grey filter band a list opens on (Call Lists, Outbound Documents). */

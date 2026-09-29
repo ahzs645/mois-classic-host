@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNodeRecords } from '../data/chart-records'
 import { stamp } from '../data/charts/detail'
-import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
+import { ChartHeaderIdentity } from '../data/patient-context'
 import type { ReportScreen } from '../data/reportScreens'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBTabs, PBTextArea, PBViewHeader,
+  PBCheckbox, PBCommandRow, PBDataWindow, PBTabs, PBTextArea, PBViewHeader,
   type PBColumn,
 } from '../pb'
 import { dot, editableColumns, searchView, useCarePlanFolder } from './carePlanFolder'
+import { ChartIdentityStrip } from './patientKit'
 import { SearchForBand, useFolderSearch, type SearchField } from './SearchForBand'
 
 /* ============================================================================
@@ -50,7 +51,6 @@ const SEARCH: Record<'barriers' | 'resources', SearchField[]> = {
 }
 
 export function CarePlanNoteFolder({ screen, node }: { screen: ReportScreen; node: 'barriers' | 'resources' }) {
-  const patient = usePatient()
   /* only barriers have an export group (`chart_barrier`); resources start empty */
   const exported = useNodeRecords(node)
   const textField = node === 'barriers' ? 'str_barrier' : 'str_resource'
@@ -92,15 +92,7 @@ export function CarePlanNoteFolder({ screen, node }: { screen: ReportScreen; nod
       <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
       <PBCommandRow commands={folder.commands(screen.commands.map((c) => (c === null ? null : { label: c })))} />
 
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
+      <ChartIdentityStrip />
 
       <SearchForBand context={screen.title} fields={SEARCH[node]} value={search.text} onChange={search.setText} />
 

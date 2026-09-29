@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  PBButton, PBGroup, PBInput, PBLookup, PBSelect, PBWindow,
+  PBButton, PBGroup, PBInput, PBLookup, PBSelect,
 } from '../pb'
 import { useChartRecords } from '../data/chart-records'
+import { pad2 } from '../data/clock'
 import { daybookProviders } from '../data/mois'
 import { knownPatient, VISIT_CODE_FILL } from '../data/daybook'
 import { usePatient } from '../data/patient-context'
@@ -10,7 +11,9 @@ import {
   currentRow, dayRows, offsetOfStamp, schedulerStore, stampOf, useSchedulerStore,
 } from '../data/schedulerStore'
 import { DESKTOP_PROVIDER } from '../data/schedulerPrintReports'
+import { argStr } from '../data/text'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    New Appointment — what New Appt (Ctrl+N), Action ▸ Create an Appointment
@@ -41,8 +44,6 @@ import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 const QUARTERS = ['00', '15', '30', '45']
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 const ROW_H = 18
-
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
 export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
   const sched = useSchedulerStore()
@@ -75,14 +76,14 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
   const typed = JSON.stringify(args)
   useEffect(() => {
     const a = JSON.parse(typed) as Record<string, unknown>
-    if (str(a.hr)) setHr(str(a.hr))
-    if (str(a.mn)) setMn(str(a.mn))
-    if (str(a.slots)) setSlots(str(a.slots))
-    if (str(a.code)) setCode(str(a.code))
-    if (str(a.reason)) setReason(str(a.reason))
-    if (str(a.first)) setFirst(str(a.first).toUpperCase())
-    if (str(a.last)) setLast(str(a.last).toUpperCase())
-    if (str(a.chart)) pickChart(str(a.chart))
+    if (argStr(a.hr)) setHr(argStr(a.hr))
+    if (argStr(a.mn)) setMn(argStr(a.mn))
+    if (argStr(a.slots)) setSlots(argStr(a.slots))
+    if (argStr(a.code)) setCode(argStr(a.code))
+    if (argStr(a.reason)) setReason(argStr(a.reason))
+    if (argStr(a.first)) setFirst(argStr(a.first).toUpperCase())
+    if (argStr(a.last)) setLast(argStr(a.last).toUpperCase())
+    if (argStr(a.chart)) pickChart(argStr(a.chart))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typed])
 
@@ -113,15 +114,13 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        tutorialId="host.mois.dialog.new-appointment"
-        child
-        controls={false}
-        title="New Appointment"
-        onClose={close}
-        style={{ width: 980, height: 620, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.new-appointment"
+      title="New Appointment"
+      onClose={close}
+      zIndex={80}
+      windowStyle={{ width: 980, height: 620, maxWidth: '100%', maxHeight: '100%' }}
+    >
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: 6 }}>
           {/* ---- left: Appointment ---- */}
           <div style={{ display: 'flex', flexDirection: 'column', width: 430, flex: 'none', minHeight: 0 }}>
@@ -247,7 +246,7 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
                 {HOURS.flatMap((h) => QUARTERS.map((q) => (
                   <div
                     key={`${h}${q}`}
-                    onDoubleClick={() => { setHr(String(h).padStart(2, '0')); setMn(q) }}
+                    onDoubleClick={() => { setHr(pad2(h)); setMn(q) }}
                     style={{
                       display: 'flex', height: ROW_H,
                       borderBottom: q === '45' ? '1px solid #9a9a9a' : '1px dashed #dcdcdc',
@@ -281,15 +280,14 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
         </div>
 
         <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '4px 0 8px', flex: 'none' }}>
-          <PBButton data-tutorial-id="host.mois.command.save-appointment" onClick={save}>
+          <PBButton command="save-appointment" onClick={save}>
             Save Appointment
           </PBButton>
-          <PBButton data-tutorial-id="host.mois.command.cancel-appointment" onClick={close}>
+          <PBButton command="cancel-appointment" onClick={close}>
             Cancel Appointment
           </PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

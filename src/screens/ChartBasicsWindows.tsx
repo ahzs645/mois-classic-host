@@ -10,10 +10,11 @@ import { daybookProviders } from '../data/mois'
 import { usePatient, usePatientRoster } from '../data/patient-context'
 import type { PrintReport } from '../data/printReports'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, PBWindow,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBMessageBox, PBRadio, PBSelect, PBTextArea,
 } from '../pb'
 import { AdvancedLookupDialog } from './AdvancedLookupDialog'
 import { CmdButton, DemographicModal, DesktopLayer, DialogButtons, MspEligibilityDialog } from './DemographicDialogs'
+import { toggled } from './listKit'
 import { RichtextReportWindow } from './PrintFlow'
 import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
@@ -460,28 +461,10 @@ function CmdMessageBox({ title, icon, buttons, prefix, onClose, children }: {
 }) {
   return (
     <DesktopLayer>
-      <div className="pb-modal-layer" style={{ zIndex: 100 }}>
-        <PBWindow child controls={false} title={title} onClose={() => onClose('cancel')} className="pb-msgbox" tutorialId={`host.mois.dialog.${prefix}`}>
-          <div className="pb-msgbox__body">
-            <span className="pb-msgbox__icon">
-              <svg viewBox="0 0 32 32" width="32" height="32">
-                <circle cx="16" cy="16" r="14" fill="#1f7fd0" />
-                {icon === 'info'
-                  ? <><circle cx="16" cy="9.5" r="2" fill="#fff" /><path d="M13.6 14h4.2v10h-4.2z" fill="#fff" /></>
-                  : <><path d="M11.6 12.2c0-2.6 2-4.4 4.6-4.4 2.7 0 4.5 1.6 4.5 4 0 3.4-4 3.2-4 6.6h-3c0-4.4 4-4.2 4-6.4 0-1-.7-1.6-1.6-1.6-1 0-1.7.7-1.7 1.8z" fill="#fff" /><circle cx="16" cy="23.5" r="2" fill="#fff" /></>}
-              </svg>
-            </span>
-            <span className="pb-msgbox__text">{children}</span>
-          </div>
-          <div className="pb-msgbox__footer">
-            {buttons.map((b) => (
-              <CmdButton key={b.value} command={`${prefix}-${b.value}`} className={b.default ? 'pb-btn--default' : undefined} onClick={() => onClose(b.value)}>
-                {b.label}
-              </CmdButton>
-            ))}
-          </div>
-        </PBWindow>
-      </div>
+      <PBMessageBox zIndex={100} title={title} icon={icon} tutorialId={`host.mois.dialog.${prefix}`} onClose={onClose}
+        buttons={buttons.map((b) => ({ ...b, command: `${prefix}-${b.value}` }))}>
+        {children}
+      </PBMessageBox>
     </DesktopLayer>
   )
 }
@@ -569,7 +552,7 @@ function MergeChartDialog({ onClose }: { onClose: () => void }) {
                       <td style={{ padding: '2px 6px' }}>
                         {!a ? null : same ? 'Matched.' : (
                           <PBCheckbox label="Okay" tutorialId={`host.mois.field.merge-okay-${i.item.replace(/[^A-Za-z]+/g, '-').toLowerCase().replace(/-$/, '')}`} checked={okay.has(i.item)}
-                            onChange={(v) => setOkay((prev) => { const n = new Set(prev); v ? n.add(i.item) : n.delete(i.item); return n })} />
+                            onChange={(v) => setOkay((prev) => toggled(prev, i.item, v))} />
                         )}
                       </td>
                     </tr>

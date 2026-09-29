@@ -12,10 +12,13 @@ import {
 } from '../data/summarySettings'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBIdentityStrip, PBInput, PBMessageBox, PBRadio,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput, PBMessageBox, PBRadio,
   PBSelect, PBTabs, PBViewHeader, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter, FormLine } from './formKit'
+import { useTickSet } from './listKit'
+import { ChartIdentityStrip } from './patientKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -118,7 +121,7 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
   const [secCur, setSecCur] = useState(0)
   const [elCur, setElCur] = useState<string | null>(null)
   const [saved, setSaved] = useState(true)
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const collapsed = useTickSet<string>()
   const [prompt, setPrompt] = useState<null | 'section-has-elements' | 'delete-section' | 'delete-element'>(null)
 
   const sections = useMemo(() => effectiveSections(chart, session.tags), [chart, session.tags, settings])
@@ -145,7 +148,7 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
     onClick: label === 'New Record' ? () => { openWindow(onElements ? 'care-plan-element-new' : 'care-plan-new-section'); dirty() }
       : label === 'Delete Record' ? deleteRecord
       : label === 'Save' ? () => setSaved(true)
-      : label === 'Refresh' ? () => { setCollapsed(new Set()); setSecCur(0); setElCur(null) }
+      : label === 'Refresh' ? () => { collapsed.clear(); setSecCur(0); setElCur(null) }
       : label === 'Add from Template' ? () => { openWindow('care-plan-add-from-template'); dirty() }
       : undefined,
   }) : null)
@@ -164,10 +167,7 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
   return <>
     <PBViewHeader title="Summary Settings" right={<ChartHeaderIdentity />} />
     <PBCommandRow commands={commands} />
-    <PBIdentityStrip fields={[
-      { label: 'FIRST:', value: patient.first }, { label: 'MIDDLE:', value: patient.middle },
-      { label: 'LAST:', value: patient.last }, { label: 'DoB:', value: patient.dob },
-    ]} encounter="NO ENCOUNTER" />
+    <ChartIdentityStrip />
     <div style={{ flex: 1, minHeight: 0, display: 'flex', padding: 3 }}>
       <PBTabs tabs={['Care Plan Sections', 'Care Plan Elements']} active={tab} onChange={setTab} compact face>
         {!onElements ? (
@@ -212,7 +212,7 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
                       type="button"
                       aria-expanded={!shut}
                       style={{ width: 13, height: 13, lineHeight: '9px', padding: 0, fontSize: 11, border: '1px solid #808080', background: '#fff' }}
-                      onClick={() => setCollapsed((c) => { const x = new Set(c); if (x.has(g.section)) x.delete(g.section); else x.add(g.section); return x })}
+                      onClick={() => collapsed.flip(g.section)}
                     >
                       {shut ? '+' : '−'}
                     </button>
@@ -296,18 +296,16 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
 }
 
 function Arrow({ id, glyph, disabled, onPress }: { id: string; glyph: string; disabled?: boolean; onPress: () => void }) {
-  const host = usePBInstrumentation()
   return (
-    <button
-      type="button"
-      className="pb-btn pb-btn--sm"
+    <PBButton
+      size="sm"
       disabled={disabled}
       style={{ width: 18, minWidth: 0, height: 16, padding: 0, fontSize: 8, lineHeight: '14px', marginRight: 2 }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onPress() }}
+      command={id}
+      onClick={onPress}
     >
       {glyph}
-    </button>
+    </PBButton>
   )
 }
 
@@ -328,12 +326,12 @@ function NewSectionWindow({ close }: AreaWindowProps) {
   const settings = useSummarySettings(p.chart)
   const have = useMemo(() => new Set(effectiveSections(p.chart, session.tags).map((s) => s.label)), [p.chart, session.tags, settings])
   const standard = STANDARD_SECTIONS.filter((s) => !have.has(s))
-  const [picked, setPicked] = useState<Set<string>>(() => new Set())
+  const picked = useTickSet<string>()
   const [custom, setCustom] = useState(['', '', '', ''])
   useScreenReport({ dialog: 'care-plan-new-section', picked: picked.size })
   const save = () => {
     addSections(p.chart, [
-      ...[...picked].map((label) => ({ label, type: 'SYSTEM' as const })),
+      ...[...picked.ticked].map((label) => ({ label, type: 'SYSTEM' as const })),
       ...custom.filter((c) => c.trim()).map((label) => ({ label, type: 'USER' as const })),
     ])
     close()
@@ -349,7 +347,7 @@ function NewSectionWindow({ close }: AreaWindowProps) {
                   label={s}
                   checked={picked.has(s)}
                   tutorialId={`host.mois.field.standard-section-${pbSlug(s)}`}
-                  onChange={(v) => setPicked((x) => { const n = new Set(x); if (v) n.add(s); else n.delete(s); return n })}
+                  onChange={(v) => picked.set(s, v)}
                 />
               </div>
             )) : <span style={{ color: 'var(--pb-text-dim)' }}>Every standard section is already on this Care Plan.</span>}
@@ -367,10 +365,10 @@ function NewSectionWindow({ close }: AreaWindowProps) {
           ))}
         </PBGroup>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 12, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={12} padding="10px 0">
         <DialogButton id="new-section-save" width={80} isDefault onClick={save} disabled={!picked.size && !custom.some((c) => c.trim())}>Save</DialogButton>
         <DialogButton id="new-section-cancel" width={80} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -386,12 +384,7 @@ function NewSectionWindow({ close }: AreaWindowProps) {
    required, section, rank}; host.mois.command.{element-new-ok,
    element-new-cancel}. */
 function Labelled({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
-      <span className="pb-form__label" style={{ width: 98 }}>{label}</span>
-      {children}
-    </div>
-  )
+  return <FormLine label={label} w={98} padding="2px 0" labelFlex={false}>{children}</FormLine>
 }
 
 function NewElementWindow({ close }: AreaWindowProps) {
@@ -481,10 +474,10 @@ function NewElementWindow({ close }: AreaWindowProps) {
           </Labelled>
         </PBGroup>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={14} padding="10px 0">
         <DialogButton id="element-new-ok" width={75} isDefault onClick={ok} disabled={!code && !concept}>Ok</DialogButton>
         <DialogButton id="element-new-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -533,10 +526,10 @@ function EditElementWindow({ args, close }: AreaWindowProps) {
           </Labelled>
         </PBGroup>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={14} padding="10px 0">
         <DialogButton id="element-edit-ok" width={75} isDefault onClick={ok} disabled={!tag && !el}>Ok</DialogButton>
         <DialogButton id="element-edit-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -555,10 +548,10 @@ function AddFromTemplateWindow({ close }: AreaWindowProps) {
   const templates = useCarePlanTemplates()
   const [cur, setCur] = useState(0)
   const template = templates[cur]
-  const [off, setOff] = useState<Set<number>>(() => new Set())
+  const off = useTickSet()
   const elements = template?.elements ?? []
   useScreenReport({ dialog: 'care-plan-add-from-template', row: template ? pbSlug(template.desc) : null, picked: elements.length - off.size })
-  const pick = (i: number) => { setCur(i); setOff(new Set()) }
+  const pick = (i: number) => { setCur(i); off.clear() }
   const ok = () => {
     const chosen = elements.filter((_, i) => !off.has(i))
     addElements(p.chart, chosen.map((e: TemplateElement) => ({
@@ -587,14 +580,14 @@ function AddFromTemplateWindow({ close }: AreaWindowProps) {
       <div className="pb-band" style={{ flex: 'none' }}>
         <span>Element List</span>
         <span className="pb-band__spacer" />
-        <DialogButton id="add-template-select-all" width={80} onClick={() => setOff(new Set())}>Select All</DialogButton>
-        <DialogButton id="add-template-clear" width={80} onClick={() => setOff(new Set(elements.map((_, i) => i)))}>Clear</DialogButton>
+        <DialogButton id="add-template-select-all" width={80} onClick={off.clear}>Select All</DialogButton>
+        <DialogButton id="add-template-clear" width={80} onClick={() => off.selectAll(elements.map((_, i) => i))}>Clear</DialogButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
         <PBDataWindow
           rows={elements}
           columns={[
-            { key: 'add', header: 'Add', width: 40, align: 'center', render: (_e, i) => <PBCheckbox checked={!off.has(i)} tutorialId={`host.mois.field.template-element-${i}`} onChange={(v) => setOff((x) => { const n = new Set(x); if (v) n.delete(i); else n.add(i); return n })} /> },
+            { key: 'add', header: 'Add', width: 40, align: 'center', render: (_e, i) => <PBCheckbox checked={!off.has(i)} tutorialId={`host.mois.field.template-element-${i}`} onChange={(v) => off.set(i, !v)} /> },
             { key: 'category', header: 'Item Category', width: 120 },
             { key: 'section', header: 'Care Plan Section', width: 140 },
             { key: 'rank', header: 'Rank', width: 50, align: 'center' },
@@ -606,10 +599,10 @@ function AddFromTemplateWindow({ close }: AreaWindowProps) {
           empty="This template has no elements."
         />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '8px 0', flex: 'none' }}>
+      <DialogFooter gap={14} padding="8px 0">
         <DialogButton id="add-template-ok" width={80} isDefault onClick={ok} disabled={!template || off.size === elements.length}>OK</DialogButton>
         <DialogButton id="add-template-cancel" width={80} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

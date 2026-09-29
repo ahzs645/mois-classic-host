@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
-import { PBBand, PBCheckbox, PBDataWindow, PBInput } from '../../pb'
+import { PBCheckbox, PBDataWindow, PBInput } from '../../pb'
 import {
   CLAIM_FEE_ROWS, invoiceTotals, useInvoices, useProviderLetterhead, useSentClaims, type Invoice, type InvoiceTrans, type Payor,
 } from '../../data/billingStore'
 import { usePatientRoster } from '../../data/patient-context'
 import { MOIS_TODAY } from '../../data/patients'
+import { argStr } from '../../data/text'
 import { useScreenReport } from '../../host/screen-state'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { useColumnFilters, useTickSet } from '../listKit'
+import { FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, PickButtons, PickListWindow, SIZE } from '../lookupKit'
 
 /* ============================================================================
    The Invoice window's own windows (303603).
@@ -132,7 +135,7 @@ function receiptPage(inv: Invoice, letterhead: string[], lines: InvoiceTrans[], 
 export function ReceiptForServicesWindow({ close }: AreaWindowProps) {
   const { current } = useInvoices()
   const print = useInvoicePrint()
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(current.trans.filter((t) => t.tran === 'P').map((t) => t.id)))
+  const picked = useTickSet<string>(() => current.trans.filter((t) => t.tran === 'P').map((t) => t.id))
   useScreenReport({ included: picked.size })
   const lines = current.trans.filter((t) => picked.has(t.id))
   return (
@@ -147,7 +150,7 @@ export function ReceiptForServicesWindow({ close }: AreaWindowProps) {
               render: (t: InvoiceTrans) => (
                 <PBCheckbox
                   checked={picked.has(t.id)}
-                  onChange={(v) => setPicked((prev) => { const n = new Set(prev); if (v) n.add(t.id); else n.delete(t.id); return n })}
+                  onChange={(v) => picked.set(t.id, v)}
                   tutorialId={`host.mois.check.receipt-${t.tran.toLowerCase()}-${current.trans.filter((x) => x.tran === t.tran).indexOf(t) + 1}`}
                 />
               ),
@@ -257,53 +260,60 @@ const PROMPT_TITLES: Record<string, string> = {
 export function InvoicePromptWindow({ args, close }: AreaWindowProps) {
   const { state, setState } = useInvoices()
   const by = (args.by as string) || 'invoice'
-  const chart = typeof args.chart === 'string' ? args.chart : ''
-  const [filter, setFilter] = useState<Record<string, string>>({})
+  const chart = argStr(args.chart)
   const [cur, setCur] = useState(0)
-  const rows = useMemo(() => state.invoices
+  const cols = by === 'recon' ? ['recon', 'invoice', 'payor'] : by === 'payor' ? ['payor', 'invoice', 'recon'] : ['invoice', 'recon', 'payor']
+  const sorted = useMemo(() => state.invoices
     .filter((i) => i.no && (!chart || i.chart === chart))
     .map((i) => ({ invoice: i.no, recon: i.recon, payor: i.payor, chart: i.chart, patient: i.patient, billDate: i.billDate, balance: invoiceTotals(i).owed.toFixed(2) }))
-    .filter((r) => Object.entries(filter).every(([k, v]) => !v.trim() || String(r[k as keyof typeof r]).toUpperCase().includes(v.trim().toUpperCase())))
-    .sort((a, b) => String(a[by as keyof typeof a]).localeCompare(String(b[by as keyof typeof b]))), [by, chart, filter, state.invoices])
+    .sort((a, b) => String(a[by as keyof typeof a]).localeCompare(String(b[by as keyof typeof b]))), [by, chart, state.invoices])
+  const filters = useColumnFilters(sorted, [
+    ...cols.map((k) => ({ key: k, anchor: `invoice-filter-${k}`, onKeyDown: (e: { key: string }) => { if (e.key === 'Enter') setCur(0) } })),
+    null, null, null, null,
+  ], { match: 'upper-trim' })
+  const rows = filters.shown
   useScreenReport({ rows: rows.length })
   const picked = rows[Math.min(cur, rows.length - 1)]
   const pick = () => { if (picked) { setState((prev) => ({ ...prev, current: picked.invoice })); close() } }
-  const cols = by === 'recon' ? ['recon', 'invoice', 'payor'] : by === 'payor' ? ['payor', 'invoice', 'recon'] : ['invoice', 'recon', 'payor']
   const head: Record<string, string> = { invoice: 'Invoice', recon: 'Recon', payor: 'Payor' }
   return (
-    <WorkspaceDialogFrame id="invoice-prompt" title="Advanced Lookup Service" width={720} height={440} controls={false} onClose={close}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-          <div className="pb-band--ruled"><PBBand>{PROMPT_TITLES[by] ?? PROMPT_TITLES.invoice}</PBBand></div>
-          <PBDataWindow
-            flush
-            rules="white"
-            style={{ flex: '1 1 auto', minHeight: 0 }}
-            columns={[
-              ...cols.map((k) => ({ key: k, header: head[k]!, width: k === 'payor' ? 110 : 70 })),
-              { key: 'chart', header: 'Chart', width: 60 },
-              { key: 'patient', header: 'Patient', width: 170 },
-              { key: 'billDate', header: 'Bill Date', width: 84, align: 'center' as const },
-              { key: 'balance', header: 'Balance', width: 80, align: 'right' as const },
-            ]}
-            rows={rows}
-            filters={[...cols.map((k) => (
-              <PBInput key={k} value={filter[k] ?? ''} onChange={(e) => setFilter({ ...filter, [k]: e.target.value })}
-                onKeyDown={(e) => { if (e.key === 'Enter') setCur(0) }} data-tutorial-id={`host.mois.field.invoice-filter-${k}`} />
-            )), null, null, null, null]}
-            current={Math.min(cur, Math.max(0, rows.length - 1))}
-            onCurrentChange={setCur}
-            onActivate={pick}
-            rowTutorialId={(r) => `host.mois.row.invoice-${r.invoice}`}
-            empty="No invoice matches."
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }}>
-          <DialogButton id="invoice-prompt-ok" isDefault disabled={!picked} onClick={pick}>Ok</DialogButton>
-          <DialogButton id="invoice-prompt-cancel" onClick={close}>Cancel</DialogButton>
-        </div>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id="invoice-prompt" title="Advanced Lookup Service" width={720} height={440} controls={false} onClose={close}>
+          {content}{footer}
+        </WorkspaceDialogFrame>
+      )}
+      body={LOOKUP_BODY}
+      panel={LOOKUP_PANEL}
+      band={<LookupBand variant="ruled">{PROMPT_TITLES[by] ?? PROMPT_TITLES.invoice}</LookupBand>}
+      gridBox={null}
+      grid={{
+        flush: true,
+        rules: 'white',
+        style: FILL_GRID,
+        columns: [
+          ...cols.map((k) => ({ key: k, header: head[k]!, width: k === 'payor' ? 110 : 70 })),
+          { key: 'chart', header: 'Chart', width: 60 },
+          { key: 'patient', header: 'Patient', width: 170 },
+          { key: 'billDate', header: 'Bill Date', width: 84, align: 'center' as const },
+          { key: 'balance', header: 'Balance', width: 80, align: 'right' as const },
+        ],
+        rows,
+        filters: filters.filterRow,
+        current: Math.min(cur, Math.max(0, rows.length - 1)),
+        onCurrentChange: setCur,
+        onActivate: pick,
+        rowTutorialId: (r) => `host.mois.row.invoice-${r.invoice}`,
+        empty: 'No invoice matches.',
+      }}
+      footerInside
+      footer={(
+        <PickButtons style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }} size={SIZE.dialog()} buttons={[
+          { label: 'Ok', command: 'invoice-prompt-ok', isDefault: true, disabled: !picked, onClick: pick },
+          { label: 'Cancel', command: 'invoice-prompt-cancel', onClick: close },
+        ]} />
+      )}
+    />
   )
 }
 
@@ -362,34 +372,42 @@ export function PasteMspClaimWindow({ close }: AreaWindowProps) {
     close()
   }
   return (
-    <WorkspaceDialogFrame id="paste-msp-claim" title="Claim Summary: Sent to MSP" width={760} height={420} controls={false} onClose={close}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-        <PBDataWindow
-          style={{ flex: '1 1 auto', minHeight: 0 }}
-          columns={[
-            { key: 'service', header: 'Service', width: 80, align: 'center' },
-            { key: 'last', header: 'Last Name', width: 110 },
-            { key: 'first', header: 'First Name', width: 90 },
-            { key: 'diag', header: 'Diag', width: 55 },
-            { key: 'fee', header: 'Fee', width: 55 },
-            { key: 'billed', header: 'Billed', width: 65, align: 'right' },
-            { key: 'paid', header: 'Paid', width: 65, align: 'right' },
-            { key: 'r1', header: 'R1', width: 28, align: 'center' },
-            { key: 'r2', header: 'R2', width: 28, align: 'center' },
-            { key: 'doctor', header: 'Doctor', width: 140 },
-          ]}
-          rows={rows}
-          current={Math.min(cur, Math.max(0, rows.length - 1))}
-          onCurrentChange={setCur}
-          onActivate={paste}
-          rowTutorialId={(r) => `host.mois.row.paste-claim-${r.last.toLowerCase()}`}
-        />
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }}>
-          <DialogButton id="paste-claim-select" isDefault disabled={!picked} onClick={paste}>Select</DialogButton>
-          <DialogButton id="paste-claim-cancel" onClick={close}>Cancel</DialogButton>
-        </div>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id="paste-msp-claim" title="Claim Summary: Sent to MSP" width={760} height={420} controls={false} onClose={close}>
+          {content}{footer}
+        </WorkspaceDialogFrame>
+      )}
+      body={LOOKUP_BODY}
+      gridBox={null}
+      grid={{
+        style: FILL_GRID,
+        columns: [
+          { key: 'service', header: 'Service', width: 80, align: 'center' },
+          { key: 'last', header: 'Last Name', width: 110 },
+          { key: 'first', header: 'First Name', width: 90 },
+          { key: 'diag', header: 'Diag', width: 55 },
+          { key: 'fee', header: 'Fee', width: 55 },
+          { key: 'billed', header: 'Billed', width: 65, align: 'right' },
+          { key: 'paid', header: 'Paid', width: 65, align: 'right' },
+          { key: 'r1', header: 'R1', width: 28, align: 'center' },
+          { key: 'r2', header: 'R2', width: 28, align: 'center' },
+          { key: 'doctor', header: 'Doctor', width: 140 },
+        ],
+        rows,
+        current: Math.min(cur, Math.max(0, rows.length - 1)),
+        onCurrentChange: setCur,
+        onActivate: paste,
+        rowTutorialId: (r) => `host.mois.row.paste-claim-${r.last.toLowerCase()}`,
+      }}
+      footerInside
+      footer={(
+        <PickButtons style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }} size={SIZE.dialog()} buttons={[
+          { label: 'Select', command: 'paste-claim-select', isDefault: true, disabled: !picked, onClick: paste },
+          { label: 'Cancel', command: 'paste-claim-cancel', onClick: close },
+        ]} />
+      )}
+    />
   )
 }
 
@@ -405,27 +423,35 @@ export function InvoiceFeeLookupWindow({ args, close }: AreaWindowProps) {
     close()
   }
   return (
-    <WorkspaceDialogFrame id="invoice-fee-lookup" title="Advanced Lookup Service" width={560} height={420} controls={false} onClose={close}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-        <PBDataWindow
-          style={{ flex: '1 1 auto', minHeight: 0 }}
-          columns={[
-            { key: 'code', header: 'Fee Code', width: 80 },
-            { key: 'desc', header: 'Description', width: 330 },
-            { key: 'fee', header: 'Amount', width: 80, align: 'right' },
-          ]}
-          rows={CLAIM_FEE_ROWS}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={pick}
-          rowTutorialId={(r) => `host.mois.row.invoice-fee-${r.code}`}
-        />
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }}>
-          <DialogButton id="invoice-fee-select" isDefault onClick={pick}>Select</DialogButton>
-          <DialogButton id="invoice-fee-cancel" onClick={close}>Cancel</DialogButton>
-        </div>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id="invoice-fee-lookup" title="Advanced Lookup Service" width={560} height={420} controls={false} onClose={close}>
+          {content}{footer}
+        </WorkspaceDialogFrame>
+      )}
+      body={LOOKUP_BODY}
+      gridBox={null}
+      grid={{
+        style: FILL_GRID,
+        columns: [
+          { key: 'code', header: 'Fee Code', width: 80 },
+          { key: 'desc', header: 'Description', width: 330 },
+          { key: 'fee', header: 'Amount', width: 80, align: 'right' },
+        ],
+        rows: CLAIM_FEE_ROWS,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: pick,
+        rowTutorialId: (r) => `host.mois.row.invoice-fee-${r.code}`,
+      }}
+      footerInside
+      footer={(
+        <PickButtons style={{ display: 'flex', justifyContent: 'center', gap: 12, flex: 'none' }} size={SIZE.dialog()} buttons={[
+          { label: 'Select', command: 'invoice-fee-select', isDefault: true, onClick: pick },
+          { label: 'Cancel', command: 'invoice-fee-cancel', onClick: close },
+        ]} />
+      )}
+    />
   )
 }
 

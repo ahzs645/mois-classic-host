@@ -1,11 +1,13 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { date } from '../data/charts/relations'
 import type { MoisRecord } from '../data/charts/types'
 import { clockNow, type Phq9Answers } from '../data/measureEntry'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBCheckbox, PBDropField, PBInput, PBRadio, PBWindow } from '../pb'
+import { PBButton, PBCheckbox, PBDropField, PBInput, PBPatientBand, PBRadio, PBWindow } from '../pb'
+import { NAVY } from './formKit'
 import './legacy-dynamic-form.css'
 
 /* ============================================================================
@@ -53,8 +55,6 @@ import './legacy-dynamic-form.css'
 
 const W = 788
 const H = 698
-const NAVY = '#000094'
-const DESKTOP_USER = 'TECHNICAL SUPPORT'
 
 export const PHQ9_ITEMS = [
   'a. Little interest or pleasure in doing things.',
@@ -110,15 +110,6 @@ export function phq9From(header: MoisRecord | undefined, records: MoisRecord[] |
 /** `2026/02/19 10:20:56` → `2026.02.19 10:20` */
 const stamp = (v?: string) => (v ? v.replace(/\//g, '.').replace(/(\d\d:\d\d):\d\d$/, '$1') : '')
 
-function PatientCell({ label, style, children }: { label: string; style: CSSProperties; children: ReactNode }) {
-  return (
-    <span style={{ position: 'absolute', display: 'flex', flexDirection: 'column', ...style }}>
-      <span style={{ fontSize: 11 }}>{label}</span>
-      <strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{children}</strong>
-    </span>
-  )
-}
-
 const cell: CSSProperties = { border: '1px solid #b8b8b8', padding: '3px 5px', verticalAlign: 'top' }
 const answerCell: CSSProperties = { ...cell, textAlign: 'center', verticalAlign: 'middle', width: 72 }
 
@@ -136,9 +127,9 @@ export function Phq9FormWindow({ header, records, initial, modified, onSave, onC
   const patient = usePatient()
   const [answers, setAnswers] = useState<Phq9Answers>(() => initial ?? phq9From(header, records))
   const [formDate, setFormDate] = useState(header ? date(header.dtm_form) : MOIS_TODAY)
-  const [createdBy, setCreatedBy] = useState(header ? header.stp_user_create ?? '' : DESKTOP_USER)
+  const [createdBy, setCreatedBy] = useState(header ? header.stp_user_create ?? '' : DESKTOP_PROVIDER_DEFAULT)
   const [provider, setProvider] = useState(
-    header ? (header.id_provider && header.id_provider !== '-1' ? header.id_provider : '') : DESKTOP_USER,
+    header ? (header.id_provider && header.id_provider !== '-1' ? header.id_provider : '') : DESKTOP_PROVIDER_DEFAULT,
   )
   const [allowOthers, setAllowOthers] = useState(header ? header.str_lock_to_user !== 'Y' : true)
   const [lastModified, setLastModified] = useState(
@@ -173,22 +164,28 @@ export function Phq9FormWindow({ header, records, initial, modified, onSave, onC
         style={{ width: W, height: H, maxWidth: '100%', maxHeight: '100%', ['--pb-titlebar-h' as string]: '22px' }}
       >
         {/* the blue patient band, 22–90 */}
-        <div
+        <PBPatientBand
+          layout="placed"
           className="pb-legacy-dform__patient"
           style={{ position: 'relative', display: 'block', height: 68, flex: '0 0 auto', padding: 0, background: 'linear-gradient(#1871b5, #4ab2e7)' }}
-        >
-          <PatientCell label="CHART NO." style={{ left: 8, top: 5 }}>{patient.chart}</PatientCell>
-          <PatientCell label="PATIENT (F/M/L)" style={{ left: 93, top: 5 }}>{name}</PatientCell>
-          <PatientCell label="DATE OF BIRTH" style={{ left: 310, top: 5 }}>{patient.dob}&nbsp;&nbsp;{patient.age}</PatientCell>
-          <PatientCell label="GENDER" style={{ left: 93, top: 37 }}>{patient.sex}</PatientCell>
-          <PatientCell label="PERSONAL HEALTH NO." style={{ left: 169, top: 37 }}>
-            {patient.bchn ? <>{patient.insuranceBy ?? 'BC'}&nbsp;&nbsp;{patient.bchn}</> : ''}
-          </PatientCell>
-          <PatientCell label="PREFERRED PHONE NUMBER" style={{ left: 310, top: 37 }}>
-            {phone ?? ''}
-            {phone && <span style={{ display: 'inline', minWidth: 0, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>{phoneKind} Phone</span>}
-          </PatientCell>
-        </div>
+          cells={[
+            { label: 'CHART NO.', value: patient.chart, left: 8, top: 5 },
+            { label: 'PATIENT (F/M/L)', value: name, left: 93, top: 5 },
+            { label: 'DATE OF BIRTH', value: <>{patient.dob}&nbsp;&nbsp;{patient.age}</>, left: 310, top: 5 },
+            { label: 'GENDER', value: patient.sex, left: 93, top: 37 },
+            {
+              label: 'PERSONAL HEALTH NO.', left: 169, top: 37,
+              value: patient.bchn ? <>{patient.insuranceBy ?? 'BC'}&nbsp;&nbsp;{patient.bchn}</> : '',
+            },
+            {
+              label: 'PREFERRED PHONE NUMBER', left: 310, top: 37,
+              value: <>
+                {phone ?? ''}
+                {phone && <span style={{ display: 'inline', minWidth: 0, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>{phoneKind} Phone</span>}
+              </>,
+            },
+          ]}
+        />
 
         {/* metadata strip, 90–137, then Last Modified */}
         <div style={{ position: 'relative', height: 47, flex: '0 0 auto', background: '#fff', borderBottom: '1px solid #4ab2e7' }}>
@@ -213,7 +210,7 @@ export function Phq9FormWindow({ header, records, initial, modified, onSave, onC
         <div className="pb-legacy-dform__body" style={{ padding: 0, overflowY: 'scroll', overflowX: 'hidden' }}>
           <div style={{ display: 'flex', margin: '0 0 0 6px', width: 758, border: '1px solid #000', borderTop: 0, background: '#fff' }}>
             <div style={{ width: 580, flex: 'none', padding: '0 0 12px' }}>
-              <div style={{ color: NAVY, fontSize: 13, padding: '8px 8px 4px', borderBottom: `1px solid ${NAVY}` }}>PATIENT HEALTH QUESTIONNAIRE</div>
+              <div style={{ color: NAVY.dform, fontSize: 13, padding: '8px 8px 4px', borderBottom: `1px solid ${NAVY.dform}` }}>PATIENT HEALTH QUESTIONNAIRE</div>
               <div style={{ padding: '6px 6px 4px', fontSize: 13 }}>
                 1. Over the past 2 weeks, how often have you been bothered by any of the following problems?
               </div>
@@ -273,18 +270,18 @@ export function Phq9FormWindow({ header, records, initial, modified, onSave, onC
 
               {/* the score MOIS calculates at the bottom (303102) */}
               <div className="pb-row" style={{ gap: 8, padding: '12px 6px 0' }}>
-                <span style={{ color: NAVY, fontSize: 13 }}>TOTAL SCORE:</span>
+                <span style={{ color: NAVY.dform, fontSize: 13 }}>TOTAL SCORE:</span>
                 <PBInput w={52} align="center" value={String(total)} readOnly data-tutorial-id="host.mois.field.phq9-total" />
                 <span>(0 - 27)</span>
               </div>
             </div>
 
             {/* the `All` column: a `...` beside each item (not wired — see header) */}
-            <div style={{ flex: '1 1 auto', borderLeft: `1px solid ${NAVY}` }}>
-              <div style={{ color: NAVY, fontSize: 13, textAlign: 'center', padding: '8px 0 4px', borderBottom: `1px solid ${NAVY}` }}>All</div>
+            <div style={{ flex: '1 1 auto', borderLeft: `1px solid ${NAVY.dform}` }}>
+              <div style={{ color: NAVY.dform, fontSize: 13, textAlign: 'center', padding: '8px 0 4px', borderBottom: `1px solid ${NAVY.dform}` }}>All</div>
               <div style={{ height: 22 + 48 }} />
               {PHQ9_ITEMS.map((label, i) => (
-                <div key={label} style={{ height: i === 7 ? 62 : 37, textAlign: 'center', color: NAVY }}>...</div>
+                <div key={label} style={{ height: i === 7 ? 62 : 37, textAlign: 'center', color: NAVY.dform }}>...</div>
               ))}
             </div>
           </div>

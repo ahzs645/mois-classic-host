@@ -112,7 +112,7 @@ export function useDocumentsDistribution({ node, record, records, cur }: { node:
       </div>
     )),
     windows: refusal && (
-      <PBMessageBox title="Distribute" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.distribute-refused-ok' }]} onClose={() => setRefusal(null)}>
+      <PBMessageBox title="Distribute" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'distribute-refused-ok', tutorialId: 'host.mois.command.distribute-refused-ok' }]} onClose={() => setRefusal(null)}>
         A {refusal} cannot be distributed through CDX: there is no LOINC code for it. Change the Document Type to MISC, enter the recipient, and Distribute again.
       </PBMessageBox>
     ),

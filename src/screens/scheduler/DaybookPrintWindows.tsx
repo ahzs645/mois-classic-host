@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { PBButton, PBCheckbox, PBInput, PBRadio, PBSelect, PBSpinner, PBWindow } from '../../pb'
+import { PBButton, PBCheckbox, PBInput, PBRadio, PBSelect, PBSpinner } from '../../pb'
 import { daybookProviders } from '../../data/mois'
 import type { PrintReport } from '../../data/printReports'
 import { daybookPrintPage } from '../../data/schedulerPrintReports'
 import { currentRow, schedulerStore, stampOf, useSchedulerStore } from '../../data/schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
 import { RichtextReportWindow } from '../PrintFlow'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
+import { LAYER, ModalWindow } from '../dialogKit'
 import { SchedulerDialog, str } from './SchedulerDialog'
 
 /* ============================================================================
@@ -30,7 +32,7 @@ import { SchedulerDialog, str } from './SchedulerDialog'
 
 function PrintCurrentDayBook({ args, close, open }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const [from] = useState(() => s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' })
+  const [from] = useState(() => s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' })
   const [all, setAll] = useState(false)
   const [provider, setProvider] = useState(from.provider)
   const [date, setDate] = useState(stampOf(from.offset))
@@ -124,17 +126,10 @@ function AppointmentCard({ close }: AreaWindowProps) {
   const row = currentRow(s)
   const when = s.current ? stampOf(s.current.offset) : ''
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Appointment Card"
-        tutorialId="host.mois.dialog.appointment-card"
-        onClose={close}
-        style={{ width: 560, height: 420, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="appointment-card" title="Appointment Card" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 560, height: 420, maxWidth: '100%', maxHeight: '100%' }}>
         <div className="pb-row" style={{ gap: 4, padding: '3px 4px', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-          <PBButton data-tutorial-id="host.mois.command.print-all" onClick={() => { schedulerStore.done('card-printed'); close() }}>Print All</PBButton>
+          <PBButton command="print-all" onClick={() => { schedulerStore.done('card-printed'); close() }}>Print All</PBButton>
           <PBButton onClick={close}>Cancel</PBButton>
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, background: '#808080', padding: 18, overflow: 'auto' }}>
@@ -154,8 +149,7 @@ function AppointmentCard({ close }: AreaWindowProps) {
             </div>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

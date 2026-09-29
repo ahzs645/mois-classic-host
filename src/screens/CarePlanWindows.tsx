@@ -6,8 +6,10 @@ import { SESSION_USER, addCarePlanSnapshot, useChartSession } from '../data/char
 import { DESKTOP_PROVIDER, beginLetter, setLetterFlow } from '../data/letterFlow'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
-import { PBCheckbox, PBGroup, PBInput, PBRadio, PBSelect, PBTextArea } from '../pb'
+import { PBCheckbox, PBGroup, PBInput, PBRadio, PBTextArea } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { PrintPreviewFrame } from './printKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -77,7 +79,7 @@ function ReportLetterheadDialog({ args, close, open }: AreaWindowProps) {
         </div>
         <PBCheckbox label="Save as default source" checked={false} />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '12px 0', flex: 'none' }}>
+      <DialogFooter gap={10} padding="12px 0">
         <DialogButton
           id="letterhead-continue"
           width={75}
@@ -90,7 +92,7 @@ function ReportLetterheadDialog({ args, close, open }: AreaWindowProps) {
           Continue (F2)
         </DialogButton>
         <DialogButton id="letterhead-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -129,10 +131,10 @@ function CarePlanSnapshotDialog({ args, close, open }: AreaWindowProps) {
           style={{ gridColumn: 'span 3', height: 64 }}
         />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={10} padding="10px 0">
         <DialogButton id="snapshot-save" width={75} isDefault onClick={save}>Save (F2)</DialogButton>
         <DialogButton id="snapshot-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -150,27 +152,11 @@ function CarePlanPrintPreview({ args, close }: AreaWindowProps) {
   const sex = p.sex
   return (
     <WorkspaceDialogFrame id="care-plan-print-preview" title="Print Preview" width={1100} height={700} onClose={close}>
-      <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: 6 }}>
-        <div style={{ width: 100, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <PBGroup title="Zoom To">
-            {['200%', '100%', '75%', '50%', '25%'].map((z) => (
-              <div key={z}><PBRadio name="pp-zoom" label={z} checked={zoom === z} onChange={() => setZoom(z)} /></div>
-            ))}
-            <div style={{ marginTop: 6 }}>Percent:</div><PBInput w={40} value="125" readOnly />
-            <div>Copies:</div><PBInput w={40} defaultValue="1" />
-            <div style={{ marginTop: 6 }}><DialogButton id="pp-apply" width={84}>Apply</DialogButton></div>
-            <div style={{ marginTop: 6 }}><DialogButton id="pp-change-header" width={84} disabled>Change Header</DialogButton></div>
-            <div style={{ marginTop: 3 }}><DialogButton id="pp-sort" width={84}>Sort</DialogButton></div>
-            <div style={{ marginTop: 14 }}><DialogButton id="print-all" width={84} isDefault onClick={close}>Print All</DialogButton></div>
-            <div style={{ marginTop: 3 }}><DialogButton id="print-range" width={84}>Print Range</DialogButton></div>
-            <PBInput w={88} defaultValue="All Pages" />
-            <div style={{ fontSize: 11 }}>Ex. 1,2,5-10,39</div>
-            <div style={{ marginTop: 6 }}><DialogButton id="pp-cancel" width={84} onClick={close}>Cancel</DialogButton></div>
-            <div style={{ marginTop: 3 }}><DialogButton id="pp-save-as" width={84}>Save As</DialogButton></div>
-            <div style={{ marginTop: 6 }}>Printer Type</div>
-            <PBSelect w={88} options={['Report Printer']} />
-          </PBGroup>
-        </div>
+      <PrintPreviewFrame
+        skin="group" zoomName="pp-zoom" zoom={zoom} onZoom={setZoom}
+        percent={{ value: '125', readOnly: true }} copies={{ defaultValue: '1' }} range={{ defaultValue: 'All Pages' }}
+        onPrintAll={close} onCancel={close} printerTypes={['Report Printer']}
+      >
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <PBGroup title="Preview" fill style={{ height: '100%' }}>
             <div data-tutorial-id="host.mois.field.care-plan-preview" style={{ flex: '1 1 auto', overflow: 'auto', background: '#fff', border: '1px solid #9a9a9a', padding: '26px 36px', fontFamily: 'Arial, sans-serif', height: '100%' }}>
@@ -206,7 +192,7 @@ function CarePlanPrintPreview({ args, close }: AreaWindowProps) {
             </div>
           </PBGroup>
         </div>
-      </div>
+      </PrintPreviewFrame>
       <div className="pb-row" style={{ gap: 20, padding: '4px 120px', borderTop: '1px solid #9a9a9a', flex: 'none' }}>
         <span>Printer:&nbsp;&nbsp;CutePDFWriter</span>
         <span className="pb-link" style={{ color: '#0000ff', textDecoration: 'underline' }}>Change...</span>

@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { PBButton, PBCheckbox, PBDataWindow, PBWindow } from '../pb'
+import { PBButton, PBCheckbox, PBDataWindow } from '../pb'
 import { chartNavigatorRows, type ChartNavigatorRow } from '../data/chartUtilities'
 import { useScreenReport } from '../host/screen-state'
+import { ModalWindow } from './dialogKit'
+import { useTickSet } from './listKit'
 
 /* ============================================================================
    Chart Navigator.
@@ -36,92 +38,85 @@ export function ChartNavigatorWindow({ rows = chartNavigatorRows, onOpenChart, o
   onClose: () => void
 }) {
   const [current, setCurrent] = useState(0)
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
-
-  const toggle = (chart: string) => setExcluded((prev) => {
-    const next = new Set(prev)
-    next.has(chart) ? next.delete(chart) : next.add(chart)
-    return next
-  })
+  const excluded = useTickSet<string>()
   /* how many charts are loaded and excluded, and which is current — a Mail
      Merge lesson grades the Exclude it asked for */
   useScreenReport({ navigatorRows: rows.length, excluded: excluded.size, navigatorChart: rows[current]?.chart ?? '' })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        /* the full Aero caption: minimize and maximize as well as close */
-        title="Chart Navigator"
-        onClose={onClose}
-        style={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    <ModalWindow
+      /* the full Aero caption: minimize and maximize as well as close */
+      controls
+      title="Chart Navigator"
+      onClose={onClose}
+      zIndex={80}
+      windowStyle={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.chart-navigator"
+        style={{
+          display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
+          background: 'var(--pb-face)', padding: 8, gap: 8,
+        }}
       >
-        <div
-          data-tutorial-id="host.mois.dialog.chart-navigator"
-          style={{
-            display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
-            background: 'var(--pb-face)', padding: 8, gap: 8,
-          }}
-        >
-          {/* The grid is the window's only body content. Its column widths are
-              the capture's; its x origin there (214) is a screen coordinate,
-              not an offset inside the window, so only the widths carry over
-              and the grid is left-aligned in the frame. The row-marker column
-              measures 16 in the capture against the kit's fixed 13px gutter. */}
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-            <PBDataWindow
-              rows={rows}
-              current={current}
-              onCurrentChange={setCurrent}
-              onActivate={(r) => onOpenChart?.(r.chart)}
-              rowTutorialId={(r) => `host.mois.row.navigator-${r.chart}`}
-              columns={[
-                { key: 'chart', header: 'Chart', width: 64 },
-                /* MOIS renders this LAST,FIRST with no space */
-                { key: 'name', header: 'Patient Name', width: 184 },
-                /* auto-filled `Loaded Chart Number:<n>` */
-                { key: 'description', header: 'Description', width: 240 },
-                {
-                  key: 'exclude',
-                  header: 'Exclude',
-                  width: 49,
-                  align: 'center',
-                  /* a checkbox cell; every row is unchecked by default */
-                  render: (r) => (
-                    <PBCheckbox
-                      tutorialId={`host.mois.cell.exclude-${r.chart}`}
-                      checked={excluded.has(r.chart)}
-                      onChange={() => toggle(r.chart)}
-                    />
-                  ),
-                },
-              ]}
-              empty="No charts loaded."
-              style={{
-                flex: '1 1 auto', minWidth: 0,
-                /* v2.20 chrome: 15px row pitch under a 16px header band */
-                ['--pb-dw-row-h' as string]: '15px',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-            <PBButton
-              data-tutorial-id="host.mois.command.navigator-print-list"
-              onClick={onPrintList}
-            >
-              Print List
-            </PBButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton
-              data-tutorial-id="host.mois.command.mail-merge"
-              onClick={onMailMerge}
-            >
-              Mail Merge...
-            </PBButton>
-          </div>
+        {/* The grid is the window's only body content. Its column widths are
+            the capture's; its x origin there (214) is a screen coordinate,
+            not an offset inside the window, so only the widths carry over
+            and the grid is left-aligned in the frame. The row-marker column
+            measures 16 in the capture against the kit's fixed 13px gutter. */}
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+          <PBDataWindow
+            rows={rows}
+            current={current}
+            onCurrentChange={setCurrent}
+            onActivate={(r) => onOpenChart?.(r.chart)}
+            rowTutorialId={(r) => `host.mois.row.navigator-${r.chart}`}
+            columns={[
+              { key: 'chart', header: 'Chart', width: 64 },
+              /* MOIS renders this LAST,FIRST with no space */
+              { key: 'name', header: 'Patient Name', width: 184 },
+              /* auto-filled `Loaded Chart Number:<n>` */
+              { key: 'description', header: 'Description', width: 240 },
+              {
+                key: 'exclude',
+                header: 'Exclude',
+                width: 49,
+                align: 'center',
+                /* a checkbox cell; every row is unchecked by default */
+                render: (r) => (
+                  <PBCheckbox
+                    tutorialId={`host.mois.cell.exclude-${r.chart}`}
+                    checked={excluded.has(r.chart)}
+                    onChange={() => excluded.flip(r.chart)}
+                  />
+                ),
+              },
+            ]}
+            empty="No charts loaded."
+            style={{
+              flex: '1 1 auto', minWidth: 0,
+              /* v2.20 chrome: 15px row pitch under a 16px header band */
+              ['--pb-dw-row-h' as string]: '15px',
+            }}
+          />
         </div>
-      </PBWindow>
-    </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
+          <PBButton
+            command="navigator-print-list"
+            onClick={onPrintList}
+          >
+            Print List
+          </PBButton>
+          <span style={{ flex: '1 1 auto' }} />
+          <PBButton
+            command="mail-merge"
+            onClick={onMailMerge}
+          >
+            Mail Merge...
+          </PBButton>
+        </div>
+      </div>
+    </ModalWindow>
   )
 }

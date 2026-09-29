@@ -5,13 +5,16 @@ import {
   type AddressBookEntry, type AddressBookList, type AddressBookMode, type AddressParameterKey, type ContactListDetail, type MatchMode,
 } from '../data/addressBook'
 import { SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, settingRowId } from '../data/systemSettings'
+import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
-import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, pbSlug, usePBInstrumentation } from '../pb'
 import { ContactListDetailWindow, useContactDetails } from './AddressBookAdminWindows'
 import { registerAreaWindow } from './areaWindowRegistry'
 import { MasterProviderWindow, NewMasterProviderDialog } from './ClinicEditorWindows'
+import { ModalWindow } from './dialogKit'
 import { AddExternalOrganizationDialog, useListRows } from './ExternalServiceWindows'
+import { toggled } from './listKit'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -111,20 +114,12 @@ function Link({ label, onClick }: { label: string; onClick: () => void }) {
 
 /** A face button anchored and reported `host.mois.command.{slug}`. */
 function Cmd({ label, onClick, w = 86, disabled }: { label: string; onClick?: () => void; w?: number; disabled?: boolean }) {
-  const host = usePBInstrumentation()
   return (
-    <PBButton
-      disabled={disabled}
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => { host?.report('command', { command: pbSlug(label) }); onClick?.() }}
-      style={{ minWidth: w }}
-    >
+    <PBButton disabled={disabled} command={pbSlug(label)} onClick={() => onClick?.()} style={{ minWidth: w }}>
       {label}
     </PBButton>
   )
 }
-
-const S = (v: unknown) => (v == null ? '' : String(v))
 
 /** "E", "R" or "N" as System Settings holds it (committed value, else the shipped one). */
 function useAddressSetting(name: string): string {
@@ -236,18 +231,8 @@ export function AddressBookWindow({
     if (picked && onSelect) onSelect(picked)
     else onClose()
   }
-  const toggleType = (t: AddressBookList, on: boolean) => setTypes((prev) => {
-    const next = new Set(prev)
-    if (on) next.add(t)
-    else next.delete(t)
-    return next
-  })
-  const toggleList = (l: string, on: boolean) => setTicked((prev) => {
-    const next = new Set(prev)
-    if (on) next.add(l)
-    else next.delete(l)
-    return next
-  })
+  const toggleType = (t: AddressBookList, on: boolean) => setTypes((prev) => toggled(prev, t, on))
+  const toggleList = (l: string, on: boolean) => setTicked((prev) => toggled(prev, l, on))
   const toggleFavourite = (e: AddressBookEntry) => {
     const field: keyof ContactListDetail = e.list === 'External Provider List' ? 'masterProviders'
       : e.list === 'External Organization List' ? 'masterOrganizations'
@@ -270,154 +255,151 @@ export function AddressBookWindow({
 
   return (
     <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-        <PBWindow
-          child
-          controls={false}
-          title={title}
-          onClose={onClose}
-          tutorialId="host.mois.dialog.address-book"
-          style={{ width: 'min(1150px, calc(100% - 16px))', height: 'min(850px, calc(100% - 16px))' }}
-        >
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: '205px minmax(0, 300px) minmax(0, 1fr)', gridTemplateRows: 'auto minmax(0, 1fr)', gap: 5, padding: '6px 5px 0', background: 'var(--pb-face)' }}>
-            {/* Contact Lists — full height */}
-            <Panel caption="Contact Lists" style={{ gridRow: '1 / span 2' }}>
-              <div style={{ padding: '2px 0', overflowY: 'auto' }}>
-                {bands.map(([group, lists]) => (
-                  <div key={group}>
-                    <div
-                      data-tutorial-id={host?.anchor('field', `address-contact-${pbSlug(group)}`)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, height: 22, padding: '0 8px 0 12px', background: '#e3e5e6' }}
-                    >
-                      <span aria-hidden="true" style={{ display: 'inline-grid', placeItems: 'center', width: 9, height: 9, border: '1px solid #8c8c8c', fontSize: 9, lineHeight: 1, background: '#fff' }}>−</span>
-                      {group}
+      <ModalWindow
+        id="address-book"
+        title={title}
+        onClose={onClose}
+        zIndex={90}
+        windowStyle={{ width: 'min(1150px, calc(100% - 16px))', height: 'min(850px, calc(100% - 16px))' }}
+      >
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: '205px minmax(0, 300px) minmax(0, 1fr)', gridTemplateRows: 'auto minmax(0, 1fr)', gap: 5, padding: '6px 5px 0', background: 'var(--pb-face)' }}>
+          {/* Contact Lists — full height */}
+          <Panel caption="Contact Lists" style={{ gridRow: '1 / span 2' }}>
+            <div style={{ padding: '2px 0', overflowY: 'auto' }}>
+              {bands.map(([group, lists]) => (
+                <div key={group}>
+                  <div
+                    data-tutorial-id={host?.anchor('field', `address-contact-${pbSlug(group)}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, height: 22, padding: '0 8px 0 12px', background: '#e3e5e6' }}
+                  >
+                    <span aria-hidden="true" style={{ display: 'inline-grid', placeItems: 'center', width: 9, height: 9, border: '1px solid #8c8c8c', fontSize: 9, lineHeight: 1, background: '#fff' }}>−</span>
+                    {group}
+                  </div>
+                  {lists.map((c) => (
+                    <div key={c} style={{ display: 'flex', alignItems: 'center', height: 22, padding: '0 8px 0 10px' }}>
+                      <PBCheckbox label={c} checked={ticked.has(c)} onChange={(v) => toggleList(c, v)} tutorialId={host?.anchor('field', `address-contact-${pbSlug(c)}`)} />
                     </div>
-                    {lists.map((c) => (
-                      <div key={c} style={{ display: 'flex', alignItems: 'center', height: 22, padding: '0 8px 0 10px' }}>
-                        <PBCheckbox label={c} checked={ticked.has(c)} onChange={(v) => toggleList(c, v)} tutorialId={host?.anchor('field', `address-contact-${pbSlug(c)}`)} />
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </Panel>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </Panel>
 
-            {/* Select from Type(s) */}
-            <Panel
-              caption="Select from Type(s)"
-              right={<span style={{ display: 'inline-flex', gap: 16, marginLeft: 'auto', marginRight: 40 }}>
-                <Link label="All" onClick={() => setTypes(new Set(allTypes))} />
-                <Link label="Clear" onClick={() => setTypes(new Set())} />
-              </span>}
-              style={{ height: 205 }}
-            >
-              <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', padding: '2px 6px 4px' }}>
-                {allTypes.map((t) => (
-                  <div key={t} style={{ display: 'flex', alignItems: 'center', height: 24, borderBottom: '1px dotted #b8b8b8', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                    <PBCheckbox label={t} checked={types.has(t)} onChange={(v) => toggleType(t, v)} tutorialId={host?.anchor('field', `address-type-${pbSlug(t)}`)} />
-                  </div>
-                ))}
-                {pharmacy && (
-                  <div style={{ marginTop: 'auto' }}>
-                    <PBCheckbox label="Limit to Pharmacy List records" checked={pharmacyOnly} onChange={setPharmacyOnly} tutorialId={host?.anchor('field', 'address-pharmacy-only')} />
-                  </div>
-                )}
-              </div>
-            </Panel>
+          {/* Select from Type(s) */}
+          <Panel
+            caption="Select from Type(s)"
+            right={<span style={{ display: 'inline-flex', gap: 16, marginLeft: 'auto', marginRight: 40 }}>
+              <Link label="All" onClick={() => setTypes(new Set(allTypes))} />
+              <Link label="Clear" onClick={() => setTypes(new Set())} />
+            </span>}
+            style={{ height: 205 }}
+          >
+            <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', padding: '2px 6px 4px' }}>
+              {allTypes.map((t) => (
+                <div key={t} style={{ display: 'flex', alignItems: 'center', height: 24, borderBottom: '1px dotted #b8b8b8', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                  <PBCheckbox label={t} checked={types.has(t)} onChange={(v) => toggleType(t, v)} tutorialId={host?.anchor('field', `address-type-${pbSlug(t)}`)} />
+                </div>
+              ))}
+              {pharmacy && (
+                <div style={{ marginTop: 'auto' }}>
+                  <PBCheckbox label="Limit to Pharmacy List records" checked={pharmacyOnly} onChange={setPharmacyOnly} tutorialId={host?.anchor('field', 'address-pharmacy-only')} />
+                </div>
+              )}
+            </div>
+          </Panel>
 
-            {/* Parameters */}
-            <Panel caption="Parameters" style={{ height: 205 }}>
-              <div style={{ padding: '6px 6px 0', display: 'grid', gridTemplateColumns: '66px minmax(0, 246px) 92px auto', columnGap: 4, rowGap: 3, alignItems: 'center' }}>
-                {ADDRESS_PARAMETERS.map((p, i) => (
-                  <span key={p.key} style={{ display: 'contents' }}>
-                    <span>{p.label}</span>
-                    <PBInput
-                      w="100%"
-                      value={params[p.key] ?? ''}
-                      onChange={(e) => setParams((x) => ({ ...x, [p.key]: e.target.value }))}
-                      onKeyDown={(e) => { if (e.key === 'Enter') run() }}
-                      data-tutorial-id={host?.anchor('field', `address-${p.key}`)}
-                    />
-                    <PBSelect
-                      w={92}
-                      options={MATCH_MODES}
-                      value={modes[p.key] ?? 'Includes'}
-                      onChange={(e) => setModes((x) => ({ ...x, [p.key]: e.target.value as MatchMode }))}
-                      data-tutorial-id={host?.anchor('field', `address-${p.key}-match`)}
-                    />
-                    {i === 0
-                      ? <span style={{ paddingLeft: 6 }}><PBCheckbox label="Active Only" checked={activeOnly} onChange={setActiveOnly} tutorialId={host?.anchor('field', 'address-active-only')} /></span>
-                      : <span />}
-                  </span>
-                ))}
-              </div>
-              <div className="pb-row" style={{ padding: '18px 0 0 12px', gap: 60 }}>
-                <Cmd label="Search" onClick={() => run()} w={94} />
-                {connectionRole && <span>Searching only {connectionRole}</span>}
-              </div>
-            </Panel>
+          {/* Parameters */}
+          <Panel caption="Parameters" style={{ height: 205 }}>
+            <div style={{ padding: '6px 6px 0', display: 'grid', gridTemplateColumns: '66px minmax(0, 246px) 92px auto', columnGap: 4, rowGap: 3, alignItems: 'center' }}>
+              {ADDRESS_PARAMETERS.map((p, i) => (
+                <span key={p.key} style={{ display: 'contents' }}>
+                  <span>{p.label}</span>
+                  <PBInput
+                    w="100%"
+                    value={params[p.key] ?? ''}
+                    onChange={(e) => setParams((x) => ({ ...x, [p.key]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') run() }}
+                    data-tutorial-id={host?.anchor('field', `address-${p.key}`)}
+                  />
+                  <PBSelect
+                    w={92}
+                    options={MATCH_MODES}
+                    value={modes[p.key] ?? 'Includes'}
+                    onChange={(e) => setModes((x) => ({ ...x, [p.key]: e.target.value as MatchMode }))}
+                    data-tutorial-id={host?.anchor('field', `address-${p.key}-match`)}
+                  />
+                  {i === 0
+                    ? <span style={{ paddingLeft: 6 }}><PBCheckbox label="Active Only" checked={activeOnly} onChange={setActiveOnly} tutorialId={host?.anchor('field', 'address-active-only')} /></span>
+                    : <span />}
+                </span>
+              ))}
+            </div>
+            <div className="pb-row" style={{ padding: '18px 0 0 12px', gap: 60 }}>
+              <Cmd label="Search" onClick={() => run()} w={94} />
+              {connectionRole && <span>Searching only {connectionRole}</span>}
+            </div>
+          </Panel>
 
-            {/* the results grid, under the two top panels */}
-            <div style={{ ...PANEL, gridColumn: '2 / span 2', position: 'relative' }}>
-              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-                <PBDataWindow
-                  flush
-                  columns={[
-                    {
-                      key: 'fav', header: '', width: 18, align: 'center',
-                      /* `46bb77ee…`: the heart puts the record on My Favourites */
-                      render: (r) => (
-                        <button
-                          type="button"
-                          aria-label={isFavourite(r) ? 'Remove from favourites' : 'Add to favourites'}
-                          data-tutorial-id={host?.anchor('command', `favourite-${pbSlug(r.name)}`)}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={() => { host?.report('command', { command: `favourite-${pbSlug(r.name)}` }); toggleFavourite(r) }}
-                          style={{ border: 0, background: 'transparent', padding: 0, color: isFavourite(r) ? '#e00000' : '#9a9a9a', cursor: 'default' }}
-                        >
-                          ♥
-                        </button>
-                      ),
-                    },
-                    { key: 'name', header: 'Name', width: '33%' },
-                    { key: 'location', header: 'Location', width: '25%' },
-                    { key: 'city', header: 'City', width: '14%' },
-                    { key: 'phone', header: 'Phone', width: '11%' },
-                    { key: 'fax', header: 'Fax' },
-                  ]}
-                  rows={rows}
-                  current={cur}
-                  onCurrentChange={setCur}
-                  onActivate={(_r, i) => { setCur(i); const picked = rows[i]; if (picked && onSelect) onSelect(picked) }}
-                  rowTutorialId={(r) => `host.mois.row.address-${pbSlug(r.name)}`}
-                  empty=""
-                />
-              </div>
-              <div style={{ flex: 'none', padding: '2px 8px 4px', color: '#9a9a9a' }} data-tutorial-id={host?.anchor('field', 'address-rows')}>
-                Rows: {rows.length}
-              </div>
+          {/* the results grid, under the two top panels */}
+          <div style={{ ...PANEL, gridColumn: '2 / span 2', position: 'relative' }}>
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+              <PBDataWindow
+                flush
+                columns={[
+                  {
+                    key: 'fav', header: '', width: 18, align: 'center',
+                    /* `46bb77ee…`: the heart puts the record on My Favourites */
+                    render: (r) => (
+                      <button
+                        type="button"
+                        aria-label={isFavourite(r) ? 'Remove from favourites' : 'Add to favourites'}
+                        data-tutorial-id={host?.anchor('command', `favourite-${pbSlug(r.name)}`)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => { host?.report('command', { command: `favourite-${pbSlug(r.name)}` }); toggleFavourite(r) }}
+                        style={{ border: 0, background: 'transparent', padding: 0, color: isFavourite(r) ? '#e00000' : '#9a9a9a', cursor: 'default' }}
+                      >
+                        ♥
+                      </button>
+                    ),
+                  },
+                  { key: 'name', header: 'Name', width: '33%' },
+                  { key: 'location', header: 'Location', width: '25%' },
+                  { key: 'city', header: 'City', width: '14%' },
+                  { key: 'phone', header: 'Phone', width: '11%' },
+                  { key: 'fax', header: 'Fax' },
+                ]}
+                rows={rows}
+                current={cur}
+                onCurrentChange={setCur}
+                onActivate={(_r, i) => { setCur(i); const picked = rows[i]; if (picked && onSelect) onSelect(picked) }}
+                rowTutorialId={(r) => `host.mois.row.address-${pbSlug(r.name)}`}
+                empty=""
+              />
+            </div>
+            <div style={{ flex: 'none', padding: '2px 8px 4px', color: '#9a9a9a' }} data-tutorial-id={host?.anchor('field', 'address-rows')}>
+              Rows: {rows.length}
             </div>
           </div>
+        </div>
 
-          {/* the button strip */}
-          <div className="pb-footer" style={{ gap: 0, padding: '6px 5px' }}>
-            <span style={{ display: 'flex', width: 205 }}>
-              <Cmd label="Save as Default" w={0} onClick={() => setDefaults({ ...defaults, [connectionRole ? `role:${connectionRole}` : mode]: { types: [...types], lists: [...ticked] } })} />
-              <Cmd label="My Favourites" w={0} onClick={() => setPopup('favourites')} />
-            </span>
-            <span className="pb-footer__spacer" />
-            <span style={{ display: 'flex', gap: 10 }}>
-              <Cmd label="Ok" onClick={ok} />
-              <Cmd label="Cancel" onClick={onClose} />
-            </span>
-            <span className="pb-footer__spacer" />
-            <span style={{ display: 'flex', gap: 6 }}>
-              <PBSelect w={204} options={options} value={option} onChange={(e) => setOption(e.target.value)} data-tutorial-id={host?.anchor('field', 'address-other-options')} />
-              <Cmd label="Go" w={62} disabled={option === 'Other Options...'} onClick={go} />
-            </span>
-          </div>
-        </PBWindow>
-      </div>
+        {/* the button strip */}
+        <div className="pb-footer" style={{ gap: 0, padding: '6px 5px' }}>
+          <span style={{ display: 'flex', width: 205 }}>
+            <Cmd label="Save as Default" w={0} onClick={() => setDefaults({ ...defaults, [connectionRole ? `role:${connectionRole}` : mode]: { types: [...types], lists: [...ticked] } })} />
+            <Cmd label="My Favourites" w={0} onClick={() => setPopup('favourites')} />
+          </span>
+          <span className="pb-footer__spacer" />
+          <span style={{ display: 'flex', gap: 10 }}>
+            <Cmd label="Ok" onClick={ok} />
+            <Cmd label="Cancel" onClick={onClose} />
+          </span>
+          <span className="pb-footer__spacer" />
+          <span style={{ display: 'flex', gap: 6 }}>
+            <PBSelect w={204} options={options} value={option} onChange={(e) => setOption(e.target.value)} data-tutorial-id={host?.anchor('field', 'address-other-options')} />
+            <Cmd label="Go" w={62} disabled={option === 'Other Options...'} onClick={go} />
+          </span>
+        </div>
+      </ModalWindow>
 
       {popup === 'org' && (
         <AddExternalOrganizationDialog

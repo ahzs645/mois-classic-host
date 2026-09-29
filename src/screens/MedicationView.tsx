@@ -6,7 +6,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow } from '../host/screen-windows'
 import {
-  PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput,
+  PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput,
   PBLookup, PBTabs, PBTextArea, PBViewHeader, pbSlug, type PBColumn, type PBMenuItem,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -21,6 +21,7 @@ import {
   SelectMedsToPrintWindow, useFilePrint, type PrintJob,
 } from './PrescriptionPrintWindows'
 import { RECORD_OPTION_WINDOWS } from './RecordOptionWindows'
+import { ChartIdentityStrip } from './patientKit'
 import { recordKeyOf } from './reportRecordEdits'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
 import { StageMessageBox } from './StageWindow'
@@ -316,19 +317,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         <PBCommandRow commands={commands} />
       </div>
 
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
-
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <span>Search For:</span><PBLookup w="100%" />
-      </div>
+      <ChartIdentityStrip search />
 
       {!rx && (reviewed
         ? <div className="pb-row" style={{ padding: '0 8px 3px', gap: 18 }} data-tutorial-id="host.mois.field.last-reviewed">
@@ -736,18 +725,7 @@ export function PrintHistoryView() {
           Would you like to update your task to completed?
         </StageMessageBox>
       )}
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <span>Search For:</span><PBLookup w="100%" />
-      </div>
+      <ChartIdentityStrip search />
       <div style={{ padding: '0 3px', height: 190, display: 'flex', flex: 'none' }}>
         <PBDataWindow
           rows={rows}

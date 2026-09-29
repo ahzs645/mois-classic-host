@@ -2,8 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBCheckbox, PBDataWindow, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
-import { DesktopLayer } from './StageWindow'
+import { PBCheckbox } from '../pb'
+import { GRID_BOX, PickButtons, PickListWindow } from './lookupKit'
 
 /* ============================================================================
    Health Issues — the picker the MOIS Viewer (Embedded) Find bar's "Patient
@@ -36,20 +36,6 @@ export type HealthIssuePick = {
 
 const d = (v?: string) => (v ?? '').replace(/\//g, '.').slice(0, 10)
 const GREY = '#8c8c8c'
-
-function Cmd({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
-  const host = usePBInstrumentation()
-  return (
-    <PBButton
-      disabled={disabled}
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => { host?.report('command', { command: pbSlug(label) }); onClick() }}
-      style={{ minWidth: 86 }}
-    >
-      {label}
-    </PBButton>
-  )
-}
 
 function Cell({ label, children, w }: { label: string; children: ReactNode; w?: number }) {
   return (
@@ -89,57 +75,56 @@ export function HealthIssuesPicker({ onClose, onSelect }: { onClose: () => void;
   const ink = (r: HealthIssuePick, text: ReactNode) => (r.ended ? <span style={{ color: GREY }}>{text}</span> : text)
 
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-        <PBWindow
-          child
-          controls={false}
-          title="Health Issues"
-          onClose={onClose}
-          tutorialId="host.mois.dialog.health-issues"
-          style={{ width: 'min(1150px, calc(100% - 16px))', height: 'min(740px, calc(100% - 16px))' }}
-        >
-          <div className="pb-banner-blue">
-            <div className="pb-banner-blue__top">
-              <Cell label="CHART NO." w={98}>{p.chart}</Cell>
-              <Cell label="PATIENT (F/M/L)" w={250}>{[p.first, p.middle, p.last].filter(Boolean).join(' ').toUpperCase()}</Cell>
-              <Cell label="DATE OF BIRTH" w={264}>{p.dob}&nbsp;&nbsp;{p.age}</Cell>
-              <Cell label="GENDER" w={72}>{p.sex}</Cell>
-              <Cell label="PERSONAL HEALTH NO." w={162}>
-                {[p.insuranceBy, p.bchn ?? p.insurance, p.dep].filter(Boolean).join('  ')}
-              </Cell>
-              <Cell label="PREFERRED PHONE NUMBER">
-                {phone ?? ''}&nbsp;&nbsp;{phone && <span style={{ fontWeight: 400, fontSize: 11 }}>{preferred} Phone</span>}
-              </Cell>
-            </div>
+    <PickListWindow<HealthIssuePick>
+      window={{
+        id: 'health-issues',
+        title: 'Health Issues',
+        onClose,
+        portal: 'inline',
+        zIndex: 90,
+        windowStyle: { width: 'min(1150px, calc(100% - 16px))', height: 'min(740px, calc(100% - 16px))' },
+      }}
+      top={(
+        <div className="pb-banner-blue">
+          <div className="pb-banner-blue__top">
+            <Cell label="CHART NO." w={98}>{p.chart}</Cell>
+            <Cell label="PATIENT (F/M/L)" w={250}>{[p.first, p.middle, p.last].filter(Boolean).join(' ').toUpperCase()}</Cell>
+            <Cell label="DATE OF BIRTH" w={264}>{p.dob}&nbsp;&nbsp;{p.age}</Cell>
+            <Cell label="GENDER" w={72}>{p.sex}</Cell>
+            <Cell label="PERSONAL HEALTH NO." w={162}>
+              {[p.insuranceBy, p.bchn ?? p.insurance, p.dep].filter(Boolean).join('  ')}
+            </Cell>
+            <Cell label="PREFERRED PHONE NUMBER">
+              {phone ?? ''}&nbsp;&nbsp;{phone && <span style={{ fontWeight: 400, fontSize: 11 }}>{preferred} Phone</span>}
+            </Cell>
           </div>
-
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '2px 3px 0', background: 'var(--pb-face)' }}>
-            <PBDataWindow
-              columns={[
-                { key: 'start', header: 'Start', width: 88, render: (r) => ink(r, r.start) },
-                { key: 'end', header: 'End', width: 88, render: (r) => ink(r, r.end) },
-                { key: 'problem', header: 'Problem Name', render: (r) => ink(r, r.problem) },
-                { key: 'rank', header: 'Rank', width: 64, align: 'center', render: (r) => ink(r, r.rank) },
-                { key: 'certainty', header: 'Certainty', width: 145, render: (r) => ink(r, r.certainty) },
-                { key: 'severity', header: 'Severity', width: 165, render: (r) => ink(r, r.severity) },
-                { key: 's', header: 'S', width: 40, align: 'center', render: (r) => <PBCheckbox checked={r.sensitive} /> },
-              ]}
-              rows={rows}
-              current={cur}
-              onCurrentChange={setCur}
-              onActivate={(_r, i) => { setCur(i); select(i) }}
-              rowTutorialId={(_r, i) => `host.mois.row.health-issue-${i}`}
-              empty="No health issues on file."
-            />
-          </div>
-
-          <div className="pb-footer" style={{ justifyContent: 'center', gap: 14 }}>
-            <Cmd label="Select" onClick={() => select()} disabled={!rows.length} />
-            <Cmd label="Cancel" onClick={onClose} />
-          </div>
-        </PBWindow>
-      </div>
-    </DesktopLayer>
+        </div>
+      )}
+      gridBox={{ ...GRID_BOX, padding: '2px 3px 0', background: 'var(--pb-face)' }}
+      grid={{
+        columns: [
+          { key: 'start', header: 'Start', width: 88, render: (r) => ink(r, r.start) },
+          { key: 'end', header: 'End', width: 88, render: (r) => ink(r, r.end) },
+          { key: 'problem', header: 'Problem Name', render: (r) => ink(r, r.problem) },
+          { key: 'rank', header: 'Rank', width: 64, align: 'center', render: (r) => ink(r, r.rank) },
+          { key: 'certainty', header: 'Certainty', width: 145, render: (r) => ink(r, r.certainty) },
+          { key: 'severity', header: 'Severity', width: 165, render: (r) => ink(r, r.severity) },
+          { key: 's', header: 'S', width: 40, align: 'center', render: (r) => <PBCheckbox checked={r.sensitive} /> },
+        ],
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (_r, i) => { setCur(i); select(i) },
+        rowTutorialId: (_r, i) => `host.mois.row.health-issue-${i}`,
+        empty: 'No health issues on file.',
+      }}
+      footer={(
+        <PickButtons className="pb-footer" style={{ justifyContent: 'center', gap: 14 }} size={{ minWidth: 86 }}
+          buttons={[
+            { label: 'Select', command: 'select', onClick: () => select(), disabled: !rows.length },
+            { label: 'Cancel', command: 'cancel', onClick: onClose },
+          ]} />
+      )}
+    />
   )
 }

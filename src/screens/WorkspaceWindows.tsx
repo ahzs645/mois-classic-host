@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { basketFolderById, type BasketRow } from '../data/basket'
 import { MOIS_TODAY } from '../data/patients'
+import { argStr } from '../data/text'
 import { CURRENT_USER, TASK_GROUPS, USER_GROUPS, WORKSPACE_USERS, taskScreenByNode } from '../data/tasks'
 import { taskListRows } from '../data/workspaceLists'
 import { basketKey, useWorkspaceStore, workspaceStore } from '../data/workspaceStore'
@@ -10,6 +11,8 @@ import {
 } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { SelectAllPair, useTickSet } from './listKit'
+import { MOIS_SEARCH_TITLE, MoisSearchWindow, PickButtons, SIZE } from './lookupKit'
 import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -31,8 +34,6 @@ import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './Worksp
    · print-task-list            Print Task / Messages - Current List → the
                                 Print Preview              303771
    ========================================================================= */
-
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
 /** A Win32 message box that reports its buttons like the rest of the frame. */
 function Confirm({ id, title, children, buttons, onClose }: {
@@ -67,7 +68,7 @@ function Confirm({ id, title, children, buttons, onClose }: {
 function MarkForReviewDialog({ args, close }: AreaWindowProps) {
   const [note, setNote] = useState('')
   const proceed = () => {
-    const key = str(args.rowKey)
+    const key = argStr(args.rowKey)
     if (key) {
       workspaceStore.markForReview(key)
       /* the Review Note shows in the Workflow Summary's detail (1802768 `9a1ef52e…`) */
@@ -115,13 +116,13 @@ const SEARCH_ROWS = [
 function ForwardItemsDialog({ args, close }: AreaWindowProps) {
   const mode = args.mode === 'copy' ? 'copy' : 'reassign'
   const Mode = mode === 'copy' ? 'Copy' : 'Reassign'
-  const folder = basketFolderById(str(args.folder))
+  const folder = basketFolderById(argStr(args.folder))
   const ws = useWorkspaceStore()
   const rows: BasketRow[] = (folder?.rows ?? []).filter((r) => !ws.reassigned.includes(basketKey(folder!.id, String(r.patient))))
-  const [picked, setPicked] = useState<Set<number>>(new Set())
+  const picked = useTickSet()
   const [note, setNote] = useState('')
   const [stage, setStage] = useState<'list' | 'users' | 'confirm'>('list')
-  const [users, setUsers] = useState<Set<string>>(new Set())
+  const users = useTickSet<string>()
   const [cur, setCur] = useState(0)
   const [userCur, setUserCur] = useState(0)
   /* the picker and the confirmation are this window's own stages; the frame
@@ -133,14 +134,13 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
   })
   if (!folder) return null
 
-  const toggle = (i: number, on: boolean) => setPicked((s) => { const n = new Set(s); on ? n.add(i) : n.delete(i); return n })
   const finish = () => {
-    const keys = [...picked].map((i) => basketKey(folder.id, String(rows[i]!.patient)))
+    const keys = [...picked.ticked].map((i) => basketKey(folder.id, String(rows[i]!.patient)))
     if (mode === 'reassign') workspaceStore.reassign(keys)
     /* the note and the users go into each record's Acknowledgement History
        (1802768 `3d36d71e…` REASSIGNED, `315269da…` COPIED) */
     for (const key of keys) {
-      workspaceExtras.record({ key, action: mode === 'copy' ? 'COPIED' : 'REASSIGNED', by: CURRENT_USER.name, to: [...users], note }, MOIS_TODAY)
+      workspaceExtras.record({ key, action: mode === 'copy' ? 'COPIED' : 'REASSIGNED', by: CURRENT_USER.name, to: [...users.ticked], note }, MOIS_TODAY)
     }
     close()
   }
@@ -150,7 +150,7 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
     {
       key: 'select', header: 'Select', width: 50, align: 'center' as const,
       render: (_r: BasketRow, i: number) => (
-        <PBCheckbox tutorialId={`host.mois.cell.forward-${i}`} checked={picked.has(i)} onChange={(v) => toggle(i, v)} />
+        <PBCheckbox tutorialId={`host.mois.cell.forward-${i}`} checked={picked.has(i)} onChange={(v) => picked.set(i, v)} />
       ),
     },
     ...folder.columns.filter((c) => c.key !== 'check' && c.key !== 'clip'),
@@ -174,8 +174,12 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
           </div>
         </div>
         <div className="pb-row" style={{ gap: 6, padding: '8px 10px 0', flex: 'none', alignItems: 'flex-start' }}>
-          <DialogButton id="forward-select-all" width={76} onClick={() => setPicked(new Set(rows.map((_, i) => i)))}>Select All</DialogButton>
-          <DialogButton id="forward-unselect-all" width={76} onClick={() => setPicked(new Set())}>Unselect All</DialogButton>
+          <SelectAllPair
+            ids={['forward-select-all', 'forward-unselect-all']}
+            width={76}
+            onSelectAll={() => picked.selectAll(rows.map((_, i) => i))}
+            onUnselectAll={picked.clear}
+          />
           <span style={{ width: 120, textAlign: 'right', marginLeft: 16 }}>
             {mode === 'copy' ? 'Copying Note:' : 'Reassignment Note:'}<br /><span style={{ color: '#8a8a8a' }}>(optional)</span>
           </span>
@@ -188,48 +192,60 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
       </WorkspaceDialogFrame>
 
       {stage === 'users' && (
-        <WorkspaceDialogFrame id="search-window" title="MOIS - Search Window" width={900} height={560} onClose={() => setStage('list')} controls={false} zIndex={85}>
-          <div style={{ margin: '8px 8px 0', padding: '4px 8px', display: 'grid', gridTemplateColumns: '80px 220px 1fr 1fr 1fr', rowGap: 4, columnGap: 8, background: '#fff', border: '1px solid #a0a0a0', flex: 'none' }}>
-            <b style={{ gridColumn: 'span 2' }}>Search for:</b><b>Include:</b><b>Membership</b><b>Record Status:</b>
-            <span>Name:</span><PBInput w={210} />
-            <PBCheckbox label="Users" checked /><PBCheckbox label="Limit to My Active Memberships" /><PBCheckbox label="Active" checked />
-            <span>Group:</span><PBInput w={210} />
-            <PBCheckbox label="Providers" checked /><span /><span />
-            <span>Provider:</span><PBInput w={210} />
-            <PBCheckbox label="Org. Roles" checked /><span /><span />
-            <span>Members of:</span><PBSelect w={210} options={USER_GROUPS} />
-            <PBCheckbox label="Organizations" checked /><span /><span />
-          </div>
-          <div style={{ margin: '4px 8px 0', display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
-            <PBDataWindow
-              rows={SEARCH_ROWS}
-              current={userCur}
-              onCurrentChange={setUserCur}
-              rowTutorialId={(u) => `host.mois.row.user-${pbSlug(u.name.split(',')[0]!)}`}
-              columns={[
-                {
-                  key: 'select', header: 'Select', width: 40, align: 'center',
-                  render: (u) => (
-                    <PBCheckbox
-                      tutorialId={`host.mois.cell.user-${pbSlug(u.name.split(',')[0]!)}`}
-                      checked={users.has(u.name)}
-                      onChange={(v) => setUsers((s) => { const n = new Set(s); v ? n.add(u.name) : n.delete(u.name); return n })}
-                    />
-                  ),
-                },
-                { key: 'name', header: 'Name', width: 200 },
-                { key: 'role', header: 'Role / Group', width: 170 },
-                { key: 'type', header: 'Type', width: 110 },
-                { key: 'members', header: 'Associated Provider(s) / Members', width: 200 },
-                { key: 'status', header: 'Status', width: 50, align: 'center' },
+        <MoisSearchWindow
+          frame={(content, footer) => (
+            <WorkspaceDialogFrame id="search-window" title={MOIS_SEARCH_TITLE} width={900} height={560} onClose={() => setStage('list')} controls={false} zIndex={85}>
+              {content}
+              {footer}
+            </WorkspaceDialogFrame>
+          )}
+          criteria={{
+            layout: 'grid',
+            fields: [{ label: 'Name:' }, { label: 'Group:' }, { label: 'Provider:' }],
+            membersOf: { options: USER_GROUPS },
+            include: [
+              { label: 'Users', checked: true }, { label: 'Providers', checked: true },
+              { label: 'Org. Roles', checked: true }, { label: 'Organizations', checked: true },
+            ],
+            membership: { label: 'Limit to My Active Memberships' },
+            status: [{ label: 'Active', checked: true }],
+          }}
+          gridBox={{ margin: '4px 8px 0', display: 'flex', flex: '1 1 auto', minHeight: 0 }}
+          grid={{
+            rows: SEARCH_ROWS,
+            current: userCur,
+            onCurrentChange: setUserCur,
+            rowTutorialId: (u) => `host.mois.row.user-${pbSlug(u.name.split(',')[0]!)}`,
+            columns: [
+              {
+                key: 'select', header: 'Select', width: 40, align: 'center',
+                render: (u) => (
+                  <PBCheckbox
+                    tutorialId={`host.mois.cell.user-${pbSlug(u.name.split(',')[0]!)}`}
+                    checked={users.has(u.name)}
+                    onChange={(v) => users.set(u.name, v)}
+                  />
+                ),
+              },
+              { key: 'name', header: 'Name', width: 200 },
+              { key: 'role', header: 'Role / Group', width: 170 },
+              { key: 'type', header: 'Type', width: 110 },
+              { key: 'members', header: 'Associated Provider(s) / Members', width: 200 },
+              { key: 'status', header: 'Status', width: 50, align: 'center' },
+            ],
+          }}
+          footer={(
+            <PickButtons
+              className="pb-row"
+              style={{ gap: 8, padding: '10px 0', justifyContent: 'center', flex: 'none' }}
+              size={SIZE.dialog(75)}
+              buttons={[
+                { label: 'Ok', command: 'search-ok', disabled: !users.size, onClick: () => setStage('confirm'), isDefault: true },
+                { label: 'Cancel', command: 'search-cancel', onClick: () => setStage('list') },
               ]}
             />
-          </div>
-          <div className="pb-row" style={{ gap: 8, padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
-            <DialogButton id="search-ok" width={75} disabled={!users.size} onClick={() => setStage('confirm')} isDefault>Ok</DialogButton>
-            <DialogButton id="search-cancel" width={75} onClick={() => setStage('list')}>Cancel</DialogButton>
-          </div>
-        </WorkspaceDialogFrame>
+          )}
+        />
       )}
 
       {stage === 'confirm' && (
@@ -243,7 +259,7 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
           ]}
         >
           {mode === 'copy' ? 'Copy' : 'Reassign'} {picked.size} item(s) from {folder.label} to:
-          <br /><b>{[...users].join('; ')}</b>
+          <br /><b>{[...users.ticked].join('; ')}</b>
           {note && <><br />Note: {note}</>}
         </Confirm>
       )}
@@ -279,7 +295,7 @@ function BasketAttachmentsDialog({ args, close, open }: AreaWindowProps) {
     setCur(rows.length)
   }
   const addAttachment = () => {
-    workspaceStore.attach(str(args.rowKey))
+    workspaceStore.attach(argStr(args.rowKey))
     close()
     open('add-attachment')
   }
@@ -345,14 +361,14 @@ function BasketAttachmentsDialog({ args, close, open }: AreaWindowProps) {
    ------------------------------------------------------------------------ */
 function ConfirmTaskFromMessage({ args, close }: AreaWindowProps) {
   const yes = () => {
-    const subject = str(args.fromMessage)
+    const subject = argStr(args.fromMessage)
     if (subject) {
       workspaceStore.ackMessage(subject)
       /* assigned to whoever the message was sent to — here, you — and
          already acknowledged */
       workspaceStore.addTask({
-        p: str(args.priority) || 'M', due: MOIS_TODAY, patient: str(args.patient), chart: str(args.chart),
-        task: subject, detail: str(args.detail), assignee: CURRENT_USER.login, user: CURRENT_USER.name,
+        p: argStr(args.priority) || 'M', due: MOIS_TODAY, patient: argStr(args.patient), chart: argStr(args.chart),
+        task: subject, detail: argStr(args.detail), assignee: CURRENT_USER.login, user: CURRENT_USER.name,
         ack: true, created: MOIS_TODAY, createdAt: `${MOIS_TODAY} 14:43`, createdBy: CURRENT_USER.name,
       }, true)
     }
@@ -454,8 +470,8 @@ export function taskListPrintArgs(node: string, ws: ReturnType<typeof workspaceS
 function PrintTaskListWindow({ args, open }: AreaWindowProps) {
   const ws = useWorkspaceStore()
   useEffect(() => {
-    open('print-preview', taskListPrintArgs(str(args.node) || 'ws-task-inbox', ws, {
-      ack: str(args.ack) || undefined, comp: str(args.comp) || undefined,
+    open('print-preview', taskListPrintArgs(argStr(args.node) || 'ws-task-inbox', ws, {
+      ack: argStr(args.ack) || undefined, comp: argStr(args.comp) || undefined,
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

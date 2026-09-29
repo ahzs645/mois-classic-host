@@ -1,10 +1,13 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useScreenReport } from '../host/screen-state'
+import { stageStamp } from '../data/clock'
 import { patients, MOIS_TODAY } from '../data/patients'
 import { SCORECARD_METRICS, pct } from '../data/reportParams'
 import { amcareScorecardPage } from '../data/reportSpecs/clinicalAudits'
-import { PBCommandRow, PBDataWindow, PBInput, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
+import { PBCommandRow, PBDataWindow, PBInput, PBTextArea, PBViewHeader, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { CmdCheck, CmdRadio, ParamSection } from './reportKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -51,7 +54,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    `amcareProvider`, `amcareClinicalValue`, `amcareRuns`.
    ========================================================================= */
 
-const NAVY = '#000080'
 export type AmcareRun = { when: string; version: 1 | 2; allProviders: boolean; clinical: boolean; asOf: string; folder: string; file: string }
 
 const PRACTITIONERS: [string, string][] = [
@@ -101,23 +103,7 @@ function scorecardXml(r: AmcareRun): string {
   ].join('\n')
 }
 
-const Section = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '10px 10px 4px', borderBottom: '1px solid #a0a0a0' }}>{children}</div>
-)
-
-function Radio({ id, name, label, checked, onChange }: { id: string; name: string; label: ReactNode; checked: boolean; onChange: () => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <label className="pb-check pb-check--radio">
-      <input type="radio" name={name} checked={checked} data-tutorial-id={host?.anchor('command', id)} onChange={() => { host?.report('command', { command: id }); onChange() }} />
-      <span className="pb-check__box"><span className="pb-check__dot" /></span>
-      <span className="pb-check__label">{label}</span>
-    </label>
-  )
-}
-
 export function AmcareScorecardView({ open, close }: { open: (id: string, args?: Record<string, unknown>) => boolean; close?: () => void }) {
-  const host = usePBInstrumentation()
   const [version, setVersion] = useState<1 | 2>(2)
   const [asOf, setAsOf] = useState('')
   const [all, setAll] = useState(true)
@@ -129,22 +115,14 @@ export function AmcareScorecardView({ open, close }: { open: (id: string, args?:
 
   const run = () => {
     const date = version === 1 && asOf ? asOf : MOIS_TODAY
-    const d = new Date()
     const r: AmcareRun = {
-      when: `${MOIS_TODAY} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      when: stageStamp(),
       version, allProviders: all, clinical, asOf: date, folder, file: `AMCARE_${date.replace(/\./g, '-')}.xml`,
     }
     runs = [r, ...runs]
     setCount(runs.length)
     open('print-preview', { title: 'AMCARE Scorecard', pages: scorecardPages(r) })
   }
-  const check = (id: string, label: string, checked: boolean, onChange: (v: boolean) => void) => (
-    <label className="pb-check">
-      <input type="checkbox" checked={checked} data-tutorial-id={host?.anchor('command', id)} onChange={(e) => { host?.report('command', { command: id }); onChange(e.target.checked) }} />
-      <span className="pb-check__box" />
-      <span className="pb-check__label">{label}</span>
-    </label>
-  )
 
   return (
     <>
@@ -155,12 +133,12 @@ export function AmcareScorecardView({ open, close }: { open: (id: string, args?:
         { label: 'Close Window', onClick: close },
       ]} />
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
-        <Section>Version</Section>
+        <ParamSection kind="open">Version</ParamSection>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 10px' }}>
-          <Radio id="amcare-version-1" name="amcare-version" label="Version 1" checked={version === 1} onChange={() => setVersion(1)} />
-          <Radio id="amcare-version-2" name="amcare-version" label="Version 2 (update 2014 - January)" checked={version === 2} onChange={() => setVersion(2)} />
+          <CmdRadio id="amcare-version-1" name="amcare-version" label="Version 1" checked={version === 1} onChange={() => setVersion(1)} />
+          <CmdRadio id="amcare-version-2" name="amcare-version" label="Version 2 (update 2014 - January)" checked={version === 2} onChange={() => setVersion(2)} />
         </div>
-        <Section>Filter Options</Section>
+        <ParamSection kind="open">Filter Options</ParamSection>
         <div className="pb-row" style={{ gap: 10, padding: '8px 10px' }}>
           <span style={{ width: 64, color: version === 1 ? undefined : '#8a8a8a' }}>As of Date:</span>
           <PBInput w={84} value={asOf} disabled={version !== 1} data-tutorial-id="host.mois.field.amcare-as-of-date" onChange={(e) => setAsOf(e.target.value)} />
@@ -168,13 +146,13 @@ export function AmcareScorecardView({ open, close }: { open: (id: string, args?:
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '74px 1fr', rowGap: 10, padding: '4px 10px 8px' }}>
           <span>Provider:</span>
-          <Radio id="amcare-provider-current-desktop" name="amcare-provider" label="Current Desktop" checked={!all} onChange={() => setAll(false)} />
+          <CmdRadio id="amcare-provider-current-desktop" name="amcare-provider" label="Current Desktop" checked={!all} onChange={() => setAll(false)} />
           <span />
-          <Radio id="amcare-provider-all-providers" name="amcare-provider" label="ALL Providers" checked={all} onChange={() => setAll(true)} />
+          <CmdRadio id="amcare-provider-all-providers" name="amcare-provider" label="ALL Providers" checked={all} onChange={() => setAll(true)} />
         </div>
-        <Section>Additional Items:</Section>
-        <div style={{ padding: '8px 10px' }}>{check('amcare-clinical-value-items', 'Clinical Value Items', clinical, setClinical)}</div>
-        <Section>Output:</Section>
+        <ParamSection kind="open">Additional Items:</ParamSection>
+        <div style={{ padding: '8px 10px' }}><CmdCheck id="amcare-clinical-value-items" label="Clinical Value Items" checked={clinical} onChange={setClinical} /></div>
+        <ParamSection kind="open">Output:</ParamSection>
         <div className="pb-row" style={{ gap: 10, padding: '8px 10px' }}>
           <span style={{ width: 64 }}>Folder:</span>
           <PBInput w={486} value={folder} data-tutorial-id="host.mois.field.amcare-folder" onChange={(e) => setFolder(e.target.value)} />
@@ -217,11 +195,11 @@ function PreviousScorecardsWindow({ close, open }: AreaWindowProps) {
           ]}
         />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, padding: '4px 0 10px', flex: 'none' }}>
+      <DialogFooter plain gap={12} padding="4px 0 10px">
         <DialogButton id="amcare-open-report" width={96} isDefault onClick={() => r && open('print-preview', { title: 'AMCARE Scorecard', pages: scorecardPages(r) })}>Open Report</DialogButton>
         <DialogButton id="amcare-open-xml" width={96} onClick={() => r && open('amcare-xml', { run: runs.indexOf(r) })}>Open XML</DialogButton>
         <DialogButton id="amcare-close" width={75} onClick={close}>Close</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -236,9 +214,9 @@ function AmcareXmlWindow({ args, close, open }: AreaWindowProps) {
         <PBTextArea readOnly w="100%" rows={24} value={r ? scorecardXml(r) : ''} data-tutorial-id="host.mois.field.amcare-xml"
           style={{ fontFamily: '"Courier New", monospace', fontSize: 12, flex: '1 1 auto', whiteSpace: 'pre' }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px', flex: 'none' }}>
+      <DialogFooter plain padding="4px 0 10px">
         <DialogButton id="amcare-xml-close" width={75} isDefault onClick={close}>Close</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

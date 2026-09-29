@@ -4,12 +4,17 @@ import {
 } from '../pb'
 import { clinicListSpec, clinicRowsKey, type ClinicRow } from '../data/clinicManagement'
 import { MOIS_TODAY } from '../data/patients'
+import { SESSION_USER } from '../data/session'
+import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { useStoredList } from './adminSession'
 import { ButtonBand, CentredFooter, Cmd, Line, PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
 import { ProviderTab } from './ClinicEditorWindows'
 import { DemographicModal } from './DemographicDialogs'
+import { CaptionGroup } from './formKit'
+import { toggled, useTickSet } from './listKit'
+import { GRID_BOX, MOIS_SEARCH_TITLE, MoisSearchWindow } from './lookupKit'
 import { AliasIdGrid, InboxForwardingGrid, SharingWorkspaceGrid, userNames } from './ProviderTabGrids'
 import { StageMessageBox } from './StageWindow'
 
@@ -122,7 +127,6 @@ export const ORG_WINDOWS = ['new-org-role-profile', 'new-organization-profile', 
 
 type Kind = 'org-role' | 'organization'
 const nodeOf = (kind: Kind) => (kind === 'org-role' ? 'ad-org-role-list' : 'ad-org-list')
-const S = (v: unknown) => (v == null ? '' : String(v))
 /** Category is a DDDW of Category · Description, empty on the TRAINING
     site (13:32 capture) */
 const CATEGORIES: { category: string; description: string }[] = []
@@ -211,16 +215,6 @@ type Draft = Record<string, string | boolean | undefined>
 /* the read-only Name: the header's blue shows through it (12:54 capture) */
 const IDENT: CSSProperties = { background: 'rgba(255,255,255,0.2)', fontWeight: 700 }
 
-/** a block of a tab: bold navy caption inside a light outline */
-function Group({ title, children, style }: { title: ReactNode; children: ReactNode; style?: CSSProperties }) {
-  return (
-    <div style={{ border: '1px solid #d4d4d4', padding: '4px 10px 8px', minWidth: 0, ...style }}>
-      <div style={{ color: '#000080', fontWeight: 700, padding: '0 0 6px' }}>{title}</div>
-      {children}
-    </div>
-  )
-}
-
 export type Member = {
   name: string
   type: 'ORG ROLE' | 'PROVIDER' | 'USER'
@@ -240,11 +234,11 @@ const ORG_ROLE_MEMBERS_INDEX = 'admin:org-role-members-index'
    every one with all three Workspace Items, from 2026-09-29 */
 const seeded = (name: string, type: Member['type']): Member => ({ name, type, basket: true, taskList: true, messageBoard: true, start: '2026.09.29', end: '', note: '' })
 const SEED_ROLE_MEMBERS: Record<string, Member[]> = {
-  'PAAC 1 ADMIN 1 PRG': [seeded('JALIL, AHMAD', 'USER')],
-  'PAAC 1 NURSE 1 PRG': [seeded('JALIL, AHMAD', 'USER')],
+  'PAAC 1 ADMIN 1 PRG': [seeded(SESSION_USER, 'USER')],
+  'PAAC 1 NURSE 1 PRG': [seeded(SESSION_USER, 'USER')],
 }
 const SEED_MEMBERS: Record<string, Member[]> = {
-  [membersKey('organization', 'PAAC 1 PRG')]: [seeded('PAAC 1 ADMIN 1 PRG', 'ORG ROLE'), seeded('PAAC 1 NURSE 1 PRG', 'ORG ROLE'), seeded('JALIL, AHMAD', 'USER')],
+  [membersKey('organization', 'PAAC 1 PRG')]: [seeded('PAAC 1 ADMIN 1 PRG', 'ORG ROLE'), seeded('PAAC 1 NURSE 1 PRG', 'ORG ROLE'), seeded(SESSION_USER, 'USER')],
   ...Object.fromEntries(Object.entries(SEED_ROLE_MEMBERS).map(([role, list]) => [membersKey('org-role', role), list])),
 }
 
@@ -371,7 +365,7 @@ function ChangeOrgName({ kind, draft, onSave, onClose }: { kind: Kind; draft: Dr
 /** "Alias ID's for" / "Workspace for": ORGROLE / ORGANIZATION and Date Assigned (`8a5a7a17…`, `17f173e2…`). */
 function Assigned({ title, kind, draft }: { title: string; kind: Kind; draft: Draft }) {
   return (
-    <Group title={title}>
+    <CaptionGroup title={title}>
       <div className="pb-row" style={{ gap: 8 }}>
         <span style={{ width: 100 }}>{kind === 'org-role' ? 'ORGROLE:' : 'ORGANIZATION:'}</span>
         <PBInput w={260} readOnly value={S(draft.name)} style={{ background: '#e8e8e8' }} />
@@ -379,7 +373,7 @@ function Assigned({ title, kind, draft }: { title: string; kind: Kind; draft: Dr
         <span>Date Assigned:</span>
         <PBInput w={74} readOnly align="center" value={S(draft.assigned)} style={{ background: '#e8e8e8' }} />
       </div>
-    </Group>
+    </CaptionGroup>
   )
 }
 
@@ -393,7 +387,7 @@ function OrgGeneral({ draft, set }: { draft: Draft; set: (patch: Draft) => void 
   const hint = { color: '#808080' }
   return (
     <>
-      <Group title="Status">
+      <CaptionGroup title="Status">
         <Line label="Active:">
           <PBCheckbox label="Yes" checked={draft.activeYes !== false} onChange={(v) => set({ activeYes: v })} tutorialId="host.mois.field.active" />
           <span style={{ width: 24 }} />
@@ -404,8 +398,8 @@ function OrgGeneral({ draft, set }: { draft: Draft; set: (patch: Draft) => void 
           <PBInput w={74} value={S(draft.serviceEnd) || '0000.00.00'} onChange={(e) => set({ serviceEnd: e.target.value === '0000.00.00' ? '' : e.target.value })} data-tutorial-id="host.mois.field.service-end" />
         </Line>
         <Line label="Agreement:">{text('Agreement', 'agreement', 74)}<span style={hint}>(service agreement accepted date)</span></Line>
-      </Group>
-      <Group title="Correspondence Information">
+      </CaptionGroup>
+      <CaptionGroup title="Correspondence Information">
         <div style={{ ...hint, paddingBottom: 4 }}>The following information is used throughout MOIS to personalize report output, Rx printouts, Letter Templates, Fillable PDF forms and so on.</div>
         {[1, 2, 3, 4, 5].map((n) => (
           <Line key={n} label={n === 1 ? 'Letterhead:' : ''}>{text(`Letterhead ${n}`, `letterhead${n}`, 264)}<span style={hint}>(letterhead {n})</span></Line>
@@ -417,7 +411,7 @@ function OrgGeneral({ draft, set }: { draft: Draft; set: (patch: Draft) => void 
         <Line label="Fax 1:">{text('Fax 1', 'fax1', 96, 'center')}</Line>
         <div style={{ ...hint, padding: '4px 0' }}>Primary Location is used to inform Labs or other testing facilities of this provider&apos;s primary location when it is different from the current clinic.</div>
         <Line label="Primary Location:">{text('Primary Location', 'primaryLocation', 264)}</Line>
-      </Group>
+      </CaptionGroup>
     </>
   )
 }
@@ -431,7 +425,7 @@ function OrgWorkspace({ kind, owner, draft, set }: { kind: Kind; owner: string; 
   return (
     <>
       <Assigned title="Workspace for" kind={kind} draft={draft} />
-      <Group title="Available Features">
+      <CaptionGroup title="Available Features">
         <div className="pb-row" style={{ alignItems: 'flex-start', gap: 40 }}>
           <div>
             {tick('Basket', 'basket', '(for acknowledging clinical documents)')}
@@ -443,7 +437,7 @@ function OrgWorkspace({ kind, owner, draft, set }: { kind: Kind; owner: string; 
             <div style={{ color: '#808080', paddingLeft: 126 }}>(for the blended workspace initials column)</div>
           </div>
         </div>
-      </Group>
+      </CaptionGroup>
       <div style={{ flex: '1 1 auto', minHeight: 200, display: 'flex', flexDirection: 'column' }}>
         <PBTabs tabs={['Inbox Forwarding', 'Sharing Workspace With']} active={sub} onChange={setSub} compact face>
           {sub === 'Inbox Forwarding' ? <InboxForwardingGrid key="f" owner={`${kind}:${owner}`} /> : <SharingWorkspaceGrid key="s" owner={`${kind}:${owner}`} />}
@@ -468,7 +462,7 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
 }) {
   const host = usePBInstrumentation()
   const [show, setShow] = useState<'Active' | 'Inactive' | 'All'>('Active')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const collapsed = useTickSet<string>()
   const [cur, setCur] = useState(0)
   const [adding, setAdding] = useState<Member['type'] | null>(null)
   const [editing, setEditing] = useState<{ index: number; member: Member } | null>(null)
@@ -507,8 +501,8 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
           <Cmd id="member-delete" w={88} disabled={!row || Boolean(row.inherits)} onClick={() => { if (row && !row.inherits) { setMembers((all) => all.filter((_, j) => j !== row.index)); setCur(0) } }}>Delete</Cmd>
         </div>
         <div className="pb-row" style={{ padding: '3px 12px', background: 'linear-gradient(#e6f3fc, #c6e3f7)', borderTop: '1px solid #9ab', flex: 'none' }}>
-          {link('expand-all', 'Expand All', () => setCollapsed(new Set()))}
-          {link('collapse-all', 'Collapse All', () => setCollapsed(new Set(BANDS)))}
+          {link('expand-all', 'Expand All', () => collapsed.clear())}
+          {link('collapse-all', 'Collapse All', () => collapsed.selectAll(BANDS))}
           {link('member-refresh', 'Refresh', () => setCur(0))}
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
@@ -518,17 +512,17 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
             current={at}
             onCurrent={setCur}
             onActivate={(r) => { if (!r.inherits) setEditing({ index: r.index, member: members[r.index]! }) }}
-            collapsed={collapsed}
-            onCollapsed={setCollapsed}
+            collapsed={collapsed.ticked}
+            onCollapsed={collapsed.setTicked}
           />
         </div>
       </div>
-      <Group title="Membership Settings">
+      <CaptionGroup title="Membership Settings">
         <div className="pb-row" style={{ gap: 90 }}>
           <PBCheckbox label="Allow workspace blending amongst active members" checked={Boolean(draft.blending)} onChange={(v) => set({ blending: v })} tutorialId="host.mois.field.allow-blending" />
           <PBCheckbox label="Allow temporary memberships" checked={Boolean(draft.temporary)} onChange={(v) => set({ temporary: v })} tutorialId="host.mois.field.allow-temporary" />
         </div>
-      </Group>
+      </CaptionGroup>
       {adding && (
         <MemberSearchWindow
           type={adding}
@@ -577,11 +571,7 @@ function MemberGrid({ rows, bands, current, onCurrent, onActivate, collapsed, on
   const cell = (key: typeof MEMBER_COLS[number]['key'], children: ReactNode, style?: CSSProperties) => (
     <span style={{ position: 'absolute', left: x(key), width: MEMBER_COLS.find((c) => c.key === key)!.w, textAlign: 'center', whiteSpace: 'nowrap', ...style }}>{children}</span>
   )
-  const toggle = (band: string) => {
-    const next = new Set(collapsed)
-    if (next.has(band)) next.delete(band); else next.add(band)
-    onCollapsed(next)
-  }
+  const toggle = (band: string) => onCollapsed(toggled(collapsed, band))
   const wsLeft = x('basket')
   const wsWidth = x('start') - wsLeft
   return (
@@ -640,27 +630,31 @@ function MemberSearchWindow({ type, onPick, onClose }: { type: Member['type']; o
   const at = Math.min(cur, Math.max(0, rows.length - 1))
   const row = rows[at]
   return (
-    <DemographicModal title="MOIS - Search Window" width={620} height={520} onClose={onClose} dialog="member-search">
-      <div style={{ padding: '6px 10px', background: 'linear-gradient(#e6effb, #d2e1f5)', flex: 'none' }}>
-        Search for:
-        <Line label="Name:" w={60}><PBInput w={260} value={name} onChange={(e) => { setName(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.member-search-name" /></Line>
-      </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '4px 8px', border: '1px solid #8a8a8a', background: '#fff' }}>
-        <PBDataWindow
-          rows={rows}
-          current={at}
-          onCurrentChange={setCur}
-          onActivate={(r) => onPick(r.name, r.user)}
-          rowTutorialId={(r) => `host.mois.row.member-search-${pbSlug(r.name)}`}
-          empty="Nothing matches."
-          columns={[{ key: 'name', header: 'Name', width: 330, headAlign: 'left' }, { key: 'kind', header: 'Type', width: 150, headAlign: 'left' }]}
-        />
-      </div>
-      <CentredFooter>
-        <Cmd id="member-search-ok" w={74} disabled={!row} onClick={() => row && onPick(row.name, row.user)}>Ok</Cmd>
-        <Cmd id="member-search-cancel" w={74} onClick={onClose}>Cancel</Cmd>
-      </CentredFooter>
-    </DemographicModal>
+    <MoisSearchWindow
+      frame={(content, footer) => (
+        <DemographicModal title={MOIS_SEARCH_TITLE} width={620} height={520} onClose={onClose} dialog="member-search">{content}{footer}</DemographicModal>
+      )}
+      criteria={{
+        layout: 'name',
+        fields: [{ label: 'Name:', value: name, onChange: (v) => { setName(v); setCur(0) }, anchor: 'host.mois.field.member-search-name' }],
+      }}
+      gridBox={{ ...GRID_BOX, margin: '4px 8px', border: '1px solid #8a8a8a', background: '#fff' }}
+      grid={{
+        rows,
+        current: at,
+        onCurrentChange: setCur,
+        onActivate: (r) => onPick(r.name, r.user),
+        rowTutorialId: (r) => `host.mois.row.member-search-${pbSlug(r.name)}`,
+        empty: 'Nothing matches.',
+        columns: [{ key: 'name', header: 'Name', width: 330, headAlign: 'left' }, { key: 'kind', header: 'Type', width: 150, headAlign: 'left' }],
+      }}
+      footer={(
+        <CentredFooter>
+          <Cmd id="member-search-ok" w={74} disabled={!row} onClick={() => row && onPick(row.name, row.user)}>Ok</Cmd>
+          <Cmd id="member-search-cancel" w={74} onClick={onClose}>Cancel</Cmd>
+        </CentredFooter>
+      )}
+    />
   )
 }
 
@@ -675,7 +669,7 @@ function ProviderTeamMember({ member, onSave, onClose }: { member: Member; onSav
         <Line label="User:" w={70}><PBInput w={354} readOnly value={m.type === 'ORG ROLE' ? '' : m.user ?? (m.type === 'USER' ? m.name : '')} style={{ background: '#e8e8e8' }} /></Line>
       </div>
       <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 auto' }}>
-        <Group title="Membership">
+        <CaptionGroup title="Membership">
           <div className="pb-row" style={{ alignItems: 'flex-start', gap: 60 }}>
             <div>
               <Line label="Start Date:" w={80}><PBInput w={82} value={m.start} onChange={(e) => set({ start: e.target.value })} data-tutorial-id="host.mois.field.member-start-date" /></Line>
@@ -683,12 +677,12 @@ function ProviderTeamMember({ member, onSave, onClose }: { member: Member; onSav
             </div>
             <Line label="Note:" w={30} style={{ alignItems: 'flex-start' }}><PBTextArea rows={2} w={260} value={m.note} onChange={(e) => set({ note: e.target.value })} data-tutorial-id="host.mois.field.member-note" /></Line>
           </div>
-        </Group>
-        <Group title="Workspace Access">
+        </CaptionGroup>
+        <CaptionGroup title="Workspace Access">
           <div><PBCheckbox label="Access to Workspace Basket for reviewing and acknowledge clinical records on behalf of the role / organization" checked={m.basket} onChange={(v) => set({ basket: v })} tutorialId="host.mois.field.member-basket" /></div>
           <div><PBCheckbox label="Access to Workspace Task List for reviewing and acknowledge items on behalf of the role / organization" checked={m.taskList} onChange={(v) => set({ taskList: v })} tutorialId="host.mois.field.member-task-list" /></div>
           <div><PBCheckbox label="Access to Workspace Message Board for reviewing and acknowledge items on behalf of the role / organization" checked={m.messageBoard} onChange={(v) => set({ messageBoard: v })} tutorialId="host.mois.field.member-message-board" /></div>
-        </Group>
+        </CaptionGroup>
       </div>
       <CentredFooter>
         <Cmd id="member-save" w={88} onClick={() => m.start.trim() && onSave(m)}>Save</Cmd>
@@ -825,23 +819,23 @@ function EventSubscriber({ initial, subscriber, onReselect, onSave, onClose }: {
     <DemographicModal title="Event Subscriber" width={490} height={430} onClose={onClose} dialog="event-subscriber">
       <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8, background: '#fff', flex: '1 1 auto' }}>
         <div>Please notify the selected subscriber when the following event occurs:<br /><b>{s.event}</b></div>
-        <Group title="Subscriber">
+        <CaptionGroup title="Subscriber">
           <div className="pb-row" style={{ gap: 20 }}>
             <PBInput w={300} readOnly value={s.subscriber} style={{ background: '#e8e8e8' }} data-tutorial-id="host.mois.field.subscriber" />
             <Cmd id="subscriber-select" w={78} onClick={onReselect}>Select...</Cmd>
           </div>
-        </Group>
-        <Group title="Duration">
+        </CaptionGroup>
+        <CaptionGroup title="Duration">
           <div className="pb-row" style={{ gap: 6 }}>
             Start:<PBInput w={90} value={s.start} onChange={(e) => set({ start: e.target.value })} data-tutorial-id="host.mois.field.subscriber-start" />
             <span style={{ width: 30 }} />Stop:<PBInput w={90} value={s.end} placeholder="0000.00.00" onChange={(e) => set({ end: e.target.value })} data-tutorial-id="host.mois.field.subscriber-stop" />
             <span style={{ color: '#808080' }}>(optional)</span>
           </div>
-        </Group>
-        <Group title="Notification">
+        </CaptionGroup>
+        <CaptionGroup title="Notification">
           <Line label="Method:" w={56}><PBSelect w={280} options={['MOIS Message', 'MOIS Task']} value={s.method} onChange={(e) => set({ method: e.target.value })} data-tutorial-id="host.mois.field.notification-method" /></Line>
           <Line label="Priority:" w={56}><PBSelect w={280} options={['Low', 'Medium', 'High', 'V. High']} value={s.priority} onChange={(e) => set({ priority: e.target.value })} data-tutorial-id="host.mois.field.notification-priority" /></Line>
-        </Group>
+        </CaptionGroup>
       </div>
       <CentredFooter>
         <Cmd id="subscriber-save" w={80} onClick={() => s.subscriber && onSave(s)}>Save</Cmd>

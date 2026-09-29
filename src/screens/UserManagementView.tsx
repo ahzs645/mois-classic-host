@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput,
+  PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput,
   PBTextArea, PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { MOIS_TODAY } from '../data/patients'
@@ -10,7 +10,9 @@ import {
   userListSpec,
   type PolicyField, type UserColumn, type UserListSpec, type UserRow,
 } from '../data/userManagement'
-import { BandButtons, UM_CSS, umColumns } from './UserManagementKit'
+import { BandButtons, UMField, UM_CSS, umColumns } from './UserManagementKit'
+import { DialogFooter, SectionCaption, footerButtons } from './formKit'
+import { useColumnFilters } from './listKit'
 import { NewUserDialog, UserAccountWindow, newUserDisplayName, type NewUserDraft } from './UserAccountWindow'
 import { SecurityProfileWindow } from './SecurityProfileWindow'
 import { useScreenReport } from '../host/screen-state'
@@ -112,17 +114,16 @@ function BandedHead({ column }: { column: UserColumn }) {
 
 function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => void }) {
   const [cur, setCur] = useState(0)
-  const [filter, setFilter] = useState<Record<string, string>>({})
   const [newOpen, setNewOpen] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
   const [added, setAdded] = useState<UserRow[]>([])
 
   const all = useMemo(() => [...spec.rows, ...added], [spec.rows, added])
-  const rows = all.filter((r) => spec.columns.every((c) => {
-    const term = filter[c.key]?.trim().toLowerCase()
-    if (!term) return true
-    return String(r[c.key] ?? '').toLowerCase().includes(term)
-  }))
+  const filter = useColumnFilters(all, spec.columns.map((c, i) => {
+    const box = spec.filter?.find((b) => b.col === i)
+    return box ? { key: c.key, w: box.w, anchor: `filter-${pbSlug(c.key)}` } : null
+  }), { match: 'lower-trim', onChange: () => setCur(0) })
+  const rows = filter.shown
 
   const columns = umColumns(spec.columns)
   /* the banded two-row header is the User Accounts grid's alone */
@@ -153,22 +154,7 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
     }
   }
 
-  const filters = spec.filter
-    ? spec.columns.map((c, i) => {
-      const box = spec.filter!.find((b) => b.col === i)
-      return box
-        ? (
-          <PBInput
-            key={c.key}
-            w={box.w}
-            value={filter[c.key] ?? ''}
-            onChange={(e) => { setFilter({ ...filter, [c.key]: e.target.value }); setCur(0) }}
-            data-tutorial-id={`host.mois.field.filter-${pbSlug(c.key)}`}
-          />
-        )
-        : null
-    })
-    : undefined
+  const filters = spec.filter ? filter.filterRow : undefined
 
   const openEditor = (row: UserRow) => setEditing(row)
   const current = cur < rows.length ? cur : 0
@@ -384,23 +370,7 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
             />
           </div>
 
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {d.footer.map((b) => (
-              <PBButton
-                key={b}
-                wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => {
-                  host?.report('command', { command: pbSlug(b) })
-                  onClose()
-                }}
-              >
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(d.footer, { wide: true, onPress: onClose })} />
         </PBWindow>
       </div>
     </div>
@@ -441,9 +411,8 @@ function PasswordPolicyView({ onClose }: { onClose?: () => void }) {
    reused every: N times", "Force passwords to expire", "Days before password
    expires"; footer Apply Changes / Cancel. */
 function PasswordPolicyDialog({ onClose }: { onClose: () => void }) {
-  const host = usePBInstrumentation()
   useScreenReport({ dialog: 'password-policy' })
-  const head = (text: string) => <div style={{ color: '#000080', fontWeight: 700, padding: '6px 6px 4px', borderBottom: '1px solid #b0b0b0' }}>{text}</div>
+  const head = (text: string) => <SectionCaption padding="6px 6px 4px" rule="#b0b0b0">{text}</SectionCaption>
   const tick = (label: string) => <div style={{ padding: '2px 0 2px 118px' }}><PBCheckbox label={label} /></div>
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 70 }}>
@@ -469,13 +438,7 @@ function PasswordPolicyDialog({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </div>
-        <div className="pb-footer">
-          <span className="pb-footer__spacer" />
-          {['Apply Changes', 'Cancel'].map((b) => (
-            <PBButton key={b} wide data-tutorial-id={host?.anchor('command', pbSlug(b))} onClick={() => { host?.report('command', { command: pbSlug(b) }); onClose() }}>{b}</PBButton>
-          ))}
-          <span className="pb-footer__spacer" />
-        </div>
+        <DialogFooter frame="pb" buttons={footerButtons(['Apply Changes', 'Cancel'], { wide: true, onPress: onClose })} />
       </PBWindow>
     </div>
   )
@@ -491,15 +454,13 @@ function PolicyControl({ field }: { field: PolicyField }) {
   }
   if (field.kind === 'labelled-check') {
     return (
-      <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-        <span className="pb-form__label" style={{ minWidth: 220 }}>{field.label}</span>
+      <UMField label={field.label} w={220}>
         <PBCheckbox label={field.check} checked={field.checked} tutorialId={`host.mois.field.${pbSlug(field.label)}`} />
-      </div>
+      </UMField>
     )
   }
   return (
-    <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-      <span className="pb-form__label" style={{ minWidth: 220 }}>{field.label}</span>
+    <UMField label={field.label} w={220}>
       {/* no capture reads the alignment inside these edits, so they keep the
           kit's default rather than being asserted centred or right */}
       <PBInput
@@ -507,6 +468,6 @@ function PolicyControl({ field }: { field: PolicyField }) {
         defaultValue={field.value}
         data-tutorial-id={`host.mois.field.${pbSlug(field.label)}`}
       />
-    </div>
+    </UMField>
   )
 }

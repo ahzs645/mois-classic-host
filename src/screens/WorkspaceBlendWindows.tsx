@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { daysFromToday } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { CURRENT_USER } from '../data/tasks'
 import { useWorkspaceExtras, workspaceExtras, type Workgroup } from '../data/workspaceExtras'
@@ -6,6 +7,7 @@ import { useWorkspaceStore, workspaceStore, type WorkspaceBlend } from '../data/
 import { useScreenReport } from '../host/screen-state'
 import { PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { toggled, useTickSet } from './listKit'
 import { DialogButton, FormBand, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 import { RaisedMessageBox } from './RaisedMessageBox'
 
@@ -180,7 +182,7 @@ function ChangeWorkspaceDialog({ args, close }: AreaWindowProps) {
     if (!w) return
     if (choice === 'modify') { setEditing(w); setStage('workgroup'); return }
     workspaceExtras.deleteWorkgroup(w.name)
-    setPicked((s) => { const n = new Set(s); n.delete(w.name); return n })
+    setPicked((s) => toggled(s, w.name, false))
     setStage('')
   }
 
@@ -298,7 +300,7 @@ function ChangeWorkspaceDialog({ args, close }: AreaWindowProps) {
    ------------------------------------------------------------------------ */
 function WorkgroupEditor({ initial, onSave, onClose }: { initial: Workgroup; onSave: (w: Workgroup) => void; onClose: () => void }) {
   const [name, setName] = useState(initial.name)
-  const [users, setUsers] = useState<Set<string>>(() => new Set(initial.users))
+  const users = useTickSet<string>(() => initial.users)
   const [cur, setCur] = useState(0)
   const [refused, setRefused] = useState(false)
   const rows = SHARING_RULES.filter((r) => !expired(r))
@@ -326,7 +328,7 @@ function WorkgroupEditor({ initial, onSave, onClose }: { initial: Workgroup; onS
                     <PBCheckbox
                       checked={users.has(u.name)}
                       tutorialId={`host.mois.cell.wg-user-${lastSlug(u.name)}`}
-                      onChange={(on) => setUsers((s) => { const n = new Set(s); on ? n.add(u.name) : n.delete(u.name); return n })}
+                      onChange={(on) => users.set(u.name, on)}
                     />
                   ),
                 },
@@ -338,7 +340,7 @@ function WorkgroupEditor({ initial, onSave, onClose }: { initial: Workgroup; onS
           </div>
         </div>
         <div className="pb-row" style={{ gap: 6, padding: '12px', justifyContent: 'flex-end', flex: 'none' }}>
-          <DialogButton id="workgroup-continue" onClick={() => { if (!name.trim() || !users.size) setRefused(true); else onSave({ name: name.trim().toUpperCase(), users: [...users] }) }} isDefault>Continue</DialogButton>
+          <DialogButton id="workgroup-continue" onClick={() => { if (!name.trim() || !users.size) setRefused(true); else onSave({ name: name.trim().toUpperCase(), users: [...users.ticked] }) }} isDefault>Continue</DialogButton>
           <DialogButton id="workgroup-cancel" onClick={onClose}>Cancel</DialogButton>
         </div>
       </WorkspaceDialogFrame>
@@ -356,11 +358,6 @@ function WorkgroupEditor({ initial, onSave, onClose }: { initial: Workgroup; onS
    ------------------------------------------------------------------------ */
 const REASONS = ['', 'COVER SHIFT', 'LOCUM', 'OTHER']
 const DURATIONS = ['Today', 'Today+Tomorrow', 'For a week'] as const
-const plusDays = (stamp: string, n: number) => {
-  const [y, m, d] = stamp.split('.').map(Number) as [number, number, number]
-  const t = new Date(Date.UTC(y, m - 1, d + n))
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
 
 let pendingOrg = ''
 
@@ -374,7 +371,7 @@ function TemporaryMembership({ choosing, onChoose, onChosen, onSave, onClose }: 
   const [refused, setRefused] = useState(false)
   const save = () => {
     if (!org || !reason) { setRefused(true); return }
-    const until = duration === 'Today' ? MOIS_TODAY : duration === 'Today+Tomorrow' ? plusDays(MOIS_TODAY, 1) : plusDays(MOIS_TODAY, 6)
+    const until = duration === 'Today' ? MOIS_TODAY : duration === 'Today+Tomorrow' ? daysFromToday(1) : daysFromToday(6)
     workspaceExtras.addMembership({ org, reason, until, access: ALL })
     pendingOrg = ''
     onSave()

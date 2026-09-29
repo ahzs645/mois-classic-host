@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { deleteQuickEntryTemplate, quickEntryRow, useQuickEntryTemplates } from '../data/quickEntryTemplates'
 import { useScreenReport } from '../host/screen-state'
-import { PBCommandRow, PBDataWindow, PBInput, PBMessageBox, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
+import { PBCommandRow, PBDataWindow, PBMessageBox, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { useColumnFilters } from './listKit'
 
 /* ============================================================================
    Administration ▸ Designer Section ▸ Quick Entry — the Quick Entry List.
@@ -27,13 +28,13 @@ export function QuickEntryListView({ onClose }: { onClose?: () => void }) {
   const host = usePBInstrumentation()
   const open = useOpenWindow()
   const templates = useQuickEntryTemplates()
-  const [groupFilter, setGroupFilter] = useState('')
-  const [nameFilter, setNameFilter] = useState('')
   const [cur, setCur] = useState(0)
   const [confirm, setConfirm] = useState(false)
-  const shown = useMemo(() => templates.filter((t) =>
-    t.group.toLowerCase().includes(groupFilter.trim().toLowerCase())
-    && t.name.toLowerCase().includes(nameFilter.trim().toLowerCase())), [templates, groupFilter, nameFilter])
+  const { shown, filterRow } = useColumnFilters(templates, [
+    { key: 'group', anchor: 'filter-template-group' },
+    { key: 'name', anchor: 'filter-name' },
+    null,
+  ], { match: 'lower-trim', onChange: () => setCur(0) })
   const current = shown[Math.min(cur, shown.length - 1)]
   useScreenReport({ rows: templates.length, row: current ? pbSlug(current.name) : null })
 
@@ -81,13 +82,7 @@ export function QuickEntryListView({ onClose }: { onClose?: () => void }) {
             { key: 'name', header: 'Name', width: 508 },
             { key: 'description', header: 'Description' },
           ]}
-          filters={[
-            <PBInput key="group" value={groupFilter} data-tutorial-id="host.mois.field.filter-template-group"
-              onChange={(e) => { setGroupFilter(e.target.value); setCur(0) }} />,
-            <PBInput key="name" value={nameFilter} data-tutorial-id="host.mois.field.filter-name"
-              onChange={(e) => { setNameFilter(e.target.value); setCur(0) }} />,
-            null,
-          ]}
+          filters={filterRow}
           empty="No Quick Entry templates."
         />
       </div>

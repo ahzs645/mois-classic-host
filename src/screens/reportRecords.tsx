@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { MoisRecord } from '../data/charts'
 import { useFolderReviews } from '../data/folder-reviews'
 import { usePatient } from '../data/patient-context'
@@ -12,6 +12,7 @@ import { SESSION_USER } from '../data/chartSession'
 import { ADVERSE_WINDOWS } from './AdverseEventWindows'
 import { useOpenWindow } from './areaWindowRegistry'
 import { applyQuickEntry, type QuickEntryApplied } from './quickEntryApply'
+import { useDraftRecords } from './listKit'
 
 /* ============================================================================
    New Record / Delete Record / Save / Undo on the ClinicalReportView folders.
@@ -53,6 +54,7 @@ export const RECORD_FOLDERS = new Set(['allergy', 'reaction', 'events', 'conditi
 
 type Row = Record<string, string>
 type Session = { added: Row[]; removed: string[] }
+type Listed = { row: Row; record: MoisRecord | undefined }
 
 /** a row's identity across renders: the export id when it has one */
 const rowKey = (r: Row, i: number) => r.__key ?? `export-${i}`
@@ -81,9 +83,6 @@ export function useReportRecords({
   const [reviews] = useFolderReviews(node)
   const [session, setSession] = useSessionState<Session>(`report:${chart}:${node}`, { added: [], removed: [] })
   const allergy = useAllergySession(chart)
-  const [draft, setDraft] = useState<Row | null>(null)
-  const [pendingRemove, setPendingRemove] = useState<string | null>(null)
-  const [record, setRecord] = useState('')
 
   /* the export's rows, then any practice record this folder carries (see
      data/practiceRecords.ts), keyed so a removal survives re-ordering */
@@ -94,41 +93,41 @@ export function useReportRecords({
     ...seeded.map((s, i) => ({ row: { ...s.row, __key: `practice-${i}` }, record: s.record })),
     ...rows.map((r, i) => ({ row: { ...r, __key: rowKey(r, i) }, record: records[i] })),
   ], [rows, records, seeded, stored])
-
-  const list = useMemo(() => {
-    if (!active) return base
-    const kept = [...session.added.map((r) => ({ row: r, record: undefined as MoisRecord | undefined })), ...base]
-      .filter((x) => !session.removed.includes(x.row.__key!) && x.row.__key !== pendingRemove)
-    return draft ? [{ row: draft, record: undefined as MoisRecord | undefined }, ...kept] : kept
-  }, [active, base, session, draft, pendingRemove])
-
-  const dirty = !!draft || !!pendingRemove
-  useScreenReport(active ? { draft: dirty, record, rows: list.length } : {})
+  /* what is filed: the rows saved here on top, less the rows deleted */
+  const filed = useMemo(() => (!active ? base : [...session.added.map((r) => ({ row: r, record: undefined as MoisRecord | undefined })), ...base]
+    .filter((x) => !session.removed.includes(x.row.__key!))), [active, base, session])
 
   const blank = (): Row => {
     const dateKey = columns.find((c) => DATE_HEADERS.test(c.header))?.key
     return { __key: `new-${Date.now()}`, ...(dateKey ? { [dateKey]: MOIS_TODAY } : {}), m: '', clip: '-' }
   }
 
-  const act = {
-    newRecord: () => {
-      if (newWindow) { win.open(newWindow); return }
-      setDraft(blank()); setCur(0); setRecord('')
-    },
-    deleteRecord: () => {
-      const current = list[cur]
-      if (!current) return
-      if (current.row === draft) { setDraft(null); return }
-      setPendingRemove(current.row.__key!)
-      setRecord('')
-    },
-    save: () => {
-      if (draft) setSession((s) => ({ ...s, added: [draft, ...s.added] }))
+  const d = useDraftRecords<Listed>({
+    base: filed,
+    keyOf: (x) => x.row.__key!,
+    cur,
+    setCur,
+    active,
+    blank: () => ({ row: blank(), record: undefined }),
+    singleRemove: true,
+    clamp: false,
+    deleteMoves: 'none',
+    /* Save and Undo are never greyed: every capture paints them enabled with
+       nothing edited (see DIS in data/reportScreens.tsx) */
+    wire: ['New Record', 'Delete Record', 'Save', 'Undo'],
+    commit: ({ drafts, removed }) => {
+      const draft = drafts[0]
+      const pendingRemove = removed[0]
+      if (draft) setSession((s) => ({ ...s, added: [draft.row, ...s.added] }))
       if (pendingRemove) setSession((s) => ({ ...s, removed: [...s.removed, pendingRemove] }))
-      setRecord(pendingRemove && !draft ? 'deleted' : 'saved')
-      setDraft(null); setPendingRemove(null)
+      return pendingRemove && !draft ? 'deleted' : 'saved'
     },
-    undo: () => { setDraft(null); setPendingRemove(null); setRecord('') },
+  })
+  const { list, status: record, setStatus: setRecord } = d
+
+  useScreenReport(active ? { draft: d.dirty, record, rows: list.length } : {})
+
+  const act = {
     /** a window filed or linked a record: report it, onto the new top row */
     mark: (what: string, top = false) => { if (top) setCur(0); setRecord(what) },
     /* 303131 No Known: only with no Reaction Risks on the list */
@@ -145,33 +144,27 @@ export function useReportRecords({
     },
   }
 
-  const commands = (cmds: PBCommand[]): PBCommand[] => (!active ? cmds : cmds.map((c) => {
-    if (!c) return c
-    switch (c.label) {
-      case 'New Record': return { ...c, onClick: act.newRecord }
-      case 'Delete Record': return { ...c, disabled: !list[cur], onClick: act.deleteRecord }
-      /* never greyed: every capture paints Save and Undo enabled with nothing
-         edited (see DIS in data/reportScreens.tsx) */
-      case 'Save': return { ...c, onClick: act.save }
-      case 'Undo': return { ...c, onClick: act.undo }
-      case 'No Known': return node === 'reaction' || node === 'allergy' ? { ...c, onClick: act.noKnown } : c
-      /* art. 3071982 "Using Quick Entry in Reaction Risks": the Quick Entry -
-         Reaction Risks window (screens/QuickEntryWindows.tsx); Continue files
-         the templated risk and reports it as saved on the new top row */
-      case 'Quick Entry': return node === 'reaction' || node === 'allergy' ? {
-        ...c,
-        onClick: () => openWindow('quick-entry-chart', {
-          group: 'Reaction Risk',
-          onApply: (applied: QuickEntryApplied) => { applyQuickEntry(applied); act.mark('saved', true) },
-        }),
-      } : c
-      case 'Elevate To Risk': return node !== 'events' ? c : {
-        ...c, disabled: !list[cur],
-        onClick: () => { const r = list[cur]; if (r) win.open(ADVERSE_WINDOWS.elevate, { event: r.record?.id_adverse_event ?? r.row.__key ?? '' }) },
-      }
-      default: return c
-    }
-  }))
+  const allergyCommand = node === 'reaction' || node === 'allergy'
+  const commands = (cmds: PBCommand[]): PBCommand[] => d.commands(cmds, {
+    ...(newWindow ? { 'New Record': (c: NonNullable<PBCommand>) => ({ ...c, onClick: () => win.open(newWindow) }) } : {}),
+    /* dropping the blank row leaves the reported record as it was */
+    'Delete Record': (c) => ({ ...c, disabled: !d.record, onClick: () => { const kept = d.isNew ? record : null; d.deleteRecord(); if (kept !== null) setRecord(kept) } }),
+    'No Known': (c) => (allergyCommand ? { ...c, onClick: act.noKnown } : c),
+    /* art. 3071982 "Using Quick Entry in Reaction Risks": the Quick Entry -
+       Reaction Risks window (screens/QuickEntryWindows.tsx); Continue files
+       the templated risk and reports it as saved on the new top row */
+    'Quick Entry': (c) => (allergyCommand ? {
+      ...c,
+      onClick: () => openWindow('quick-entry-chart', {
+        group: 'Reaction Risk',
+        onApply: (applied: QuickEntryApplied) => { applyQuickEntry(applied); act.mark('saved', true) },
+      }),
+    } : c),
+    'Elevate To Risk': (c) => (node !== 'events' ? c : {
+      ...c, disabled: !list[cur],
+      onClick: () => { const r = list[cur]; if (r) win.open(ADVERSE_WINDOWS.elevate, { event: r.record?.id_adverse_event ?? r.row.__key ?? '' }) },
+    }),
+  })
 
   return {
     active,

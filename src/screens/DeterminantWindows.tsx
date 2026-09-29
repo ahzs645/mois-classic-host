@@ -7,10 +7,13 @@ import {
 } from '../data/determinants'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { argStr } from '../data/text'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
 import { PBDataWindow, PBInput, PBSelect, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { GRID_BOX, PickButtons, PickListWindow, SIZE, SearchForRow } from './lookupKit'
 import { DialogButton, FormBand, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -38,7 +41,6 @@ import { DialogButton, FormBand, WorkspaceDialogFrame } from './WorkspaceDialogF
    one row per measure, Save Changes (F2) / Close w/o Save).
    ========================================================================= */
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const tabOf = (v: unknown): DeterminantTab => (DETERMINANT_TABS.includes(v as DeterminantTab) ? v as DeterminantTab : 'Employment')
 
 /* --- Update --------------------------------------------------------------- */
@@ -89,10 +91,10 @@ function DeterminantPanel({ args, close }: AreaWindowProps) {
           </div>
         ))}
       </div>
-      <div className="pb-row" style={{ gap: 18, padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={18} padding="10px 0">
         <DialogButton id="determinant-panel-save" isDefault width={150} onClick={save}>Save Changes (F2)</DialogButton>
         <DialogButton id="determinant-panel-close" width={150} onClick={close}>Close w/o Save</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -127,9 +129,9 @@ function DeterminantTrend({ args, close }: AreaWindowProps) {
           empty="Nothing has been recorded for this panel."
         />
       </div>
-      <div className="pb-row" style={{ padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter padding="10px 0">
         <DialogButton id="determinant-trend-close" onClick={close}>Close</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -138,10 +140,10 @@ function DeterminantTrend({ args, close }: AreaWindowProps) {
 function DeterminantLookup({ args, close }: AreaWindowProps) {
   const chart = usePatient().chart
   const det = useDeterminants(chart)
-  const list = DETERMINANT_LISTS[str(args.list)] ?? DETERMINANT_LISTS.occupation!
-  const target = str(args.target) as HistoryList
-  const key = str(args.key)
-  const field = str(args.field)
+  const list = DETERMINANT_LISTS[argStr(args.list)] ?? DETERMINANT_LISTS.occupation!
+  const target = argStr(args.target) as HistoryList
+  const key = argStr(args.key)
+  const field = argStr(args.field)
   const [text, setText] = useState('')
   const rows = list.values.filter((v) => v.includes(text.trim().toUpperCase())).map((value) => ({ value }))
   const [cur, setCur] = useState(0)
@@ -151,28 +153,37 @@ function DeterminantLookup({ args, close }: AreaWindowProps) {
     close()
   }
   return (
-    <WorkspaceDialogFrame id="determinant-lookup" title={list.title} width={460} height={380} onClose={close} controls={false}>
-      <div className="pb-row" style={{ gap: 6, padding: '8px 10px 4px', flex: 'none' }}>
-        <span>Search For:</span>
-        <PBInput w={300} value={text} data-tutorial-id="host.mois.field.determinant-lookup-search" onChange={(e) => { setText(e.target.value); setCur(0) }} onKeyDown={(e) => { if (e.key === 'Enter') pick(rows[cur]?.value) }} />
-      </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '0 10px', border: '1px solid var(--pb-border)' }}>
-        <PBDataWindow
-          flush
-          columns={[{ key: 'value', header: list.title }]}
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(r) => pick(r.value)}
-          rowTutorialId={(r) => `host.mois.row.determinant-pick-${pbSlug(r.value)}`}
-          empty="Nothing matches."
-        />
-      </div>
-      <div className="pb-row" style={{ gap: 14, padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
-        <DialogButton id="determinant-lookup-select" isDefault disabled={!rows[cur]} onClick={() => pick(rows[cur]?.value)}>Select</DialogButton>
-        <DialogButton id="determinant-lookup-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id="determinant-lookup" title={list.title} width={460} height={380} onClose={close} controls={false}>
+          {content}
+          {footer}
+        </WorkspaceDialogFrame>
+      )}
+      search={(
+        <SearchForRow link={false} width={300} style={{ gap: 6, padding: '8px 10px 4px', flex: 'none' }}
+          value={text} field="determinant-lookup-search" onChange={(v) => { setText(v); setCur(0) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') pick(rows[cur]?.value) }} />
+      )}
+      gridBox={{ ...GRID_BOX, margin: '0 10px', border: '1px solid var(--pb-border)' }}
+      grid={{
+        flush: true,
+        columns: [{ key: 'value', header: list.title }],
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (r) => pick(r.value),
+        rowTutorialId: (r) => `host.mois.row.determinant-pick-${pbSlug(r.value)}`,
+        empty: 'Nothing matches.',
+      }}
+      footer={(
+        <PickButtons className="pb-row" style={{ gap: 14, padding: '10px 0', justifyContent: 'center', flex: 'none' }} size={SIZE.dialog()}
+          buttons={[
+            { label: 'Select', command: 'determinant-lookup-select', isDefault: true, disabled: !rows[cur], onClick: () => pick(rows[cur]?.value) },
+            { label: 'Cancel', command: 'determinant-lookup-cancel', onClick: close },
+          ]} />
+      )}
+    />
   )
 }
 

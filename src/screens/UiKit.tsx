@@ -7,6 +7,8 @@ import {
   IconFolder, IconIdCard, type PBRowStatus, type PBTreeNode,
 } from '../pb'
 import { TEXT_MODES, THEMES, type PBTextMode, type PBTheme } from '../data/mois'
+import { SESSION_USER } from '../data/session'
+import { useTickSet } from './listKit'
 
 /* A gallery of every control in the kit, laid out the way a PowerBuilder
    style guide would be. Reachable at #kit. */
@@ -36,7 +38,7 @@ const swatches: [string, string][] = [
 
 export function UiKit() {
   const [tab, setTab] = useState('Controls')
-  const [expanded, setExpanded] = useState(new Set(['a', 'a2']))
+  const expanded = useTickSet(['a', 'a2'])
   const [sel, setSel] = useState('a2')
   const [radio, setRadio] = useState('One')
   const [slider, setSlider] = useState(6)
@@ -46,10 +48,6 @@ export function UiKit() {
   const [textMode, setTextMode] = useState<PBTextMode>('pb-text--pixel')
   const [msg, setMsg] = useState<'info' | 'warn' | 'error' | 'question' | null>(null)
   const [answer, setAnswer] = useState('')
-
-  const toggle = (id: string) => {
-    const n = new Set(expanded); n.has(id) ? n.delete(id) : n.add(id); setExpanded(n)
-  }
 
   return (
     <div className={`pb-root ${theme} ${textMode}`.trim()}>
@@ -175,7 +173,7 @@ export function UiKit() {
 
                   <PBGroupBox title="TreeView" pad={false} style={{ width: 240, height: 250, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 2 }}>
-                      <PBTree nodes={tree} selected={sel} onSelect={setSel} expanded={expanded} onToggle={toggle} />
+                      <PBTree nodes={tree} selected={sel} onSelect={setSel} expanded={expanded.ticked} onToggle={expanded.flip} />
                     </div>
                   </PBGroupBox>
                 </div>
@@ -220,7 +218,7 @@ export function UiKit() {
                         { key: 'by', header: 'Linked By', width: 140 },
                       ]}
                       rows={[
-                        { group: 'GOALS', start: '2026.08.12', desc: 'DEV AUDIT GOAL', phase: 'INITIATION', by: 'JALIL, AHMAD' },
+                        { group: 'GOALS', start: '2026.08.12', desc: 'DEV AUDIT GOAL', phase: 'INITIATION', by: SESSION_USER },
                         { group: 'GOALS', start: '2026.07.30', desc: 'REDUCE BP BELOW 130/80', phase: 'MAINTENANCE', by: 'SMITH, DALENE' },
                         { group: 'ACTIONS', start: '2026.07.22', desc: 'WEEKLY WEIGH-IN', phase: 'ONE TIME', by: 'GRUBB, HELENA' },
                       ]}

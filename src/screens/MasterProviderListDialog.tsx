@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { PBBand, PBDataWindow, PBInput, PBTextArea, pbSlug } from '../pb'
+import { PBBand, PBDataWindow, PBTextArea, pbSlug } from '../pb'
 import type { PBColumn } from '../pb'
 import { MASTER_LOOKUP_COLUMNS, type ClinicRow } from '../data/clinicManagement'
 import { useScreenReport } from '../host/screen-state'
-import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
 import { useClinicRows } from './ClinicEditorWindows'
+import { useColumnFilters } from './listKit'
+import { LookupPager, usePagedCursor } from './lookupKit'
 
 /* ============================================================================
    Master Provider List — the lookup.   304741 `6127fb5936f2…` (729x615, 1:1)
@@ -37,32 +37,19 @@ export function MasterProviderListDialog({ onPick, onClose }: {
   onClose: () => void
 }) {
   const [all] = useClinicRows('ad-providers')
-  const [filter, setFilter] = useState<Record<string, string>>({})
-  const [cur, setCur] = useState(0)
-  const rows = all.filter((r) => Object.entries(filter).every(([k, v]) => !v || String(r[k] ?? '').toUpperCase().includes(v.toUpperCase())))
-  const current = Math.min(cur, Math.max(0, rows.length - 1))
-  const picked = rows[current]
+  const { shown: rows, filterRow: filters } = useColumnFilters(
+    all,
+    MASTER_LOOKUP_COLUMNS.map((c, i) => (i < 4 ? { key: c.key, w: c.width! - 2, anchor: `master-provider-filter-${pbSlug(c.key)}` } : null)),
+    { match: 'upper', onChange: () => cursor.setCurrent(0) },
+  )
+  const cursor = usePagedCursor(rows.length, PAGE)
+  const picked = rows[cursor.at]
   useScreenReport({ prompt: 'master-provider-list', row: picked ? `master-provider-${pbSlug(String(picked.name ?? ''))}` : null })
 
   const columns: PBColumn<ClinicRow>[] = MASTER_LOOKUP_COLUMNS.map((c) => ({
     key: c.key, header: c.header, width: c.width, align: c.align, headAlign: 'center',
   }))
-  const filters = MASTER_LOOKUP_COLUMNS.map((c, i) => (i < 4
-    ? (
-      <PBInput
-        key={c.key}
-        w={c.width! - 2}
-        value={filter[c.key] ?? ''}
-        onChange={(e) => { setFilter({ ...filter, [c.key]: e.target.value }); setCur(0) }}
-        data-tutorial-id={`host.mois.field.master-provider-filter-${pbSlug(c.key)}`}
-      />
-    )
-    : null))
-  const move = (to: number) => setCur(Math.max(0, Math.min(rows.length - 1, to)))
   const ok = () => { if (picked) onPick(String(picked.name ?? ''), picked) }
-  const btn = (label: string, onClick?: () => void, w = 75) => (
-    <CmdButton command={`master-provider-${pbSlug(label)}`} style={{ width: w }} onClick={onClick}>{label}</CmdButton>
-  )
 
   return (
     <DemographicModal title="Master Provider List" width={729} height={615} onClose={onClose} dialog="master-provider-list">
@@ -71,8 +58,8 @@ export function MasterProviderListDialog({ onPick, onClose }: {
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#ffffff' }}>
           <PBDataWindow<ClinicRow>
             rows={rows}
-            current={current}
-            onCurrentChange={setCur}
+            current={cursor.at}
+            onCurrentChange={cursor.setCurrent}
             onActivate={(r) => onPick(String(r.name ?? ''), r)}
             columns={columns}
             filters={filters}
@@ -85,22 +72,24 @@ export function MasterProviderListDialog({ onPick, onClose }: {
             documented, so it is drawn empty */}
         <PBTextArea rows={4} w="100%" readOnly style={{ flex: 'none', borderLeft: 0, borderRight: 0, borderBottom: 0 }} />
       </div>
-      <div className="pb-row" style={{ gap: 0, padding: '8px 8px 8px', flex: 'none', justifyContent: 'space-between' }}>
-        <span className="pb-row" style={{ gap: 2 }}>
-          {btn('Home', () => move(0))}
-          {btn('PgUp', () => move(current - PAGE))}
-        </span>
-        <span className="pb-row" style={{ gap: 20 }}>
-          {btn('Ok', ok, 92)}
-          {btn('Cancel', onClose, 92)}
-        </span>
-        <span className="pb-row" style={{ gap: 2 }}>
-          {/* 304741 prints a label from here; the label preview is not built */}
-          {btn('Print Label', undefined, 86)}
-          {btn('PgDwn', () => move(current + PAGE))}
-          {btn('End', () => move(rows.length - 1))}
-        </span>
-      </div>
+      {/* 304741 prints a label from Print Label; the label preview is not built */}
+      <LookupPager
+        layout="grouped"
+        cursor={cursor}
+        className="pb-row"
+        style={{ gap: 0, padding: '8px 8px 8px', flex: 'none', justifyContent: 'space-between' }}
+        navSize={{ width: 75 }}
+        pickSize={{ width: 92 }}
+        pickGap={20}
+        groupGap={2}
+        home={{ command: 'master-provider-home' }}
+        pgUp={{ command: 'master-provider-pgup' }}
+        ok={{ command: 'master-provider-ok', onClick: ok }}
+        cancel={{ command: 'master-provider-cancel', onClick: onClose }}
+        extra={[{ label: 'Print Label', command: 'master-provider-print-label', size: { width: 86 } }]}
+        pgDn={{ command: 'master-provider-pgdwn' }}
+        end={{ command: 'master-provider-end' }}
+      />
     </DemographicModal>
   )
 }

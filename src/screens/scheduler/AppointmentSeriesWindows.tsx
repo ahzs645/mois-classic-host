@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, pbSlug,
+  PBCheckbox, PBDataWindow, PBInput, PBPatientBand, PBRadio, PBSelect, pbSlug,
 } from '../../pb'
 import { RESOURCES, VISIT_CODE_FILL, visitCodeRows } from '../../data/daybook'
 import { daybookProviders } from '../../data/mois'
 import { usePatientRoster } from '../../data/patient-context'
 import type { Patient } from '../../data/patients'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
+import { argStr as str } from '../../data/text'
 import {
   currentRow, dayRows, offsetOfStamp, schedulerStore, stampOf, useSchedulerStore, type DayRow,
 } from '../../data/schedulerStore'
@@ -15,6 +17,9 @@ import { AdvancedLookupDialog } from '../AdvancedLookupDialog'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { RaisedMessageBox } from '../RaisedMessageBox'
+import { CaptionGroup, FormLine, NAVY } from '../formKit'
+import { useTickSet, SelectAllPair } from '../listKit'
+import { DAYS, MONTHS } from './SchedulerDialog'
 
 /* ============================================================================
    Appointment Series — the day book's (and the Group Visit List's) Appt
@@ -71,12 +76,8 @@ import { RaisedMessageBox } from '../RaisedMessageBox'
    `delete-selected-appointments`.
    ========================================================================= */
 
-const NAVY = '#000080'
 const YELLOW = '#ffff99'
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const ORDINALS = ['first', 'second', 'third', 'fourth', 'last']
 const PATTERNS = ['Daily', 'Weekly', 'Monthly', 'Yearly'] as const
 type Pattern = typeof PATTERNS[number]
@@ -156,20 +157,15 @@ export function seriesDates(r: Recurrence): string[] {
 /* --- the kit's framed group box with a navy caption ------------------------- */
 function Group({ title, children, style, id }: { title: ReactNode; children: ReactNode; style?: CSSProperties; id?: string }) {
   return (
-    <div data-tutorial-id={id} style={{ border: '1px solid #c8c8c8', boxShadow: 'inset 1px 1px 0 #fff', padding: '4px 8px 8px', ...style }}>
-      <div style={{ color: NAVY, fontWeight: 700, padding: '2px 0 4px', borderBottom: '1px solid #d8d8d8', marginBottom: 4 }}>{title}</div>
+    <CaptionGroup title={title} anchor={id} border="#c8c8c8" shadow="inset 1px 1px 0 #fff" padding="4px 8px 8px" shrink={false} style={style}
+      caption={{ padding: '2px 0 4px', rule: '#d8d8d8', style: { marginBottom: 4 } }}>
       {children}
-    </div>
+    </CaptionGroup>
   )
 }
 
 function Line({ label, children, w = 92 }: { label: ReactNode; children: ReactNode; w?: number }) {
-  return (
-    <div className="pb-row" style={{ gap: 6, minHeight: 22 }}>
-      <span style={{ width: w, flex: 'none' }}>{label}</span>
-      {children}
-    </div>
-  )
+  return <FormLine label={label} w={w} minHeight={22} labelClass={false}>{children}</FormLine>
 }
 
 /** the required fields paint yellow while they are empty */
@@ -192,7 +188,7 @@ const pickedOf = (p: Patient): PickedPatient => ({
 function CreateAppointmentSeries({ args, close }: AreaWindowProps) {
   const sched = useSchedulerStore()
   const roster = usePatientRoster()
-  const here = sched.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
+  const here = sched.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' }
   const [kind, setKind] = useState<'patient' | 'group'>(args.kind === 'group' ? 'group' : 'patient')
   const [patient, setPatient] = useState<PickedPatient | null>(null)
   const [patients, setPatients] = useState<PickedPatient[]>([])
@@ -300,7 +296,7 @@ function CreateAppointmentSeries({ args, close }: AreaWindowProps) {
     <>
       <WorkspaceDialogFrame id="appointment-series" title="Create Appointment Series" width={1000} height={560} onClose={close} controls={false} zIndex={85}>
         <div className="pb-row" style={{ gap: 18, padding: '8px 16px', background: '#fff', borderBottom: '1px solid #d0d0d0', flex: 'none' }}>
-          <b style={{ color: NAVY }}>Series Type:</b>
+          <b style={{ color: NAVY.win }}>Series Type:</b>
           <PBRadio name="series-type" label="Patient Appointment Series" checked={kind === 'patient'} onChange={() => setKind('patient')} tutorialId="host.mois.field.series-type-patient" />
           <PBRadio name="series-type" label="Group Visit Appointment Series" checked={kind === 'group'} onChange={() => setKind('group')} tutorialId="host.mois.field.series-type-group" />
         </div>
@@ -662,7 +658,7 @@ function AppointmentSeriesDelete({ close }: AreaWindowProps) {
       .filter((r): r is SeriesRow => !!r && r.offset >= fromOffset && (series.kind !== 'group' || !row || r.chart === row.chart))
       .sort((a, b) => a.offset - b.offset)
   }, [series, sched, fromOffset, row])
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(rows.map((r) => r.key)))
+  const picked = useTickSet<string>(() => rows.map((r) => r.key))
   const [cur, setCur] = useState(0)
   const [asking, setAsking] = useState(false)
   useScreenReport({ window: asking ? 'delete-selected-appointments' : '', picked: picked.size })
@@ -670,30 +666,37 @@ function AppointmentSeriesDelete({ close }: AreaWindowProps) {
   const age = p?.dob ? Math.max(0, 2026 - Number(p.dob.slice(0, 4))) : null
 
   const remove = () => {
-    const keys = [...picked]
+    const keys = [...picked.ticked]
     schedulerStore.deleteAppointments(keys)
     schedulerExtras.removeFromSeries(keys)
     close()
   }
-  const toggle = (k: string, on: boolean) => setPicked((s) => { const n = new Set(s); on ? n.add(k) : n.delete(k); return n })
-  const band = { color: '#fff', fontSize: 10 } as const
   return (
     <>
       <WorkspaceDialogFrame id="appointment-series-delete" title="Appointment Series" width={940} height={620} onClose={close} controls={false} zIndex={88}>
-        <div style={{ background: 'linear-gradient(var(--pb-banner-top-a, #2f6fb4), var(--pb-banner-top-b, #1c4f8c))', color: '#fff', padding: '4px 8px', flex: 'none', display: 'grid', gridTemplateColumns: '90px 210px 150px 70px 140px 1fr' }}>
-          <span style={band}>CHART NO.</span><span style={band}>PATIENT (F/M/L)</span><span style={band}>DATE OF BIRTH</span><span style={band}>GENDER</span><span style={band}>BC HEALTH NO.</span><span style={band}>PREFERRED PHONE NUMBER</span>
-          <b>{row?.chart ?? ''}</b>
-          <b>{p ? `${p.first} ${p.middle} ${p.last}`.toUpperCase().replace(/\s+/g, ' ') : row ? `${row.first} ${row.last}` : ''}</b>
-          <b>{p?.dob ?? ''}{age !== null ? `  ${age} YR OLD` : ''}</b>
-          <b>{p?.gender ?? ''}</b>
-          <b>{p?.bchn ?? p?.insurance ?? ''}</b>
-          <b>{p?.home ?? ''}{p?.home ? '  Home Phone' : ''}</b>
-        </div>
+        <PBPatientBand
+          layout="grid"
+          labelStyle={{ color: '#fff', fontSize: 10 }}
+          style={{ background: 'linear-gradient(var(--pb-banner-top-a, #2f6fb4), var(--pb-banner-top-b, #1c4f8c))', color: '#fff', padding: '4px 8px', flex: 'none', display: 'grid', gridTemplateColumns: '90px 210px 150px 70px 140px 1fr' }}
+          cells={[
+            { label: 'CHART NO.', value: row?.chart ?? '' },
+            { label: 'PATIENT (F/M/L)', value: p ? `${p.first} ${p.middle} ${p.last}`.toUpperCase().replace(/\s+/g, ' ') : row ? `${row.first} ${row.last}` : '' },
+            { label: 'DATE OF BIRTH', value: <>{p?.dob ?? ''}{age !== null ? `  ${age} YR OLD` : ''}</> },
+            { label: 'GENDER', value: p?.gender ?? '' },
+            { label: 'BC HEALTH NO.', value: p?.bchn ?? p?.insurance ?? '' },
+            { label: 'PREFERRED PHONE NUMBER', value: <>{p?.home ?? ''}{p?.home ? '  Home Phone' : ''}</> },
+          ]}
+        />
         <div className="pb-row" style={{ padding: '4px 8px', background: '#fff', flex: 'none' }}>
-          <b style={{ color: NAVY }}>Select Remaining Appointment(s) to Delete</b>
+          <b style={{ color: NAVY.win }}>Select Remaining Appointment(s) to Delete</b>
           <span className="pb-row__spacer" />
-          <DialogButton id="series-select-all" width={84} onClick={() => setPicked(new Set(rows.map((r) => r.key)))}>Select All</DialogButton>
-          <DialogButton id="series-clear-selections" width={100} onClick={() => setPicked(new Set())}>Clear Selections</DialogButton>
+          <SelectAllPair
+            ids={['series-select-all', 'series-clear-selections']}
+            labels={['Select All', 'Clear Selections']}
+            width={[84, 100]}
+            onSelectAll={() => picked.selectAll(rows.map((r) => r.key))}
+            onUnselectAll={picked.clear}
+          />
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '0 6px' }}>
           <PBDataWindow
@@ -706,7 +709,7 @@ function AppointmentSeriesDelete({ close }: AreaWindowProps) {
               {
                 key: 'select', header: 'Select', width: 56, align: 'center',
                 render: (r) => (
-                  <PBCheckbox checked={picked.has(r.key)} onChange={(on) => toggle(r.key, on)} tutorialId={`host.mois.cell.series-${r.date.replace(/\./g, '')}`} />
+                  <PBCheckbox checked={picked.has(r.key)} onChange={(on) => picked.set(r.key, on)} tutorialId={`host.mois.cell.series-${r.date.replace(/\./g, '')}`} />
                 ),
               },
               { key: 'date', header: 'Date', width: 80 },

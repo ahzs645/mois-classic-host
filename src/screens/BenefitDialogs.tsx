@@ -9,6 +9,7 @@ import {
 } from '../pb'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
+import { DialogFooter } from './formKit'
 
 /* ============================================================================
    Demographics ▸ Benefits: the windows behind New and Edit.
@@ -77,10 +78,10 @@ export function SelectBenefitSourceDialog({ onContinue, onClose }: {
           />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: 12 }}>
+      <DialogFooter fixed={false} gap={10} padding={12}>
         <CmdButton command="benefit-continue" wide disabled={!pick} onClick={() => pick && onContinue(pick)}>Continue</CmdButton>
         <CmdButton command="benefit-select-cancel" wide onClick={onClose}>Cancel</CmdButton>
-      </div>
+      </DialogFooter>
     </DemographicModal>
   )
 }

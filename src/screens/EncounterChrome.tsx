@@ -1,7 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import type { ChartPatient } from '../data/patient-context'
 import { ageOf } from '../data/patients'
-import { PBButton, PBCheckbox, PBInput, PBWindow, usePBInstrumentation } from '../pb'
+import { pad2 } from '../data/clock'
+import { PBButton, PBCheckbox, PBInput } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter } from './formKit'
 import { DialogButton } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -67,22 +70,20 @@ const Cell = ({ w, children }: { w: number; children: ReactNode }) => (
    buttons do is not captured; here Start / Finish stamp the box with the
    time of the press, the way the day book's Arrived / Seen buttons do. */
 export function MspAppointmentTimes() {
-  const host = usePBInstrumentation()
   const [start, setStart] = useState(' : ')
   const [finish, setFinish] = useState(' : ')
-  const now = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')} : ${String(d.getMinutes()).padStart(2, '0')}` }
-  const press = (id: string, set: (v: string) => void) => { host?.report('command', { command: id }); set(now()) }
+  const now = () => { const d = new Date(); return `${pad2(d.getHours())} : ${pad2(d.getMinutes())}` }
   const grey = { color: '#9a9a9a' }
   return (
     <div className="pb-row" style={{ gap: 0, padding: '2px 8px', borderBottom: '1px solid #a0a0a0', flex: 'none' }}>
       <span style={{ ...grey, width: 140, flex: 'none' }}>MSP Appointment Time(s):</span>
       <span style={{ width: 61, flex: 'none' }}>Start Time:</span>
       <PBInput w={47} align="center" value={start} onChange={(e) => setStart(e.target.value)} data-tutorial-id="host.mois.field.msp-start-time" />
-      <PBButton style={{ width: 52, minWidth: 0, height: 20, marginLeft: 4 }} data-tutorial-id={host?.anchor('command', 'msp-start')} onClick={() => press('msp-start', setStart)}>Start</PBButton>
+      <PBButton style={{ width: 52, minWidth: 0, height: 20, marginLeft: 4 }} command="msp-start" onClick={() => setStart(now())}>Start</PBButton>
       <span style={{ ...grey, width: 82, flex: 'none', paddingLeft: 5 }}>(seen)</span>
       <span style={{ width: 75, flex: 'none' }}>Finished Time:</span>
       <PBInput w={47} align="center" value={finish} onChange={(e) => setFinish(e.target.value)} data-tutorial-id="host.mois.field.msp-finish-time" />
-      <PBButton style={{ width: 52, minWidth: 0, height: 20, marginLeft: 4 }} data-tutorial-id={host?.anchor('command', 'msp-finish')} onClick={() => press('msp-finish', setFinish)}>Finish</PBButton>
+      <PBButton style={{ width: 52, minWidth: 0, height: 20, marginLeft: 4 }} command="msp-finish" onClick={() => setFinish(now())}>Finish</PBButton>
       <span style={{ ...grey, paddingLeft: 5 }}>(discharge)</span>
     </div>
   )
@@ -98,28 +99,26 @@ export function MspAppointmentTimes() {
 export function NewNoteConfirmation({ onAnswer }: { onAnswer: (yes: boolean, always: boolean) => void }) {
   const [always, setAlways] = useState(false)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.new-note-prompt"
-        title="Confirmation: Create another Progress Note"
-        onClose={() => onAnswer(false, false)}
-        style={{ width: 'min(405px, 100%)' }}
-      >
+    <ModalWindow
+      id="new-note-prompt"
+      title="Confirmation: Create another Progress Note"
+      onClose={() => onAnswer(false, false)}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowStyle={{ width: 'min(405px, 100%)' }}
+    >
         <div className="pb-row" style={{ gap: 14, alignItems: 'flex-start', padding: '14px 18px 0' }}>
           <QuestionGlyph />
           <span style={{ paddingTop: 6 }}>Would you like to create another progress note?</span>
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 16, padding: '26px 0 8px', flex: 'none' }}>
+        <DialogFooter gap={16} padding="26px 0 8px">
           <DialogButton id="new-note-yes" width={74} isDefault onClick={() => onAnswer(true, always)}>Yes</DialogButton>
           <DialogButton id="new-note-no" width={74} onClick={() => onAnswer(false, false)}>No</DialogButton>
-        </div>
+        </DialogFooter>
         <div style={{ padding: '0 10px 8px' }}>
           <PBCheckbox label="Always create new note" checked={always} onChange={setAlways} tutorialId="host.mois.field.always-create-new-note" />
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

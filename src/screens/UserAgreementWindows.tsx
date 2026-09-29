@@ -9,6 +9,8 @@ import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBViewHeader, pbSlug } from '../pb'
 import { Btn, DetailWindow, FieldLabel, TopMessage } from './AdminExchangeKit'
+import { NAVY } from './formKit'
+import { useRecordCursor } from './listKit'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
 
@@ -138,9 +140,9 @@ function ViewerToolbar() {
    ======================================================================== */
 function UserAgreementsView({ close }: FolderViewProps) {
   const [agreements, setAgreements] = useAgreements()
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(agreements, setAgreements)
+  const { cur, setCur, row } = list
   const [win, setWin] = useState<null | 'new' | 'edit'>(null)
-  const row = agreements[cur]
   useScreenReport({ rows: agreements.length, row: row ? pbSlug(row.name) : null })
   const rows = agreements.map((a) => {
     const v = a.versions[a.versions.length - 1]
@@ -151,7 +153,7 @@ function UserAgreementsView({ close }: FolderViewProps) {
       <PBViewHeader title="User Agreement List" />
       <PBCommandRow commands={[
         { label: 'New Record', onClick: () => setWin('new') },
-        { label: 'Delete Record', onClick: () => { setAgreements((all) => all.filter((_, i) => i !== cur)); setCur(0) } },
+        { label: 'Delete Record', onClick: () => list.remove() },
         { label: 'Edit Record', onClick: () => { if (row) setWin('edit') } },
         { label: 'Close Window', onClick: close },
       ]} />
@@ -169,8 +171,7 @@ function UserAgreementsView({ close }: FolderViewProps) {
         <NewUserAgreement
           onClose={() => setWin(null)}
           onCreate={(name, file) => {
-            setAgreements((all) => [...all, { name, versions: [newAgreementVersion(name, file)] }])
-            setCur(agreements.length)
+            list.add({ name, versions: [newAgreementVersion(name, file)] })
             setWin('edit')
           }}
         />
@@ -279,7 +280,7 @@ function EditUserAgreement({ agreement, onClose, onSave }: { agreement: UserAgre
           ))}
         </div>
         <div style={{ width: 400, flex: 'none', overflow: 'auto', borderRight: '1px solid #b8b8b8' }}>
-          <div style={{ background: '#c8dcfa', color: '#0a246a', fontWeight: 700, padding: '3px 8px' }}>Version Detail</div>
+          <div style={{ background: '#c8dcfa', color: NAVY.caption, fontWeight: 700, padding: '3px 8px' }}>Version Detail</div>
           <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr', gap: 3, padding: '4px 10px' }}>
             <FieldLabel w={44}>Title:</FieldLabel><PBInput w="100%" value={v.title} onChange={(e) => set({ title: e.target.value })} data-tutorial-id="host.mois.field.agreement-title" />
             <FieldLabel w={44}>Expiry:</FieldLabel><PBInput w={80} value={v.expiry} placeholder="" onChange={(e) => set({ expiry: e.target.value })} data-tutorial-id="host.mois.field.agreement-expiry" />
@@ -297,7 +298,7 @@ function EditUserAgreement({ agreement, onClose, onSave }: { agreement: UserAgre
           </div>
           {v.savePdf && (
             <>
-              <div style={{ padding: '2px 10px', color: '#0a246a' }}>Add following annotation to the saved PDF document</div>
+              <div style={{ padding: '2px 10px', color: NAVY.caption }}>Add following annotation to the saved PDF document</div>
               <AnnotationGroup title="Add header when response is:" value={v.header} onChange={(header) => set({ header })} third="Alignment" prefix="agreement-header" />
               <AnnotationGroup title="Add footer when user response is:" value={v.footer} onChange={(footer) => set({ footer })} third="Alignment" prefix="agreement-footer" />
               <AnnotationGroup title="Add watermark when response is:" value={v.watermark} onChange={(watermark) => set({ watermark })} third="Rotation" prefix="agreement-watermark" />

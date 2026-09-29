@@ -6,8 +6,10 @@ import {
 } from '../data/carePlanRecords'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { yn } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { PBCheckbox, type PBColumn, type PBCommand } from '../pb'
+import { useDraftRecords } from './listKit'
 
 /* ============================================================================
    New Record / Delete Record / Save / Undo / Refresh and Search For on the
@@ -50,76 +52,35 @@ export function useCarePlanFolder(folder: CarePlanFolder, exported: MoisRecord[]
   const store = useCarePlanRecords(chart)
   const idKey = FOLDER_ID[folder]
   const [cur, setCur] = useState(0)
-  const [draft, setDraft] = useState<MoisRecord | null>(null)
-  const [pending, setPending] = useState<Record<string, MoisRecord>>({})
-  const [removed, setRemoved] = useState<string[]>([])
-  const [status, setStatus] = useState('')
+  const base = useMemo(() => mergedFolderRecords(store, folder, exported), [store, folder, exported])
 
-  const list = useMemo(() => {
-    const kept = mergedFolderRecords(store, folder, exported)
-      .filter((r) => !removed.includes(r[idKey] ?? ''))
-      .map((r) => pending[r[idKey] ?? ''] ?? r)
-    return draft ? [draft, ...kept] : kept
-  }, [store, folder, exported, removed, pending, idKey, draft])
-
-  const at = Math.min(cur, Math.max(0, list.length - 1))
-  const record = list[at]
-  const dirty = !!draft || removed.length > 0 || Object.keys(pending).length > 0
-  useScreenReport({ draft: dirty, record: status, rows: list.length })
+  const d = useDraftRecords<MoisRecord>({
+    base,
+    keyOf: (r) => r[idKey] ?? '',
+    cur,
+    setCur,
+    blank: () => ({
+      ...blank?.(),
+      [idKey]: newSessionId(folder.replace(/s$/, '')),
+      dtm_start: slash(MOIS_TODAY),
+      str_sensitive: 'N',
+      num_attachments: '0',
+      ...createdStamp(),
+    }),
+    commit: ({ drafts, edits, removed }) => {
+      for (const draft of drafts) addFolderRecord(chart, folder, draft)
+      for (const r of Object.values(edits)) if (!removed.includes(r[idKey] ?? '')) saveFolderRecord(chart, folder, r)
+      for (const id of removed) deleteFolderRecord(chart, folder, id)
+    },
+  })
+  useScreenReport({ draft: d.dirty, record: d.status, rows: d.list.length })
 
   /** change one field of the current record */
-  const edit = (field: string, value: string, more: MoisRecord = {}) => {
-    if (!record) return
-    const next = { ...record, [field]: value, ...more }
-    if (draft && record === draft) setDraft(next)
-    else setPending((p) => ({ ...p, [record[idKey] ?? '']: next }))
-    setStatus('')
-  }
-
-  const act = {
-    newRecord: () => {
-      setDraft({
-        ...blank?.(),
-        [idKey]: newSessionId(folder.replace(/s$/, '')),
-        dtm_start: slash(MOIS_TODAY),
-        str_sensitive: 'N',
-        num_attachments: '0',
-        ...createdStamp(),
-      })
-      setCur(0); setStatus('')
-    },
-    deleteRecord: () => {
-      if (!record) return
-      if (draft && record === draft) setDraft(null)
-      else setRemoved((r) => [...r, record[idKey] ?? ''])
-      setCur(Math.max(0, at - 1)); setStatus('')
-    },
-    save: () => {
-      if (draft) addFolderRecord(chart, folder, draft)
-      for (const r of Object.values(pending)) if (!removed.includes(r[idKey] ?? '')) saveFolderRecord(chart, folder, r)
-      for (const id of removed) deleteFolderRecord(chart, folder, id)
-      setStatus(removed.length && !draft && !Object.keys(pending).length ? 'deleted' : dirty ? 'saved' : '')
-      setDraft(null); setPending({}); setRemoved([])
-    },
-    undo: () => { setDraft(null); setPending({}); setRemoved([]); setStatus('') },
-    refresh: () => { setDraft(null); setPending({}); setRemoved([]); setStatus('') },
-  }
-
-  const commands = (cmds: PBCommand[]): PBCommand[] => cmds.map((c) => {
-    if (!c) return c
-    switch (c.label) {
-      case 'New Record': return { ...c, onClick: act.newRecord }
-      case 'Delete Record': return { ...c, disabled: !record, onClick: act.deleteRecord }
-      case 'Save': return { ...c, onClick: act.save }
-      case 'Undo': return { ...c, onClick: act.undo }
-      case 'Refresh': return { ...c, onClick: act.refresh }
-      default: return c
-    }
-  })
+  const edit = (field: string, value: string, more: MoisRecord = {}) => d.edit({ [field]: value, ...more })
 
   return {
-    list, cur: at, setCur, record, edit, commands, dirty,
-    isNew: !!draft && record === draft,
+    list: d.list, cur: d.at, setCur, record: d.record, edit, commands: (cmds: PBCommand[]) => d.commands(cmds), dirty: d.dirty,
+    isNew: d.isNew,
   }
 }
 
@@ -156,7 +117,7 @@ export function editableColumns<T extends Record<string, unknown>>(
               tutorialId={on ? anchor : undefined}
               /* only the current row's box edits; a click elsewhere just
                  makes that row current (the row's mousedown) */
-              onChange={(v) => { if (on) edit(cell.field, v ? 'Y' : 'N', cell.onToggle?.(v)) }}
+              onChange={(v) => { if (on) edit(cell.field, yn(v), cell.onToggle?.(v)) }}
             />
           )
         }

@@ -1,13 +1,18 @@
 import { useState, type CSSProperties } from 'react'
 import { usePatient } from '../data/patient-context'
+import { stageStamp } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { CURRENT_USER } from '../data/tasks'
+import { argStr } from '../data/text'
 import { userListSpecs } from '../data/userManagement'
 import { useWorkspaceStore } from '../data/workspaceStore'
 import { useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBDataWindow, PBTextArea } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { useTickSet } from './listKit'
+import { PatientFieldRow } from './patientKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -26,13 +31,9 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    identity the SIGNED / UNSIGNED link keeps its Record History under.
    ========================================================================= */
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 /** The key the Option List's Mark for Review files a record under in the
     workspace store, beside the basket's own `folder:patient` keys. */
 export const reviewKeyOf = (recordKey: string) => `record:${recordKey}`
-
-const nowTime = () => new Date().toTimeString().slice(0, 5)
 
 /* --- Workflow Summary -------------------------------------------------------
    PROVENANCE: 1802768 `13dd06a5…png` / `9a1ef52e…png` (a v2.2x build). A
@@ -69,9 +70,9 @@ const SECTION: CSSProperties = { background: 'linear-gradient(#fff, #d8e6f8)', p
 function WorkflowSummaryWindow({ args, close }: AreaWindowProps) {
   const p = usePatient()
   const ws = useWorkspaceStore()
-  const key = reviewKeyOf(str(args.recordKey))
+  const key = reviewKeyOf(argStr(args.recordKey))
   const review = ws.reviews.includes(key)
-  const [stamp] = useState(() => `${MOIS_TODAY} ${nowTime()}`)
+  const [stamp] = useState(() => stageStamp())
   const [open, setOpen] = useState({ messages: true, tasks: true, acks: true })
   const [picked, setPicked] = useState(review)
   useScreenReport({ acknowledgements: review ? 1 : 0 })
@@ -92,22 +93,22 @@ function WorkflowSummaryWindow({ args, close }: AreaWindowProps) {
   return (
     <WorkspaceDialogFrame id="workflow-summary" title="Workflow Summary" width={860} height={680} onClose={close}>
       <div style={BAND_DARK}>
-        <div className="pb-row" style={{ gap: 0 }}>
-          <span style={{ width: 200 }}>FIRST: <b>{p.first.toUpperCase()}</b></span>
-          <span style={{ width: 180 }}>MIDDLE: <b>{p.middle.toUpperCase()}</b></span>
-          <span style={{ width: 200 }}>LAST: <b>{p.last.toUpperCase()}</b></span>
-          <span style={{ width: 130 }}>DoB: <b>{p.dob}</b></span>
-          <span>Gender: <b>{p.gender}</b></span>
-        </div>
-        <div className="pb-row" style={{ gap: 0, paddingTop: 2 }}>
-          <span style={{ width: 200 }}>PHN: <b>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</b></span>
-          <span style={{ width: 180 }}><u>Home:</u> <b>{p.home ?? ''}</b></span>
-          <span style={{ width: 200 }}>Work: <b>{p.work ?? ''}</b></span>
-          <span>Cell: <b>{p.cell ?? ''}</b></span>
-        </div>
+        <PatientFieldRow layout="inline" fields={[
+          { label: 'FIRST:', value: p.first.toUpperCase(), w: 200 },
+          { label: 'MIDDLE:', value: p.middle.toUpperCase(), w: 180 },
+          { label: 'LAST:', value: p.last.toUpperCase(), w: 200 },
+          { label: 'DoB:', value: p.dob, w: 130 },
+          { label: 'Gender:', value: p.gender },
+        ]} />
+        <PatientFieldRow layout="inline" style={{ gap: 0, paddingTop: 2 }} fields={[
+          { label: 'PHN:', value: <>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</>, w: 200 },
+          { label: <u>Home:</u>, value: p.home ?? '', w: 180 },
+          { label: 'Work:', value: p.work ?? '', w: 200 },
+          { label: 'Cell:', value: p.cell ?? '' },
+        ]} />
       </div>
       <div style={BAND_LIGHT} data-tutorial-id="host.mois.field.workflow-record">
-        {str(args.category)}&nbsp;&nbsp;&nbsp;[{str(args.date)}]&nbsp;&nbsp;&nbsp;{str(args.description)}{str(args.value) ? `   ${str(args.value)}` : ''}
+        {argStr(args.category)}&nbsp;&nbsp;&nbsp;[{argStr(args.date)}]&nbsp;&nbsp;&nbsp;{argStr(args.description)}{argStr(args.value) ? `   ${argStr(args.value)}` : ''}
       </div>
       <div className="pb-row" style={{ gap: 28, padding: '3px 10px', flex: 'none' }}>
         <button type="button" className="pb-link" onClick={() => setOpen({ messages: true, tasks: true, acks: true })}>Expand All</button>
@@ -135,9 +136,9 @@ function WorkflowSummaryWindow({ args, close }: AreaWindowProps) {
         <PBBand>Detail</PBBand>
         <PBTextArea rows={7} w="100%" readOnly value={detail} data-tutorial-id="host.mois.field.acknowledgement-history" />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', padding: '8px 0', flex: 'none' }}>
+      <DialogFooter padding="8px 0">
         <DialogButton id="workflow-summary-close" onClick={close} isDefault>Close</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -164,7 +165,7 @@ function AuditReportWindow({ args, close }: AreaWindowProps) {
       <div style={{ margin: '6px 6px 0', flex: 'none' }}>
         <PBBand>Record</PBBand>
         <div className="pb-row" style={{ background: '#fff', padding: '3px 8px', gap: 18 }}>
-          <b>{str(args.category)}</b><span>{str(args.date)}</span><span>{str(args.description)}</span>
+          <b>{argStr(args.category)}</b><span>{argStr(args.date)}</span><span>{argStr(args.description)}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, margin: '0 6px' }}>
@@ -182,9 +183,9 @@ function AuditReportWindow({ args, close }: AreaWindowProps) {
           empty="No field audits are recorded for this record."
         />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', padding: '8px 0', flex: 'none' }}>
+      <DialogFooter padding="8px 0">
         <DialogButton id="audit-report-close" onClick={close} isDefault>Close</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -207,8 +208,8 @@ const CURRENT_USERS = (userListSpecs.find((s) => s.node === 'ad-users')?.rows ??
   .map((u) => ({ display: String(u.display ?? ''), user: String(u.user ?? ''), role: String(u.role ?? '') }))
 
 function AccessControlWindow({ args, close }: AreaWindowProps) {
-  const [saved, save] = useSessionState<string[]>(`record-masks:${str(args.recordKey)}`, [])
-  const [masked, setMasked] = useState<Set<string>>(() => new Set(saved))
+  const [saved, save] = useSessionState<string[]>(`record-masks:${argStr(args.recordKey)}`, [])
+  const masked = useTickSet<string>(() => saved)
   const [cur, setCur] = useState(0)
   useScreenReport({ masked: masked.size })
   return (
@@ -216,7 +217,7 @@ function AccessControlWindow({ args, close }: AreaWindowProps) {
       <div style={{ margin: '6px 6px 0', flex: 'none' }}>
         <PBBand>Record</PBBand>
         <div className="pb-row" style={{ background: '#fff', padding: '3px 8px', gap: 18 }}>
-          <b>{str(args.category)}</b><span>{str(args.date)}</span><span>{str(args.description)}</span>
+          <b>{argStr(args.category)}</b><span>{argStr(args.date)}</span><span>{argStr(args.description)}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, margin: '0 6px' }}>
@@ -234,7 +235,7 @@ function AccessControlWindow({ args, close }: AreaWindowProps) {
                 <PBCheckbox
                   checked={masked.has(u.user)}
                   tutorialId={`host.mois.cell.mask-${u.user}`}
-                  onChange={(on) => setMasked((s) => { const n = new Set(s); on ? n.add(u.user) : n.delete(u.user); return n })}
+                  onChange={(on) => masked.set(u.user, on)}
                 />
               ),
             },
@@ -244,10 +245,10 @@ function AccessControlWindow({ args, close }: AreaWindowProps) {
           ]}
         />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 12, padding: '8px 0', flex: 'none' }}>
-        <DialogButton id="access-control-ok" isDefault onClick={() => { save([...masked]); close() }}>Ok</DialogButton>
+      <DialogFooter gap={12} padding="8px 0">
+        <DialogButton id="access-control-ok" isDefault onClick={() => { save([...masked.ticked]); close() }}>Ok</DialogButton>
         <DialogButton id="access-control-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

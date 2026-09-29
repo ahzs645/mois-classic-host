@@ -7,8 +7,10 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { CLINIC } from '../data/printPages'
 import { useScreenReport } from '../host/screen-state'
-import { PBBand, PBButton, PBCheckbox, PBTabs, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBTabs, PBWindow, pbSlug } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
+import { ModalLayer, ModalWindow } from './dialogKit'
+import { DialogFooter } from './formKit'
 import './health-maintenance-review.css'
 
 /* ============================================================================
@@ -311,7 +313,6 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
     return { missing: seq.find(([, it]) => !found(it))?.[0], found: seq.find(([, it]) => found(it))?.[0] }
   })()
 
-  const host = usePBInstrumentation()
   const openWindow = useOpenWindow()
   const report = useRef<HTMLDivElement>(null)
   const [tornOff, setTornOff] = useState<{ tab: string; lines: string[] } | null>(null)
@@ -329,15 +330,13 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
     `Patient: ${`${patient.first} ${patient.last}`.toUpperCase()}    DoB: ${patient.dob}    Gender: ${patient.sex}`,
     `BC Health No.: ${patient.bchn ?? ''}    Chart: ${patient.chart}`,
   ]
-  const press = (id: string, run: () => void) => () => { host?.report('command', { command: id }); run() }
-
-  const print = press('hmr-print', () => {
+  const print = () => {
     openWindow('print-preview', {
       title: `Health Maintenance Review - ${tab}`,
       pages: [[`**Health Maintenance Review : As Of ${MOIS_TODAY}**`, ...identity, '', ...reportLines()].join('\n')],
     })
-  })
-  const tearOff = press('hmr-tear-off', () => setTornOff({ tab, lines: reportLines() }))
+  }
+  const tearOff = () => setTornOff({ tab, lines: reportLines() })
   const copy = (clinic: boolean, provider: boolean) => {
     const text = [
       ...(clinic ? [CLINIC] : []),
@@ -350,7 +349,7 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
+    <ModalLayer zIndex={96} style={{ position: 'fixed', padding: 8 }}>
       <PBWindow
         child
         controls={false}
@@ -370,10 +369,10 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
             <span className="pb-hmr__lbl">Chart:</span><b>{patient.chart}</b>
           </div>
           <div className="pb-hmr__buttons">
-            <PBButton data-tutorial-id="host.mois.command.hmr-flow-sheet" onClick={press('hmr-flow-sheet', onFlowSheet)}><u>F</u>low Sheet</PBButton>
-            <PBButton data-tutorial-id="host.mois.command.hmr-print" onClick={print}><u>P</u>rint</PBButton>
-            <PBButton disabled={!careTab} data-tutorial-id="host.mois.command.hmr-tear-off" onClick={tearOff}><u>T</u>ear Off</PBButton>
-            <PBButton disabled={!careTab} data-tutorial-id="host.mois.command.hmr-clipboard" onClick={press('hmr-clipboard', () => setClipOpen(true))}><u>C</u>lipboard</PBButton>
+            <PBButton command="hmr-flow-sheet" onClick={() => onFlowSheet()}><u>F</u>low Sheet</PBButton>
+            <PBButton command="hmr-print" onClick={print}><u>P</u>rint</PBButton>
+            <PBButton disabled={!careTab} command="hmr-tear-off" onClick={tearOff}><u>T</u>ear Off</PBButton>
+            <PBButton disabled={!careTab} command="hmr-clipboard" onClick={() => setClipOpen(true)}><u>C</u>lipboard</PBButton>
             {copied && (
               <span className="pb-hmr__note" data-tutorial-id="host.mois.field.hmr-copied">{`${copied} copied to the clipboard`}</span>
             )}
@@ -442,26 +441,20 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
       </PBWindow>
       {tornOff && <TearOffWindow tab={tornOff.tab} lines={tornOff.lines} identity={identity} onClose={() => setTornOff(null)} />}
       {clipOpen && <ClipboardWindow tab={tab} onCopy={copy} onClose={() => setClipOpen(false)} />}
-    </div>
+    </ModalLayer>
   )
 }
 
 /* Tear Off (INFERRED layout): the tab's text in its own window, left open
    beside the review — offset so both title bars show. */
 function TearOffWindow({ tab, lines, identity, onClose }: { tab: string; lines: string[]; identity: string[]; onClose: () => void }) {
-  const host = usePBInstrumentation()
   return (
     <PBWindow child controls title={`MOIS Viewer - ${tab}`} onClose={onClose} tutorialId="host.mois.dialog.hmr-tear-off"
       className="pb-hmr pb-hmr__tearoff">
       <div className="pb-hmr__report" style={{ margin: 6 }} data-tutorial-id="host.mois.field.hmr-tear-off-text">
         {[...identity, '', `${tab.toUpperCase()} : As Of ${MOIS_TODAY}`, ...lines].join('\n')}
       </div>
-      <div className="pb-footer">
-        <span className="pb-footer__spacer" />
-        <PBButton wide data-tutorial-id={host?.anchor('command', 'hmr-tear-off-close')}
-          onClick={() => { host?.report('command', { command: 'hmr-tear-off-close' }); onClose() }}>Close</PBButton>
-        <span className="pb-footer__spacer" />
-      </div>
+      <DialogFooter frame="pb" buttons={[{ label: 'Close', command: 'hmr-tear-off-close', wide: true, onClick: onClose }]} />
     </PBWindow>
   )
 }
@@ -469,16 +462,10 @@ function TearOffWindow({ tab, lines, identity, onClose }: { tab: string; lines: 
 /* Clipboard (INFERRED layout): patient details always, clinic and provider
    details on request, then OK copies the tab. */
 function ClipboardWindow({ tab, onCopy, onClose }: { tab: string; onCopy: (clinic: boolean, provider: boolean) => void; onClose: () => void }) {
-  const host = usePBInstrumentation()
   const [clinic, setClinic] = useState(false)
   const [provider, setProvider] = useState(false)
-  const button = (id: string, label: string, run: () => void, primary = false) => (
-    <PBButton wide className={primary ? 'pb-btn--default' : undefined} data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); run() }}>{label}</PBButton>
-  )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 2 }}>
-      <PBWindow child controls={false} title="Copy to Clipboard" onClose={onClose} tutorialId="host.mois.dialog.hmr-clipboard" style={{ width: 360 }}>
+    <ModalWindow id="hmr-clipboard" title="Copy to Clipboard" onClose={onClose} zIndex={2} windowStyle={{ width: 360 }}>
         <div style={{ background: 'var(--pb-face)', padding: 6 }}>
           <div className="pb-groupbox">
             <PBBand>{`Copy the ${tab} tab`}</PBBand>
@@ -489,13 +476,10 @@ function ClipboardWindow({ tab, onCopy, onClose }: { tab: string; onCopy: (clini
             </div>
           </div>
         </div>
-        <div className="pb-footer">
-          <span className="pb-footer__spacer" />
-          {button('hmr-clipboard-ok', 'OK', () => onCopy(clinic, provider), true)}
-          {button('hmr-clipboard-cancel', 'Cancel', onClose)}
-          <span className="pb-footer__spacer" />
-        </div>
-      </PBWindow>
-    </div>
+        <DialogFooter frame="pb" buttons={[
+          { label: 'OK', command: 'hmr-clipboard-ok', wide: true, primary: true, onClick: () => onCopy(clinic, provider) },
+          { label: 'Cancel', command: 'hmr-clipboard-cancel', wide: true, onClick: onClose },
+        ]} />
+    </ModalWindow>
   )
 }

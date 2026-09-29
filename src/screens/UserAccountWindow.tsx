@@ -27,6 +27,8 @@ import { ModuleWindowAccessTab } from './UserAccessTabs'
 import { ReportAccessPane } from './ReportAccessPane'
 import { SecurityProfilePickerDialog } from './SecurityProfileWindow'
 import { useScreenReport } from '../host/screen-state'
+import { DialogFooter, footerButtons } from './formKit'
+import { useTickSet } from './listKit'
 import { useStoredList } from './adminSession'
 import { aliasKey } from './ProviderTabGrids'
 import { MOIS_TODAY as MOIS_TODAY_STAMP } from '../data/patients'
@@ -162,24 +164,9 @@ export function NewUserDialog({ onCreate, onClose }: {
             </PBGroup>
           </div>
 
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {NEW_USER_BUTTONS.map((b) => (
-              <PBButton
-                key={b}
-                wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => {
-                  host?.report('command', { command: pbSlug(b) })
-                  if (b === 'Create User') onCreate(draft)
-                  else onClose()
-                }}
-              >
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(NEW_USER_BUTTONS, {
+            wide: true, onPress: (b) => (b === 'Create User' ? onCreate(draft) : onClose()),
+          })} />
         </PBWindow>
       </div>
 
@@ -204,7 +191,6 @@ function NewUserControl({ field, draft, onDraft, profiles, onChangeProfiles }: {
   profiles: string[]
   onChangeProfiles: () => void
 }) {
-  const host = usePBInstrumentation()
 
   if (field.kind === 'note') {
     return <span style={{ paddingTop: 2 }}>{field.text}</span>
@@ -253,10 +239,7 @@ function NewUserControl({ field, draft, onDraft, profiles, onChangeProfiles }: {
           data-tutorial-id={anchorField(field.label)}
         />
         {field.required && <Star />}
-        <PBButton
-          data-tutorial-id={host?.anchor('command', 'security-profiles-change')}
-          onClick={onChangeProfiles}
-        >
+        <PBButton command="security-profiles-change" onClick={onChangeProfiles}>
           Change
         </PBButton>
       </span>
@@ -366,7 +349,7 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
             ))}
             <span className="pb-row__spacer" />
             {/* `302650` names the dialog behind this; it is never captured */}
-            <PBButton data-tutorial-id={host?.anchor('command', 'change-name')}>Change Name</PBButton>
+            <PBButton command="change-name">Change Name</PBButton>
           </div>
 
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -375,23 +358,7 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
             </PBTabs>
           </div>
 
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {USER_ACCOUNT_FOOTER.map((b) => (
-              <PBButton
-                key={b}
-                wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
-                onClick={() => {
-                  host?.report('command', { command: pbSlug(b) })
-                  onClose()
-                }}
-              >
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(USER_ACCOUNT_FOOTER, { wide: true, onPress: onClose })} />
         </PBWindow>
       </div>
     </div>
@@ -430,7 +397,6 @@ const UncapturedPage = () => <div style={{ flex: '1 1 auto' }} />
    six; six are captured and six are drawn.                                 */
 
 function UserAccountTab({ row }: { row: UserRow }) {
-  const host = usePBInstrumentation()
   const [changePw, setChangePw] = useState(false)
   const [picker, setPicker] = useState(false)
   /* the account's own profile (its Role on the grid), and its own status:
@@ -451,21 +417,20 @@ function UserAccountTab({ row }: { row: UserRow }) {
                 <span className="pb-form__label" style={{ minWidth: 118 }}>User Name:</span>
                 {/* greyed and filled in `42be29fdd885`: changed only through Change */}
                 <PBInput w={150} value={String(row.user ?? '')} readOnly style={{ background: '#e8e8e8' }} data-tutorial-id={anchorField('User Name')} />
-                <PBButton size="sm" data-tutorial-id={host?.anchor('command', 'user-name-change')}>Change</PBButton>
+                <PBButton size="sm" command="user-name-change">Change</PBButton>
                 {/* `302650` names this link; its target is never captured */}
                 <button type="button" className="pb-link">Change History</button>
               </div>
               <Field label="Mobile Phone:"><PBInput w={130} data-tutorial-id={anchorField('Mobile Phone')} /></Field>
               <Field label="Email:"><PBInput w={220} data-tutorial-id={anchorField('Email')} /></Field>
-              <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-                <span className="pb-form__label" style={{ minWidth: 118 }}>Effective Date:</span>
+              <Field label="Effective Date:">
                 <PBInput w={92} align="center" defaultValue={String(row.effective ?? '')} data-tutorial-id={anchorField('Effective Date')} />
                 <span className="pb-form__label">Expiry Date:</span>
                 <PBInput w={92} align="center" defaultValue={String(row.expiry ?? '')} data-tutorial-id={anchorField('Expiry Date')} />
                 {/* `303186`: unticking this is what deactivates the account */}
                 <span className="pb-form__label">Active:</span>
                 <PBCheckbox checked={active} onChange={(v) => { setActive(v); setToggledActive(true) }} tutorialId={anchorField('Active')} />
-              </div>
+              </Field>
               <Field label="Role:"><PBSelect w={180} options={USER_ROLES} data-tutorial-id={anchorField('Role')} /></Field>
               <Field label="Expertise:"><PBSelect w={180} options={USER_EXPERTISE} data-tutorial-id={anchorField('Expertise')} /></Field>
             </PBGroup>
@@ -473,17 +438,12 @@ function UserAccountTab({ row }: { row: UserRow }) {
             <PBGroup title="Password Settings" style={{ marginTop: 6 }}>
               <Field label="Effective Date:"><PBInput w={92} align="center" /></Field>
               <Field label="Expiry Date:"><PBInput w={92} align="center" /></Field>
-              <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-                <span className="pb-form__label" style={{ minWidth: 118 }}>Password:</span>
+              <Field label="Password:">
                 <PBInput type="password" w={150} defaultValue="********" />
-                <PBButton
-                  size="sm"
-                  data-tutorial-id={host?.anchor('command', 'password-change')}
-                  onClick={() => setChangePw(true)}
-                >
+                <PBButton size="sm" command="password-change" onClick={() => setChangePw(true)}>
                   Change
                 </PBButton>
-              </div>
+              </Field>
             </PBGroup>
 
             <PBGroup title="Security Profiles" style={{ marginTop: 6 }}>
@@ -495,10 +455,7 @@ function UserAccountTab({ row }: { row: UserRow }) {
                   value={profiles.join('\n')}
                   data-tutorial-id={anchorField('Security Profiles')}
                 />
-                <PBButton
-                  data-tutorial-id={host?.anchor('command', 'security-profiles-change')}
-                  onClick={() => setPicker(true)}
-                >
+                <PBButton command="security-profiles-change" onClick={() => setPicker(true)}>
                   Change
                 </PBButton>
               </div>
@@ -676,7 +633,6 @@ const BACKLOG_ITEMS: [string, number][] = [
 ]
 
 function AcknowledgeBacklogDialog({ who, onClose }: { who: string; onClose: () => void }) {
-  const host = usePBInstrumentation()
   const [include, setInclude] = useState(() => BACKLOG_ITEMS.map(() => true))
   useScreenReport({ dialog: 'acknowledge-backlog' })
   const total = BACKLOG_ITEMS.reduce((sum, [, n], i) => sum + (include[i] ? n : 0), 0)
@@ -717,13 +673,7 @@ function AcknowledgeBacklogDialog({ who, onClose }: { who: string; onClose: () =
             </div>
           </div>
         </div>
-        <div className="pb-footer">
-          <span className="pb-footer__spacer" />
-          {['Ok', 'Cancel'].map((b) => (
-            <PBButton key={b} wide data-tutorial-id={host?.anchor('command', `backlog-${pbSlug(b)}`)} onClick={() => { host?.report('command', { command: `backlog-${pbSlug(b)}` }); onClose() }}>{b}</PBButton>
-          ))}
-          <span className="pb-footer__spacer" />
-        </div>
+        <DialogFooter frame="pb" buttons={footerButtons(['Ok', 'Cancel'], { prefix: 'backlog-', wide: true, onPress: onClose })} />
       </PBWindow>
     </div>
   )
@@ -734,9 +684,8 @@ function AcknowledgeBacklogDialog({ who, onClose }: { who: string; onClose: () =
    backlog goes to, press Ok, and confirm — the confirmation is not captured,
    so Ok closes the window. */
 function SelectUsersDialog({ onClose }: { onClose: () => void }) {
-  const host = usePBInstrumentation()
   const users = userListSpec('ad-users')?.rows.filter((r) => r.status !== 'I') ?? []
-  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const picked = useTickSet<string>()
   useScreenReport({ dialog: 'select-users', rows: picked.size })
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
@@ -754,7 +703,7 @@ function SelectUsersDialog({ onClose }: { onClose: () => void }) {
                   render: (r) => (
                     <PBCheckbox
                       checked={picked.has(String(r.user))}
-                      onChange={(v) => setPicked((p) => { const n = new Set(p); v ? n.add(String(r.user)) : n.delete(String(r.user)); return n })}
+                      onChange={(v) => picked.set(String(r.user), v)}
                       tutorialId={`host.mois.cell.select-${pbSlug(String(r.user ?? ''))}`}
                     />
                   ),
@@ -765,13 +714,7 @@ function SelectUsersDialog({ onClose }: { onClose: () => void }) {
             />
           </div>
         </div>
-        <div className="pb-footer">
-          <span className="pb-footer__spacer" />
-          {['Ok', 'Cancel'].map((b) => (
-            <PBButton key={b} wide data-tutorial-id={host?.anchor('command', `select-users-${pbSlug(b)}`)} onClick={() => { host?.report('command', { command: `select-users-${pbSlug(b)}` }); onClose() }}>{b}</PBButton>
-          ))}
-          <span className="pb-footer__spacer" />
-        </div>
+        <DialogFooter frame="pb" buttons={footerButtons(['Ok', 'Cancel'], { prefix: 'select-users-', wide: true, onPress: onClose })} />
       </PBWindow>
     </div>
   )
@@ -780,7 +723,6 @@ function SelectUsersDialog({ onClose }: { onClose: () => void }) {
 /* --- tab 7: `Memberships` ------------------------------------------------ */
 
 function MembershipsTab() {
-  const host = usePBInstrumentation()
 
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -809,10 +751,7 @@ function MembershipsTab() {
               width: 110,
               render: (r: UserRow) => (
                 <span className="pb-row" style={{ gap: 4 }}>
-                  <PBButton
-                    size="sm"
-                    data-tutorial-id={host?.anchor('command', `membership-edit-${pbSlug(String(r.name ?? ''))}`)}
-                  >
+                  <PBButton size="sm" command={`membership-edit-${pbSlug(String(r.name ?? ''))}`}>
                     Edit
                   </PBButton>
                   <PBButton size="sm">Delete</PBButton>
@@ -849,7 +788,6 @@ function ServiceGroupTab() {
    qualifier beside the value.                                              */
 
 function SubscriptionTab() {
-  const host = usePBInstrumentation()
   const [cur, setCur] = useState(0)
   const [pick, setPick] = useState(false)
 
@@ -877,21 +815,14 @@ function SubscriptionTab() {
             key: 'actions',
             /* `Add` really does live in the header row on this tab */
             header: (
-              <PBButton
-                size="sm"
-                data-tutorial-id={host?.anchor('command', 'subscription-add')}
-                onClick={() => setPick(true)}
-              >
+              <PBButton size="sm" command="subscription-add" onClick={() => setPick(true)}>
                 Add
               </PBButton>
             ),
             width: 116,
             render: (r: UserRow) => (
               <span className="pb-row" style={{ gap: 4 }}>
-                <PBButton
-                  size="sm"
-                  data-tutorial-id={host?.anchor('command', `subscription-edit-${pbSlug(String(r.event ?? ''))}`)}
-                >
+                <PBButton size="sm" command={`subscription-edit-${pbSlug(String(r.event ?? ''))}`}>
                   Edit
                 </PBButton>
                 <PBButton size="sm">Delete</PBButton>
@@ -939,15 +870,7 @@ function EventSubjectSelectionDialog({ onClose }: { onClose: () => void }) {
               </div>
             </PBGroup>
           </div>
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {d.buttons.map((b) => (
-              <PBButton key={b} wide data-tutorial-id={host?.anchor('command', pbSlug(b))} onClick={onClose}>
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(d.buttons, { wide: true, onPress: onClose })} />
         </PBWindow>
       </div>
     </div>
@@ -1055,15 +978,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
               <PBCheckbox label={CHANGE_PASSWORD.reset} tutorialId="host.mois.field.reset-pswrd" />
             </div>
           </div>
-          <div className="pb-footer">
-            <span className="pb-footer__spacer" />
-            {CHANGE_PASSWORD.buttons.map((b) => (
-              <PBButton key={b} wide data-tutorial-id={host?.anchor('command', pbSlug(b))} onClick={onClose}>
-                {b}
-              </PBButton>
-            ))}
-            <span className="pb-footer__spacer" />
-          </div>
+          <DialogFooter frame="pb" buttons={footerButtons(CHANGE_PASSWORD.buttons, { wide: true, onPress: onClose })} />
         </PBWindow>
       </div>
     </div>

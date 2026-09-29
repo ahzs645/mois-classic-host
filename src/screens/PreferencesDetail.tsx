@@ -1,6 +1,7 @@
 import type { MoisRecord } from '../data/charts'
 import { date } from '../data/charts/relations'
 import { PREFERENCE_BY, PREFERENCE_FORMS, PREFERENCE_REASONS } from '../data/preferenceVocab'
+import { yn } from '../data/text'
 import { PBCheckbox, PBInput, PBRadio, PBTextArea } from '../pb'
 import { PreferenceChoice } from './PreferenceChoice'
 import './preferences-detail.css'
@@ -53,9 +54,9 @@ export function PreferencesDetail({ record, records = [], onChange }: {
       </div>
       <div className="pb-preference-detail__flags">
         <PBCheckbox label="Mark as Sensitive" checked={value('str_sensitive') === 'Y'} disabled={!record}
-          tutorialId="host.mois.field.preference-sensitive" onChange={v => onChange('str_sensitive', v ? 'Y' : 'N')} />
+          tutorialId="host.mois.field.preference-sensitive" onChange={v => onChange('str_sensitive', yn(v))} />
         <PBCheckbox label="Show on Demographics" checked={value('str_include_demo') === 'Y'} disabled={!record}
-          tutorialId="host.mois.field.preference-show-on-demographics" onChange={v => onChange('str_include_demo', v ? 'Y' : 'N')} />
+          tutorialId="host.mois.field.preference-show-on-demographics" onChange={v => onChange('str_include_demo', yn(v))} />
       </div>
       <span />
       <label>Form:{choice('str_form', 'Preference form', 'preference-form')}</label>

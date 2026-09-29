@@ -14,6 +14,7 @@ import { useScreenReport } from '../host/screen-state'
 import { BandButtons, UM_CSS, umColumns } from './UserManagementKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
 
 /* ============================================================================
    The signed-in user's own `User Account` window — `my-user-account`.
@@ -298,10 +299,10 @@ export function MyUserAccountWindow({ args, close }: AreaWindowProps) {
         </PBTabs>
       </div>
 
-      <div className="pb-footer" style={{ justifyContent: 'center', gap: 28, padding: '12px 9px' }}>
+      <DialogFooter frame="pb" spacers={false} style={{ justifyContent: 'center', gap: 28, padding: '12px 9px' }}>
         <DialogButton id="apply-changes" width={100} onClick={apply}>Apply Changes</DialogButton>
         <DialogButton id="cancel" width={100} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

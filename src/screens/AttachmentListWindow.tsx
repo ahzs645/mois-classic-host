@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { MOIS_TODAY } from '../data/patients'
 import { useReportDialog, useSessionState } from '../host/screen-windows'
 import { usePatient } from '../data/patient-context'
-import { PBCheckbox, PBDataWindow, PBInput, PBLookup, PBTextArea, PBWindow, usePBInstrumentation } from '../pb'
+import { PBCheckbox, PBDataWindow, PBInput, PBLookup, PBTextArea, usePBInstrumentation } from '../pb'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Document / Attachment List — what Attachment opens on a record that
@@ -75,54 +76,52 @@ export function AttachmentListWindow({ target, exported, onAddAttachment, onClos
   )
   const label = (text: string) => <span className="pb-form__label">{text}</span>
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow child controls={false} title={<>&#128206; Document / Attachment List</>} onClose={onClose}
-        tutorialId="host.mois.dialog.attachment-list" style={{ width: 'min(1089px, calc(100% - 24px))', height: 'min(614px, calc(100% - 24px))' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#fff' }}>
-          <div className="pb-row" style={{ gap: 0, height: 26, flex: 'none', borderBottom: '1px solid #a0a0a0', background: '#f0f0f0' }}>
-            {tool('new-record', 'New Record', () => { setAdded((a) => [...a, { date: MOIS_TODAY, author: '', docType: '', note: '', file: '' }]); setCur(rows.length) }, '\u{1F5CB}')}
-            {tool('delete-record', 'Delete Record', () => { if (cur >= base.length) setAdded((a) => a.filter((_, i) => i !== cur - base.length)) }, '✕')}
-            {tool('save', 'Save', undefined, '\u{1F4BE}')}
-            {tool('add-attachment', 'Add Attachment', onAddAttachment)}
-            {tool('open-attachment', 'Open Attachment')}
-            {tool('unlink-attachment', 'Unlink Attachment')}
-            <span style={{ flex: '1 1 auto' }} />
-            <span style={{ background: '#cfe3f7', alignSelf: 'stretch', display: 'flex' }}>{tool('close', 'Close', onClose)}</span>
-          </div>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-            <PBDataWindow
-              rows={rows}
-              current={Math.min(cur, Math.max(0, rows.length - 1))}
-              onCurrentChange={setCur}
-              rowTutorialId={(_x, i) => `host.mois.row.attach-list-${i}`}
-              columns={[
-                { key: 'date', header: 'Date', width: 90, align: 'center' },
-                { key: 'author', header: 'Author', width: 120 },
-                { key: 'd', header: '', dots: true },
-                { key: 'docType', header: 'Document Type', width: 150 },
-                { key: 'note', header: 'Note' },
-                { key: 's', header: 'S', width: 22, align: 'center', render: () => <PBCheckbox checked={false} /> },
-                { key: 'm', header: 'M', width: 22, align: 'center', render: (x) => (x.file ? '⇩' : '') },
-                { key: 'link', header: 'Link', width: 34, align: 'center', render: (x) => (x.file ? '↷' : '') },
-                { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center', render: (x) => (x.docType ? '1' : '-') },
-              ]}
-              empty="No attachments."
-            />
-          </div>
-          <div className="pb-form" style={{ flex: 'none', gridTemplateColumns: '120px 410px 1fr 360px', padding: '6px 10px', gap: '3px 8px', borderTop: '1px solid #a0a0a0', background: 'var(--pb-face)' }}>
-            {label('Note:')}<PBInput w={404} readOnly value={r?.note ?? ''} />
-            <span />
-            <span style={{ textAlign: 'right' }}>File Name: {r?.file || (r?.docType ? `${chart}_${500000 + cur}.pdf` : '')}</span>
-            {label('Attending:')}<PBLookup w={410} />{label('Primary Recipient:')}<PBLookup w={354} />
-            {label('Author:')}<PBLookup w={410} value={r?.author ?? ''} />{label('Copies To:')}<PBLookup w={354} />
-            {label('Responsible Org.:')}<PBLookup w={410} />{label('Facility:')}<PBInput w={354} />
-            {label('Transcribed:')}<div className="pb-row"><PBInput w={190} /><span style={{ marginLeft: 20 }}>Date:</span><PBInput w={90} /><PBInput w={50} /></div>
-            {label('Facility Ref.:')}<PBInput w={354} />
-            {label('Service Event:')}<PBLookup w={410} />{label('Facility Loc.:')}<PBInput w={354} />
-            {label('Comment:')}<PBTextArea rows={2} style={{ gridColumn: 'span 3' }} />
-          </div>
+    <ModalWindow id="attachment-list" title={<>&#128206; Document / Attachment List</>} onClose={onClose} zIndex={80}
+      windowStyle={{ width: 'min(1089px, calc(100% - 24px))', height: 'min(614px, calc(100% - 24px))' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#fff' }}>
+        <div className="pb-row" style={{ gap: 0, height: 26, flex: 'none', borderBottom: '1px solid #a0a0a0', background: '#f0f0f0' }}>
+          {tool('new-record', 'New Record', () => { setAdded((a) => [...a, { date: MOIS_TODAY, author: '', docType: '', note: '', file: '' }]); setCur(rows.length) }, '\u{1F5CB}')}
+          {tool('delete-record', 'Delete Record', () => { if (cur >= base.length) setAdded((a) => a.filter((_, i) => i !== cur - base.length)) }, '✕')}
+          {tool('save', 'Save', undefined, '\u{1F4BE}')}
+          {tool('add-attachment', 'Add Attachment', onAddAttachment)}
+          {tool('open-attachment', 'Open Attachment')}
+          {tool('unlink-attachment', 'Unlink Attachment')}
+          <span style={{ flex: '1 1 auto' }} />
+          <span style={{ background: '#cfe3f7', alignSelf: 'stretch', display: 'flex' }}>{tool('close', 'Close', onClose)}</span>
         </div>
-      </PBWindow>
-    </div>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+          <PBDataWindow
+            rows={rows}
+            current={Math.min(cur, Math.max(0, rows.length - 1))}
+            onCurrentChange={setCur}
+            rowTutorialId={(_x, i) => `host.mois.row.attach-list-${i}`}
+            columns={[
+              { key: 'date', header: 'Date', width: 90, align: 'center' },
+              { key: 'author', header: 'Author', width: 120 },
+              { key: 'd', header: '', dots: true },
+              { key: 'docType', header: 'Document Type', width: 150 },
+              { key: 'note', header: 'Note' },
+              { key: 's', header: 'S', width: 22, align: 'center', render: () => <PBCheckbox checked={false} /> },
+              { key: 'm', header: 'M', width: 22, align: 'center', render: (x) => (x.file ? '⇩' : '') },
+              { key: 'link', header: 'Link', width: 34, align: 'center', render: (x) => (x.file ? '↷' : '') },
+              { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center', render: (x) => (x.docType ? '1' : '-') },
+            ]}
+            empty="No attachments."
+          />
+        </div>
+        <div className="pb-form" style={{ flex: 'none', gridTemplateColumns: '120px 410px 1fr 360px', padding: '6px 10px', gap: '3px 8px', borderTop: '1px solid #a0a0a0', background: 'var(--pb-face)' }}>
+          {label('Note:')}<PBInput w={404} readOnly value={r?.note ?? ''} />
+          <span />
+          <span style={{ textAlign: 'right' }}>File Name: {r?.file || (r?.docType ? `${chart}_${500000 + cur}.pdf` : '')}</span>
+          {label('Attending:')}<PBLookup w={410} />{label('Primary Recipient:')}<PBLookup w={354} />
+          {label('Author:')}<PBLookup w={410} value={r?.author ?? ''} />{label('Copies To:')}<PBLookup w={354} />
+          {label('Responsible Org.:')}<PBLookup w={410} />{label('Facility:')}<PBInput w={354} />
+          {label('Transcribed:')}<div className="pb-row"><PBInput w={190} /><span style={{ marginLeft: 20 }}>Date:</span><PBInput w={90} /><PBInput w={50} /></div>
+          {label('Facility Ref.:')}<PBInput w={354} />
+          {label('Service Event:')}<PBLookup w={410} />{label('Facility Loc.:')}<PBInput w={354} />
+          {label('Comment:')}<PBTextArea rows={2} style={{ gridColumn: 'span 3' }} />
+        </div>
+      </div>
+    </ModalWindow>
   )
 }

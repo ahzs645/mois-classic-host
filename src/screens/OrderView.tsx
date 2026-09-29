@@ -7,6 +7,7 @@ import {
 } from '../data/mois'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { DESKTOP_PROVIDER_DEFAULT, SESSION_USER } from '../data/session'
 import { nextEncounterId, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
 import { useChartSession } from '../data/chartSession'
@@ -15,9 +16,10 @@ import { SEED_DISTRIBUTIONS } from '../data/letterDocs'
 import { useRespondToOrder, useResponseLinks } from './LetterResponseWindows'
 import { VISIT_MODES } from './EncounterWindow'
 import { useOpenWindow } from './areaWindowRegistry'
+import { ChartIdentityStrip } from './patientKit'
 import type { QuickEntryApplied } from './quickEntryApply'
 import {
-  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBFixed, PBGroup, PBIdentityStrip, PBInput,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBFixed, PBGroup, PBInput,
   PBLookup, PBRadio, PBSelect, PBTabs, PBTextArea, PBViewHeader,
   type PBColumn,
 } from '../pb'
@@ -124,7 +126,7 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   ].filter((d) => d.orderId && d.orderId === r?.id_order)
   const order: OrderRow | undefined = draft && cur === 0 ? { ...draft, detail: { orderedBy: DESKTOP_PROVIDER, status: 'IP', priority: 'ROUTINE' } }
     : exportedOrders?.[cur] ? { ...exportedOrders[cur], linkRows: [...(exportedOrders[cur].linkRows ?? []), ...responseLinks], distribution: sent.map((d) => ({
-      sentAt: d.date, document: d.title, by: 'JALIL, AHMAD',
+      sentAt: d.date, document: d.title, by: SESSION_USER,
       recipients: d.rows.map((x) => ({ method: x.method, type: x.type, name: x.name, location: '', status: x.status })),
     })), detail: {
     attending: r?.str_attending, orderedBy: r?.str_order_by, responsibleOrg: r?.str_responsible_org,
@@ -197,20 +199,12 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
       </div>
 
       {/* patient identity strip — fields sit at the offsets they were painted at */}
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first, w: 186 },
-          { label: 'MIDDLE:', value: patient.middle, w: 145 },
-          { label: 'LAST:', value: patient.last, w: 208 },
-          { label: 'DoB:', value: patient.dob, w: 113 },
-        ]}
+      <ChartIdentityStrip
+        widths={{ first: 186, middle: 145, last: 208, dob: 113 }}
         encounter={patient.encounter ?? 'NO ENCOUNTER'}
+        search
+        fixedSearch
       />
-
-      <PBFixed className="pb-row" style={{ padding: '2px 8px', display: 'flex' }}>
-        <span>Search For:</span>
-        <PBLookup w="100%" />
-      </PBFixed>
 
       {/* Ten rows and a header. The capture's grid is 355px against a 1590px
           column run; at this window's measured 810px run that scales to ~181,
@@ -598,7 +592,7 @@ const DRAFT_ENCOUNTER: EncounterListRow = {
   /* "The date and doctor fields will be automatically populated" (303061):
      today, and the desktop provider */
   id: 'draft', date: MOIS_TODAY, hr: '', mn: '', code: '', mode: '', nbr: '',
-  provider: 'TECHNICAL SUPPORT', reason: '', loc: '', alert: false,
+  provider: DESKTOP_PROVIDER_DEFAULT, reason: '', loc: '', alert: false,
 }
 
 
@@ -681,14 +675,7 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
       />
       {/* the four captions are painted at 13 / 183 / 322 / 493 across the work
           area, and this window has no Active ENC# block after them */}
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first, w: 170 },
-          { label: 'MIDDLE:', value: patient.middle, w: 139 },
-          { label: 'LAST:', value: patient.last, w: 171 },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-      />
+      <ChartIdentityStrip widths={{ first: 170, middle: 139, last: 171 }} noEncounter />
 
       {/* The search band: six unlabelled boxes on the window's grey, ruled off
           top and bottom. They are painted where the capture puts them — 125 /

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
+import { pad2 } from '../data/clock'
 import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { PBButton, PBDropDownDataWindow, PBInput, PBWindow } from '../pb'
+import { ModalLayer } from './dialogKit'
 import './flow-sheet.css'
 
 /* ============================================================================
@@ -55,8 +57,7 @@ const FLOW_SHEET_PERIOD = 2
 function periodStart(today: string, years = FLOW_SHEET_PERIOD): string {
   const [y, m, d] = today.split('.').map(Number)
   const t = new Date(Date.UTC(y - years, m - 1, d + 1))
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${t.getUTCFullYear()}.${pad(t.getUTCMonth() + 1)}.${pad(t.getUTCDate())}`
+  return `${t.getUTCFullYear()}.${pad2(t.getUTCMonth() + 1)}.${pad2(t.getUTCDate())}`
 }
 
 /* ============================================================================
@@ -90,7 +91,7 @@ export function FlowSheetParametersDialog({ defaultType = 'DIABETES', onOk, onCl
   })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
+    <ModalLayer zIndex={96} style={{ position: 'fixed', padding: 8 }}>
       <PBWindow
         child
         controls={false}
@@ -131,12 +132,12 @@ export function FlowSheetParametersDialog({ defaultType = 'DIABETES', onOk, onCl
             </div>
           </div>
           <div className="pb-fsparams__buttons">
-            <PBButton style={{ minWidth: 85 }} data-tutorial-id="host.mois.command.flow-sheet-ok" disabled={!type} onClick={ok}>Ok (F2)</PBButton>
+            <PBButton style={{ minWidth: 85 }} command="flow-sheet-ok" disabled={!type} onClick={ok}>Ok (F2)</PBButton>
             <PBButton style={{ minWidth: 85 }} onClick={onClose}>Cancel</PBButton>
           </div>
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -359,7 +360,7 @@ export function FlowSheetWindow({ params, onClose }: { params: FlowSheetParams; 
   const insurance = [patient.insuranceBy, patient.bchn].filter(Boolean).join('   ')
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
+    <ModalLayer zIndex={96} style={{ position: 'fixed', padding: 8 }}>
       <PBWindow
         child
         controls={false}
@@ -451,7 +452,7 @@ export function FlowSheetWindow({ params, onClose }: { params: FlowSheetParams; 
           </div>
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }
 

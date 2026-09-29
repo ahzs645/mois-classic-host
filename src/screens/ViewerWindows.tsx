@@ -8,6 +8,7 @@ import {
 } from '../pb'
 import { AddressBookWindow } from './AddressBookWindow'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ModalLayer, ModalWindow } from './dialogKit'
 
 /* ============================================================================
    The MOIS Viewer's own sub-windows and its bottom toolbar
@@ -75,7 +76,7 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
     />
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 92 }}>
+    <ModalLayer zIndex={92}>
       <PBWindow child controls={false} title="Send eFax" onClose={onClose} tutorialId="host.mois.dialog.send-efax" style={{ width: 650, height: 390, maxWidth: 'calc(100% - 16px)' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 14px 0', background: 'var(--pb-face)' }}>
           <div style={{ border: '1px solid #a0a0a0', background: '#fff', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
@@ -93,8 +94,8 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
             </div>
             <div className="pb-band">
               <span>Recipient List</span><span className="pb-band__spacer" />
-              <PBButton size="sm" style={{ width: 60 }} data-tutorial-id={host?.anchor('command', 'efax-new')} onClick={() => { setRows((r) => [...r, { recipient: '', fax: '' }]); setCur(rows.length) }}>New</PBButton>
-              <PBButton size="sm" style={{ width: 60 }} data-tutorial-id={host?.anchor('command', 'efax-delete')} onClick={() => { setRows((r) => (r.length > 1 ? r.filter((_, j) => j !== cur) : [{ recipient: '', fax: '' }])); setCur(0) }}>Delete</PBButton>
+              <PBButton size="sm" style={{ width: 60 }} command="efax-new" onClick={() => { setRows((r) => [...r, { recipient: '', fax: '' }]); setCur(rows.length) }}>New</PBButton>
+              <PBButton size="sm" style={{ width: 60 }} command="efax-delete" onClick={() => { setRows((r) => (r.length > 1 ? r.filter((_, j) => j !== cur) : [{ recipient: '', fax: '' }])); setCur(0) }}>Delete</PBButton>
             </div>
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
               <PBDataWindow
@@ -120,8 +121,8 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
         </div>
         <div className="pb-footer">
           <span className="pb-footer__spacer" />
-          <PBButton wide className="pb-btn--default" data-tutorial-id={host?.anchor('command', 'efax-send')} onClick={() => { host?.report('command', { command: 'efax-send' }); send() }}>Send</PBButton>
-          <PBButton wide data-tutorial-id={host?.anchor('command', 'efax-cancel')} onClick={onClose}>Cancel</PBButton>
+          <PBButton wide className="pb-btn--default" command="efax-send" onClick={send}>Send</PBButton>
+          <PBButton wide command="efax-cancel" onClick={onClose}>Cancel</PBButton>
           <span className="pb-footer__spacer" />
         </div>
       </PBWindow>
@@ -146,7 +147,7 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
           You must enter a Recipient and a fax number.
         </PBMessageBox>
       )}
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -182,7 +183,6 @@ export function CustomizeToolbarsDialog({ visible, onToggle, onReset, onClose }:
   onReset: () => void
   onClose: () => void
 }) {
-  const host = usePBInstrumentation()
   const [tab, setTab] = useState('Commands')
   const [category, setCategory] = useState('Tools')
   const [command, setCommand] = useState('Text Box Tool')
@@ -204,51 +204,50 @@ export function CustomizeToolbarsDialog({ visible, onToggle, onReset, onClose }:
     </div>
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 92 }}>
-      <PBWindow child controls={false} title="Customize Toolbars" onClose={onClose} tutorialId="host.mois.dialog.customize-toolbars" style={{ width: 778, height: 647, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 12, background: 'var(--pb-face)' }}>
-          <PBTabs tabs={['Toolbars', 'Commands', 'Options']} active={tab} onChange={setTab} compact>
-            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: 10, gap: 8 }}>
-              {tab === 'Commands' && (
-                <>
-                  <div>To add a command, drag the command from the Commands list and drop the command on the target toolbar or menu.</div>
-                  <div style={{ display: 'flex', gap: 10, flex: '1 1 auto', minHeight: 0 }}>
-                    <div style={{ width: 176, display: 'flex', flexDirection: 'column' }}>
-                      <div>Categories:</div>
-                      {list(Object.keys(CATEGORIES), category, (c) => { setCategory(c); setCommand(CATEGORIES[c]![0]!) }, 'viewer-category')}
-                    </div>
-                    <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}>
-                      <div>Commands:</div>
-                      {list(CATEGORIES[category]!, command, setCommand, 'viewer-command', true)}
-                      <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 10, paddingTop: 8 }}>
-                        <PBButton wide disabled>New...</PBButton>
-                        <PBButton wide data-tutorial-id={host?.anchor('command', 'customize-properties')}>Properties</PBButton>
-                      </div>
+    <ModalWindow id="customize-toolbars" title="Customize Toolbars" onClose={onClose} zIndex={92}
+      windowStyle={{ width: 778, height: 647, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 12, background: 'var(--pb-face)' }}>
+        <PBTabs tabs={['Toolbars', 'Commands', 'Options']} active={tab} onChange={setTab} compact>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: 10, gap: 8 }}>
+            {tab === 'Commands' && (
+              <>
+                <div>To add a command, drag the command from the Commands list and drop the command on the target toolbar or menu.</div>
+                <div style={{ display: 'flex', gap: 10, flex: '1 1 auto', minHeight: 0 }}>
+                  <div style={{ width: 176, display: 'flex', flexDirection: 'column' }}>
+                    <div>Categories:</div>
+                    {list(Object.keys(CATEGORIES), category, (c) => { setCategory(c); setCommand(CATEGORIES[c]![0]!) }, 'viewer-category')}
+                  </div>
+                  <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}>
+                    <div>Commands:</div>
+                    {list(CATEGORIES[category]!, command, setCommand, 'viewer-command', true)}
+                    <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 10, paddingTop: 8 }}>
+                      <PBButton wide disabled>New...</PBButton>
+                      <PBButton wide command="customize-properties">Properties</PBButton>
                     </div>
                   </div>
-                </>
-              )}
-              {tab === 'Toolbars' && (
-                <div style={{ flex: '1 1 auto', overflow: 'auto', background: '#fff', border: '1px solid #9a9a9a', padding: 4 }}>
-                  {TOOLBAR_NAMES.map((n) => (
-                    <label key={n} className="pb-check" style={{ display: 'flex', padding: '2px 4px' }}>
-                      <input type="checkbox" checked={!!visible[n]} onChange={() => onToggle(n)} data-tutorial-id={`host.mois.field.toolbar-${pbSlug(n)}`} />
-                      <span className="pb-check__box" /><span className="pb-check__label">{n}</span>
-                    </label>
-                  ))}
                 </div>
-              )}
-              {tab === 'Options' && <div style={{ color: '#606060' }}>Show ScreenTips on toolbars.</div>}
-            </div>
-          </PBTabs>
-        </div>
-        <div className="pb-footer">
-          <PBButton wide data-tutorial-id={host?.anchor('command', 'customize-reset-all')} onClick={onReset}>Reset All</PBButton>
-          <span className="pb-footer__spacer" />
-          <PBButton wide className="pb-btn--default" data-tutorial-id={host?.anchor('command', 'customize-close')} onClick={onClose}>Close</PBButton>
-        </div>
-      </PBWindow>
-    </div>
+              </>
+            )}
+            {tab === 'Toolbars' && (
+              <div style={{ flex: '1 1 auto', overflow: 'auto', background: '#fff', border: '1px solid #9a9a9a', padding: 4 }}>
+                {TOOLBAR_NAMES.map((n) => (
+                  <label key={n} className="pb-check" style={{ display: 'flex', padding: '2px 4px' }}>
+                    <input type="checkbox" checked={!!visible[n]} onChange={() => onToggle(n)} data-tutorial-id={`host.mois.field.toolbar-${pbSlug(n)}`} />
+                    <span className="pb-check__box" /><span className="pb-check__label">{n}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {tab === 'Options' && <div style={{ color: '#606060' }}>Show ScreenTips on toolbars.</div>}
+          </div>
+        </PBTabs>
+      </div>
+      <div className="pb-footer">
+        <PBButton wide command="customize-reset-all" onClick={onReset}>Reset All</PBButton>
+        <span className="pb-footer__spacer" />
+        <PBButton wide className="pb-btn--default" command="customize-close" onClick={onClose}>Close</PBButton>
+      </div>
+    </ModalWindow>
   )
 }
 

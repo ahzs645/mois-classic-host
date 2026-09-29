@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBWindow } from '../../pb'
+import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect } from '../../pb'
 import { VISIT_CODE_FILL, visitCodeRows, weekdayOf } from '../../data/daybook'
 import { dayRows, schedulerStore, stampOf, useSchedulerStore } from '../../data/schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
-import { NAVY, str } from './SchedulerDialog'
+import { LAYER, ModalWindow } from '../dialogKit'
+import { CaptionGroup } from '../formKit'
+import { useTickSet } from '../listKit'
+import { DAYS, str } from './SchedulerDialog'
 
 /* ============================================================================
    Pre-Slot Wizard (MOIS 2.25+, myhealthkey clinics) — the day book's
@@ -27,7 +31,6 @@ import { NAVY, str } from './SchedulerDialog'
    what is left, conflicts included.
    ========================================================================= */
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const spelled = (off: number) => {
   const [, m, d] = stampOf(off).split('.').map(Number) as [number, number, number]
@@ -59,15 +62,15 @@ function planSlots(p: PreSlotPlan): Slot[] {
 }
 
 const Section = ({ n, title, children }: { n: number; title: string; children: ReactNode }) => (
-  <fieldset className="pb-fieldset" style={{ margin: '0 0 6px' }}>
-    <legend className="pb-fieldset__legend" style={NAVY}><span style={{ color: '#c00000', marginRight: 4 }}>{n}.</span>{title}</legend>
-    <div style={{ padding: '2px 6px' }}>{children}</div>
-  </fieldset>
+  <CaptionGroup frame="fieldset" style={{ margin: '0 0 6px' }} bodyStyle={{ padding: '2px 6px' }}
+    title={<><span style={{ color: '#c00000', marginRight: 4 }}>{n}.</span>{title}</>}>
+    {children}
+  </CaptionGroup>
 )
 
 function PreSlotWizard({ args, close, open }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const here = s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
+  const here = s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' }
   const tomorrow = here.offset + 1
   const [from, setFrom] = useState('08:00')
   const [to, setTo] = useState('16:00')
@@ -108,15 +111,8 @@ function PreSlotWizard({ args, close, open }: AreaWindowProps) {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Pre-Slot Wizard"
-        tutorialId="host.mois.dialog.pre-slot-wizard"
-        onClose={close}
-        style={{ width: 420, height: 600, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="pre-slot-wizard" title="Pre-Slot Wizard" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 420, height: 600, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: 8, background: 'var(--pb-face)' }}>
           <div style={{ border: '1px solid #646464', background: 'var(--pb-face)', padding: '0 0 4px' }}>
             <div className="pb-band">Create Slots for {here.provider}</div>
@@ -178,11 +174,10 @@ function PreSlotWizard({ args, close, open }: AreaWindowProps) {
           </div>
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '6px 0 8px', flex: 'none', background: 'var(--pb-face)' }}>
-          <PBButton style={{ minWidth: 90 }} data-tutorial-id="host.mois.command.preview" onClick={preview}>Preview...</PBButton>
+          <PBButton style={{ minWidth: 90 }} command="preview" onClick={preview}>Preview...</PBButton>
           <PBButton style={{ minWidth: 90 }} onClick={close}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -192,7 +187,7 @@ function PreSlotPreview({ args, close }: AreaWindowProps) {
   const s = useSchedulerStore()
   const plan = useMemo(() => JSON.parse(str(args.plan) || 'null') as PreSlotPlan | null, [args.plan])
   const [dropped, setDropped] = useState<Set<string>>(() => new Set())
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set())
+  const ticked = useTickSet<string>()
   const slots = useMemo(() => (plan ? planSlots(plan) : []), [plan])
   const dates = [...new Set(slots.map((x) => x.offset))]
   const [dayIdx, setDayIdx] = useState(0)
@@ -229,20 +224,13 @@ function PreSlotPreview({ args, close }: AreaWindowProps) {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 86 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Pre-Slot Wizard: Preview"
-        tutorialId="host.mois.dialog.pre-slot-preview"
-        onClose={close}
-        style={{ width: 980, height: 520, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="pre-slot-preview" title="Pre-Slot Wizard: Preview" onClose={close} zIndex={LAYER.detail}
+      windowStyle={{ width: 980, height: 520, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ display: 'flex', gap: 6, flex: '1 1 auto', minHeight: 0, padding: 6, background: 'var(--pb-face)' }}>
           <div style={{ width: 236, display: 'flex', flexDirection: 'column', border: '1px solid #646464', background: '#fff' }} data-tutorial-id="host.mois.field.preslot-days-list">
             <div className="pb-band" style={{ display: 'flex' }}>
               <span>Days</span><span style={{ flex: 1 }} />
-              <PBButton size="sm" data-tutorial-id="host.mois.command.remove-all-conflicts" onClick={() => {
+              <PBButton size="sm" command="remove-all-conflicts" onClick={() => {
                 const all = new Set(dropped)
                 for (const off of dates) rowsFor(off).filter((r) => r.type === 'CONFLICT').forEach((r) => all.add(r.key))
                 setDropped(all)
@@ -264,14 +252,14 @@ function PreSlotPreview({ args, close }: AreaWindowProps) {
           <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', border: '1px solid #646464', background: '#fff' }}>
             <div className="pb-band" style={{ display: 'flex' }}>
               <span>Encounters for {day === undefined ? '' : spelled(day)}</span><span style={{ flex: 1 }} />
-              <PBButton size="sm" onClick={() => setTicked(new Set(rows.filter((r) => r.type === 'CONFLICT').map((r) => r.key)))}>Select All</PBButton>
-              <PBButton size="sm" onClick={() => { setDropped(new Set([...dropped, ...ticked])); setTicked(new Set()) }}>Remove Selected</PBButton>
+              <PBButton size="sm" onClick={() => ticked.selectAll(rows.filter((r) => r.type === 'CONFLICT').map((r) => r.key))}>Select All</PBButton>
+              <PBButton size="sm" onClick={() => { setDropped(new Set([...dropped, ...ticked.ticked])); ticked.clear() }}>Remove Selected</PBButton>
             </div>
             <PBDataWindow
               rows={rows}
               rowFill={(r) => (r.type === 'CONFLICT' ? '#ffff9e' : undefined)}
               columns={[
-                { key: 'sel', header: 'Select', width: 44, align: 'center', render: (r) => (r.type === 'CONFLICT' ? <PBCheckbox checked={ticked.has(r.key)} onChange={(v) => { const t = new Set(ticked); v ? t.add(r.key) : t.delete(r.key); setTicked(t) }} /> : null) },
+                { key: 'sel', header: 'Select', width: 44, align: 'center', render: (r) => (r.type === 'CONFLICT' ? <PBCheckbox checked={ticked.has(r.key)} onChange={(v) => ticked.set(r.key, v)} /> : null) },
                 { key: 'type', header: 'Type', width: 74 },
                 { key: 'hr', header: 'HR', width: 28, align: 'center' },
                 { key: 'mn', header: 'MN', width: 28, align: 'center' },
@@ -289,11 +277,10 @@ function PreSlotPreview({ args, close }: AreaWindowProps) {
           </div>
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '6px 0 8px', flex: 'none', background: 'var(--pb-face)' }}>
-          <PBButton style={{ minWidth: 100 }} data-tutorial-id="host.mois.command.create-slots" onClick={createSlots}>Create Slots (F2)</PBButton>
+          <PBButton style={{ minWidth: 100 }} command="create-slots" onClick={createSlots}>Create Slots (F2)</PBButton>
           <PBButton style={{ minWidth: 90 }} onClick={close}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

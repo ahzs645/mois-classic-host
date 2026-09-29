@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { PBButton, PBCheckbox, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBCheckbox, pbSlug } from '../pb'
 import type { PBColumn } from '../pb'
 import { UM_INACTIVE, UM_PICKED, UM_RED, type UserColumn, type UserRow } from '../data/userManagement'
+import { FormLine } from './formKit'
 
 /* ============================================================================
    The pieces the four User Management screens and their four editor windows
@@ -74,19 +75,10 @@ export function BandButtons({ scope, labels, onPress }: {
   labels: readonly string[]
   onPress?: (label: string) => void
 }) {
-  const host = usePBInstrumentation()
   return (
     <>
       {labels.map((b) => (
-        <PBButton
-          key={b}
-          size="sm"
-          data-tutorial-id={host?.anchor('command', `${scope}-${pbSlug(b)}`)}
-          onClick={() => {
-            host?.report('command', { command: `${scope}-${pbSlug(b)}` })
-            onPress?.(b)
-          }}
-        >
+        <PBButton key={b} size="sm" command={`${scope}-${pbSlug(b)}`} onClick={() => onPress?.(b)}>
           {b}
         </PBButton>
       ))}
@@ -96,12 +88,7 @@ export function BandButtons({ scope, labels, onPress }: {
 
 /** The label-and-control line these windows lay their forms out on. */
 export function UMField({ label, w, children }: { label: string; w?: number; children: ReactNode }) {
-  return (
-    <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-      <span className="pb-form__label" style={{ minWidth: w ?? 118 }}>{label}</span>
-      {children}
-    </div>
-  )
+  return <FormLine label={label} minW={w ?? 118} padding="1px 0">{children}</FormLine>
 }
 
 export const umField = (label: string) => `host.mois.field.${pbSlug(label)}`

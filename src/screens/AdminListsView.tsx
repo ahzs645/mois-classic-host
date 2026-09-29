@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { ToggleCell } from './AdminExchangeKit'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea,
-  PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
+  PBViewHeader, pbSlug, usePBInstrumentation,
   type PBColumn,
 } from '../pb'
 import {
@@ -13,11 +13,15 @@ import {
   TEXT_LABEL_COMMANDS,
   type AdminColumn, type AdminRow, type ManagedList,
 } from '../data/adminLists'
-import { MOIS_TODAY } from '../data/patients'
+import { MOIS_TODAY, hhmm } from '../data/clock'
+import { SESSION_LOGIN } from '../data/session'
 import { filterKind, pbColour, saveSummary, savedSummary, type ConfigSection } from '../data/chartSummaryConfig'
 import { useScreenReport } from '../host/screen-state'
 import { AdminLanding } from './AdminLandingViews'
 import { CodesetManagementView } from './CodesetManagementViews'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter, FormLabel, FormLine, SectionCaption, footerButtons } from './formKit'
+import { FilterStrip, useRecordList, useTickSet } from './listKit'
 
 /* ============================================================================
    Administration list windows with no Clinic Management twin:
@@ -49,9 +53,7 @@ const cx = (...v: (string | false | undefined | null)[]) => v.filter(Boolean).jo
 
 /** yy.mm.dd hh:mm — the footer stamp format (`f183bf64…`: 09.07.04 19:53). */
 function stamp(): string {
-  const [y, m, d] = MOIS_TODAY.split('.')
-  const now = new Date()
-  return `${y!.slice(2)}.${m}.${d}  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  return `${MOIS_TODAY.slice(2)}  ${hhmm()}`
 }
 
 const rgb = (r: unknown, g: unknown, b: unknown) => `rgb(${Number(r) || 0}, ${Number(g) || 0}, ${Number(b) || 0})`
@@ -102,50 +104,14 @@ function EditorWindow({ title, id, width, height, onClose, children, z = 70 }: {
 }) {
   useScreenReport({ dialog: id })
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: z }}>
-      <PBWindow
-        child
-        controls={false}
-        title={title}
-        onClose={onClose}
-        tutorialId={`host.mois.dialog.${id}`}
-        style={{ width, height, maxWidth: '100%', maxHeight: '100%' }}
-      >
-        {children}
-      </PBWindow>
-    </div>
+    <ModalWindow id={id} title={title} onClose={onClose} zIndex={z} windowStyle={{ width, height, maxWidth: '100%', maxHeight: '100%' }}>
+      {children}
+    </ModalWindow>
   )
 }
 
 function Footer({ buttons, onPress }: { buttons: string[]; onPress: (label: string) => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <div className="pb-footer">
-      <span className="pb-footer__spacer" />
-      {buttons.map((b) => (
-        <PBButton
-          key={b}
-          wide
-          data-tutorial-id={host?.anchor('command', pbSlug(b))}
-          onClick={() => { host?.report('command', { command: pbSlug(b) }); onPress(b) }}
-        >
-          {b}
-        </PBButton>
-      ))}
-      <span className="pb-footer__spacer" />
-    </div>
-  )
-}
-
-/** A white filter strip with one box over each named column. */
-function FilterStrip({ widths }: { widths: (number | null)[] }) {
-  return (
-    <div className="pb-row" style={{ gap: 2, padding: '3px 3px 3px 16px', background: '#fff', flex: 'none' }}>
-      {widths.map((w, i) => (w === null
-        ? <span key={i} style={{ width: 0 }} />
-        : <PBInput key={i} w={w} data-tutorial-id={`host.mois.field.filter-${i + 1}`} />))}
-    </div>
-  )
+  return <DialogFooter frame="pb" buttons={footerButtons(buttons, { wide: true, onPress })} />
 }
 
 /* ===========================================================================
@@ -223,7 +189,7 @@ function ServiceCodePromptWindow({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState(w.code)
   const [condition, setCondition] = useState(w.defaultHealthCondition)
   const dot = <span style={{ color: '#e00000', width: 10, display: 'inline-block' }}>●</span>
-  const head = (text: string) => <div style={{ color: '#000080', fontWeight: 700, padding: '6px 0 2px', borderBottom: '1px solid #b0b0b0' }}>{text}</div>
+  const head = (text: string) => <SectionCaption padding="6px 0 2px" rule="#b0b0b0">{text}</SectionCaption>
   const line = (label: string, control: ReactNode, pre?: ReactNode) => (
     <div className="pb-row" style={{ gap: 4, padding: '2px 0' }}>
       <span style={{ width: 10 }}>{pre}</span>
@@ -326,8 +292,7 @@ function SelectionListManagement({ onClose }: { onClose: () => void }) {
  * a new row takes the #FFC09C focus wash (`318eb80b…`, the LUNCH row).
  */
 function SelectionListManager({ name, list, onClose }: { name: string; list: ManagedList; onClose: () => void }) {
-  const [rows, setRows] = useState<AdminRow[]>(list.rows)
-  const [cur, setCur] = useState(0)
+  const { rows, cur, setCur, add, remove } = useRecordList<AdminRow>(list.rows)
   useScreenReport({ rows: rows.length, row: rows[cur] ? `code-${pbSlug(String(rows[cur]!.code ?? '')) || 'new'}` : null })
   const width = Math.min(1000, list.columns.reduce((sum, c) => sum + (c.width ?? 80), 40))
   const columns = toColumns(list.columns)
@@ -344,8 +309,8 @@ function SelectionListManager({ name, list, onClose }: { name: string; list: Man
       <PBViewHeader title={name} />
       <PBCommandRow
         commands={[
-          { label: 'New Record', onClick: () => { setRows((r) => [...r, { code: '', desc: '', order: '' }]); setCur(rows.length) } },
-          { label: 'Delete Record', onClick: () => { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) } },
+          { label: 'New Record', onClick: () => add({ code: '', desc: '', order: '' }) },
+          { label: 'Delete Record', onClick: () => remove() },
           { label: 'Save and Close', onClick: onClose },
           { label: 'Cancel and Close', onClick: onClose },
         ]}
@@ -368,8 +333,7 @@ function SelectionListManager({ name, list, onClose }: { name: string; list: Man
 /* --- Benefit Source (1784166) ------------------------------------------- */
 
 function BenefitSourceList({ onClose }: { onClose: () => void }) {
-  const [rows, setRows] = useState<AdminRow[]>(BENEFIT_SOURCES)
-  const [cur, setCur] = useState(0)
+  const { rows, cur, setCur, add, remove } = useRecordList<AdminRow>(BENEFIT_SOURCES)
   const [creating, setCreating] = useState(false)
   const [detail, setDetail] = useState<AdminRow | null>(null)
   useScreenReport({ rows: rows.length })
@@ -380,7 +344,7 @@ function BenefitSourceList({ onClose }: { onClose: () => void }) {
       <PBCommandRow
         commands={[
           { label: 'New Record', onClick: () => setCreating(true) },
-          { label: 'Delete Record', onClick: () => { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) } },
+          { label: 'Delete Record', onClick: () => remove() },
           { label: 'Edit Record', onClick: () => { const r = rows[cur]; if (r) setDetail(r) } },
           { label: 'Close Window', onClick: onClose },
         ]}
@@ -404,7 +368,7 @@ function BenefitSourceList({ onClose }: { onClose: () => void }) {
       {creating && (
         <NewBenefitSource
           onCancel={() => setCreating(false)}
-          onCreate={(row) => { setRows((r) => [...r, row]); setCur(rows.length); setCreating(false); setDetail(row) }}
+          onCreate={(row) => { add(row); setCreating(false); setDetail(row) }}
         />
       )}
       {detail && <BenefitSourceDetail row={detail} onClose={() => setDetail(null)} />}
@@ -422,14 +386,12 @@ function NewBenefitSource({ onCreate, onCancel }: { onCreate: (row: AdminRow) =>
         <div style={{ border: '1px solid #909090', background: '#f4f4f4' }}>
           <div style={{ background: '#dcd7d2', fontWeight: 700, padding: '4px 6px', borderBottom: '1px solid #909090' }}>New Benefit Source</div>
           <div style={{ padding: '6px 10px' }}>
-            <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
-              <span className="pb-form__label" style={{ width: 88 }}>Source:</span>
+            <FormLine label="Source:" w={88} labelFlex={false} padding="1px 0">
               <PBInput w={420} value={source} onChange={(e) => setSource(e.target.value)} data-tutorial-id="host.mois.field.source" />
-            </div>
-            <div className="pb-row" style={{ gap: 6, padding: '1px 0 8px', borderBottom: '1px solid #c0c0c0' }}>
-              <span className="pb-form__label" style={{ width: 88 }}>Description:</span>
+            </FormLine>
+            <FormLine label="Description:" w={88} labelFlex={false} padding="1px 0 8px" style={{ borderBottom: '1px solid #c0c0c0' }}>
               <PBInput w={420} value={desc} onChange={(e) => setDesc(e.target.value)} data-tutorial-id="host.mois.field.description" />
-            </div>
+            </FormLine>
             <div style={{ padding: '10px 0 2px' }}>Source Contact Information:</div>
             <PBTextArea rows={3} w={420} style={{ marginLeft: 94 }} />
             <div style={{ padding: '6px 0 2px' }}>Source Note:</div>
@@ -449,9 +411,7 @@ function NewBenefitSource({ onCreate, onCancel }: { onCreate: (row: AdminRow) =>
 
 /** `e6a6a6be…`: Benefit Source Detail, with its Services band. */
 function BenefitSourceDetail({ row, onClose }: { row: AdminRow; onClose: () => void }) {
-  const [services, setServices] = useState<AdminRow[]>(row.source === 'BLUE CROSS' ? BENEFIT_SERVICES : [])
-  const [cur, setCur] = useState(0)
-  const host = usePBInstrumentation()
+  const { rows: services, cur, setCur, add, remove } = useRecordList<AdminRow>(row.source === 'BLUE CROSS' ? BENEFIT_SERVICES : [])
   return (
     <EditorWindow title="Benefit Source Detail" id="benefit-source-detail" width={740} height={520} onClose={onClose} z={85}>
       <PBViewHeader title="Benefit Source" />
@@ -473,11 +433,10 @@ function BenefitSourceDetail({ row, onClose }: { row: AdminRow; onClose: () => v
           <PBButton
             key={b}
             size="sm"
-            data-tutorial-id={host?.anchor('command', `services-${pbSlug(b)}`)}
+            command={`services-${pbSlug(b)}`}
             onClick={() => {
-              host?.report('command', { command: `services-${pbSlug(b)}` })
-              if (b === 'New Record') { setServices((s) => [...s, { service: '', desc: '', status: 'ACTIVE' }]); setCur(services.length) }
-              if (b === 'Delete Record') { setServices((s) => s.filter((_, i) => i !== cur)); setCur(0) }
+              if (b === 'New Record') add({ service: '', desc: '', status: 'ACTIVE' })
+              if (b === 'Delete Record') remove()
             }}
           >
             {b}
@@ -510,8 +469,7 @@ function BenefitSourceDetail({ row, onClose }: { row: AdminRow; onClose: () => v
    ======================================================================== */
 
 function TextLabelList({ onClose }: { onClose: () => void }) {
-  const [rows, setRows] = useState<AdminRow[]>(TEXT_LABELS)
-  const [cur, setCur] = useState(0)
+  const { rows, cur, setCur, add, remove } = useRecordList<AdminRow>(TEXT_LABELS)
   const [bodies, setBodies] = useState<Record<number, string>>({ 0: TEXT_LABEL_BODY })
   const [modified, setModified] = useState('09.07.04  20:29')
   const [saved, setSaved] = useState(false)
@@ -522,11 +480,10 @@ function TextLabelList({ onClose }: { onClose: () => void }) {
     if (label === 'New Record') {
       /* 303086: "make sure your name is entered as the author" — a new row
          carries the signed-in user */
-      setRows((r) => [...r, { author: 'JALA2', name: '', desc: '' }])
-      setCur(rows.length)
+      add({ author: SESSION_LOGIN, name: '', desc: '' })
       setSaved(false)
     }
-    if (label === 'Delete Record') { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) }
+    if (label === 'Delete Record') remove()
     if (label === 'Save') { setModified(stamp()); setSaved(true) }
     if (label === 'Undo') setSaved(false)
     if (label === 'Close Window') onClose()
@@ -573,15 +530,14 @@ function TextLabelList({ onClose }: { onClose: () => void }) {
    ======================================================================== */
 
 function SnippetList({ onClose }: { onClose: () => void }) {
-  const [rows, setRows] = useState<AdminRow[]>(SNIPPETS)
-  const [cur, setCur] = useState(2)
+  const { rows, setRows, cur, setCur, add, remove } = useRecordList<AdminRow>(SNIPPETS, { initialCur: 2 })
   const [saved, setSaved] = useState(false)
   useScreenReport({ rows: rows.length, saved })
   const command = (label: string) => {
-    if (label === 'New Record') { setRows((r) => [...r, { code: '', value: '' }]); setCur(rows.length); setSaved(false) }
-    if (label === 'Delete Record') { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) }
+    if (label === 'New Record') { add({ code: '', value: '' }); setSaved(false) }
+    if (label === 'Delete Record') remove()
     if (label === 'Save') setSaved(true)
-    if (label === 'Undo') { setRows(SNIPPETS); setCur(0); setSaved(false) }
+    if (label === 'Undo') { setRows(() => SNIPPETS); setCur(0); setSaved(false) }
     if (label === 'Close Window') onClose()
   }
   return (
@@ -645,10 +601,9 @@ function ChartSummaryConfiguration() {
   const host = usePBInstrumentation()
   const [summary, setSummary] = useState('patient')
   const [picking, setPicking] = useState(false)
-  const [cur, setCur] = useState(0)
   const [saved, setSaved] = useState(false)
   const stored = (key: string): ConfigSection[] => savedSummary(key) ?? SUMMARY_SECTIONS[key] ?? []
-  const [sections, setSections] = useState<ConfigSection[]>(() => stored('patient'))
+  const { rows: sections, setRows: setSections, cur, setCur, remove } = useRecordList<ConfigSection>(() => stored('patient'), { afterRemove: 'previous' })
   const section = sections[cur]
   const caption = CHART_SUMMARIES.find((s) => s.key === summary)?.caption ?? ''
   const base = sections.filter((s) => !s.added)
@@ -668,7 +623,7 @@ function ChartSummaryConfiguration() {
   }
   const save = () => {
     const kept = sections.map(({ pending: _pending, ...s }) => s)
-    saveSummary(summary, kept); setSections(kept); setSaved(true)
+    saveSummary(summary, kept); setSections(() => kept); setSaved(true)
   }
   const command = (label: string) => {
     if (label === 'Change Summary') { setPicking((p) => !p); return }
@@ -678,10 +633,10 @@ function ChartSummaryConfiguration() {
       setCur(at); setSaved(false)
     }
     if (label === 'Delete Record' && section) {
-      setSections((list) => list.filter((_, i) => i !== cur)); setCur((c) => Math.max(0, c - 1)); setSaved(false)
+      remove(); setSaved(false)
     }
     if (label === 'Save') save()
-    if (label === 'Undo' || label === 'Refresh') { setSections(stored(summary)); setCur(0); setSaved(false) }
+    if (label === 'Undo' || label === 'Refresh') { setSections(() => stored(summary)); setCur(0); setSaved(false) }
   }
 
   return (
@@ -701,7 +656,7 @@ function ChartSummaryConfiguration() {
                 data-tutorial-id={host?.anchor('command', `summary-${s.key}`)}
                 onClick={() => {
                   host?.report('command', { command: `summary-${s.key}` })
-                  setSummary(s.key); setSections(stored(s.key)); setCur(0); setPicking(false); setSaved(false)
+                  setSummary(s.key); setSections(() => stored(s.key)); setCur(0); setPicking(false); setSaved(false)
                 }}
               >
                 {s.label}
@@ -739,9 +694,9 @@ function SectionDetail({ section, unsaved, onChange }: {
   unsaved: boolean
   onChange: (patch: Partial<ConfigSection>) => void
 }) {
-  const label = (text: string) => <span style={{ width: 128, flex: 'none' }}>{text}</span>
+  const label = (text: string) => <FormLabel className={false} w={128}>{text}</FormLabel>
   const row = (children: ReactNode, style?: React.CSSProperties) => (
-    <div className="pb-row" style={{ gap: 6, padding: '3px 0', alignItems: 'flex-start', ...style }}>{children}</div>
+    <FormLine noLabel padding="3px 0" align="flex-start" style={style}>{children}</FormLine>
   )
   const swatch = pbColour(section.colour) ?? section.swatch
   return (
@@ -791,18 +746,16 @@ function SectionDetail({ section, unsaved, onChange }: {
    ======================================================================== */
 
 function CodeReferenceSets() {
-  const host = usePBInstrumentation()
-  const [rows, setRows] = useState<AdminRow[]>(REFERENCE_SETS)
-  const [cur, setCur] = useState(0)
+  const { rows, setRows, cur, setCur, add, remove } = useRecordList<AdminRow>(REFERENCE_SETS)
   const [saved, setSaved] = useState(false)
   const [codes, setCodes] = useState<AdminRow[]>([])
   const row = rows[cur]
   useScreenReport({ rows: rows.length, row: row?.set ? `set-${pbSlug(String(row.set))}` : 'set-new', saved })
   const command = (label: string) => {
-    if (label === 'New') { setRows((r) => [...r, { set: '', source: '', oid: '', desc: '', active: true }]); setCur(rows.length); setSaved(false) }
-    if (label === 'Delete') { setRows((r) => r.filter((_, i) => i !== cur)); setCur(0) }
+    if (label === 'New') { add({ set: '', source: '', oid: '', desc: '', active: true }); setSaved(false) }
+    if (label === 'Delete') remove()
     if (label === 'Save') setSaved(true)
-    if (label === 'Undo') { setRows(REFERENCE_SETS); setCur(0); setSaved(false) }
+    if (label === 'Undo') { setRows(() => REFERENCE_SETS); setCur(0); setSaved(false) }
   }
   return (
     <>
@@ -838,9 +791,8 @@ function CodeReferenceSets() {
           <PBButton
             key={b}
             size="sm"
-            data-tutorial-id={host?.anchor('command', `codes-${pbSlug(b)}`)}
+            command={`codes-${pbSlug(b)}`}
             onClick={() => {
-              host?.report('command', { command: `codes-${pbSlug(b)}` })
               if (b === 'Add') setCodes((c) => [...c, { system: '', code: '', term: '', category: '', active: true }])
               if (b === 'Delete') setCodes((c) => c.slice(0, -1))
             }}
@@ -882,12 +834,11 @@ function CodeReferenceSets() {
 
 function CodeLookupConfiguration() {
   const host = usePBInstrumentation()
-  const [ticked, setTicked] = useState<Set<number>>(new Set())
+  const ticked = useTickSet()
   const [cur, setCur] = useState(0)
   const [configuring, setConfiguring] = useState(false)
   const [saved, setSaved] = useState(false)
   useScreenReport({ rows: ticked.size, saved })
-  const toggle = (i: number) => setTicked((t) => { const n = new Set(t); n.has(i) ? n.delete(i) : n.add(i); return n })
 
   return (
     <>
@@ -897,7 +848,7 @@ function CodeLookupConfiguration() {
           label,
           onClick: label === 'Edit' ? () => { if (ticked.size) setConfiguring(true) }
             : label === 'Save' ? () => setSaved(true)
-              : () => { setTicked(new Set()); setSaved(false) },
+              : () => { ticked.clear(); setSaved(false) },
         }))}
       />
       <div className="pb-row" style={{ gap: 6, padding: '3px 6px', flex: 'none' }}>
@@ -918,7 +869,7 @@ function CodeLookupConfiguration() {
                   type="checkbox"
                   className="pb-check__box"
                   checked={ticked.has(i)}
-                  onChange={() => { host?.report('command', { command: `tick-${pbSlug(String(r.desc))}` }); toggle(i) }}
+                  onChange={() => { host?.report('command', { command: `tick-${pbSlug(String(r.desc))}` }); ticked.flip(i) }}
                   data-tutorial-id={host?.anchor('command', `tick-${pbSlug(String(r.desc))}`)}
                   aria-label={`Select ${String(r.desc)}`}
                 />

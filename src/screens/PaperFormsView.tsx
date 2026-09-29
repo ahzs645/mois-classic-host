@@ -5,10 +5,12 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ReportScreen } from '../data/reportScreens'
 import { registerScreenWindows, useScreenWindow } from '../host/screen-windows'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBIdentityStrip, PBInput, PBLookup, PBTextArea, PBViewHeader,
+  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBTextArea, PBViewHeader,
   type PBColumn, type PBCommand,
 } from '../pb'
+import { FormLabel } from './formKit'
 import { MoisViewerWindow, paperFormPageSize } from './MoisViewerWindow'
+import { ChartIdentityStrip } from './patientKit'
 import { useRecordOptionList } from './RecordOptionList'
 import { SignatureLink, recordKeyOf, useReportRecordEdits } from './reportRecordEdits'
 import { DesktopLayer } from './StageWindow'
@@ -70,7 +72,7 @@ const created = (r?: MoisRecord) => {
 }
 
 const Label = ({ children, right }: { children: ReactNode; right?: boolean }) => (
-  <span style={{ lineHeight: '21px', whiteSpace: 'nowrap', textAlign: right ? 'right' : 'left' }}>{children}</span>
+  <FormLabel className={false} flex={false} style={{ lineHeight: '21px', whiteSpace: 'nowrap' }} align={right ? 'right' : 'left'}>{children}</FormLabel>
 )
 
 function PaperDetail({ record }: { record: MoisRecord | undefined }) {
@@ -160,18 +162,7 @@ export function PaperFormsView({ screen, node = 'paper' }: { screen: ReportScree
     <>
       <PBViewHeader title={screen.title} right={<ChartHeaderIdentity />} />
       <PBCommandRow commands={commands} />
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
-        <span>Search For:</span><PBLookup w="100%" />
-      </div>
+      <ChartIdentityStrip search />
 
       <div onContextMenu={options.active ? options.onContextMenu : undefined} style={{ padding: '0 3px', height: 272, flex: 'none', display: 'flex', position: 'relative' }}>
         <PBDataWindow

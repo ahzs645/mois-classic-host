@@ -6,9 +6,10 @@ import { MOIS_TODAY } from '../data/patients'
 import { useEncounterSession } from '../host/encounterArea'
 import { registerScreenWindows, useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBDataWindow, PBInput, PBSelect, PBTextArea, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug, usePBInstrumentation } from '../pb'
 import { STAGE_USER, useMedRows, type Med } from './medication-model'
-import { DesktopLayer, FooterButton, StageWindow } from './StageWindow'
+import { ModalWindow, clampTo } from './dialogKit'
+import { FooterButton, StageWindow } from './StageWindow'
 
 /* ============================================================================
    Controlled prescriptions (CPP) — the Schedule 1A route through Rx.
@@ -178,18 +179,14 @@ function PatientBand() {
 function MoisWebWindow({ id, width, height, onClose, children }: { id: string; width: number; height: number; onClose: () => void; children: ReactNode }) {
   useScreenReport({ dialog: id })
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 86 }}>
-        <PBWindow child title="MOIS" onClose={onClose} tutorialId={`host.mois.dialog.${id}`}
-          style={{ width: `min(${width}px, calc(100% - 24px))`, height: `min(${height}px, calc(100% - 24px))` }}>
-          <div style={{ ...WEB, flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
-            <div className="pb-row" style={{ gap: 14, padding: '2px 8px', flex: 'none' }}><span>File</span><span>View</span></div>
-            <PatientBand />
-            {children}
-          </div>
-        </PBWindow>
+    <ModalWindow id={id} title="MOIS" onClose={onClose} controls portal="inline" zIndex={86}
+      windowStyle={clampTo(24, width, height)}>
+      <div style={{ ...WEB, flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+        <div className="pb-row" style={{ gap: 14, padding: '2px 8px', flex: 'none' }}><span>File</span><span>View</span></div>
+        <PatientBand />
+        {children}
       </div>
-    </DesktopLayer>
+    </ModalWindow>
   )
 }
 
@@ -453,13 +450,11 @@ export function ControlledRxRecordBlock({ onReady }: {
   const [med, setMed] = useState<Med | null>(null)
   const [folio, setFolio] = useState('')
   const [method, setMethod] = useState('Digital Signature')
-  const host = usePBInstrumentation()
   const report = (m: Med | null, f: string, how: string) => onReady(m ? { med: m, attachment: { folio: f, method: how } } : null)
   const ro = { background: 'var(--pb-face)' }
   return (
     <div style={{ padding: '4px 8px', flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <PBButton style={{ alignSelf: 'flex-start' }} data-tutorial-id={host?.anchor('command', 'find-controlled-rx')}
-        onClick={() => { host?.report('command', { command: 'find-controlled-rx' }); setFinding(true) }}>Find Controlled Rx</PBButton>
+      <PBButton style={{ alignSelf: 'flex-start' }} command="find-controlled-rx" onClick={() => setFinding(true)}>Find Controlled Rx</PBButton>
       <div className="pb-form" style={{ gridTemplateColumns: '100px 170px 80px 1fr', gap: 3, color: '#8a8a8a' }}>
         <span>Prescribing Date:</span><PBInput w={120} readOnly value={med?.order ?? ''} style={ro} />
         <span>Ordered By:</span><PBInput w="100%" readOnly value={med?.orderBy ?? ''} style={ro} />

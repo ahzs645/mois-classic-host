@@ -1,9 +1,12 @@
 import { Fragment, useState } from 'react'
-import { PBBand, PBButton, PBWindow, pbSlug } from '../../pb'
+import { PBBand, pbSlug } from '../../pb'
 import { VISIT_CODE_FILL, weekdayOf } from '../../data/daybook'
 import { daybookProviders } from '../../data/mois'
 import { dayRows, schedulerBridge, schedulerStore, stampOf, useSchedulerStore } from '../../data/schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
+import { LAYER, ModalWindow } from '../dialogKit'
+import { LookupPager } from '../lookupKit'
 
 /* ============================================================================
    Provider Schedule Summary — Action ▸ Daybook Bar - Multi (Alt+F2), and
@@ -31,7 +34,7 @@ const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function ProviderScheduleSummary({ args, close, open }: AreaWindowProps) {
   const s = useSchedulerStore()
-  const here = s.current ?? { provider: 'TECHNICAL SUPPORT', offset: 0, key: '' }
+  const here = s.current ?? { provider: DESKTOP_PROVIDER_DEFAULT, offset: 0, key: '' }
   const multi = args.multi !== false
   const [page, setPage] = useState(0)
   const providers = multi ? daybookProviders.map((p) => p.provider) : [here.provider]
@@ -50,15 +53,8 @@ function ProviderScheduleSummary({ args, close, open }: AreaWindowProps) {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Provider Schedule Summary"
-        tutorialId="host.mois.dialog.provider-schedule-summary"
-        onClose={close}
-        style={{ width: 1000, height: 620, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="provider-schedule-summary" title="Provider Schedule Summary" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 1000, height: 620, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 6, background: 'var(--pb-face)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: '#fff' }}>
             <PBBand>Provider Schedule Summary</PBBand>
@@ -121,17 +117,22 @@ function ProviderScheduleSummary({ args, close, open }: AreaWindowProps) {
               </div>
             </div>
           </div>
-          <div className="pb-row" style={{ padding: '8px 0 2px', flex: 'none' }}>
-            <PBButton style={{ width: 76 }} onClick={() => setPage((p) => p - 1)}>PgUp</PBButton>
-            <span className="pb-row__spacer" />
-            <PBButton style={{ width: 76 }} onClick={select} data-tutorial-id="host.mois.command.select-day">Select</PBButton>
-            <PBButton style={{ width: 76 }} onClick={close}>Cancel</PBButton>
-            <span className="pb-row__spacer" />
-            <PBButton style={{ width: 76 }} onClick={() => setPage((p) => p + 1)}>PgDwn</PBButton>
-          </div>
+          <LookupPager
+            home={false}
+            end={false}
+            spacer="class"
+            className="pb-row"
+            style={{ padding: '8px 0 2px', flex: 'none' }}
+            navSize={{ width: 76 }}
+            pickSize={{ width: 76 }}
+            pickGap={null}
+            pgUp={{ onClick: () => setPage((p) => p - 1) }}
+            pgDn={{ onClick: () => setPage((p) => p + 1) }}
+            ok={{ label: 'Select', command: 'select-day', onClick: select }}
+            cancel={{ onClick: close }}
+          />
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ageOf, type Patient } from '../data/patients'
 import type { OpeningReminder } from '../data/opening-reminders'
 import { PBButton, PBCheckbox, PBDataWindow, PBWindow, type PBColumn } from '../pb'
+import { PatientFieldRow } from './patientKit'
 import './opening-chart-reminder.css'
 
 /* Opening-chart notification, laid out from the supplied MOIS: TRAINING
@@ -52,13 +53,11 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
               <strong>Reminder: Opening Chart</strong>
               <strong>chart no.: {patient.chart} {patient.first} {patient.last} {reminderAge(patient.dob)} {patient.gender}</strong>
             </div>
-            <div className="pb-opening-reminder__identity">
-              <span>CHART: <b>{patient.chart}</b></span>
-              <span>FIRST: <b>{patient.first}</b></span>
-              <span>MIDDLE: <b>{patient.middle}</b></span>
-              <span>LAST: <b>{patient.last}</b></span>
-              <span>DoB: <b>{patient.dob.replace(/\./g, '/')}</b></span>
-            </div>
+            <PatientFieldRow layout="inline" className="pb-opening-reminder__identity" style={null} fields={[
+              { label: 'CHART:', value: patient.chart }, { label: 'FIRST:', value: patient.first },
+              { label: 'MIDDLE:', value: patient.middle }, { label: 'LAST:', value: patient.last },
+              { label: 'DoB:', value: patient.dob.replace(/\./g, '/') },
+            ]} />
             <div className="pb-opening-reminder__list-label">Reminder List</div>
             <PBDataWindow
               columns={columns}

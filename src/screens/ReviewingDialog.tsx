@@ -8,7 +8,8 @@ import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { reviewFolderOf, useFolderReviews } from '../data/folder-reviews'
 import { clearNoKnown, useAllergySession } from '../data/allergySession'
-import { PBBand, PBButton, PBDataWindow, PBTextArea, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBBand, PBButton, PBDataWindow, PBTextArea, pbSlug } from '../pb'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Reviewing: <folder> — the Patient Chart's Taskbar `Review`.
@@ -81,7 +82,6 @@ export function ReviewingDialog({ node, onClose }: {
   const rows: ReviewRow[] = filed
   const setRows = (next: (r: ReviewRow[]) => ReviewRow[]) => { const [row] = next([]); if (row) file(row.note) }
   const [note, setNote] = useState('')
-  const host = usePBInstrumentation()
   const folder = reviewFolderOf(node)
   const noKnown = useAllergySession(patient.chart).noKnown[folder]
   const [dropNoKnown, setDropNoKnown] = useState(false)
@@ -111,104 +111,101 @@ export function ReviewingDialog({ node, onClose }: {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        title={`Reviewing: ${noun}`}
-        onClose={onClose}
-        style={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    <ModalWindow
+      title={`Reviewing: ${noun}`}
+      onClose={onClose}
+      zIndex={80}
+      windowStyle={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.reviewing"
+        style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)' }}
       >
+        <Band top={y(211)}>Patient</Band>
+
+        {/* read-only statics in two rows; the capture's chart is the
+            training environment's, this one's is whatever chart is open */}
+        <Stat left={x(467)} top={y(236)} label="Chart:" value={patient.chart} />
+        <Stat left={x(560)} top={y(236)} label="Patient:" value={`${patient.last}, ${patient.first}`} />
+        <Stat left={x(820)} top={y(236)} label="DoB:" value={patient.dob} />
+        <Stat left={x(467)} top={y(256)} label="Sex:" value={patient.sex} />
+        <Stat left={x(560)} top={y(256)} label="BC Health No.:" value={patient.bchn ?? ''} />
+
+        <Band top={y(278)}>Review History</Band>
+
+        {/* grid x 467–1032. The column widths are inferred from the blank
+            first-row cells — this grid paints no column separators, so they
+            are not measured off rules (spec §13.8). */}
         <div
-          data-tutorial-id="host.mois.dialog.reviewing"
-          style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)' }}
+          style={{
+            position: 'absolute', left: x(467), width: x(1032) - x(467),
+            top: y(299), height: y(552) - y(299) - 6, display: 'flex',
+          }}
         >
-          <Band top={y(211)}>Patient</Band>
-
-          {/* read-only statics in two rows; the capture's chart is the
-              training environment's, this one's is whatever chart is open */}
-          <Stat left={x(467)} top={y(236)} label="Chart:" value={patient.chart} />
-          <Stat left={x(560)} top={y(236)} label="Patient:" value={`${patient.last}, ${patient.first}`} />
-          <Stat left={x(820)} top={y(236)} label="DoB:" value={patient.dob} />
-          <Stat left={x(467)} top={y(256)} label="Sex:" value={patient.sex} />
-          <Stat left={x(560)} top={y(256)} label="BC Health No.:" value={patient.bchn ?? ''} />
-
-          <Band top={y(278)}>Review History</Band>
-
-          {/* grid x 467–1032. The column widths are inferred from the blank
-              first-row cells — this grid paints no column separators, so they
-              are not measured off rules (spec §13.8). */}
-          <div
+          <PBDataWindow
+            rows={history}
+            gutter={false}
+            rowTutorialId={(r) => (r.noKnown ? 'host.mois.row.review-no-known' : `host.mois.row.review-${pbSlug(r.date)}`)}
+            columns={[
+              { key: 'date', header: 'Review Date', width: 89 },
+              { key: 'by', header: 'Reviewed By', width: 88 },
+              {
+                key: 'note', header: 'Note', width: 329,
+                render: (r) => (r.noKnown ? <b style={{ textDecoration: dropNoKnown ? 'line-through' : undefined }}>{r.note}</b> : r.note),
+              },
+              {
+                key: 'delete', header: '', width: 60,
+                render: (r) => r.noKnown && (
+                  <PBButton size="sm" disabled={dropNoKnown} style={{ minWidth: 0, width: 50 }}
+                    command="review-delete-no-known"
+                    onClick={() => setDropNoKnown(true)}>
+                    Delete
+                  </PBButton>
+                ),
+              },
+            ]}
+            empty="No review history available in this export."
             style={{
-              position: 'absolute', left: x(467), width: x(1032) - x(467),
-              top: y(299), height: y(552) - y(299) - 6, display: 'flex',
+              flex: '1 1 auto', minWidth: 0,
+              /* v2.30 Cloud chart grid: ≈19–20px pitch under an 18px band,
+                 and the band is #A6CAF0 here rather than #C8DCFA */
+              ['--pb-dw-row-h' as string]: '19px',
+              ['--pb-dw-header' as string]: '#a6caf0',
+              ['--pb-dw-row-alt' as string]: '#e6e6e6',
             }}
-          >
-            <PBDataWindow
-              rows={history}
-              gutter={false}
-              rowTutorialId={(r) => (r.noKnown ? 'host.mois.row.review-no-known' : `host.mois.row.review-${pbSlug(r.date)}`)}
-              columns={[
-                { key: 'date', header: 'Review Date', width: 89 },
-                { key: 'by', header: 'Reviewed By', width: 88 },
-                {
-                  key: 'note', header: 'Note', width: 329,
-                  render: (r) => (r.noKnown ? <b style={{ textDecoration: dropNoKnown ? 'line-through' : undefined }}>{r.note}</b> : r.note),
-                },
-                {
-                  key: 'delete', header: '', width: 60,
-                  render: (r) => r.noKnown && (
-                    <PBButton size="sm" disabled={dropNoKnown} style={{ minWidth: 0, width: 50 }}
-                      data-tutorial-id={host?.anchor('command', 'review-delete-no-known')}
-                      onClick={() => { host?.report('command', { command: 'review-delete-no-known' }); setDropNoKnown(true) }}>
-                      Delete
-                    </PBButton>
-                  ),
-                },
-              ]}
-              empty="No review history available in this export."
-              style={{
-                flex: '1 1 auto', minWidth: 0,
-                /* v2.30 Cloud chart grid: ≈19–20px pitch under an 18px band,
-                   and the band is #A6CAF0 here rather than #C8DCFA */
-                ['--pb-dw-row-h' as string]: '19px',
-                ['--pb-dw-header' as string]: '#a6caf0',
-                ['--pb-dw-row-alt' as string]: '#e6e6e6',
-              }}
-            />
-          </div>
-
-          <Band top={y(552)}>Mark Reviewed</Band>
-
-          <span className="pb-form__label" style={{ position: 'absolute', left: x(480), top: y(581) }}>Note:</span>
-          <PBTextArea
-            w={x(1013) - x(519)}
-            value={note}
-            data-tutorial-id="host.mois.field.review-note"
-            onChange={(e) => setNote(e.target.value)}
-            style={{ position: 'absolute', left: x(519), top: y(579), height: 44 }}
           />
-
-          <span style={{ position: 'absolute', left: x(638), top: y(640) }}>
-            <PBButton
-              style={{ width: 98, height: 21, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.mark-reviewed"
-              onClick={markReviewed}
-            >
-              Mark Reviewed
-            </PBButton>
-          </span>
-          <span style={{ position: 'absolute', left: x(751), top: y(640) }}>
-            <PBButton
-              style={{ width: 75, height: 21, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.review-close"
-              onClick={onClose}
-            >
-              Close
-            </PBButton>
-          </span>
         </div>
-      </PBWindow>
-    </div>
+
+        <Band top={y(552)}>Mark Reviewed</Band>
+
+        <span className="pb-form__label" style={{ position: 'absolute', left: x(480), top: y(581) }}>Note:</span>
+        <PBTextArea
+          w={x(1013) - x(519)}
+          value={note}
+          data-tutorial-id="host.mois.field.review-note"
+          onChange={(e) => setNote(e.target.value)}
+          style={{ position: 'absolute', left: x(519), top: y(579), height: 44 }}
+        />
+
+        <span style={{ position: 'absolute', left: x(638), top: y(640) }}>
+          <PBButton
+            style={{ width: 98, height: 21, minWidth: 0 }}
+            data-tutorial-id="host.mois.command.mark-reviewed"
+            onClick={markReviewed}
+          >
+            Mark Reviewed
+          </PBButton>
+        </span>
+        <span style={{ position: 'absolute', left: x(751), top: y(640) }}>
+          <PBButton
+            style={{ width: 75, height: 21, minWidth: 0 }}
+            data-tutorial-id="host.mois.command.review-close"
+            onClick={onClose}
+          >
+            Close
+          </PBButton>
+        </span>
+      </div>
+    </ModalWindow>
   )
 }

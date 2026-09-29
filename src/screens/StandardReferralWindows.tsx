@@ -8,6 +8,8 @@ import type { PrintReport } from '../data/printReports'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBDataWindow, PBTabs, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { useTickSet } from './listKit'
+import { PatientFieldRow, patientPhn } from './patientKit'
 import { RichtextReportWindow } from './PrintFlow'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
@@ -130,13 +132,12 @@ function ReferralNoteReportWindow({ args, close }: AreaWindowProps) {
   const text = typeof args.text === 'string' ? args.text : order?.str_note ?? ''
   const tabs = useMemo(() => tabsFor(data), [data])
   const [tab, setTab] = useState('Procedure')
-  const [include, setInclude] = useState<Set<string>>(new Set())
-  const [detail, setDetail] = useState<Set<string>>(new Set())
+  const include = useTickSet<string>()
+  const detail = useTickSet<string>()
   const [cur, setCur] = useState(0)
   const [preview, setPreview] = useState<'full' | 'report-only' | null>(null)
   useScreenReport({ dialog: preview ? 'print-report' : 'referral-note-report', referralIncluded: include.size, referralDetail: detail.size })
   const t = tabs[tab]!
-  const toggle = (set: Set<string>, key: string, on: boolean) => { const n = new Set(set); if (on) n.add(key); else n.delete(key); return n }
   const caption = (name: string) => `${name}${tabs[name]!.rows.length || ['Encounter', 'Document', 'Message', 'Task'].includes(name) ? ` (${tabs[name]!.rows.length})` : ''}`
   const rows = t.rows.map((r, i) => ({
     i, date: (r[t.date] ?? '').split(' ')[0]!.replace(/\//g, '.'), by: r[t.by] ?? '', desc: r[t.desc] ?? r.str_code_term ?? '',
@@ -150,21 +151,22 @@ function ReferralNoteReportWindow({ args, close }: AreaWindowProps) {
     fields: [],
     reportTitle: 'Report',
     captured: true,
-    build: ({ patient, data: d }) => referralPage(patient, d, order, text, tabs, preview === 'full' ? include : new Set(), preview === 'full' ? detail : new Set()),
+    build: ({ patient, data: d }) => referralPage(patient, d, order, text, tabs, preview === 'full' ? include.ticked : new Set(), preview === 'full' ? detail.ticked : new Set()),
   } : null
   if (report) return <RichtextReportWindow report={report} onClose={() => setPreview(null)} />
 
   return (
     <WorkspaceDialogFrame id="referral-note-report" title="Referral Note" width={967} height={700} onClose={close}>
       <div style={{ background: '#ffffc0', padding: '3px 10px', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-        <div className="pb-row" style={{ gap: 0 }}>
-          <span>CHART:&nbsp;</span><b style={{ width: 70 }}>{p.chart}</b>
-          <span>FIRST:&nbsp;</span><b style={{ width: 140 }}>{p.first}</b>
-          <span>MIDDLE:&nbsp;</span><b style={{ width: 120 }}>{p.middle}</b>
-          <span>LAST:&nbsp;</span><b style={{ width: 150 }}>{p.last}</b>
-          <span>DoB:&nbsp;</span><b style={{ width: 90 }}>{p.dob}</b><b style={{ width: 30 }}>{p.sex}</b>
-          <span>PHN:&nbsp;</span><b>{[p.insuranceBy, p.bchn ?? p.insurance, p.dep].filter(Boolean).join(' ')}</b>
-        </div>
+        <PatientFieldRow fields={[
+          { label: 'CHART:', value: p.chart, w: 70 },
+          { label: 'FIRST:', value: p.first, w: 140 },
+          { label: 'MIDDLE:', value: p.middle, w: 120 },
+          { label: 'LAST:', value: p.last, w: 150 },
+          { label: 'DoB:', value: p.dob, w: 90 },
+          { value: p.sex, w: 30 },
+          { label: 'PHN:', value: patientPhn(p) },
+        ]} />
       </div>
       <div data-tutorial-id="host.mois.group.referral-order" style={{ background: '#fff', padding: '4px 10px', height: 72, overflow: 'auto', flex: 'none', borderBottom: '1px solid #9a9a9a' }}>
         <div className="pb-row" style={{ gap: 14 }}>
@@ -199,11 +201,11 @@ function ReferralNoteReportWindow({ args, close }: AreaWindowProps) {
                   columns={[
                     {
                       key: 'include', header: 'Include', width: 50, align: 'center',
-                      render: (r) => <PBCheckbox checked={include.has(rowKey(tab, r.i))} tutorialId={r.i === 0 ? `host.mois.cell.include-${pbSlug(tab)}-first` : undefined} onChange={(on) => setInclude((s) => toggle(s, rowKey(tab, r.i), on))} />,
+                      render: (r) => <PBCheckbox checked={include.has(rowKey(tab, r.i))} tutorialId={r.i === 0 ? `host.mois.cell.include-${pbSlug(tab)}-first` : undefined} onChange={(on) => include.set(rowKey(tab, r.i), on)} />,
                     },
                     {
                       key: 'detail', header: 'Detail', width: 46, align: 'center',
-                      render: (r) => <PBCheckbox checked={detail.has(rowKey(tab, r.i))} tutorialId={r.i === 0 ? `host.mois.cell.detail-${pbSlug(tab)}-first` : undefined} onChange={(on) => setDetail((s) => toggle(s, rowKey(tab, r.i), on))} />,
+                      render: (r) => <PBCheckbox checked={detail.has(rowKey(tab, r.i))} tutorialId={r.i === 0 ? `host.mois.cell.detail-${pbSlug(tab)}-first` : undefined} onChange={(on) => detail.set(rowKey(tab, r.i), on)} />,
                     },
                     { key: 'date', header: 'Date', width: 80, align: 'center' },
                     { key: 'by', header: tab === 'Procedure' ? 'Performed By' : 'By', width: 150 },

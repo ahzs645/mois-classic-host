@@ -11,9 +11,13 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, PBWindow, pbSlug,
+  PBCheckbox, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter, FormLabel } from './formKit'
+import { useTickSet } from './listKit'
+import { GRID_BOX, PickButtons, PickListWindow, SIZE } from './lookupKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -169,8 +173,7 @@ export function NewGoalWindow({ close }: AreaWindowProps) {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow tutorialId="host.mois.dialog.new-goal" child controls={false} title="New Goal" onClose={close} style={{ width: 528, height: 446, maxHeight: 'calc(100% - 16px)' }}>
+    <ModalWindow id="new-goal" title="New Goal" onClose={close} zIndex={80} windowStyle={{ width: 528, height: 446, maxHeight: 'calc(100% - 16px)' }}>
         <div style={{ background: '#dfe8f6', padding: '6px 8px', flex: 'none', borderBottom: '1px solid #a0a0a0' }}>
           <div className="pb-form pb-form--cols4" style={{ padding: 0, gridTemplateColumns: 'auto 1fr auto auto', rowGap: 4 }}>
             <span className="pb-form__label">Goal Type:</span>
@@ -209,13 +212,10 @@ export function NewGoalWindow({ close }: AreaWindowProps) {
           </div>
         </div>
 
-        <div className="pb-footer" style={RULE}>
-          <span className="pb-footer__spacer" />
+        <DialogFooter frame="pb" style={RULE}>
           <DialogButton id="new-goal-close" width={75} onClick={closeAndFile}>Close</DialogButton>
-          <span className="pb-footer__spacer" />
-        </div>
-      </PBWindow>
-    </div>
+        </DialogFooter>
+    </ModalWindow>
   )
 }
 
@@ -292,41 +292,49 @@ function LinkPicker({ id, title, objects, goalId, close, prefix, columns }: {
     return objects.flatMap((o) => candidates(data, p.chart, o).map((r) => toLinkedRow(o, r)))
       .filter((r) => r.id && !linked.has(`${r.object}:${r.id}`))
   }, [cp, data, p.chart, goalId, objects])
-  const [ticked, setTicked] = useState<Set<number>>(() => new Set())
+  const tick = useTickSet()
   const [cur, setCur] = useState(0)
-  useScreenReport({ dialog: id, rows: rows.length, picked: ticked.size })
-  const toggle = (i: number) => setTicked((t) => { const n = new Set(t); if (n.has(i)) n.delete(i); else n.add(i); return n })
+  useScreenReport({ dialog: id, rows: rows.length, picked: tick.size })
+  const toggle = tick.flip
   const ok = () => {
-    ticked.forEach((i) => { const r = rows[i]; if (r) linkGoal(p.chart, r.object, r.id, goalId) })
+    tick.ticked.forEach((i) => { const r = rows[i]; if (r) linkGoal(p.chart, r.object, r.id, goalId) })
     close()
   }
   return (
-    <WorkspaceDialogFrame id={id} title={title} width={720} height={420} onClose={close} controls={false}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 4 }}>
-        <PBDataWindow
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(_r, i) => toggle(i)}
-          groupBy={objects.length > 1 ? (r) => r.group : undefined}
-          rowTutorialId={(_r, i) => `host.mois.row.${prefix}-${i}`}
-          columns={[
-            { key: 'pick', header: 'Link', width: 40, align: 'center', render: (_r, i) => <PBCheckbox checked={ticked.has(i)} tutorialId={`host.mois.field.link-${i}`} onChange={() => toggle(i)} /> },
-            { key: 'start', header: columns === 'actions' ? 'Planned Start' : 'Start', width: 90, align: 'center' },
-            { key: 'end', header: columns === 'actions' ? 'Planned End' : 'End', width: 90, align: 'center' },
-            { key: 'desc', header: columns === 'actions' ? 'Action' : 'Description' },
-            ...(columns === 'actions'
-              ? [{ key: 'completed', header: 'Completed', width: 70, align: 'center' as const, render: (r: LinkedRow) => <PBCheckbox checked={r.completed} /> }]
-              : [{ key: 'sensitive', header: 'Sensitive', width: 64, align: 'center' as const, render: (r: LinkedRow) => <PBCheckbox checked={r.sensitive} /> }]),
-          ]}
-          empty={columns === 'actions' ? 'No other actions on file.' : 'No other health issues on file.'}
-        />
-      </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 12, padding: '8px 0', flex: 'none' }}>
-        <DialogButton id={`${prefix}-ok`} width={80} isDefault onClick={ok} disabled={!ticked.size}>Link</DialogButton>
-        <DialogButton id={`${prefix}-cancel`} width={80} onClick={close}>Cancel</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+    <PickListWindow<LinkedRow>
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id={id} title={title} width={720} height={420} onClose={close} controls={false}>
+          {content}
+          {footer}
+        </WorkspaceDialogFrame>
+      )}
+      gridBox={{ ...GRID_BOX, padding: 4 }}
+      grid={{
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (_r, i) => toggle(i),
+        groupBy: objects.length > 1 ? (r) => r.group : undefined,
+        rowTutorialId: (_r, i) => `host.mois.row.${prefix}-${i}`,
+        columns: [
+          { key: 'pick', header: 'Link', width: 40, align: 'center', render: (_r, i) => <PBCheckbox checked={tick.has(i)} tutorialId={`host.mois.field.link-${i}`} onChange={() => toggle(i)} /> },
+          { key: 'start', header: columns === 'actions' ? 'Planned Start' : 'Start', width: 90, align: 'center' },
+          { key: 'end', header: columns === 'actions' ? 'Planned End' : 'End', width: 90, align: 'center' },
+          { key: 'desc', header: columns === 'actions' ? 'Action' : 'Description' },
+          ...(columns === 'actions'
+            ? [{ key: 'completed', header: 'Completed', width: 70, align: 'center' as const, render: (r: LinkedRow) => <PBCheckbox checked={r.completed} /> }]
+            : [{ key: 'sensitive', header: 'Sensitive', width: 64, align: 'center' as const, render: (r: LinkedRow) => <PBCheckbox checked={r.sensitive} /> }]),
+        ],
+        empty: columns === 'actions' ? 'No other actions on file.' : 'No other health issues on file.',
+      }}
+      footer={(
+        <PickButtons className="pb-row" style={{ justifyContent: 'center', gap: 12, padding: '8px 0', flex: 'none' }} size={SIZE.dialog(80)}
+          buttons={[
+            { label: 'Link', command: `${prefix}-ok`, isDefault: true, onClick: ok, disabled: !tick.size },
+            { label: 'Cancel', command: `${prefix}-cancel`, onClick: close },
+          ]} />
+      )}
+    />
   )
 }
 
@@ -343,7 +351,7 @@ function LinkActionsWindow({ args, close }: AreaWindowProps) {
 
 /* --- Action Detail --------------------------------------------------------- */
 function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return <><span className="pb-form__label" style={{ lineHeight: '19px' }}>{label}</span>{children}</>
+  return <><FormLabel flex={false} style={{ lineHeight: '19px' }}>{label}</FormLabel>{children}</>
 }
 
 function ActionDetailWindow({ args, close }: AreaWindowProps) {
@@ -393,10 +401,10 @@ function ActionDetailWindow({ args, close }: AreaWindowProps) {
         <Row label="Completed Date:"><PBInput w={90} align="center" value={f.completedDate} data-tutorial-id="host.mois.field.action-completed-date" onChange={(e) => set({ completedDate: e.target.value })} /></Row>
         <Row label="Outcome:"><span style={{ gridColumn: 'span 3' }}><PBTextArea rows={4} w="100%" value={f.outcome} data-tutorial-id="host.mois.field.action-outcome" onChange={(e) => set({ outcome: e.target.value })} /></span></Row>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 12, padding: '8px 0', flex: 'none' }}>
+      <DialogFooter gap={12} padding="8px 0">
         <DialogButton id="action-detail-save" width={80} isDefault onClick={save} disabled={!f.action.trim()}>Save</DialogButton>
         <DialogButton id="action-detail-cancel" width={80} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

@@ -2,7 +2,9 @@ import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
 import type { MoisRecord } from '../data/charts/types'
-import { PBButton, PBCheckbox, PBDataWindow, PBWindow } from '../pb'
+import { PBButton, PBCheckbox, PBDataWindow } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { toggled } from './listKit'
 
 /* ============================================================================
    Encounter Link Service — Patient Chart ▸ Measures ▸ Action ▸ Link to Encounter.
@@ -135,27 +137,21 @@ export function EncounterLinkServiceDialog({ links, onLink, onClose }: {
   const ticked: Set<string> = ticks && ticks.encounter === encounterId
     ? ticks.ids
     : new Set(sameDay.filter((m) => encounterId && linkedTo(m) === encounterId).map((m) => m.id_measure ?? ''))
-  const toggle = (id: string, on: boolean) => {
-    const next = new Set(ticked)
-    if (on) next.add(id)
-    else next.delete(id)
-    setTicks({ encounter: encounterId, ids: next })
-  }
+  const toggle = (id: string, on: boolean) => setTicks({ encounter: encounterId, ids: toggled(ticked, id, on) })
 
   const ink = (r: MeasureRow, text: ReactNode) => (
     <span style={{ color: ticked.has(r.id) ? '#000' : UNTICKED_INK }}>{text}</span>
   )
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Encounter Link Service"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.encounter-link-service"
-        style={{ width: W, height: H, maxWidth: '100%', ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
-      >
+    <ModalWindow
+      id="encounter-link-service"
+      title="Encounter Link Service"
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowStyle={{ width: W, height: H, maxWidth: '100%', ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    >
         <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)' }}>
           <Panel title="Encounter List" style={{ left: x(20), width: x(432) - x(20), top: y(155), height: y(661) - y(155) }}>
             <PBDataWindow
@@ -211,7 +207,7 @@ export function EncounterLinkServiceDialog({ links, onLink, onClose }: {
 
           <PBButton
             style={{ position: 'absolute', left: x(374), top: y(682), width: 100, height: 22, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.link-select-items"
+            command="link-select-items"
             disabled={!encounterId || ticked.size === 0}
             onClick={() => encounterId && onLink(encounterId, measureRows.filter((r) => ticked.has(r.id)).map((r) => r.id))}
           >
@@ -219,13 +215,12 @@ export function EncounterLinkServiceDialog({ links, onLink, onClose }: {
           </PBButton>
           <PBButton
             style={{ position: 'absolute', left: x(484), top: y(682), width: 100, height: 22, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.encounter-link-cancel"
+            command="encounter-link-cancel"
             onClick={onClose}
           >
             Cancel
           </PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }

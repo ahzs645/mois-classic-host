@@ -84,17 +84,10 @@ const RULE = '#646464'
 
 /** A band button: `New Rule`, `New Element`, `New Row`, `Delete …`. */
 function BandButton({ label, width, onPress }: { label: string; width: number; onPress?: () => void }) {
-  const host = usePBInstrumentation()
   return (
-    <button
-      type="button"
-      className="pb-btn pb-btn--sm"
-      style={{ width }}
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => { host?.report('command', { command: pbSlug(label) }); onPress?.() }}
-    >
+    <PBButton size="sm" style={{ width }} command={pbSlug(label)} onClick={() => onPress?.()}>
       {label}
-    </button>
+    </PBButton>
   )
 }
 
@@ -214,15 +207,13 @@ function DetailFrame({
 }
 
 function FooterButton({ label, onClose }: { label: string; onClose: () => void }) {
-  const host = usePBInstrumentation()
   /* Save keeps the window open; the two Close/Cancel captions shut it */
   const shuts = label.startsWith('Cancel') || label.startsWith('Save and Close')
   return (
     <PBButton
       wide
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
+      command={pbSlug(label)}
       onClick={() => {
-        host?.report('command', { command: pbSlug(label) })
         if (shuts) onClose()
       }}
     >
@@ -716,7 +707,6 @@ function MeasurementDetail({ title, row, onClose }: DetailProps) {
    303112 · Paper Form Detail — 1022 x 731, navy band `Paper Form`.
    ------------------------------------------------------------------------ */
 function PaperFormDetail({ title, row, onClose }: DetailProps) {
-  const host = usePBInstrumentation()
   /* 303327: "Click 'Preview Form' · The form will open, with the field number
      in each fillable field … Close the form preview" */
   const [previewing, setPreviewing] = useState(false)
@@ -747,8 +737,8 @@ function PaperFormDetail({ title, row, onClose }: DetailProps) {
               view any changes you have made" */}
           <PBButton
             wide
-            data-tutorial-id={host?.anchor('command', 'preview-form')}
-            onClick={() => { host?.report('command', { command: 'preview-form' }); setPreviewing(true) }}
+            command="preview-form"
+            onClick={() => setPreviewing(true)}
           >
             Preview Form
           </PBButton>
@@ -854,7 +844,6 @@ function CarePlanGrid() {
    ------------------------------------------------------------------------ */
 function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
   const [editing, setEditing] = useState(false)
-  const host = usePBInstrumentation()
   const openWindow = useOpenWindow()
   /* the body the designer saved for this template (data/letterDocs.ts) */
   const [bodies] = useTemplateBodies()
@@ -892,15 +881,14 @@ function LetterTemplateDetail({ title, row, onClose }: DetailProps) {
               <span>Letter Preview</span>
               <span className="pb-band__spacer" />
               {/* the group's own Edit button, at its top-right */}
-              <button
-                type="button"
-                className="pb-btn pb-btn--sm"
+              <PBButton
+                size="sm"
                 style={{ width: 56 }}
-                data-tutorial-id={host?.anchor('command', 'edit')}
-                onClick={() => { host?.report('command', { command: 'edit' }); setEditing(true) }}
+                command="edit"
+                onClick={() => setEditing(true)}
               >
                 Edit
-              </button>
+              </PBButton>
             </div>
             <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#808080', padding: 10 }}>
               {/* the page-shaped white preview: the saved template, small */}
@@ -962,10 +950,10 @@ export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => v
               <span className="pb-form__label">File (7z):</span>
               <PBInput w={560} readOnly value={file} data-tutorial-id={anchorField('File (7z)')} />
               <PBButton
-                data-tutorial-id={host?.anchor('command', 'browse')}
+                command="browse"
                 /* the OS file picker is the platform's, not MOIS's: the pick
                    is the capture's own archive */
-                onClick={() => { host?.report('command', { command: 'browse' }); setFile('M:\\0222\\paperforms\\LabRequisition.7z') }}
+                onClick={() => setFile('M:\\0222\\paperforms\\LabRequisition.7z')}
               >
                 Browse...
               </PBButton>
@@ -1032,9 +1020,8 @@ export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => v
               <PBButton
                 key={b}
                 wide
-                data-tutorial-id={host?.anchor('command', pbSlug(b))}
+                command={pbSlug(b)}
                 onClick={() => {
-                  host?.report('command', { command: pbSlug(b) })
                   /* Ok brings the ticked forms into the Paper Form List */
                   if (b === 'Ok' && file) onImport?.(PAPER_IMPORT_ROWS.filter((_, j) => picked[j]))
                   onClose()

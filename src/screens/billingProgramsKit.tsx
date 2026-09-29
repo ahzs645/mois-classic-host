@@ -4,7 +4,7 @@ import { useUnsentClaims } from '../data/billingStore'
 import type { UnsentClaim } from '../data/claims'
 import { useReportDialog } from '../host/screen-windows'
 import { PBButton, PBGroup, PBInput, PBMessageBox, PBRadio, pbSlug, usePBInstrumentation } from '../pb'
-import { DesktopLayer } from './StageWindow'
+import { DesktopLayer } from './dialogKit'
 import { WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -157,14 +157,13 @@ export function CellLink({ id, children, onClick, disabled }: { id: string; chil
 /** A small face button inside a grid row (the Enrollment CR ✓ / ⃠ / undo
     icons, the Detail button). */
 export function CellButton({ id, children, onClick, title, width = 26, disabled }: { id: string; children: ReactNode; onClick: () => void; title?: string; width?: number; disabled?: boolean }) {
-  const host = usePBInstrumentation()
   return (
     <PBButton
       title={title}
       disabled={disabled}
       style={{ width, minWidth: 0, height: 18, padding: 0, lineHeight: '14px' }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={(e) => { e.stopPropagation(); host?.report('command', { command: id }); onClick() }}
+      command={id}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
     >
       {children}
     </PBButton>

@@ -1,5 +1,8 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { PBButton, PBCheckbox, PBInput, PBWindow, pbSlug, PBMessageBox } from '../pb'
+import { PBCheckbox, pbSlug, PBMessageBox } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { FormLabel, NAVY, SectionCaption } from './formKit'
+import { PrintPreviewFrame } from './printKit'
 
 /* ============================================================================
    Pieces the Data Exchange screens share: the navy section caption over a
@@ -11,9 +14,9 @@ import { PBButton, PBCheckbox, PBInput, PBWindow, pbSlug, PBMessageBox } from '.
 /** A navy bold caption ruled off underneath (81237c69, fcf7937c, 46924bab). */
 export function Heading({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
-    <div style={{ borderBottom: '1px solid #b8b8b8', padding: '6px 10px 3px', margin: '0 0 6px', ...style }}>
-      <span style={{ color: '#000080', fontWeight: 700 }}>{children}</span>
-    </div>
+    <SectionCaption inner="span" padding="6px 10px 3px" rule="#b8b8b8" style={{ margin: '0 0 6px', ...style }}>
+      {children}
+    </SectionCaption>
   )
 }
 
@@ -26,9 +29,7 @@ export function Body({ children, style }: { children: ReactNode; style?: CSSProp
   )
 }
 
-export const Lbl = ({ children, w }: { children: ReactNode; w?: number }) => (
-  <span className="pb-form__label" style={{ width: w, flex: 'none' }}>{children}</span>
-)
+export const Lbl = ({ children, w }: { children: ReactNode; w?: number }) => <FormLabel w={w}>{children}</FormLabel>
 
 /** The pale green filter band over a list (#c0ffc0 in f6fddf3f, dd8676f0). */
 export function GreenBand({ children, anchor, style }: { children: ReactNode; anchor?: string; style?: CSSProperties }) {
@@ -63,7 +64,7 @@ export function Radio({ label, name, checked, onChange, anchor }: {
 export function StatusList({ steps, at }: { steps: string[]; at: number }) {
   return (
     <div data-tutorial-id="host.mois.group.status" style={{ padding: '4px 12px' }}>
-      <div style={{ color: '#000080', fontWeight: 700, marginBottom: 4 }}>Status:</div>
+      <div style={{ color: NAVY.win, fontWeight: 700, marginBottom: 4 }}>Status:</div>
       {steps.map((s, i) => (
         <div key={s} style={{ lineHeight: '19px', color: i <= at ? '#000' : '#a0a0a0' }}>{s}</div>
       ))}
@@ -134,39 +135,25 @@ export type LogReport = {
 export function PrintPreviewWindow({ report, onClose }: { report: LogReport; onClose: () => void }) {
   const [zoom, setZoom] = useState('100%')
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, placeItems: 'start end', paddingTop: 40 }}>
-      <PBWindow
-        child
-        title="Print Preview"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.print-preview"
-        style={{ width: 'min(900px, calc(100% - 20px))', height: 'min(560px, calc(100% - 50px))' }}
-      >
-        <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: 6 }}>
-          <div style={{ width: 96, flex: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <fieldset className="pb-fieldset">
-              <legend className="pb-fieldset__legend">Zoom To</legend>
-              <div className="pb-fieldset__body" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {['200%', '100%', '75%', '50%', '25%'].map((z) => (
-                  <Radio key={z} name="zoom" label={z} checked={zoom === z} onChange={() => setZoom(z)} />
-                ))}
-                <span>Percent:</span><PBInput w={40} defaultValue="125" />
-                <span>Copies:</span><PBInput w={40} defaultValue="1" />
-              </div>
-            </fieldset>
-            <PBButton>Apply</PBButton>
-            <PBButton disabled>Change Header</PBButton>
-            <PBButton>Sort</PBButton>
-            <span style={{ height: 14 }} />
-            <PBButton>Print All</PBButton>
-            <PBButton>Print Range</PBButton>
-            <PBInput w="100%" defaultValue="All Pages" />
-            <span style={{ fontSize: 10 }}>Ex. 1,2,5-10,39</span>
-            <PBButton data-tutorial-id="host.mois.command.cancel" onClick={onClose}>Cancel</PBButton>
-            <PBButton>Save As</PBButton>
-            <span>Printer Type</span>
-            <PBInput w="100%" readOnly defaultValue="Report Printer" />
-          </div>
+    <ModalWindow
+      id="print-preview"
+      title="Print Preview"
+      onClose={onClose}
+      controls
+      zIndex={60}
+      layerStyle={{ placeItems: 'start end', paddingTop: 40 }}
+      windowStyle={{ width: 'min(900px, calc(100% - 20px))', height: 'min(560px, calc(100% - 50px))' }}
+    >
+        <PrintPreviewFrame
+          skin="split"
+          zoomName="zoom"
+          zoom={zoom}
+          onZoom={setZoom}
+          percent={{ defaultValue: '125' }}
+          copies={{ defaultValue: '1' }}
+          range={{ defaultValue: 'All Pages' }}
+          onCancel={onClose}
+        >
           <fieldset className="pb-fieldset pb-fieldset--fill" style={{ flex: '1 1 auto', minWidth: 0 }}>
             <legend className="pb-fieldset__legend">Preview</legend>
             <div className="pb-fieldset__body" style={{ background: '#808080', padding: 8, overflow: 'auto', flex: '1 1 auto' }}>
@@ -198,9 +185,8 @@ export function PrintPreviewWindow({ report, onClose }: { report: LogReport; onC
               </div>
             </div>
           </fieldset>
-        </div>
-      </PBWindow>
-    </div>
+        </PrintPreviewFrame>
+    </ModalWindow>
   )
 }
 

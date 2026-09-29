@@ -2,15 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePatient, usePatientRoster } from '../data/patient-context'
 import { patientEdits, updatePatient } from '../data/patient-edits'
 import { type Patient, type ChartAddressEntry } from '../data/patients'
+import { dotsOf } from '../data/clock'
 import { PBButton, PBInput, PBTextArea, PBCheckbox, PBRadio, PBGroup, PBBand, PBDataWindow } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { AdvancedLookupDialog } from './AdvancedLookupDialog'
 import { DesktopLayer as BaseDesktopLayer, LAYER, ModalWindow } from './dialogKit'
+import { DialogFooter } from './formKit'
 
-export const today = () => {
-  const d = new Date()
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
-}
+export const today = () => dotsOf(new Date())
 
 /** Child dialogs cover the host desktop, including the tree, without clipping. */
 export function DemographicModal({ title, onClose, children, width = 620, height, dialog: dialogId }: {
@@ -34,7 +33,7 @@ export { CmdButton } from './CmdButton'
 import { CmdButton } from './CmdButton'
 
 export function DialogButtons({ children }: { children: ReactNode }) {
-  return <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: 16, flex: 'none' }}>{children}</div>
+  return <DialogFooter gap={10} padding={16}>{children}</DialogFooter>
 }
 
 /* View Or Update Patient Photo — art. 301174 `764f23cc…png` (v02.20.18):

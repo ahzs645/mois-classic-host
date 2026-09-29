@@ -4,6 +4,7 @@ import {
   MHK_PATIENTS, MHK_PATIENTS_KEY, MHK_PROVIDER_LOG, MHK_PROVIDERS, MHK_PROVIDERS_KEY, MHK_SETTINGS,
   daysFromToday, type MhkActivity, type MhkPatient, type MhkProvider,
 } from '../data/myhealthkey'
+import { toDashes } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
@@ -370,14 +371,14 @@ function BulkInviteWindow({ onClose, onInvited }: { onClose: () => void; onInvit
     .slice(0, Number(applied.limit) || 200)
   useScreenReport({ rows: rows.length, invited: sent })
   const inviteAll = () => {
-    const created = `${MOIS_TODAY.replace(/\./g, '-')} 10:00:00`
+    const created = `${toDashes(MOIS_TODAY)} 10:00:00`
     const charts = new Set(rows.map((r) => r.chart))
     setPatients((all) => all.map((p) => (charts.has(p.chart)
-      ? { ...p, consent: 'INVITED', from: MOIS_TODAY.replace(/\./g, '-'), to: daysFromToday(30).replace(/\./g, '-'), expired: false, created, lastInvited: 0 }
+      ? { ...p, consent: 'INVITED', from: toDashes(MOIS_TODAY), to: toDashes(daysFromToday(30)), expired: false, created, lastInvited: 0 }
       : p)))
     onInvited(rows.map((r) => ({
-      chart: r.chart, last: r.last, first: r.first, registration: 'INVITED', validFrom: MOIS_TODAY.replace(/\./g, '-'),
-      validTo: daysFromToday(30).replace(/\./g, '-'), reason: 'Patient Registration', createdBy: 'ADMINISTRATOR', updatedBy: '', updated: created,
+      chart: r.chart, last: r.last, first: r.first, registration: 'INVITED', validFrom: toDashes(MOIS_TODAY),
+      validTo: toDashes(daysFromToday(30)), reason: 'Patient Registration', createdBy: 'ADMINISTRATOR', updatedBy: '', updated: created,
     })))
     setSent(rows.length)
   }

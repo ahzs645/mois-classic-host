@@ -235,7 +235,7 @@ export function PatientSummaryView({ onLookup, onStepChart, onOpenChart, onOpenS
             size="sm"
             style={{ minWidth: 18, padding: 0 }}
             title="Advanced Gender Designations"
-            data-tutorial-id="host.mois.command.gender-designations"
+            command="gender-designations"
             onClick={() => setGenderOpen(true)}
           >
             .*.

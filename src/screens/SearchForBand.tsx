@@ -1,9 +1,12 @@
 import { useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { PBDataWindow, PBInput, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBDataWindow, PBInput, pbSlug, usePBInstrumentation } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
+import { DialogFooter } from './formKit'
+import { SelectAllPair, useTickSet } from './listKit'
+import { LookupBand } from './lookupKit'
 
 /* ============================================================================
    The chart folder's "Search For:" band — Search and Filter (MOIS 2.20+).
@@ -238,16 +241,15 @@ export function SearchForBand({ context, fields, value, onChange, right, style }
         </button>
       </span>
       {state === 'invalid' && (
-        <button
-          type="button"
-          className="pb-btn pb-btn--sm"
+        <PBButton
+          size="sm"
           aria-label="Validation messages"
-          data-tutorial-id={host?.anchor('command', 'search-warning')}
-          onClick={() => { host?.report('command', { command: 'search-warning' }); setWarnings(true) }}
+          command="search-warning"
+          onClick={() => setWarnings(true)}
           style={{ minWidth: 0, width: 22, padding: 0, background: '#ffd200', fontWeight: 700 }}
         >
           !
-        </button>
+        </PBButton>
       )}
       {right}
 
@@ -359,14 +361,14 @@ function RemoveFromSearchHistory({ history, onOk, onClose }: {
   onOk: (remove: string[]) => void
   onClose: () => void
 }) {
-  const [picked, setPicked] = useState<Set<number>>(new Set())
+  const picked = useTickSet()
   const [cur, setCur] = useState(0)
   const rows = history.map((text, i) => ({ text, i }))
   useScreenReport({ historyPicked: picked.size })
   return (
     <DemographicModal title="Remove From Search History" width={720} height={580} onClose={onClose} dialog="remove-from-search-history">
       <div style={{ margin: '8px 10px 0', border: '1px solid #9a9a9a', background: '#fff', flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: 'linear-gradient(#ecebe8, #d8d5d0)', fontWeight: 700, padding: '3px 6px' }}>Search History</div>
+        <LookupBand variant="grey">Search History</LookupBand>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
           <PBDataWindow<{ text: string; i: number }>
             rows={rows}
@@ -383,7 +385,7 @@ function RemoveFromSearchHistory({ history, onOk, onClose }: {
                     checked={picked.has(r.i)}
                     aria-label={`Select search ${r.i + 1}`}
                     data-tutorial-id={`host.mois.field.remove-history-${r.i + 1}`}
-                    onChange={() => setPicked((p) => { const n = new Set(p); if (n.has(r.i)) n.delete(r.i); else n.add(r.i); return n })}
+                    onChange={() => picked.flip(r.i)}
                   />
                 ),
               },
@@ -393,8 +395,8 @@ function RemoveFromSearchHistory({ history, onOk, onClose }: {
         </div>
       </div>
       <div className="pb-row" style={{ padding: '10px', gap: 8 }}>
-        <CmdButton command="select-all" style={{ width: 76 }} onClick={() => setPicked(new Set(history.map((_, i) => i)))}>Select All</CmdButton>
-        <CmdButton command="unselect-all" style={{ width: 76 }} onClick={() => setPicked(new Set())}>Unselect All</CmdButton>
+        <SelectAllPair as="command" ids={['select-all', 'unselect-all']} width={76}
+          onSelectAll={() => picked.selectAll(history.map((_, i) => i))} onUnselectAll={picked.clear} />
         <span style={{ flex: '1 1 auto' }} />
         <CmdButton command="remove-history-ok" style={{ width: 82 }} onClick={() => onOk(history.filter((_, i) => picked.has(i)))}>Ok</CmdButton>
         <CmdButton command="remove-history-cancel" style={{ width: 82 }} onClick={onClose}>Cancel</CmdButton>
@@ -422,9 +424,9 @@ function ValidationMessages({ messages, onClose }: { messages: string[]; onClose
           </div>
         ))}
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', padding: 10 }}>
+      <DialogFooter fixed={false} padding={10}>
         <CmdButton command="validation-continue" style={{ width: 88 }} onClick={onClose}>Continue (F2)</CmdButton>
-      </div>
+      </DialogFooter>
     </DemographicModal>
   )
 }

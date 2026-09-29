@@ -12,7 +12,6 @@ import {
   type DesignerStart,
 } from '../data/letterDocs'
 import { MOIS_TODAY } from '../data/patients'
-import { TEMPLATE_PREVIEW } from '../data/letterSetup'
 import {
   ADVANCE_SELECTION_BLOCKS, ADVANCE_SELECTION_MODES,
   LETTER_MENUS, LETTER_TOOLBOX, LETTER_WRITER_COMMANDS,
@@ -32,10 +31,11 @@ import {
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { LetterEditorDialog, NewLetterDialog } from './LetterEditorDialogs'
-import { TemplateCanvas, useTemplateDesign } from './LetterTemplateCanvas'
+import { TemplateCanvas, TemplatePreviewLines, useTemplateDesign } from './LetterTemplateCanvas'
 import { MasterProviderListDialog } from './MasterProviderListDialog'
 import { OrderLinkingServiceDialog } from './OrderLinkingServiceDialog'
 import { RowContextMenu, type ContextMenuAt } from './RowContextMenu'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    MOIS Letter Writer — the CURRENT FLAT generation.
@@ -503,7 +503,6 @@ function InsertBlock({ insert, selected, onSelect }: { insert: LetterInsert; sel
    `fields` group, so the template designer's Field list can follow its
    Source.                                                                  */
 function RailButton({ label, hint, onClick }: { label: string; hint?: string; onClick?: () => void }) {
-  const host = usePBInstrumentation()
   return (
     <PBButton
       title={hint}
@@ -514,11 +513,8 @@ function RailButton({ label, hint, onClick }: { label: string; hint?: string; on
         background: LW.btnFace,
         borderColor: LW.btnBorder,
       }}
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => {
-        host?.report('command', { command: pbSlug(label) })
-        onClick?.()
-      }}
+      command={pbSlug(label)}
+      onClick={() => onClick?.()}
     >
       {label}
     </PBButton>
@@ -654,14 +650,13 @@ function SelectionWindow({
   const [rows, setRows] = useState(list.rows)
   const selectAll = (checked: boolean) => setRows(all => all.map(row => ({ ...row, ...Object.fromEntries(list.columns.filter(c => c.check).map(c => [c.key, checked])) })))
   return (
-    <div className="pb-modal-layer" style={{ zIndex: 90 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Selection Window"
-        onClose={onClose}
-        style={{ width: 'min(1022px, calc(100vw - 40px))', height: 'min(684px, calc(100vh - 60px))' }}
-      >
+    <ModalWindow
+      title="Selection Window"
+      onClose={onClose}
+      zIndex={90}
+      layerClassName="pb-modal-layer"
+      windowStyle={{ width: 'min(1022px, calc(100vw - 40px))', height: 'min(684px, calc(100vh - 60px))' }}
+    >
         <div
           data-tutorial-id="host.mois.dialog.selection-window"
           style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
@@ -775,18 +770,17 @@ function SelectionWindow({
           <PBButton
             className="pb-btn--default"
             style={{ width: 80 }}
-            data-tutorial-id="host.mois.command.continue"
+            command="continue"
             onClick={() => onContinue(rows)}
           >
             Continue
           </PBButton>
-          <PBButton style={{ width: 80 }} data-tutorial-id="host.mois.command.cancel" onClick={onClose}>
+          <PBButton style={{ width: 80 }} command="cancel" onClick={onClose}>
             Cancel
           </PBButton>
         </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -1221,24 +1215,7 @@ export function LetterWriterWindow({
               >
                 {template ? <TemplateCanvas design={design} controlChars={controlChars} />
                   : raw
-                    ? TEMPLATE_PREVIEW.map((p, i) => (
-                      <div key={i} style={{ marginBottom: p.gap ?? 0, minHeight: '1.4em' }}>
-                        {p.tokens.map((t, j) => (
-                          <span
-                            key={j}
-                            style={
-                              t.t === 'field'
-                                ? { background: LW.yellow }
-                                : t.t === 'tag'
-                                  ? { background: LW.yellow, color: '#6b6b00', fontWeight: 700 }
-                                  : undefined
-                            }
-                          >
-                            {t.s}
-                          </span>
-                        ))}
-                      </div>
-                    ))
+                    ? <TemplatePreviewLines />
                     : (
                       <>
                         {regions.header && <LetterRegionBox which="header" region={regions.header} onText={(text) => setRegions((r) => ({ ...r, header: { ...r.header!, text } }))} />}
@@ -1350,12 +1327,12 @@ export function LetterWriterWindow({
         <OrderLinkingServiceDialog onClose={() => setPicking(null)} onLink={() => setPicking(null)} />
       )}
       {design.prompt && (
-        <PBMessageBox title="Field Properties" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.field-prompt-ok' }]} onClose={() => design.setPrompt(null)}>
+        <PBMessageBox title="Field Properties" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'field-prompt-ok' }]} onClose={() => design.setPrompt(null)}>
           [{design.prompt}] — MOIS fills this field when the letter is created. If the value cannot be found, you will be prompted with a selection list.
         </PBMessageBox>
       )}
       {message && (
-        <PBMessageBox title={message.title} buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.letter-message-ok' }]} onClose={() => setMessage(null)}>
+        <PBMessageBox title={message.title} buttons={[{ label: 'OK', value: 'ok', default: true, command: 'letter-message-ok' }]} onClose={() => setMessage(null)}>
           {message.text}
         </PBMessageBox>
       )}

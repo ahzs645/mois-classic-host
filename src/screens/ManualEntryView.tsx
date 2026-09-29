@@ -7,9 +7,11 @@ import { useExchangeCommand } from '../data/exchangeStore'
 import { useScreenReport } from '../host/screen-state'
 import {
   PBBand, PBButton, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBTabs, PBTextArea,
-  PBViewHeader, PBWindow, pbSlug, type PBColumn,
+  PBViewHeader, pbSlug, type PBColumn,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
 import type { ExchangeGo } from './ExchangeView'
+import { FormLabel } from './formKit'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
 
 /* ============================================================================
@@ -42,13 +44,9 @@ const clipCount = (row?: Record<string, string>) => {
   return Number.isFinite(n) ? n : 0
 }
 
-function Label({ children, w }: { children: ReactNode; w?: number }) {
-  return (
-    <span className="pb-form__label pb-form__label--right" style={{ width: w, flex: 'none', lineHeight: '19px' }}>
-      {children}
-    </span>
-  )
-}
+const Label = ({ children, w }: { children: ReactNode; w?: number }) => (
+  <FormLabel w={w} className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>{children}</FormLabel>
+)
 
 /** One field, bound to the sample record or blank for a new one. */
 function Field({ f, blank, go }: { f: ExField; blank: boolean; go: ExchangeGo }) {
@@ -360,8 +358,8 @@ export function ManualEntryView({ folder, go }: { folder: ManualEntryFolder; go:
           >
             <PBBand right={(
               <>
-                <PBButton size="sm" data-tutorial-id="host.mois.command.distribute-new" onClick={() => setDistribute((d) => [...d, ''])}>New</PBButton>
-                <PBButton size="sm" data-tutorial-id="host.mois.command.distribute-delete" onClick={() => setDistribute((d) => d.slice(0, -1))}>Delete</PBButton>
+                <PBButton size="sm" command="distribute-new" onClick={() => setDistribute((d) => [...d, ''])}>New</PBButton>
+                <PBButton size="sm" command="distribute-delete" onClick={() => setDistribute((d) => d.slice(0, -1))}>Delete</PBButton>
               </>
             )}>
               Distribute To
@@ -401,19 +399,18 @@ export function DocumentAttachmentListWindow({ onClose }: { onClose: () => void 
     </>
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, placeItems: 'start center', paddingTop: 36 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Document / Attachment List"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.document-attachment-list"
-        style={{ width: 'min(826px, calc(100% - 12px))', height: 'min(596px, calc(100% - 44px))' }}
-      >
+    <ModalWindow
+      title="Document / Attachment List"
+      onClose={onClose}
+      tutorialId="host.mois.dialog.document-attachment-list"
+      zIndex={60}
+      layerStyle={{ placeItems: 'start center', paddingTop: 36 }}
+      windowStyle={{ width: 'min(826px, calc(100% - 12px))', height: 'min(596px, calc(100% - 44px))' }}
+    >
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <PBCommandRow
             commands={ATTACHMENT_LIST_COMMANDS.map((label) => ({ label }))}
-            right={<PBButton data-tutorial-id="host.mois.command.close" onClick={onClose}>Close</PBButton>}
+            right={<PBButton command="close" onClick={onClose}>Close</PBButton>}
           />
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
             <PBDataWindow
@@ -448,7 +445,6 @@ export function DocumentAttachmentListWindow({ onClose }: { onClose: () => void 
             <span>Sent Date: 2014.12.04</span>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }

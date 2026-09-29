@@ -13,8 +13,10 @@ import {
 } from '../data/chartUtilities'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBSpinner,
-  PBTabs, PBWindow, pbSlug,
+  PBTabs, pbSlug,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { useTickSet } from './listKit'
 
 /* ============================================================================
    Add Attachment.
@@ -99,14 +101,10 @@ function AttachFormTab({ recentLimit, onRecentLimit, onPick }: {
   const setCurrent = (i: number) => { setCurrentRow(i); onPick?.(formLetterRows[i]) }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   /* which rows carry the heart is not shown in any capture, so none do */
-  const [favourites, setFavourites] = useState<Set<string>>(new Set())
+  const favourites = useTickSet<string>()
 
   const key = (r: FormLetterRow) => `${r.group}:${r.description}`
-  const toggleFavourite = (r: FormLetterRow) => setFavourites((prev) => {
-    const next = new Set(prev)
-    next.has(key(r)) ? next.delete(key(r)) : next.add(key(r))
-    return next
-  })
+  const toggleFavourite = (r: FormLetterRow) => favourites.flip(key(r))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '6px 8px 8px' }}>
@@ -310,67 +308,64 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Add Attachment"
-        onClose={onClose}
-        style={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    <ModalWindow
+      title="Add Attachment"
+      onClose={onClose}
+      zIndex={80}
+      windowStyle={{ width: W, height: H, ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px` }}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.add-attachment"
+        style={{
+          display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
+          background: 'var(--pb-face)',
+          /* the tab strip is 32 tall here, not the chart windows' 24 */
+          ['--pb-tabstrip-h' as string]: '32px',
+        }}
       >
-        <div
-          data-tutorial-id="host.mois.dialog.add-attachment"
-          style={{
-            display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
-            background: 'var(--pb-face)',
-            /* the tab strip is 32 tall here, not the chart windows' 24 */
-            ['--pb-tabstrip-h' as string]: '32px',
-          }}
-        >
-          <PBTabs tabs={[TAB_FORM, TAB_FILE]} active={tab} onChange={setTab} face>
-            {tab === TAB_FORM
-              ? <AttachFormTab recentLimit={recentLimit} onRecentLimit={setRecentLimit} onPick={setPicked} />
-              : <AttachFileTab mode={mode} onMode={setMode} />}
-          </PBTabs>
+        <PBTabs tabs={[TAB_FORM, TAB_FILE]} active={tab} onChange={setTab} face>
+          {tab === TAB_FORM
+            ? <AttachFormTab recentLimit={recentLimit} onRecentLimit={setRecentLimit} onPick={setPicked} />
+            : <AttachFileTab mode={mode} onMode={setMode} />}
+        </PBTabs>
 
-          {/* --- the window's bottom bar, outside both tabs --- */}
-          <div style={{ position: 'relative', flex: 'none', height: y(863) - y(809) }}>
-            <span className="pb-form__label" style={{ position: 'absolute', left: 0, top: 10 }}>
-              After Attaching:
-            </span>
-            <span style={{ position: 'absolute', left: 84, top: 8 }}>
-              <PBSelect
-                w={163}
-                options={AFTER_ATTACHING}
-                value={after}
-                data-tutorial-id="host.mois.field.after-attaching"
-                onChange={(e) => setAfter(e.target.value)}
-              />
-            </span>
-            <span style={{ position: 'absolute', left: 87, top: 29 }}>
-              <PBCheckbox label="Save Choice" checked={saveChoice} onChange={setSaveChoice} />
-            </span>
-            <span style={{ position: 'absolute', left: 382, top: 14 }}>
-              <PBButton
-                style={{ width: 75, height: 25, minWidth: 0 }}
-                data-tutorial-id="host.mois.command.add-attachment-ok"
-                onClick={file}
-              >
-                Ok
-              </PBButton>
-            </span>
-            <span style={{ position: 'absolute', left: 462, top: 14 }}>
-              <PBButton
-                style={{ width: 75, height: 25, minWidth: 0 }}
-                data-tutorial-id="host.mois.command.add-attachment-cancel"
-                onClick={onClose}
-              >
-                Cancel
-              </PBButton>
-            </span>
-          </div>
+        {/* --- the window's bottom bar, outside both tabs --- */}
+        <div style={{ position: 'relative', flex: 'none', height: y(863) - y(809) }}>
+          <span className="pb-form__label" style={{ position: 'absolute', left: 0, top: 10 }}>
+            After Attaching:
+          </span>
+          <span style={{ position: 'absolute', left: 84, top: 8 }}>
+            <PBSelect
+              w={163}
+              options={AFTER_ATTACHING}
+              value={after}
+              data-tutorial-id="host.mois.field.after-attaching"
+              onChange={(e) => setAfter(e.target.value)}
+            />
+          </span>
+          <span style={{ position: 'absolute', left: 87, top: 29 }}>
+            <PBCheckbox label="Save Choice" checked={saveChoice} onChange={setSaveChoice} />
+          </span>
+          <span style={{ position: 'absolute', left: 382, top: 14 }}>
+            <PBButton
+              style={{ width: 75, height: 25, minWidth: 0 }}
+              command="add-attachment-ok"
+              onClick={file}
+            >
+              Ok
+            </PBButton>
+          </span>
+          <span style={{ position: 'absolute', left: 462, top: 14 }}>
+            <PBButton
+              style={{ width: 75, height: 25, minWidth: 0 }}
+              command="add-attachment-cancel"
+              onClick={onClose}
+            >
+              Cancel
+            </PBButton>
+          </span>
         </div>
-      </PBWindow>
-    </div>
+      </div>
+    </ModalWindow>
   )
 }

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { DesignerRow } from '../data/designerSection'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBMessageBox, PBSelect, PBTextArea, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { SelectAllPair, useTickSet } from './listKit'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -66,18 +67,14 @@ function Frame({ id, title, w, h, onClose, children, footer }: {
 }
 
 function Button({ id, label, onClick, isDefault, disabled }: { id: string; label: string; onClick: () => void; isDefault?: boolean; disabled?: boolean }) {
-  const host = usePBInstrumentation()
   return (
-    <PBButton wide className={isDefault ? 'pb-btn--default' : undefined} disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick() }}>
+    <PBButton wide className={isDefault ? 'pb-btn--default' : undefined} disabled={disabled} command={id} onClick={() => onClick()}>
       {label}
     </PBButton>
   )
 }
 
 export function NewPaperFormDialog({ onCreate, onClose }: { onCreate: (values: Record<string, string>) => void; onClose: () => void }) {
-  const host = usePBInstrumentation()
   const [pick, setPick] = useState(-1)
   const [values, setValues] = useState<Record<string, string>>({ 'Form Author:': 'CLINIC', 'Form Group:': 'FORMS' })
   const [error, setError] = useState<string | null>(null)
@@ -105,8 +102,7 @@ export function NewPaperFormDialog({ onCreate, onClose }: { onCreate: (values: R
             <span className="pb-form__label">File (PDF):</span>
             <span className="pb-row" style={{ gap: 6 }}>
               <PBInput w={320} readOnly value={file?.path ?? ''} data-tutorial-id="host.mois.field.new-paper-form-file" />
-              <PBButton data-tutorial-id={host?.anchor('command', 'new-paper-form-browse')}
-                onClick={() => { host?.report('command', { command: 'new-paper-form-browse' }); setPick((p) => (p + 1) % PDF_PICKS.length) }}>
+              <PBButton command="new-paper-form-browse" onClick={() => setPick((p) => (p + 1) % PDF_PICKS.length)}>
                 Browse...
               </PBButton>
             </span>
@@ -124,7 +120,7 @@ export function NewPaperFormDialog({ onCreate, onClose }: { onCreate: (values: R
         </div>
       </div>
       {error && (
-        <PBMessageBox title="New Paper Form" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.new-paper-form-error-ok' }]} onClose={() => setError(null)}>
+        <PBMessageBox title="New Paper Form" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'new-paper-form-error-ok' }]} onClose={() => setError(null)}>
           {error}
         </PBMessageBox>
       )}
@@ -133,18 +129,17 @@ export function NewPaperFormDialog({ onCreate, onClose }: { onCreate: (values: R
 }
 
 export function ExportPaperFormsDialog({ forms, onClose }: { forms: DesignerRow[]; onClose: () => void }) {
-  const host = usePBInstrumentation()
   const [file, setFile] = useState('')
-  const [picked, setPicked] = useState<boolean[]>(() => forms.map(() => false))
+  const picked = useTickSet()
   const [cur, setCur] = useState(0)
   const [done, setDone] = useState<number | null>(null)
-  const count = picked.filter(Boolean).length
+  const count = picked.size
   useScreenReport({ dialog: 'export-paper-forms', exportPicked: count, exportFile: !!file })
   return (
     <Frame id="export-paper-forms" title="Export Paper Forms" w={867} h={561} onClose={onClose}
       footer={<>
-        <PBButton onClick={() => setPicked(forms.map(() => true))} data-tutorial-id={host?.anchor('command', 'export-select-all')}>Select All</PBButton>
-        <PBButton onClick={() => setPicked(forms.map(() => false))} data-tutorial-id={host?.anchor('command', 'export-unselect-all')}>Unselect All</PBButton>
+        <SelectAllPair as="anchor" ids={['export-select-all', 'export-unselect-all']}
+          onSelectAll={() => picked.selectAll(forms.map((_, i) => i))} onUnselectAll={picked.clear} />
         <span className="pb-footer__spacer" />
         <Button id="export-paper-forms-ok" label="Ok" isDefault disabled={!file || !count} onClick={() => setDone(count)} />
         <Button id="export-paper-forms-cancel" label="Cancel" onClick={onClose} />
@@ -155,8 +150,7 @@ export function ExportPaperFormsDialog({ forms, onClose }: { forms: DesignerRow[
         <div className="pb-row" style={{ gap: 6, padding: '5px 8px', background: 'var(--pb-face)' }}>
           <span className="pb-form__label">File (7z):</span>
           <PBInput w={560} readOnly value={file} data-tutorial-id="host.mois.field.export-file-7z" />
-          <PBButton data-tutorial-id={host?.anchor('command', 'export-browse')}
-            onClick={() => { host?.report('command', { command: 'export-browse' }); setFile('M:\\0222\\paperforms\\ClinicForms.7z') }}>
+          <PBButton command="export-browse" onClick={() => setFile('M:\\0222\\paperforms\\ClinicForms.7z')}>
             Browse...
           </PBButton>
         </div>
@@ -172,7 +166,7 @@ export function ExportPaperFormsDialog({ forms, onClose }: { forms: DesignerRow[
           columns={[
             {
               key: 'select', header: 'Select', width: 46, align: 'center',
-              render: (_r: DesignerRow, i: number) => <PBCheckbox checked={picked[i]} onChange={(v) => setPicked(picked.map((x, j) => (j === i ? v : x)))} tutorialId={`host.mois.cell.export-select-${i}`} />,
+              render: (_r: DesignerRow, i: number) => <PBCheckbox checked={picked.has(i)} onChange={(v) => picked.set(i, v)} tutorialId={`host.mois.cell.export-select-${i}`} />,
             },
             { key: 'name', header: 'Name', width: 240 },
             { key: 'code', header: 'Code', width: 100 },
@@ -183,7 +177,7 @@ export function ExportPaperFormsDialog({ forms, onClose }: { forms: DesignerRow[
         />
       </div>
       {done !== null && (
-        <PBMessageBox title="Export Paper Forms" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.export-done-ok' }]} onClose={() => { setDone(null); onClose() }}>
+        <PBMessageBox title="Export Paper Forms" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'export-done-ok' }]} onClose={() => { setDone(null); onClose() }}>
           {done} form(s) exported to {file}.
         </PBMessageBox>
       )}

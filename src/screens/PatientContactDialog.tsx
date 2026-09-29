@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { argStr } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, pbSlug, usePBInstrumentation } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { LookupPager, SIZE } from './lookupKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -37,8 +39,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    `letterTemplate` / `mergeProvider`.
    ========================================================================= */
 
-const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
-
 /* 6afe2341: the capture's own lists */
 const RECENT = ['REFERRAL LETER', 'DEFAULT CONSULTATION NOTE', 'RECALLS', 'TESTING', 'OLD REFERRAL LETTER']
 const LETTER = ['DEFAULT CONSULTATION NOTE', 'OLD REFERRAL LETTER', 'PAP RECALL LETTER', 'RECALLS', 'REFERRAL LETER', 'TESTING']
@@ -55,9 +55,9 @@ const PROVIDER_LETTERHEAD = new Set(['PAP RECALL LETTER', 'RECALLS'])
    Patient Contact
    ======================================================================== */
 function PatientContactWindow({ args, close, open }: AreaWindowProps) {
-  const [type, setType] = useState(str(args.contactType, 'mail-merge'))
+  const [type, setType] = useState(typeof args.contactType === 'string' ? args.contactType : 'mail-merge')
   const [addRecord, setAddRecord] = useState(args.addRecord !== false)
-  const template = str(args.template)
+  const template = argStr(args.template)
   useScreenReport({ contactType: type, letterTemplate: pbSlug(template) })
   const carry = { contactType: type, addRecord, template }
   const cont = () => {
@@ -152,7 +152,7 @@ function MergeTemplateWindow({ args, open }: AreaWindowProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const q = search.trim().toUpperCase()
   const rows = !q ? TEMPLATES : TEMPLATES.filter((t) => (q.startsWith('*') ? t.name.includes(q.slice(1)) : t.name.startsWith(q)))
-  const start = rows.findIndex((t) => t.name === str(args.template))
+  const start = rows.findIndex((t) => t.name === argStr(args.template))
   const [cur, setCur] = useState(start >= 0 ? start : 0)
   const picked = rows[cur] ?? rows[0]
   useScreenReport({ letterTemplate: pbSlug(picked?.name ?? '') })
@@ -238,16 +238,20 @@ function PrimaryProviderListWindow({ close }: AreaWindowProps) {
             This is the Primary Provider list box
           </div>
         </div>
-        <div className="pb-row" style={{ gap: 2, padding: '8px 0 4px', flex: 'none' }}>
-          <DialogButton id="provider-home" width={76}>Home</DialogButton>
-          <DialogButton id="provider-pgup" width={76}>PgUp</DialogButton>
-          <span style={{ flex: '1 1 auto' }} />
-          <DialogButton id="provider-ok" width={86} isDefault onClick={close}>Ok</DialogButton>
-          <DialogButton id="provider-cancel" width={86} onClick={close}>Cancel</DialogButton>
-          <span style={{ flex: '1 1 auto' }} />
-          <DialogButton id="provider-pgdwn" width={76}>PgDwn</DialogButton>
-          <DialogButton id="provider-end" width={76}>End</DialogButton>
-        </div>
+        {/* drawn unwired, as captured: only Ok and Cancel act */}
+        <LookupPager
+          className="pb-row"
+          style={{ gap: 2, padding: '8px 0 4px', flex: 'none' }}
+          navSize={SIZE.dialog(76)}
+          pickSize={SIZE.dialog(86)}
+          pickGap={null}
+          home={{ command: 'provider-home' }}
+          pgUp={{ command: 'provider-pgup' }}
+          ok={{ command: 'provider-ok', isDefault: true, onClick: close }}
+          cancel={{ command: 'provider-cancel', onClick: close }}
+          pgDn={{ command: 'provider-pgdwn' }}
+          end={{ command: 'provider-end' }}
+        />
         <div className="pb-row" style={{ gap: 6, padding: '2px 0 8px', flex: 'none' }}>
           <span className="pb-form__label">Source:</span>
           <PBSelect w={190} options={['ALL']} />

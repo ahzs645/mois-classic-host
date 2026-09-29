@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import catalog from '../data/legacy-dynamic-form-catalog.json'
-import { PBButton, PBDataWindow, PBWindow, pbSlug } from '../pb'
+import { PBButton, PBDataWindow, pbSlug } from '../pb'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Dynamic Form Selection Window — what `New Record` on Patient Chart ▸
@@ -72,18 +73,17 @@ export function DynamicFormSelectionDialog({ onOk, onClose }: {
   const choose = (r: Row) => onOk({ group: r.group, title: r.title, windowId: r.windowId })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Dynamic Form Selection Window"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.dynamic-form-selection"
-        style={{
-          width: W, height: H, maxWidth: '100%', maxHeight: '100%',
-          ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px`,
-        }}
-      >
+    <ModalWindow
+      id="dynamic-form-selection"
+      title="Dynamic Form Selection Window"
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowStyle={{
+        width: W, height: H, maxWidth: '100%', maxHeight: '100%',
+        ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px`,
+      }}
+    >
         <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)' }}>
           <div
             style={{
@@ -117,7 +117,7 @@ export function DynamicFormSelectionDialog({ onOk, onClose }: {
 
           <PBButton
             style={{ position: 'absolute', left: x(288), top: y(645), width: 74, height: 22, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.dynamic-form-ok"
+            command="dynamic-form-ok"
             disabled={!picked}
             onClick={() => picked && choose(picked)}
           >
@@ -125,13 +125,12 @@ export function DynamicFormSelectionDialog({ onOk, onClose }: {
           </PBButton>
           <PBButton
             style={{ position: 'absolute', left: x(379), top: y(645), width: 74, height: 22, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.dynamic-form-cancel"
+            command="dynamic-form-cancel"
             onClick={onClose}
           >
             Cancel
           </PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }

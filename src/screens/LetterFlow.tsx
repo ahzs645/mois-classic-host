@@ -21,6 +21,9 @@ import {
 import { LetterWriterWindow } from './LetterWriterWindow'
 import { MasterProviderListDialog } from './MasterProviderListDialog'
 import { OrderLinkingServiceDialog } from './OrderLinkingServiceDialog'
+import { ModalLayer, ModalWindow } from './dialogKit'
+import { DialogFooter } from './formKit'
+import { PatientFieldRow } from './patientKit'
 
 /**
  * How each Action item starts its letter. A referral opens Select
@@ -130,7 +133,7 @@ export function SelectLetterTemplateDialog({
   useScreenReport({ letterDoc: flow.doc, letterTemplate: pbSlug(picked?.name ?? '') })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
+    <ModalLayer zIndex={80}>
       <PBWindow
         child
         controls={false}
@@ -231,19 +234,19 @@ export function SelectLetterTemplateDialog({
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 19, padding: '0 0 10px', flex: 'none' }}>
+        <DialogFooter plain gap={19} padding="0 0 10px">
           <PBButton
             className="pb-btn--default"
             style={{ width: 92 }}
-            data-tutorial-id="host.mois.command.select"
+            command="select"
             onClick={() => picked && choose(picked)}
           >
             Select (F2)
           </PBButton>
-          <PBButton style={{ width: 92 }} data-tutorial-id="host.mois.command.cancel" onClick={onClose}>
+          <PBButton style={{ width: 92 }} command="cancel" onClick={onClose}>
             Cancel
           </PBButton>
-        </div>
+        </DialogFooter>
         </div>
       </PBWindow>
       {prompt && picked && (
@@ -254,7 +257,7 @@ export function SelectLetterTemplateDialog({
           onCancel={() => setPrompt(null)}
         />
       )}
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -309,7 +312,7 @@ export function LetterSetupWindow({
   const C = LETTER_SETUP_COLUMNS
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
+    <ModalLayer zIndex={80}>
       <style href="mois-classic/letter-setup" precedence="medium">{SETUP_CAPTION}</style>
       <PBWindow
         child
@@ -336,23 +339,21 @@ export function LetterSetupWindow({
           data-tutorial-id="host.mois.field.patient-banner"
           style={{ display: 'block', background: '#ffffc0', flex: 'none' }}
         >
-          <div className="pb-row" style={{ gap: 0 }}>
-            <span>FIRST:&nbsp;</span><b>{p.first}</b>
-            <span style={{ width: 24 }} /><span>MIDDLE:&nbsp;</span><b>{p.middle}</b>
-            <span style={{ width: 24 }} /><span>LAST:&nbsp;</span><b>{p.last}</b>
-            <span style={{ width: 24 }} /><span>DoB:&nbsp;</span><b>{p.dob}</b>
-            <span style={{ width: 16 }} /><b>{p.sex}</b>
-          </div>
-          <div className="pb-row" style={{ gap: 0 }}>
-            <span>PHN:&nbsp;</span><b>{p.phn}</b>
-            <span style={{ width: 12 }} /><b>{p.phnSuffix}</b>
-            <span style={{ width: 24 }} /><span>Home:&nbsp;</span><b>{p.home}</b>
-            <span style={{ width: 24 }} /><span>Work:&nbsp;</span><b>{p.work}</b>
-            <span style={{ width: 24 }} />
-            {/* `Cell:` is a blue underlined link in the capture */}
-            <button className="pb-link" data-tutorial-id="host.mois.field.cell">Cell:</button>
-            <span>&nbsp;</span><b>{p.cell}</b>
-          </div>
+          <PatientFieldRow fields={[
+            { label: 'FIRST:', value: p.first },
+            { before: 24, label: 'MIDDLE:', value: p.middle },
+            { before: 24, label: 'LAST:', value: p.last },
+            { before: 24, label: 'DoB:', value: p.dob },
+            { before: 16, value: p.sex },
+          ]} />
+          <PatientFieldRow fields={[
+            { label: 'PHN:', value: p.phn },
+            { before: 12, value: p.phnSuffix },
+            { before: 24, label: 'Home:', value: p.home },
+            { before: 24, label: 'Work:', value: p.work },
+            /* `Cell:` is a blue underlined link in the capture */
+            { before: 24, node: <><button className="pb-link" data-tutorial-id="host.mois.field.cell">Cell:</button><span>&nbsp;</span><b>{p.cell}</b></> },
+          ]} />
         </div>
 
         {/* --- Letter Details ------------------------------------------- */}
@@ -477,23 +478,23 @@ export function LetterSetupWindow({
 
         {/* Measured butted, not gapped: Continue x 360-452 (92), Cancel
             x 452-551 (99), both 22px tall. */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 0, padding: '6px 0 10px', flex: 'none' }}>
+        <DialogFooter plain gap={0} padding="6px 0 10px">
           <PBButton
             className="pb-btn--default"
             style={{ width: 92, height: 22 }}
-            data-tutorial-id="host.mois.command.continue"
+            command="continue"
             onClick={proceed}
           >
             Continue (F2)
           </PBButton>
           <PBButton
             style={{ width: 99, height: 22 }}
-            data-tutorial-id="host.mois.command.cancel"
+            command="cancel"
             onClick={onClose}
           >
             Cancel
           </PBButton>
-        </div>
+        </DialogFooter>
         </div>
       </PBWindow>
       {lookup && (
@@ -506,7 +507,7 @@ export function LetterSetupWindow({
           }}
         />
       )}
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -534,8 +535,7 @@ function LinkToOrderPrompt({
     <>
       <LetterWriterWindow raw onClose={onCancel} />
       {stage === 'ask' && (
-        <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
-          <PBWindow child controls={false} title="Link to Order" onClose={onCancel} style={{ width: 347, height: 132 }}>
+        <ModalWindow title="Link to Order" onClose={onCancel} zIndex={95} windowStyle={{ width: 347, height: 132 }}>
             <div data-tutorial-id="host.mois.dialog.link-to-order" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', background: '#fff' }}>
               <div className="pb-row" style={{ gap: 14, padding: '16px 18px', flex: '1 1 auto', alignItems: 'center' }}>
                 <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
@@ -545,12 +545,11 @@ function LinkToOrderPrompt({
                 <span>Is this letter being created in fulfillment of an Order?</span>
               </div>
               <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 8, padding: '8px 10px', background: 'var(--pb-face)', flex: 'none' }}>
-                <PBButton style={{ width: 75 }} data-tutorial-id="host.mois.command.letter-order-yes" onClick={() => onAnswer(true)}>Yes</PBButton>
-                <PBButton style={{ width: 75 }} data-tutorial-id="host.mois.command.letter-order-no" onClick={() => onAnswer(false)}>No</PBButton>
+                <PBButton style={{ width: 75 }} command="letter-order-yes" onClick={() => onAnswer(true)}>Yes</PBButton>
+                <PBButton style={{ width: 75 }} command="letter-order-no" onClick={() => onAnswer(false)}>No</PBButton>
               </div>
             </div>
-          </PBWindow>
-        </div>
+        </ModalWindow>
       )}
       {stage === 'link' && (
         <div style={{ position: 'relative', zIndex: 95 }}>

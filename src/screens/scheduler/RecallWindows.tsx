@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
-  PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea, PBWindow,
+  PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea,
 } from '../../pb'
 import { usePatient } from '../../data/patient-context'
 import { RECALL_CODES } from '../../data/schedulerSetup'
 import { currentRow, schedulerStore, useSchedulerStore } from '../../data/schedulerStore'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
+import { LAYER, ModalWindow } from '../dialogKit'
 import { SchedulerDialog, str } from './SchedulerDialog'
 
 /* ============================================================================
@@ -100,15 +101,8 @@ function PatientRecallList({ close }: AreaWindowProps) {
     ...s.recalls.filter((r) => r.chart === chart).map((r) => ({ code: r.code, note: r.reminder, due: r.due, stop: false, m: '' })),
   ]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Patient Recall List"
-        tutorialId="host.mois.dialog.patient-recall-list"
-        onClose={close}
-        style={{ width: 834, height: 540, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="patient-recall-list" title="Patient Recall List" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 834, height: 540, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 10, background: 'var(--pb-face)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: '#fff' }}>
             <div className="pb-cmdrow" data-tutorial-id="host.mois.field.recall-commands">
@@ -164,12 +158,11 @@ function PatientRecallList({ close }: AreaWindowProps) {
             </div>
           </div>
           <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '10px 0 2px' }}>
-            <PBButton style={{ minWidth: 88 }} data-tutorial-id="host.mois.command.save-close" onClick={() => { schedulerStore.done('recalls-saved'); close() }}>Save / Close</PBButton>
+            <PBButton style={{ minWidth: 88 }} command="save-close" onClick={() => { schedulerStore.done('recalls-saved'); close() }}>Save / Close</PBButton>
             <PBButton style={{ minWidth: 88 }} onClick={close}>Close</PBButton>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

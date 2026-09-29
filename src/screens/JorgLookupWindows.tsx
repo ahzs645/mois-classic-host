@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react'
-import { PBBand, PBButton, PBDataWindow, PBInput, PBWindow, type PBColumn } from '../pb'
+import { useState } from 'react'
+import { type PBColumn } from '../pb'
 import { dformServiceLocations, jorgUnits, type JorgUnit, type ServiceLocation } from '../data/jorg'
+import { useColumnFilters } from './listKit'
+import {
+  FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, LookupNote, LookupPager, PickButtons, PickListWindow, usePagedCursor,
+} from './lookupKit'
 
 /* ============================================================================
    The two lists a Dynamic Form's "..." lookups open (DataWindow tags
@@ -24,17 +28,8 @@ import { dformServiceLocations, jorgUnits, type JorgUnit, type ServiceLocation }
    that size and nudging it 15px down puts it there.
    ========================================================================= */
 
-type Filters<K extends string> = Partial<Record<K, string>>
-
 function useFiltered<T, K extends string & keyof T>(rows: T[], keys: readonly K[]) {
-  const [filters, setFilters] = useState<Filters<K>>({})
-  const filtered = useMemo(() => rows.filter((row) => keys.every((key) => {
-    const want = filters[key]?.trim().toUpperCase()
-    return !want || String(row[key] ?? '').toUpperCase().includes(want)
-  })), [rows, keys, filters])
-  const filterRow = keys.map((key) => (
-    <PBInput key={key} value={filters[key] ?? ''} onChange={(event) => setFilters((state) => ({ ...state, [key]: event.target.value }))} />
-  ))
+  const { shown: filtered, filterRow } = useColumnFilters(rows, keys.map((key) => ({ key })))
   return { filtered, filterRow }
 }
 
@@ -54,39 +49,37 @@ export function JorgListWindow({ onPick, onClose, zIndex = 99 }: {
   zIndex?: number
 }) {
   const { filtered, filterRow } = useFiltered(jorgUnits, JORG_KEYS)
-  const [current, setCurrent] = useState(0)
-  const at = Math.min(current, Math.max(0, filtered.length - 1))
-  const row = filtered[at]
-  const step = (delta: number) => setCurrent(Math.max(0, Math.min(filtered.length - 1, at + delta)))
+  const cursor = usePagedCursor(filtered.length, PAGE)
+  const row = filtered[cursor.at]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
-      <PBWindow child controls={false} title="JORG List" onClose={onClose} tutorialId="host.mois.dialog.jorg-list"
-        style={{ width: 'min(839px, calc(100% - 24px))', height: 'min(630px, calc(100% - 24px))' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            <div className="pb-band--ruled"><PBBand>JORG List</PBBand></div>
-            <PBDataWindow flush rules="white" style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={JORG_COLUMNS} rows={filtered} filters={filterRow}
-              current={at} onCurrentChange={setCurrent} onActivate={onPick}
-              empty="No unit matches those filters." />
-          </div>
-          <div className="pb-field" style={{ height: 64, flex: 'none', padding: '3px 5px', whiteSpace: 'pre-wrap', background: '#fff' }}>
-            This is the Jurisdictional Organizational Chart
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-            <PBButton wide onClick={() => setCurrent(0)}>Home</PBButton>
-            <PBButton wide onClick={() => step(-PAGE)}>PgUp</PBButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton wide className="pb-btn--default" disabled={!row} onClick={() => row && onPick(row)}>Ok</PBButton>
-            <span style={{ width: 14 }} />
-            <PBButton wide onClick={onClose}>Cancel</PBButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton wide onClick={() => step(PAGE)}>PgDwn</PBButton>
-            <PBButton wide onClick={() => setCurrent(filtered.length - 1)}>End</PBButton>
-          </div>
-        </div>
-      </PBWindow>
-    </div>
+    <PickListWindow<JorgUnit>
+      window={{
+        id: 'jorg-list',
+        title: 'JORG List',
+        onClose,
+        zIndex,
+        windowStyle: { width: 'min(839px, calc(100% - 24px))', height: 'min(630px, calc(100% - 24px))' },
+      }}
+      body={LOOKUP_BODY}
+      panel={LOOKUP_PANEL}
+      band={<LookupBand variant="ruled">JORG List</LookupBand>}
+      gridBox={null}
+      grid={{
+        flush: true, rules: 'white', style: FILL_GRID,
+        columns: JORG_COLUMNS, rows: filtered, filters: filterRow,
+        current: cursor.at, onCurrentChange: cursor.setCurrent, onActivate: onPick,
+        empty: 'No unit matches those filters.',
+      }}
+      below={<LookupNote height={64} preWrap>This is the Jurisdictional Organizational Chart</LookupNote>}
+      footerInside
+      footer={(
+        <LookupPager
+          cursor={cursor}
+          ok={{ isDefault: true, disabled: !row, onClick: () => row && onPick(row) }}
+          cancel={{ onClick: onClose }}
+        />
+      )}
+    />
   )
 }
 
@@ -111,23 +104,32 @@ export function ServiceLocationSelectionWindow({ onPick, onClose, zIndex = 99 }:
   const at = Math.min(current, Math.max(0, filtered.length - 1))
   const row = filtered[at]
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
-      <PBWindow child controls={false} title="Service Location Selection List" onClose={onClose} tutorialId="host.mois.dialog.service-location-list"
-        style={{ width: 'min(893px, calc(100% - 24px))', height: 'min(652px, calc(100% - 24px))', marginTop: 30 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '12px 12px 10px', gap: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            <div className="pb-band--ruled"><PBBand>Service Location List</PBBand></div>
-            <PBDataWindow flush rules="white" style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={LOCATION_COLUMNS} rows={filtered} filters={filterRow}
-              current={at} onCurrentChange={setCurrent} onActivate={onPick}
-              empty="No service location matches those filters." />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flex: 'none' }}>
-            <PBButton className="pb-btn--default" style={{ width: 75 }} disabled={!row} onClick={() => row && onPick(row)}>Ok</PBButton>
-            <PBButton style={{ width: 75 }} onClick={onClose}>Cancel</PBButton>
-          </div>
-        </div>
-      </PBWindow>
-    </div>
+    <PickListWindow<ServiceLocation>
+      window={{
+        id: 'service-location-list',
+        title: 'Service Location Selection List',
+        onClose,
+        zIndex,
+        windowStyle: { width: 'min(893px, calc(100% - 24px))', height: 'min(652px, calc(100% - 24px))', marginTop: 30 },
+      }}
+      body={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '12px 12px 10px', gap: 16 }}
+      panel={LOOKUP_PANEL}
+      band={<LookupBand variant="ruled">Service Location List</LookupBand>}
+      gridBox={null}
+      grid={{
+        flush: true, rules: 'white', style: FILL_GRID,
+        columns: LOCATION_COLUMNS, rows: filtered, filters: filterRow,
+        current: at, onCurrentChange: setCurrent, onActivate: onPick,
+        empty: 'No service location matches those filters.',
+      }}
+      footerInside
+      footer={(
+        <PickButtons style={{ display: 'flex', justifyContent: 'center', gap: 14, flex: 'none' }} size={{ width: 75 }}
+          buttons={[
+            { label: 'Ok', isDefault: true, disabled: !row, onClick: () => row && onPick(row) },
+            { label: 'Cancel', onClick: onClose },
+          ]} />
+      )}
+    />
   )
 }

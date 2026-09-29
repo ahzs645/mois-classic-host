@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { clinicListSpec, clinicRowsKey, type ClinicRow } from '../data/clinicManagement'
 import { EXTERNAL_ORGANIZATION_TYPE, valueSetValues } from '../data/codesets'
 import { MOIS_TODAY } from '../data/patients'
+import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { nowStamp, useStoredList, useValueSets } from './adminSession'
 import { CellSelect, CellText, CentredFooter, Cmd, Line, NavyBand, NavyHead, onF2 } from './adminKit'
 import { DemographicModal } from './DemographicDialogs'
+import { useColumnFilters } from './listKit'
+import { LookupBand, PickListWindow, SearchForRow } from './lookupKit'
 
 /* ============================================================================
    Administration ▸ External Service Providers and Clinic Management — the
@@ -58,8 +61,6 @@ import { DemographicModal } from './DemographicDialogs'
    clinic-detail, add-external-organization.
    ========================================================================= */
 
-const S = (v: unknown) => (v == null ? '' : String(v))
-
 export const useListRows = (node: string) => useStoredList<ClinicRow>(clinicRowsKey(node), clinicListSpec(node)?.rows ?? EMPTY)
 const EMPTY: ClinicRow[] = []
 
@@ -72,11 +73,14 @@ export function ExternalOrganizationsView() {
   const [valueSets] = useValueSets()
   const [rows, setRows] = useState<ClinicRow[]>(saved)
   const [cur, setCur] = useState(0)
-  const [filter, setFilter] = useState({ name: '', type: '' })
+  const filters = useColumnFilters(rows.map((r, index) => ({ r, index })), [
+    { key: 'name', value: (x) => x.r.name, anchor: 'filter-name' },
+    { key: 'type', value: (x) => x.r.orgType, anchor: 'filter-org-type' },
+    null, null,
+  ], { onChange: () => setCur(0) })
+  const { shown } = filters
   const [savedFlag, setSavedFlag] = useState(false)
   const types = ['', ...valueSetValues(valueSets, EXTERNAL_ORGANIZATION_TYPE)]
-  const shown = useMemo(() => rows.map((r, index) => ({ r, index }))
-    .filter(({ r }) => S(r.name).toUpperCase().includes(filter.name.trim().toUpperCase()) && S(r.orgType).toUpperCase().includes(filter.type.trim().toUpperCase())), [rows, filter])
   const at = Math.min(cur, Math.max(0, shown.length - 1))
   const current = shown[at]
   const dirty = rows !== saved
@@ -95,7 +99,7 @@ export function ExternalOrganizationsView() {
         commands={[
           { label: 'New Record', onClick: () => {
             setRows((all) => [...all, { name: '', orgType: '', city: '', phone: '', address1: '', address2: '', province: 'BC', postal: '', country: 'CANADA', fax: '', note: '', created: nowStamp(MOIS_TODAY) }])
-            setFilter({ name: '', type: '' }); setCur(rows.length); setSavedFlag(false)
+            filters.clear(); setCur(rows.length); setSavedFlag(false)
           } },
           { label: 'Delete Record', onClick: () => { if (current) { setRows((all) => all.filter((_, j) => j !== current.index)); setCur(0); setSavedFlag(false) } } },
           { label: 'Save', onClick: () => { const next = rows.filter((r) => S(r.name).trim()); commit(() => next); setRows(next); setSavedFlag(true) } },
@@ -110,11 +114,7 @@ export function ExternalOrganizationsView() {
           onCurrentChange={setCur}
           rowTutorialId={(x) => `host.mois.row.organization-${pbSlug(S(x.r.name)) || x.index + 1}`}
           style={{ ['--pb-band' as string]: '#ffffff' }}
-          filters={[
-            <PBInput key="n" value={filter.name} onChange={(e) => { setFilter({ ...filter, name: e.target.value }); setCur(0) }} data-tutorial-id="host.mois.field.filter-name" />,
-            <PBInput key="t" value={filter.type} onChange={(e) => { setFilter({ ...filter, type: e.target.value }); setCur(0) }} data-tutorial-id="host.mois.field.filter-org-type" />,
-            null, null,
-          ]}
+          filters={filters.filterRow}
           columns={[
             { key: 'name', header: 'Name', width: 359, headAlign: 'center', render: (x) => <CellText value={x.r.name} onChange={(v) => edit(x.index, { name: v.toUpperCase() })} anchor={`org-name-${x.index + 1}`} /> },
             { key: 'orgType', header: 'Organization Type', width: 168, headAlign: 'center', render: (x) => <CellSelect value={x.r.orgType} options={types.includes(S(x.r.orgType)) ? types : [...types, S(x.r.orgType)]} onChange={(v) => edit(x.index, { orgType: v })} anchor={`org-type-${x.index + 1}`} /> },
@@ -160,10 +160,13 @@ export function ServiceLocationView() {
   const [saved, commit] = useListRows('ad-locations')
   const [rows, setRows] = useState<ClinicRow[]>(saved)
   const [cur, setCur] = useState(0)
-  const [filter, setFilter] = useState('')
+  const filters = useColumnFilters(rows.map((r, index) => ({ r, index })), [
+    { key: 'location', value: (x) => x.r.location, anchor: 'filter-location' },
+    null, null, null,
+  ], { onChange: () => setCur(0) })
+  const { shown } = filters
   const [picking, setPicking] = useState<number | null>(null)
   const [savedFlag, setSavedFlag] = useState(false)
-  const shown = rows.map((r, index) => ({ r, index })).filter(({ r }) => S(r.location).toUpperCase().includes(filter.trim().toUpperCase()))
   const at = Math.min(cur, Math.max(0, shown.length - 1))
   const dirty = rows !== saved
   useScreenReport({ rows: rows.length, row: shown[at] ? `location-${pbSlug(S(shown[at]!.r.location))}` : null, saved: savedFlag && !dirty, draft: dirty, scheduled: rows.filter((r) => r.scheduler).length })
@@ -173,7 +176,7 @@ export function ServiceLocationView() {
       <PBViewHeader title="Service Location List" />
       <PBCommandRow
         commands={[
-          { label: 'New Record', onClick: () => { setRows((all) => [...all, { location: '', scheduler: false, delivery: '' }]); setFilter(''); setCur(rows.length); setSavedFlag(false) } },
+          { label: 'New Record', onClick: () => { setRows((all) => [...all, { location: '', scheduler: false, delivery: '' }]); filters.clear(); setCur(rows.length); setSavedFlag(false) } },
           { label: 'Delete Record', onClick: () => { const x = shown[at]; if (x) { setRows((all) => all.filter((_, j) => j !== x.index)); setCur(0); setSavedFlag(false) } } },
           { label: 'Save', onClick: () => { const next = rows.filter((r) => S(r.location).trim()); commit(() => next); setRows(next); setSavedFlag(true) } },
           { label: 'Undo', onClick: () => { setRows(saved); setSavedFlag(false) } },
@@ -187,7 +190,7 @@ export function ServiceLocationView() {
           onCurrentChange={setCur}
           rowTutorialId={(x) => `host.mois.row.location-${pbSlug(S(x.r.location)) || x.index + 1}`}
           style={{ ['--pb-band' as string]: '#ffffff' }}
-          filters={[<PBInput key="l" value={filter} onChange={(e) => { setFilter(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.filter-location" />, null, null, null]}
+          filters={filters.filterRow}
           columns={[
             { key: 'location', header: 'Service Location', width: 410, headAlign: 'center', render: (x) => <CellText value={x.r.location} onChange={(v) => edit(x.index, { location: v.toUpperCase() })} anchor={`location-name-${x.index + 1}`} /> },
             { key: 'scheduler', header: <>Make Available<br />on Scheduler</>, width: 96, align: 'center', render: (x) => <PBCheckbox checked={Boolean(x.r.scheduler)} onChange={(v) => edit(x.index, { scheduler: v })} tutorialId={`host.mois.field.location-scheduler-${x.index + 1}`} /> },
@@ -219,24 +222,31 @@ function DeliveryLocationLookup({ initial, onPick, onClose }: { initial: string;
   const [cur, setCur] = useState(() => Math.max(0, DELIVERY_LOCATIONS.indexOf(initial)))
   const at = Math.min(cur, Math.max(0, rows.length - 1))
   return (
-    <DemographicModal title="Advanced Lookup Service" width={520} height={500} onClose={onClose} dialog="delivery-location-lookup">
-      <div style={{ margin: '8px 8px 0', border: '1px solid #9a9a9a', background: '#fff', flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: 'linear-gradient(#ecebe8, #d8d5d0)', fontWeight: 700, padding: '3px 6px' }}>Service Delivery Location</div>
-        <div className="pb-row" style={{ gap: 4, padding: '2px 4px' }}>
-          <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-          <PBInput w="100%" value={search} onChange={(e) => { setSearch(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.delivery-location-search" style={{ background: '#f4caa8' }} />
-        </div>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-          <PBDataWindow rows={rows} current={at} onCurrentChange={setCur} onActivate={(r) => onPick(r.site)}
-            rowTutorialId={(r) => `host.mois.row.site-${pbSlug(r.site)}`} empty="No site matches."
-            columns={[{ key: 'site', header: 'Northern Health Site', width: 440, headAlign: 'center' }]} />
-        </div>
-      </div>
-      <CentredFooter>
-        <Cmd id="delivery-location-ok" w={74} disabled={!rows[at]} onClick={() => rows[at] && onPick(rows[at]!.site)}>Ok</Cmd>
-        <Cmd id="delivery-location-cancel" w={74} onClick={onClose}>Cancel</Cmd>
-      </CentredFooter>
-    </DemographicModal>
+    <PickListWindow
+      frame={(content, footer) => (
+        <DemographicModal title="Advanced Lookup Service" width={520} height={500} onClose={onClose} dialog="delivery-location-lookup">
+          {content}
+          {footer}
+        </DemographicModal>
+      )}
+      panel={{ margin: '8px 8px 0', border: '1px solid #9a9a9a', background: '#fff', flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      band={<LookupBand variant="grey">Service Delivery Location</LookupBand>}
+      search={(
+        <SearchForRow salmon style={{ gap: 4, padding: '2px 4px' }} field="delivery-location-search"
+          value={search} onChange={(v) => { setSearch(v); setCur(0) }} />
+      )}
+      grid={{
+        rows, current: at, onCurrentChange: setCur, onActivate: (r) => onPick(r.site),
+        rowTutorialId: (r) => `host.mois.row.site-${pbSlug(r.site)}`, empty: 'No site matches.',
+        columns: [{ key: 'site', header: 'Northern Health Site', width: 440, headAlign: 'center' }],
+      }}
+      footer={(
+        <CentredFooter>
+          <Cmd id="delivery-location-ok" w={74} disabled={!rows[at]} onClick={() => rows[at] && onPick(rows[at]!.site)}>Ok</Cmd>
+          <Cmd id="delivery-location-cancel" w={74} onClick={onClose}>Cancel</Cmd>
+        </CentredFooter>
+      )}
+    />
   )
 }
 

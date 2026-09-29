@@ -4,11 +4,13 @@ import {
   basketFolderById, basketFolders, rowOwners, type BasketRow,
 } from '../data/basket'
 import { PatientOverride, usePatientRoster } from '../data/patient-context'
+import { toDashes } from '../data/clock'
 import { MOIS_TODAY, type Patient } from '../data/patients'
 import type { PrintReport } from '../data/printReports'
 import { CURRENT_USER, TASK_PRIORITIES, taskScreenByNode, type TaskRow } from '../data/tasks'
 import { useWorkspaceExtras, workspaceExtras } from '../data/workspaceExtras'
 import type { AdvancedSearchField } from '../data/workspaceSearch'
+import { argStr } from '../data/text'
 import { basketKey, useWorkspaceStore } from '../data/workspaceStore'
 import { useScreenReport } from '../host/screen-state'
 import {
@@ -20,6 +22,7 @@ import { RichtextReportWindow } from './PrintFlow'
 import { taskRowSlug } from './TaskListView'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { ContextMenu } from './scheduler/DaybookMenus'
+import { PatientFieldRow } from './patientKit'
 import { DialogButton, FormBand, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 import { RaisedMessageBox } from './RaisedMessageBox'
 
@@ -91,8 +94,6 @@ import { RaisedMessageBox } from './RaisedMessageBox'
                                 INFERRED window layout.
    ========================================================================= */
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 /** Every basket record's patient, as the basket prints them (`LAST, FIRST`). */
 function patientOf(name: string, roster: Patient[], chart?: string): Patient {
   const [last = '', first = ''] = name.split(',').map((s) => s.trim())
@@ -104,7 +105,7 @@ function patientOf(name: string, roster: Patient[], chart?: string): Patient {
    Right-click menu
    ------------------------------------------------------------------------ */
 function BasketRowMenu({ args, close, open }: AreaWindowProps) {
-  const folder = str(args.folder)
+  const folder = argStr(args.folder)
   const go = (id: string, a?: Record<string, unknown>) => () => { if (!open(id, a)) close() }
   const openChart = typeof args.openChart === 'function' ? (args.openChart as () => void) : null
   const items: PBMenuItem[] = [
@@ -126,7 +127,7 @@ function BasketRowMenu({ args, close, open }: AreaWindowProps) {
    Text Capture Window (Zoom Text)
    ------------------------------------------------------------------------ */
 function ZoomText({ args, close }: AreaWindowProps) {
-  const [text, setText] = useState(str(args.text))
+  const [text, setText] = useState(argStr(args.text))
   useScreenReport({ lineBreaks: /\n/.test(text) })
   return (
     <WorkspaceDialogFrame id="zoom-text" title="Text Capture Window" width={1000} height={760} onClose={close} controls={false} zIndex={88}>
@@ -175,7 +176,7 @@ function reportPage(folderId: string, r: BasketRow, p: Patient, orderType: strin
     .map(([label, key]) => [label.replace(/:$/, '').toUpperCase(), key === 'valueUnits' ? [r.value, r.units].filter(Boolean).join(' ') : key === 'orderType' ? orderType : String(r[key] ?? '')] as const)
     .filter(([, v]) => v)
   return [
-    `%G%HALLIWELL MEDICAL CLINIC                                   ${heading} AS OF ${MOIS_TODAY.replace(/\./g, '-')}`,
+    `%G%HALLIWELL MEDICAL CLINIC                                   ${heading} AS OF ${toDashes(MOIS_TODAY)}`,
     '%RULE%',
     `**PATIENT : ${r.patient}**                         DOB: **${p.dob}**  SEX: **${p.gender}**`,
     `INS NO. : ${p.insuranceBy ?? 'BC'}  ${p.insurance ?? ''}          CHART: **${p.chart}**`,
@@ -191,7 +192,7 @@ function reportPage(folderId: string, r: BasketRow, p: Patient, orderType: strin
 function BasketPrint({ args, close }: AreaWindowProps) {
   const roster = usePatientRoster()
   const extras = useWorkspaceExtras()
-  const folderId = str(args.folder)
+  const folderId = argStr(args.folder)
   const row = args.row as BasketRow | undefined
   const key = row ? basketKey(folderId, String(row.patient)) : ''
   const needsType = folderId === 'ws-orders' && !!row && !row.orderType && !extras.orderTypes[key]
@@ -200,7 +201,7 @@ function BasketPrint({ args, close }: AreaWindowProps) {
   const [type, setType] = useState(ORDER_TYPES[0]!)
   useScreenReport({ window: stage === 'type' ? 'print-order' : stage === 'choose' ? 'print-choice' : stage === 'attachment' ? 'attachment-viewer' : 'richtext-report' })
   if (!row) return null
-  const p = patientOf(String(row.patient), roster, str(args.chart))
+  const p = patientOf(String(row.patient), roster, argStr(args.chart))
   if (stage === 'type') {
     return (
       <WorkspaceDialogFrame id="print-order" title="Print Order" width={506} height={335} onClose={close} controls={false} zIndex={88}>
@@ -251,15 +252,15 @@ function BasketPrint({ args, close }: AreaWindowProps) {
    ------------------------------------------------------------------------ */
 function BasketOrderLink({ args, close }: AreaWindowProps) {
   const roster = usePatientRoster()
-  const patient = str(args.patient)
-  const p = patientOf(patient, roster, str(args.chart))
+  const patient = argStr(args.patient)
+  const p = patientOf(patient, roster, argStr(args.chart))
   const orders = BASKET_ORDERS[patient] ?? []
   const [rows, setRows] = useState(() => orders.map((o) => ({ ...o, detail: '', links: '-' })))
   const [cur, setCur] = useState(0)
   useScreenReport({ orders: rows.length, status: pbSlug(rows[cur]?.status ?? '') })
   const link = () => {
     const o = rows[cur]
-    if (o) workspaceExtras.linkOrder(str(args.rowKey), o.orderNo, o.status)
+    if (o) workspaceExtras.linkOrder(argStr(args.rowKey), o.orderNo, o.status)
     close()
   }
   return (
@@ -323,11 +324,11 @@ function BasketMeasureHistory({ args, close, open }: AreaWindowProps) {
   const roster = usePatientRoster()
   const extras = useWorkspaceExtras()
   const row = args.row as BasketRow | undefined
-  const key = str(args.rowKey)
+  const key = argStr(args.rowKey)
   const [comment, setComment] = useState(() => extras.comments[key] ?? '')
   if (!row) return null
   const patient = String(row.patient)
-  const p = patientOf(patient, roster, str(args.chart))
+  const p = patientOf(patient, roster, argStr(args.chart))
   const hkey = `${patient}|${String(row.test ?? '')}`
   const collected = (() => { const [y, m, d] = String(row.collected ?? '').split('.'); return y && m && d ? `20${y}.${m}.${d}` : '' })()
   const related = [{ collected, value: String(row.value ?? ''), comment: extras.comments[key] ?? '' }, ...(MEASURE_HISTORY[hkey] ?? [])]
@@ -339,7 +340,7 @@ function BasketMeasureHistory({ args, close, open }: AreaWindowProps) {
     const units = String(row.units ?? '')
     close()
     open('basket-measure-graph', {
-      patient, chart: str(args.chart), test: String(row.test ?? ''), units,
+      patient, chart: argStr(args.chart), test: String(row.test ?? ''), units,
       points: related.filter((r) => r.collected && !Number.isNaN(Number(r.value))).map((r) => ({ date: r.collected, value: Number(r.value) })),
       lower: lo ? Number(lo) : undefined, upper: hi ? Number(hi) : undefined,
     })
@@ -413,7 +414,7 @@ function BasketMeasureHistory({ args, close, open }: AreaWindowProps) {
 
 function BasketMeasureGraph({ args, close }: AreaWindowProps) {
   const roster = usePatientRoster()
-  const p = patientOf(str(args.patient), roster, str(args.chart))
+  const p = patientOf(argStr(args.patient), roster, argStr(args.chart))
   const points = (Array.isArray(args.points) ? args.points : []) as { date: string; value: number }[]
   useScreenReport({ points: points.length })
   if (!points.length) {
@@ -426,11 +427,11 @@ function BasketMeasureGraph({ args, close }: AreaWindowProps) {
   return (
     <PatientOverride patient={p}>
       <MeasurementGraphWindow
-        test={str(args.test)}
-        units={str(args.units)}
+        test={argStr(args.test)}
+        units={argStr(args.units)}
         lower={typeof args.lower === 'number' ? args.lower : undefined}
         upper={typeof args.upper === 'number' ? args.upper : undefined}
-        series={[{ label: str(args.test), points: [...points].sort((a, b) => a.date.localeCompare(b.date)) }]}
+        series={[{ label: argStr(args.test), points: [...points].sort((a, b) => a.date.localeCompare(b.date)) }]}
         onClose={close}
       />
     </PatientOverride>
@@ -452,32 +453,32 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
   const roster = usePatientRoster()
   const ws = useWorkspaceStore()
   const extras = useWorkspaceExtras()
-  const folderId = str(args.folder)
+  const folderId = argStr(args.folder)
   const folder = basketFolderById(folderId)
   const row = args.row as BasketRow | undefined
-  const patient = row ? String(row.patient) : str(args.patient)
+  const patient = row ? String(row.patient) : argStr(args.patient)
   const key = basketKey(folderId, patient)
-  const p = patientOf(patient, roster, str(args.chart))
+  const p = patientOf(patient, roster, argStr(args.chart))
   const checked = args.checked === true
   const [open, setOpen] = useState({ messages: true, tasks: true, acks: true })
 
   const lines = useMemo((): WfLine[] => {
-    const recordText = str(args.detail)
+    const recordText = argStr(args.detail)
     const inbox = taskScreenByNode('ws-msg-inbox')?.rows ?? []
     const taskRows = [...(taskScreenByNode('ws-task-inbox')?.rows ?? []), ...ws.tasks]
     const messages: WfLine[] = [...inbox, ...ws.messages]
       .filter((m) => m.patient === patient)
       .map((m, i) => {
-        const to = str(m.sentTo).split(';').map((s) => s.trim()).filter(Boolean)
-        const cc = str(m.copiedTo).split(';').map((s) => s.trim()).filter(Boolean)
+        const to = argStr(m.sentTo).split(';').map((s) => s.trim()).filter(Boolean)
+        const cc = argStr(m.copiedTo).split(';').map((s) => s.trim()).filter(Boolean)
         return {
-          id: `m${i}`, section: 'messages', date: str(m.sent) || MOIS_TODAY, description: str(m.subject).toUpperCase(),
+          id: `m${i}`, section: 'messages', date: argStr(m.sent) || MOIS_TODAY, description: argStr(m.subject).toUpperCase(),
           status: `Recipients: ${to.length + cc.length}  Acknowledged: ${m.ack ? 1 : 0}  Completed: ${m.comp ? 1 : 0}`,
           detail: [
-            `FROM: ${str(m.from) || CURRENT_USER.name}  Priority: ${priorityWord(m.p)}`,
+            `FROM: ${argStr(m.from) || CURRENT_USER.name}  Priority: ${priorityWord(m.p)}`,
             ...to.map((t) => `TO: ${t}  Acknowledged: ${m.ack ? 'YES' : 'NO'}  Completed: ${m.comp ? 'YES' : 'NO'}`),
             ...cc.map((t) => `CC: ${t}  Acknowledged: NO  Completed: NO`),
-            '', '', recordText, '', str(m.detail),
+            '', '', recordText, '', argStr(m.detail),
           ].join('\n'),
         }
       })
@@ -486,12 +487,12 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
       .map((t, i) => {
         const notes = extras.followUps[taskRowSlug(t)] ?? []
         return {
-          id: `t${i}`, section: 'tasks', date: str(t.created) || MOIS_TODAY, description: str(t.task).toUpperCase(),
+          id: `t${i}`, section: 'tasks', date: argStr(t.created) || MOIS_TODAY, description: argStr(t.task).toUpperCase(),
           status: `Acknowledged: ${t.ack ? 'YES' : 'NO'}  Completed: ${t.comp ? 'YES' : 'NO'}`,
           detail: [
-            `Created By: ${str(t.createdBy)}  Priority: ${priorityWord(t.p)}`,
-            `Assigned To: ${str(t.user) || str(t.team) || str(t.assignee)}`,
-            '', '', str(t.detail) || recordText, '',
+            `Created By: ${argStr(t.createdBy)}  Priority: ${priorityWord(t.p)}`,
+            `Assigned To: ${argStr(t.user) || argStr(t.team) || argStr(t.assignee)}`,
+            '', '', argStr(t.detail) || recordText, '',
             `FOLLOW UP NOTES (${notes.length})`, '',
             ...notes.map((n) => `${n.date} [${n.author}]: ${n.note}${n.modifiedBy ? `  (Modified By: ${n.modifiedBy} ${n.modified ?? ''})` : ''}`),
           ].join('\n'),
@@ -574,24 +575,31 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
     </>
   )
   const recordBand = folder && row
-    ? `${folder.recordType.toUpperCase()}   [${str(args.recordDate) || String(row.collected ?? row.seen ?? row.date ?? row.discharge ?? row.apptDate ?? row.ordDate ?? '')}]   ${String(row.test ?? row.reason ?? row.description ?? row.note ?? '')}${row.value ? `   Value: ${row.value} ${row.units ?? ''}` : ''}${row.flag ? `   Flag: ${row.flag}` : ''}`
+    ? `${folder.recordType.toUpperCase()}   [${argStr(args.recordDate) || String(row.collected ?? row.seen ?? row.date ?? row.discharge ?? row.apptDate ?? row.ordDate ?? '')}]   ${String(row.test ?? row.reason ?? row.description ?? row.note ?? '')}${row.value ? `   Value: ${row.value} ${row.units ?? ''}` : ''}${row.flag ? `   Flag: ${row.flag}` : ''}`
     : ''
   return (
     <WorkspaceDialogFrame id="basket-workflow-summary" title="Workflow Summary" width={1000} height={700} onClose={close} zIndex={88}>
       <div style={BAND_DARK}>
-        <div className="pb-row" style={{ gap: 0 }}>
-          <span style={{ width: 220 }}>FIRST: <b>{p.first.toUpperCase()}</b></span>
-          <span style={{ width: 200 }}>MIDDLE: <b>{p.middle.toUpperCase()}</b></span>
-          <span style={{ width: 220 }}>LAST: <b>{p.last.toUpperCase()}</b></span>
-          <span style={{ width: 130 }}>DoB: <b>{p.dob}</b></span>
-          <span>Gender: <b>{p.gender}</b></span>
-        </div>
-        <div className="pb-row" style={{ gap: 0, paddingTop: 2 }}>
-          <span style={{ width: 220 }}>PHN: <b>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</b></span>
-          <span style={{ width: 200 }}><u>Home:</u> <b>{p.home ?? ''}</b></span>
-          <span style={{ width: 220 }}>Work: <b>{p.work ?? ''}</b></span>
-          <span>Cell: <b>{p.cell ?? ''}</b></span>
-        </div>
+        <PatientFieldRow
+          layout="inline"
+          fields={[
+            { label: 'FIRST:', value: p.first.toUpperCase(), w: 220 },
+            { label: 'MIDDLE:', value: p.middle.toUpperCase(), w: 200 },
+            { label: 'LAST:', value: p.last.toUpperCase(), w: 220 },
+            { label: 'DoB:', value: p.dob, w: 130 },
+            { label: 'Gender:', value: p.gender },
+          ]}
+        />
+        <PatientFieldRow
+          layout="inline"
+          style={{ gap: 0, paddingTop: 2 }}
+          fields={[
+            { label: 'PHN:', value: <>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</>, w: 220 },
+            { label: <u>Home:</u>, value: p.home ?? '', w: 200 },
+            { label: 'Work:', value: p.work ?? '', w: 220 },
+            { label: 'Cell:', value: p.cell ?? '' },
+          ]}
+        />
       </div>
       <div style={BAND_LIGHT} data-tutorial-id="host.mois.field.workflow-record">{recordBand}</div>
       <div className="pb-row" style={{ gap: 28, padding: '3px 10px', flex: 'none' }}>
@@ -743,8 +751,8 @@ function BasketStatistics({ args, close, open }: AreaWindowProps) {
    ------------------------------------------------------------------------ */
 function FollowUpNoteWindow({ args, close }: AreaWindowProps) {
   const extras = useWorkspaceExtras()
-  const task = str(args.task)
-  const id = str(args.note)
+  const task = argStr(args.task)
+  const id = argStr(args.note)
   const existing = (extras.followUps[task] ?? []).find((n) => n.id === id)
   const [text, setText] = useState(existing?.note ?? '')
   const save = () => {
@@ -760,7 +768,7 @@ function FollowUpNoteWindow({ args, close }: AreaWindowProps) {
       <div className="pb-row" style={{ gap: 18, padding: '8px 12px', flex: 'none' }}>
         <span>Date: <b>{existing?.date ?? MOIS_TODAY}</b></span>
         <span>Author: <b>{existing?.author ?? CURRENT_USER.name}</b></span>
-        <span>Task: <b>{str(args.subject)}</b></span>
+        <span>Task: <b>{argStr(args.subject)}</b></span>
       </div>
       <div style={{ flex: '1 1 auto', display: 'flex', padding: '0 12px' }}>
         <PBTextArea value={text} onChange={(e) => setText(e.target.value)} style={{ flex: '1 1 auto', resize: 'none' }} data-tutorial-id="host.mois.field.follow-up-text" />

@@ -3,6 +3,7 @@ import { useEfaxAccounts, type EfaxAccount } from '../data/letterDocs'
 import { useScreenReport } from '../host/screen-state'
 import { PBCommandRow, PBDataWindow, PBViewHeader, pbSlug } from '../pb'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
+import { useRecordList } from './listKit'
 
 /* ============================================================================
    Administration ▸ Clinic Management ▸ eFax Accounts — the eFax Account List.
@@ -36,13 +37,13 @@ const COLUMNS: { key: keyof EfaxAccount; header: string; width: number }[] = [
 
 function EfaxAccountsView({ close }: FolderViewProps) {
   const [saved, setSaved] = useEfaxAccounts()
-  const [rows, setRows] = useState<EfaxAccount[]>(saved)
-  const [cur, setCur] = useState(0)
+  const list = useRecordList<EfaxAccount>(saved)
+  const { rows, cur, setCur } = list
   const [dirty, setDirty] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   useScreenReport({ rows: rows.length, draft: dirty, saved: justSaved && !dirty })
   const edit = (i: number, key: keyof EfaxAccount, value: string) => {
-    setRows((all) => all.map((r, j) => (j === i ? { ...r, [key]: value } : r)))
+    list.edit(i, { [key]: value })
     setDirty(true)
   }
   return (
@@ -50,8 +51,8 @@ function EfaxAccountsView({ close }: FolderViewProps) {
       <PBViewHeader title="eFax Account List" />
       <PBCommandRow
         commands={[
-          { label: 'New Record', onClick: () => { setRows((r) => [...r, { ...BLANK }]); setCur(rows.length); setDirty(true) } },
-          { label: 'Delete Record', onClick: () => { setRows((r) => r.filter((_, j) => j !== cur)); setCur(0); setDirty(true) } },
+          { label: 'New Record', onClick: () => { list.add({ ...BLANK }); setDirty(true) } },
+          { label: 'Delete Record', onClick: () => { list.remove(); setDirty(true) } },
           { label: 'Save', onClick: () => { setSaved(rows.filter((r) => r.alias || r.account)); setDirty(false); setJustSaved(true) } },
           { label: 'Close', onClick: close },
         ]}

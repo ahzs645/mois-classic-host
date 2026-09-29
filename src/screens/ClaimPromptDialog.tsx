@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBWindow, usePBInstrumentation, type PBColumn } from '../pb'
+import { PBCheckbox, PBInput, type PBColumn } from '../pb'
 import {
   claimFromRow, SENT_CLAIM_KEY, UNSENT_CLAIM_KEY,
   type ClaimForm, type SentClaim, type UnsentClaim,
@@ -8,6 +8,9 @@ import { useSentClaims, useUnsentClaims } from '../data/billingStore'
 import { usePatientRoster } from '../data/patient-context'
 import { useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
+import {
+  FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, LookupNote, LookupPager, PickButtons, PickListWindow, usePagedCursor,
+} from './lookupKit'
 
 /* ============================================================================
    The four claim lookups behind Billing's "Prompt -" buttons.
@@ -137,24 +140,6 @@ const TITLES: Record<ClaimPrompt, string> = {
 
 const PAGE = 12
 
-/** A dialog push button that reports itself as `host.mois.command.{id}`. */
-function CmdButton({ id, children, onClick, disabled, isDefault }: {
-  id: string; children: string; onClick?: () => void; disabled?: boolean; isDefault?: boolean
-}) {
-  const host = usePBInstrumentation()
-  return (
-    <PBButton
-      wide
-      className={isDefault ? 'pb-btn--default' : undefined}
-      disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
-    >
-      {children}
-    </PBButton>
-  )
-}
-
 export function ClaimPromptDialog({
   prompt, onPick, onClose,
 }: {
@@ -169,7 +154,6 @@ export function ClaimPromptDialog({
      Service's R1 rule applies (blank R1 box + ticked checkbox = blank R1). */
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [filters, setFilters] = useState<Record<string, string> | null>(null)
-  const [current, setCurrent] = useState(0)
   const [includeR1, setIncludeR1] = useState(true)
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [, setClaim] = useSessionState<ClaimForm | null>(UNSENT_CLAIM_KEY, null)
@@ -203,7 +187,8 @@ export function ClaimPromptDialog({
     }))
   }, [unsentStore.rows, sentStore.rows, filters, includeR1, prompt, sortKey, unsent])
 
-  useScreenReport({ rows: rows.length, row: `claim-${String(rows[Math.min(current, Math.max(0, rows.length - 1))]?.last ?? '').toLowerCase()}` })
+  const cursor = usePagedCursor(rows.length, PAGE)
+  useScreenReport({ rows: rows.length, row: `claim-${String(rows[cursor.at]?.last ?? '').toLowerCase()}` })
 
   const type = (key: string, value: string) => {
     const next = { ...draft, [key]: value }
@@ -226,9 +211,7 @@ export function ClaimPromptDialog({
       : null))
     : undefined
 
-  const step = (delta: number) => setCurrent((i) => Math.max(0, Math.min(rows.length - 1, i + delta)))
-  const cur = Math.min(current, Math.max(0, rows.length - 1))
-  const picked = rows[cur]
+  const picked = rows[cursor.at]
 
   const pick = () => {
     if (!picked) return
@@ -246,94 +229,81 @@ export function ClaimPromptDialog({
       : 'MSP Sent Claim List'
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
+    <PickListWindow<Row>
+      window={{
         /* the snapshot reports `claim-{prompt}`, so the anchor has to match */
-        tutorialId={`host.mois.dialog.claim-${prompt}`}
-        child
-        controls={false}
-        title={TITLES[prompt]}
-        onClose={onClose}
-        style={{
+        id: `claim-${prompt}`,
+        title: TITLES[prompt],
+        onClose: () => onClose?.(),
+        zIndex: 80,
+        windowStyle: {
           width: prompt === 'chart' ? 'min(860px, calc(100vw - 60px))' : 'min(980px, calc(100vw - 60px))',
           height: 'min(620px, calc(100vh - 80px))',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-          {prompt === 'chart' && (
-            <div className="pb-row" style={{ gap: 26, flex: 'none' }}>
-              <span>Chart: 10035</span><span>Patient: FARMER BROWN</span>
-              <span>DoB: 1990.10.23</span><span>Sex:</span><span>Insurance: 9151259051</span>
-            </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            <div className="pb-band--ruled">
-              <PBBand
-                right={prompt === 'service' ? (
-                  /* ca83fd70: "Service Date from [ ] to [ ]" at the band's right */
-                  <span className="pb-row" style={{ gap: 6, fontWeight: 400 }}>
-                    <span>Service Date from</span>
-                    <PBInput w={100} value={draft['date-from'] ?? ''} onChange={(e) => type('date-from', e.target.value)} />
-                    <span>to</span>
-                    <PBInput w={100} value={draft['date-to'] ?? ''} onChange={(e) => type('date-to', e.target.value)} />
-                  </span>
-                ) : undefined}
-              >
-                {bandCaption}
-              </PBBand>
-            </div>
-            <PBDataWindow
-              flush
-              rules="white"
-              style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={columns}
-              rows={rows}
-              filters={filterRow}
-              filterGutter={prompt === 'recon' ? (
-                <span style={{ display: 'inline-flex', transform: 'translateX(-1px)' }}>
-                  <PBCheckbox checked={includeR1} onChange={setIncludeR1} tutorialId="host.mois.check.claim-include-r1" />
-                </span>
-              ) : undefined}
-              onSort={prompt === 'chart' ? (key) => setSortKey(key) : undefined}
-              current={cur}
-              onCurrentChange={setCurrent}
-              onActivate={pick}
-              rowTutorialId={(r) => `host.mois.row.claim-${String(r.last ?? '').toLowerCase() || 'row'}`}
-              empty="No claim matches those filters."
-            />
-          </div>
-
-          {prompt === 'recon' && (
-            <div
-              className="pb-field"
-              style={{ height: 74, flex: 'none', padding: '3px 5px', whiteSpace: 'pre-wrap', background: '#fff', overflow: 'auto' }}
-            >
-              {RECON_HELP}
-            </div>
-          )}
-
-          {/* the unsent prompts and the per-chart summary have one Select
-              button; only the Advanced Lookup Service carries the six-button
-              paging row */}
-          {prompt === 'recon' ? (
-            <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-              <PBButton wide onClick={() => setCurrent(0)}>Home</PBButton>
-              <PBButton wide onClick={() => step(-PAGE)}>PgUp</PBButton>
-              <span style={{ flex: '1 1 auto' }} />
-              <CmdButton id="claim-ok" isDefault disabled={!picked} onClick={pick}>Ok</CmdButton>
-              <span style={{ width: 14 }} />
-              <CmdButton id="claim-cancel" onClick={onClose}>Cancel</CmdButton>
-              <span style={{ flex: '1 1 auto' }} />
-              <PBButton wide onClick={() => step(PAGE)}>PgDwn</PBButton>
-              <PBButton wide onClick={() => setCurrent(rows.length - 1)}>End</PBButton>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', flex: 'none' }}>
-              <CmdButton id="claim-select" isDefault disabled={!picked} onClick={pick}>Select</CmdButton>
-            </div>
-          )}
+        },
+      }}
+      body={LOOKUP_BODY}
+      lead={prompt === 'chart' && (
+        <div className="pb-row" style={{ gap: 26, flex: 'none' }}>
+          <span>Chart: 10035</span><span>Patient: FARMER BROWN</span>
+          <span>DoB: 1990.10.23</span><span>Sex:</span><span>Insurance: 9151259051</span>
         </div>
-      </PBWindow>
-    </div>
+      )}
+      panel={LOOKUP_PANEL}
+      band={(
+        <LookupBand
+          variant="ruled"
+          right={prompt === 'service' ? (
+            /* ca83fd70: "Service Date from [ ] to [ ]" at the band's right */
+            <span className="pb-row" style={{ gap: 6, fontWeight: 400 }}>
+              <span>Service Date from</span>
+              <PBInput w={100} value={draft['date-from'] ?? ''} onChange={(e) => type('date-from', e.target.value)} />
+              <span>to</span>
+              <PBInput w={100} value={draft['date-to'] ?? ''} onChange={(e) => type('date-to', e.target.value)} />
+            </span>
+          ) : undefined}
+        >
+          {bandCaption}
+        </LookupBand>
+      )}
+      gridBox={null}
+      grid={{
+        flush: true,
+        rules: 'white',
+        style: FILL_GRID,
+        columns,
+        rows,
+        filters: filterRow,
+        filterGutter: prompt === 'recon' ? (
+          <span style={{ display: 'inline-flex', transform: 'translateX(-1px)' }}>
+            <PBCheckbox checked={includeR1} onChange={setIncludeR1} tutorialId="host.mois.check.claim-include-r1" />
+          </span>
+        ) : undefined,
+        onSort: prompt === 'chart' ? (key) => setSortKey(key) : undefined,
+        current: cursor.at,
+        onCurrentChange: cursor.setCurrent,
+        onActivate: pick,
+        rowTutorialId: (r) => `host.mois.row.claim-${String(r.last ?? '').toLowerCase() || 'row'}`,
+        empty: 'No claim matches those filters.',
+      }}
+      below={prompt === 'recon' && (
+        <LookupNote height={74} preWrap style={{ overflow: 'auto' }}>{RECON_HELP}</LookupNote>
+      )}
+      footerInside
+      /* the unsent prompts and the per-chart summary have one Select
+         button; only the Advanced Lookup Service carries the six-button
+         paging row */
+      footer={prompt === 'recon' ? (
+        <LookupPager
+          cursor={cursor}
+          ok={{ command: 'claim-ok', isDefault: true, disabled: !picked, onClick: pick }}
+          cancel={{ command: 'claim-cancel', onClick: onClose }}
+        />
+      ) : (
+        <PickButtons
+          style={{ display: 'flex', justifyContent: 'center', flex: 'none' }}
+          buttons={[{ label: 'Select', command: 'claim-select', isDefault: true, disabled: !picked, onClick: pick }]}
+        />
+      )}
+    />
   )
 }

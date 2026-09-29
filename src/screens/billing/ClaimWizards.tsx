@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBMessageBox, PBRadio, PBWindow,
+  PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBMessageBox, PBRadio,
 } from '../../pb'
 import {
   claimFee, MSP_LOCATION_ROWS, payeeOf, useUnsentClaims,
@@ -11,6 +11,9 @@ import { MOIS_TODAY, type Patient } from '../../data/patients'
 import { useScreenReport } from '../../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { ModalWindow } from '../dialogKit'
+import { FormLine, NAVY } from '../formKit'
+import { useTickSet } from '../listKit'
 
 /* ============================================================================
    Unsent Claims ▸ Utilities: the Claim Review Wizard and the Bulk Claim
@@ -83,11 +86,7 @@ function Pane({ title, right, children, style }: { title: ReactNode; right?: Rea
 }
 
 function FRow({ label, children, w = 110 }: { label: ReactNode; children: ReactNode; w?: number }) {
-  return (
-    <div className="pb-row" style={{ gap: 6, padding: '2px 0', alignItems: 'center' }}>
-      <span style={{ width: w, flex: 'none' }}>{label}</span>{children}
-    </div>
-  )
+  return <FormLine label={label} w={w} padding="2px 0" align="center" labelClass={false}>{children}</FormLine>
 }
 
 const DOCTOR_ROWS = DOCTORS.map((d) => ({ doctor: d }))
@@ -145,7 +144,7 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
   const [on, setOn] = useState<Record<Update, boolean>>({ provider: false, facility: false, fee: false, rural: false, location: false })
   const [value, setValue] = useState<Record<Update, string>>({ provider: '', facility: '', fee: '', rural: '', location: '' })
   const [refresh, setRefresh] = useState(false)
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const excluded = useTickSet<string>()
   const [ask, setAsk] = useState<'delete' | 'deleted' | 'updated' | 'nothing' | null>(null)
   const [count, setCount] = useState(0)
   const [cur, setCur] = useState(0)
@@ -213,16 +212,16 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
           </Pane>
           <Pane title={<span style={{ display: 'inline-flex', gap: 90 }}><span>Update Options</span><span>New Value</span></span>} style={{ flex: '1 1 50%' }}>
             {UPDATES.map((u) => (
-              <div key={u.key} className="pb-row" style={{ gap: 6, padding: '1px 0', alignItems: 'center', minHeight: 23 }}>
-                <span style={{ width: 180, flex: 'none' }}>
-                  <PBCheckbox label={u.label} checked={on[u.key]} onChange={(v) => setOn({ ...on, [u.key]: v })} tutorialId={`host.mois.check.review-${slug(u.label)}`} />
-                </span>
+              <FormLine
+                key={u.key} w={180} padding="1px 0" align="center" minHeight={23} labelClass={false}
+                label={<PBCheckbox label={u.label} checked={on[u.key]} onChange={(v) => setOn({ ...on, [u.key]: v })} tutorialId={`host.mois.check.review-${slug(u.label)}`} />}
+              >
                 {on[u.key] && (u.key === 'provider'
                   ? <DoctorDrop value={value.provider} onSelect={(v) => setValue({ ...value, provider: v })} id="review-new-provider" w={270} />
                   : u.key === 'location'
                     ? <LocationDrop value={value.location} onSelect={(v) => setValue({ ...value, location: v })} id="review-new-location" />
                     : <PBInput w={110} value={value[u.key]} onChange={(e) => setValue({ ...value, [u.key]: e.target.value })} data-tutorial-id={`host.mois.field.review-new-${u.key}`} />)}
-              </div>
+              </FormLine>
             ))}
             <div style={{ borderTop: '1px solid #c8c8c8', margin: '4px 0' }} />
             <div className="pb-row" style={{ gap: 4 }}>
@@ -241,7 +240,7 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
                 render: (r: UnsentClaim) => (
                   <PBCheckbox
                     checked={excluded.has(r.id ?? '')}
-                    onChange={(v) => setExcluded((prev) => { const n = new Set(prev); if (v) n.add(r.id ?? ''); else n.delete(r.id ?? ''); return n })}
+                    onChange={(v) => excluded.set(r.id ?? '', v)}
                     tutorialId={`host.mois.check.review-exclude-${slug(r.last)}`}
                   />
                 ),
@@ -343,7 +342,7 @@ export function BatchClaimWizard({ close }: AreaWindowProps) {
   const [since, setSince] = useState('')
   const [lastN, setLastN] = useState('3')
   const [list, setList] = useState<ListRow[] | null>(null)
-  const [ignored, setIgnored] = useState<Set<string>>(new Set())
+  const ignored = useTickSet<string>()
   /* MSP Claims Information */
   const [count, setCount] = useState('1')
   const [claimProvider, setClaimProvider] = useState('')
@@ -374,7 +373,7 @@ export function BatchClaimWizard({ close }: AreaWindowProps) {
       if (contact === 'last') picked = picked.filter(({ p }) => last(p) >= cutoff)
       else if (contact === 'since' && since.trim()) picked = picked.filter(({ p }) => last(p) >= since.trim())
     }
-    setIgnored(new Set())
+    ignored.clear()
     setList(picked.map(({ p }) => ({
       chart: p.chart, patient: `${p.last}, ${p.first}`, gender: p.gender, dob: p.dob, status: p.status,
       insurance: `${p.insuranceBy || 'BC'}  ${p.insurance ?? ''}`, last: p.lastContact || p.registered || '', p,
@@ -555,7 +554,7 @@ export function BatchClaimWizard({ close }: AreaWindowProps) {
                 render: (r: ListRow) => (
                   <PBCheckbox
                     checked={ignored.has(r.chart)}
-                    onChange={(v) => setIgnored((prev) => { const n = new Set(prev); if (v) n.add(r.chart); else n.delete(r.chart); return n })}
+                    onChange={(v) => ignored.set(r.chart, v)}
                     tutorialId={`host.mois.check.batch-ignore-${r.chart}`}
                   />
                 ),
@@ -575,34 +574,31 @@ export function BatchClaimWizard({ close }: AreaWindowProps) {
       {reportList && (
         /* `3ff4e8ca`: Run Report… raises the Advanced Medical Report Builder
            over the wizard; picking a report's row fills the list source. */
-        <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-          <PBWindow
-            child
-            controls={false}
-            title="Advanced Medical Report Builder"
-            tutorialId="host.mois.dialog.advanced-medical-report-builder"
-            onClose={() => setReportList(false)}
-            style={{ width: 520, height: 380 }}
-          >
-            <div style={{ background: '#0a246a', color: '#fff', fontSize: 16, fontWeight: 700, padding: '3px 8px' }}>Advanced Medical Reports</div>
-            <div className="pb-row" style={{ gap: 2, padding: 2 }}>
-              <PBButton disabled>New</PBButton><PBButton disabled>Delete</PBButton>
-              <PBButton data-tutorial-id="host.mois.command.batch-report-open" disabled={!report} onClick={() => setReportList(false)}>Open</PBButton>
-            </div>
-            <PBDataWindow
-              style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={[{ key: 'name', header: 'Name', width: 380 }, { key: 'group', header: 'Group', width: 100 }]}
-              rows={ADVANCED_REPORTS.map((name) => ({ name, group: '' }))}
-              current={Math.max(0, ADVANCED_REPORTS.indexOf(report))}
-              onCurrentChange={(i) => setReport(ADVANCED_REPORTS[i] ?? '')}
-              onActivate={() => setReportList(false)}
-              rowTutorialId={(r) => `host.mois.row.batch-report-${slug(r.name)}`}
-            />
-            <div className="pb-row" style={{ justifyContent: 'center', padding: 6 }}>
-              <DialogButton id="batch-report-close" onClick={() => setReportList(false)}>Close</DialogButton>
-            </div>
-          </PBWindow>
-        </div>
+        <ModalWindow
+          id="advanced-medical-report-builder"
+          title="Advanced Medical Report Builder"
+          onClose={() => setReportList(false)}
+          windowStyle={{ width: 520, height: 380 }}
+          zIndex={90}
+        >
+          <div style={{ background: NAVY.caption, color: '#fff', fontSize: 16, fontWeight: 700, padding: '3px 8px' }}>Advanced Medical Reports</div>
+          <div className="pb-row" style={{ gap: 2, padding: 2 }}>
+            <PBButton disabled>New</PBButton><PBButton disabled>Delete</PBButton>
+            <PBButton command="batch-report-open" disabled={!report} onClick={() => setReportList(false)}>Open</PBButton>
+          </div>
+          <PBDataWindow
+            style={{ flex: '1 1 auto', minHeight: 0 }}
+            columns={[{ key: 'name', header: 'Name', width: 380 }, { key: 'group', header: 'Group', width: 100 }]}
+            rows={ADVANCED_REPORTS.map((name) => ({ name, group: '' }))}
+            current={Math.max(0, ADVANCED_REPORTS.indexOf(report))}
+            onCurrentChange={(i) => setReport(ADVANCED_REPORTS[i] ?? '')}
+            onActivate={() => setReportList(false)}
+            rowTutorialId={(r) => `host.mois.row.batch-report-${slug(r.name)}`}
+          />
+          <div className="pb-row" style={{ justifyContent: 'center', padding: 6 }}>
+            <DialogButton id="batch-report-close" onClick={() => setReportList(false)}>Close</DialogButton>
+          </div>
+        </ModalWindow>
       )}
       {(done !== null || problem) && (
         <PBMessageBox

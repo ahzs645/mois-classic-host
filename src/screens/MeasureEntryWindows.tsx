@@ -7,13 +7,15 @@ import {
 import { measureCalculators } from '../data/measures'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
+import { argStr } from '../data/text'
 import { CURRENT_USER, TASK_PRIORITIES, WORKSPACE_USERS } from '../data/tasks'
 import { workspaceStore } from '../data/workspaceStore'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
-import { PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea } from '../pb'
+import { PBButton, PBCheckbox, PBInput, PBSelect, PBTextArea } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
+import { PickButtons, PickListWindow, SearchForRow, SIZE } from './lookupKit'
 import { MeasureCalculatorDialog, type MeasurementRow } from './MeasureDialogs'
 import { Phq9FormWindow } from './Phq9FormWindow'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
@@ -60,8 +62,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    (the article's prerequisite), so it is used for the PHQ-9 codes only.
    ========================================================================= */
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
-
 /* --- Lab Code Selection -------------------------------------------------- */
 function LabCodeSelection({ close }: AreaWindowProps) {
   const chart = usePatient().chart
@@ -78,41 +78,53 @@ function LabCodeSelection({ close }: AreaWindowProps) {
   const pick = (c: LabCode | undefined) => { if (c) { setDraftCode(chart, c); close() } }
 
   return (
-    <WorkspaceDialogFrame id="lab-code-selection" title="Lab Code Selection" width={720} height={480} onClose={close} controls={false}>
-      <div className="pb-row" style={{ gap: 6, padding: '8px 10px 4px', flex: 'none' }}>
-        <span>Search For:</span>
-        <PBInput
-          w={320}
+    <PickListWindow
+      frame={(content, footer) => (
+        <WorkspaceDialogFrame id="lab-code-selection" title="Lab Code Selection" width={720} height={480} onClose={close} controls={false}>
+          {content}{footer}
+        </WorkspaceDialogFrame>
+      )}
+      search={(
+        <SearchForRow
+          link={false}
+          width={320}
           value={text}
-          data-tutorial-id="host.mois.field.lab-code-search"
-          onChange={(e) => { setText(e.target.value); setCur(0) }}
+          field="lab-code-search"
+          onChange={(v) => { setText(v); setCur(0) }}
           onKeyDown={(e) => { if (e.key === 'Enter') pick(rows[cur]) }}
+          after={<span style={{ color: '#6a6a6a' }}>code, quick code or test name</span>}
+          style={{ gap: 6, padding: '8px 10px 4px', flex: 'none' }}
         />
-        <span style={{ color: '#6a6a6a' }}>code, quick code or test name</span>
-      </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '0 10px', border: '1px solid var(--pb-border)' }}>
-        <PBDataWindow
-          flush
-          columns={[
-            { key: 'code', header: 'Code', width: 80 },
-            { key: 'klass', header: 'Class', width: 130 },
-            { key: 'quick', header: 'Quick Code', width: 100 },
-            { key: 'test', header: 'Test Name' },
+      )}
+      gridBox={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '0 10px', border: '1px solid var(--pb-border)' }}
+      grid={{
+        flush: true,
+        columns: [
+          { key: 'code', header: 'Code', width: 80 },
+          { key: 'klass', header: 'Class', width: 130 },
+          { key: 'quick', header: 'Quick Code', width: 100 },
+          { key: 'test', header: 'Test Name' },
+        ],
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (r) => pick(r),
+        onSort: (k) => setSort(k as keyof LabCode),
+        rowTutorialId: (r) => `host.mois.row.lab-code-${r.code}`,
+        empty: 'No lab code matches.',
+      }}
+      footer={(
+        <PickButtons
+          className="pb-row"
+          style={{ gap: 14, padding: '10px 0', justifyContent: 'center', flex: 'none' }}
+          size={SIZE.dialog()}
+          buttons={[
+            { label: 'Select', command: 'lab-code-select', isDefault: true, disabled: !rows[cur], onClick: () => pick(rows[cur]) },
+            { label: 'Cancel', command: 'lab-code-cancel', onClick: close },
           ]}
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(r) => pick(r)}
-          onSort={(k) => setSort(k as keyof LabCode)}
-          rowTutorialId={(r) => `host.mois.row.lab-code-${r.code}`}
-          empty="No lab code matches."
         />
-      </div>
-      <div className="pb-row" style={{ gap: 14, padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
-        <DialogButton id="lab-code-select" isDefault disabled={!rows[cur]} onClick={() => pick(rows[cur])}>Select</DialogButton>
-        <DialogButton id="lab-code-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+      )}
+    />
   )
 }
 
@@ -123,9 +135,9 @@ function MeasureDynamicForm({ args, close }: AreaWindowProps) {
   const { session, update } = useEncounterSession()
   const headers = useChartRecords('dform_header')
   const data = useChartRecords('dform_data')
-  const rowId = str(args.rowId)
+  const rowId = argStr(args.rowId)
   const draft = rowId ? null : entry.draft
-  const code = rowId ? str(args.code) : draft?.code ?? ''
+  const code = rowId ? argStr(args.code) : draft?.code ?? ''
   const kind = MEASURE_FORMS[code]
   const header = rowId && kind ? headers.find((h) => h.str_object === 'tdt_measure' && h.id_object === rowId && h.id_dform_window === FORM_WINDOW[kind]) : undefined
   const saved = rowId ? entry.forms[rowId] : draft?.marker === '.*.' ? { phq9: draft.phq9, modified: draft.formModified } : undefined
@@ -202,13 +214,13 @@ function QuestionnaireMessage({ args, close }: AreaWindowProps) {
   const chart = patient.chart
   const entry = useMeasureEntry(chart)
   const { update } = useEncounterSession()
-  const rowId = str(args.rowId)
+  const rowId = argStr(args.rowId)
   const [toPatient, setToPatient] = useState(false)
   const [canReply, setCanReply] = useState(false)
   const [users, setUsers] = useState<string[]>([''])
-  const [subject, setSubject] = useState(str(args.subject))
+  const [subject, setSubject] = useState(argStr(args.subject))
   const [priority, setPriority] = useState('M')
-  const [detail, setDetail] = useState(() => `\nTest Name: ${str(args.test)}\nDate Collected: ${messageDate(str(args.collected))}\n\n`)
+  const [detail, setDetail] = useState(() => `\nTest Name: ${argStr(args.test)}\nDate Collected: ${messageDate(argStr(args.collected))}\n\n`)
   const recipients = users.filter(Boolean)
   const canSend = toPatient || recipients.length > 0
   useScreenReport({ toPatient, canReply, recipients: recipients.length, subject: subject.trim() !== '' })
@@ -275,16 +287,14 @@ function QuestionnaireMessage({ args, close }: AreaWindowProps) {
                 data-tutorial-id={`host.mois.field.message-recipient-${i}`}
                 onChange={(e) => setUsers((all) => all.map((x, j) => (j === i ? e.target.value : x)))}
               />
-              <button
-                type="button"
-                className="pb-btn"
+              <PBButton
                 aria-label="Remove recipient"
-                data-tutorial-id={`host.mois.command.message-remove-recipient-${i}`}
+                command={`message-remove-recipient-${i}`}
                 style={{ minWidth: 0, width: 26, height: 20, color: '#e02020', fontWeight: 700 }}
                 onClick={() => setUsers((all) => (all.length > 1 ? all.filter((_, j) => j !== i) : ['']))}
               >
                 X
-              </button>
+              </PBButton>
             </div>
           ))}
         </div>
@@ -346,7 +356,7 @@ function HeartKey() {
 /* --- Utilities ▸ Calculators … from the Measures folder ------------------ */
 function FolderCalculator({ args, close }: AreaWindowProps) {
   const { update } = useEncounterSession()
-  const calculator = measureCalculators.includes(str(args.calculator)) ? str(args.calculator) : 'BMI'
+  const calculator = measureCalculators.includes(argStr(args.calculator)) ? argStr(args.calculator) : 'BMI'
   const file = (row: MeasurementRow) => {
     update((s) => ({
       ...s,

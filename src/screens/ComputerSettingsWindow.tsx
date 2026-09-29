@@ -9,6 +9,7 @@ import { useSessionState } from '../host/screen-windows'
 import { PBCheckbox, PBDataWindow, PBInput, PBLookup, PBSelect, pbSlug } from '../pb'
 import { Btn, DetailWindow, FieldLabel, SectionHead } from './AdminExchangeKit'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ReadOnlyField } from './formKit'
 
 /* ============================================================================
    Maintenance ▸ Computer Settings — the workstation's own printers — and
@@ -164,7 +165,7 @@ export function ComputerSettingsWindow({ close }: AreaWindowProps) {
       <SectionHead>Identification</SectionHead>
       <div className="pb-row" style={{ gap: 8, padding: '4px 6px' }}>
         <FieldLabel w={96}>Computer Name:</FieldLabel>
-        <PBInput w={250} value={COMPUTER_NAME} readOnly style={{ background: '#e8e8e8', fontWeight: 700 }} />
+        <ReadOnlyField w={250} value={COMPUTER_NAME} bold />
       </div>
       <SectionHead>Printer Settings</SectionHead>
       <div className="pb-row" style={{ gap: 8, padding: '4px 6px', fontWeight: 700, borderBottom: '1px solid #c8c8c8' }}>

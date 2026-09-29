@@ -9,9 +9,11 @@ import {
 } from '../data/privateNotes'
 import { DESKTOP_USER, type SessionNote } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
+import { argStr } from '../data/text'
 import { workspaceExtras } from '../data/workspaceExtras'
 import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowArgs, type AreaWindowProps } from './areaWindowRegistry'
+import { FILL_GRID, GRID_BOX, MOIS_SEARCH_TITLE, MoisSearchWindow } from './lookupKit'
 import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -82,7 +84,6 @@ export const PRIVATE_WINDOWS = {
   blocked: 'private-note-blocked',
 } as const
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const GROUP: CSSProperties = { border: '1px solid #d0d0d0', borderRadius: 3, padding: '18px 12px 10px', position: 'relative', margin: '12px 12px 0', background: '#fff' }
 const CAPTION: CSSProperties = { position: 'absolute', top: -9, left: 8, background: '#fff', padding: '0 4px', color: '#000080', fontWeight: 700 }
 
@@ -152,7 +153,7 @@ export function usePrivateNoteMask(encounterId: string): (notes: SessionNote[]) 
 
 /* --- Access Control (the list) --------------------------------------------- */
 function AccessListWindow({ args, close, open }: AreaWindowProps) {
-  const id = str(args.id)
+  const id = argStr(args.id)
   const [notes] = usePrivateNotes()
   const note = notes[id]
   const [stopped, setStopped] = useState(false)
@@ -214,46 +215,49 @@ export function DirectorySearchWindow({ onPick, onClose }: { onPick: (row: Direc
     && (!group || r.group.toLowerCase().includes(group.toLowerCase()))
     && (!provider || (r.type === 'PROVIDER' && r.name.toLowerCase().includes(provider.toLowerCase()))))
   const [cur, setCur] = useState(0)
-  const tick = (t: string, label: string) => (
-    <PBCheckbox label={label} checked={types[t]} onChange={(v) => setTypes((x) => ({ ...x, [t]: v }))} tutorialId={`host.mois.field.search-include-${pbSlug(label)}`} />
-  )
+  const tick = (t: string, label: string) => ({
+    label, checked: types[t], onChange: (v: boolean) => setTypes((x) => ({ ...x, [t]: v })), tutorialId: `host.mois.field.search-include-${pbSlug(label)}`,
+  })
   return (
-    <StageWindow id="mois-search-window" title="MOIS - Search Window" width={1290} height={560} onClose={onClose}
-      bodyStyle={{ padding: 6, background: '#fff' }}
+    <MoisSearchWindow
+      frame={(content, footer) => (
+        <StageWindow id="mois-search-window" title={MOIS_SEARCH_TITLE} width={1290} height={560} onClose={onClose}
+          bodyStyle={{ padding: 6, background: '#fff' }} footer={footer}>
+          {content}
+        </StageWindow>
+      )}
+      criteria={{
+        layout: 'form',
+        inputWidth: 290,
+        fields: [
+          { label: 'Name:', value: name, onChange: (v) => { setName(v); setCur(0) }, anchor: 'host.mois.field.search-name' },
+          { label: 'Group:', value: group, onChange: (v) => { setGroup(v); setCur(0) } },
+          { label: 'Provider:', value: provider, onChange: (v) => { setProvider(v); setCur(0) } },
+        ],
+        membersOf: { options: ['', 'MENTAL HEALTH', 'ADMINISTRATION'] },
+        include: [tick('USER', 'Users'), tick('PROVIDER', 'Providers'), tick('ORG. ROLE', 'Org. Roles'), tick('ORGANIZATION', 'Organizations')],
+        membership: { label: 'Limit to My Active Memberships', checked: mine, onChange: setMine },
+        status: [{ label: 'Active', checked: active, onChange: setActive }, { label: 'Inactive', checked: inactive, onChange: setInactive }],
+      }}
+      gridBox={{ ...GRID_BOX, marginTop: 4 }}
+      grid={{
+        flush: true, style: FILL_GRID, rows, current: Math.min(cur, Math.max(0, rows.length - 1)), onCurrentChange: setCur,
+        onActivate: (r) => onPick(r), rowTutorialId: (r) => `host.mois.row.directory-${pbSlug(r.name)}`,
+        columns: [
+          { key: 'name', header: 'Name', width: 350 },
+          { key: 'group', header: 'Role / Group', width: 270 },
+          { key: 'type', header: 'Type', width: 170 },
+          { key: 'members', header: 'Associated Provider(s) / Members', render: (r) => (r.members === 'View Members' ? <span className="pb-link">View Members</span> : r.members) },
+          { key: 'status', header: 'Status', width: 90, align: 'center' },
+        ],
+        empty: 'Nobody matches.',
+      }}
       footer={<>
         <span className="pb-footer__spacer" />
         <FooterButton primary disabled={!rows[cur]} onClick={() => rows[cur] && onPick(rows[cur]!)} tutorialId="host.mois.command.private-search-select">Select</FooterButton>
         <FooterButton onClick={onClose}>Cancel</FooterButton>
-      </>}>
-      <div style={{ border: '1px solid #c8c8c8', flex: 'none' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 300px 150px', background: 'linear-gradient(#e8f0fb, #fff)', padding: '2px 8px' }}>
-          <span>Search for:</span><span>Include:</span><span>Membership</span><span>Record Status:</span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 300px 150px', padding: 8, gap: 4, alignItems: 'start' }}>
-          <div className="pb-form" style={{ gridTemplateColumns: '90px 290px', gap: 4 }}>
-            <span>Name:</span><PBInput w={290} value={name} onChange={(e) => { setName(e.target.value); setCur(0) }} data-tutorial-id="host.mois.field.search-name" />
-            <span>Group:</span><PBInput w={290} value={group} onChange={(e) => { setGroup(e.target.value); setCur(0) }} />
-            <span>Provider:</span><PBInput w={290} value={provider} onChange={(e) => { setProvider(e.target.value); setCur(0) }} />
-            <span>Members of:</span><PBSelect w={290} options={['', 'MENTAL HEALTH', 'ADMINISTRATION']} />
-          </div>
-          <div style={{ display: 'grid', gap: 6 }}>{tick('USER', 'Users')}{tick('PROVIDER', 'Providers')}{tick('ORG. ROLE', 'Org. Roles')}{tick('ORGANIZATION', 'Organizations')}</div>
-          <div><PBCheckbox label="Limit to My Active Memberships" checked={mine} onChange={setMine} /></div>
-          <div style={{ display: 'grid', gap: 6 }}><PBCheckbox label="Active" checked={active} onChange={setActive} /><PBCheckbox label="Inactive" checked={inactive} onChange={setInactive} /></div>
-        </div>
-      </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', marginTop: 4 }}>
-        <PBDataWindow flush style={{ flex: '1 1 auto', minHeight: 0 }} rows={rows} current={Math.min(cur, Math.max(0, rows.length - 1))} onCurrentChange={setCur}
-          onActivate={(r) => onPick(r)} rowTutorialId={(r) => `host.mois.row.directory-${pbSlug(r.name)}`}
-          columns={[
-            { key: 'name', header: 'Name', width: 350 },
-            { key: 'group', header: 'Role / Group', width: 270 },
-            { key: 'type', header: 'Type', width: 170 },
-            { key: 'members', header: 'Associated Provider(s) / Members', render: (r) => (r.members === 'View Members' ? <span className="pb-link">View Members</span> : r.members) },
-            { key: 'status', header: 'Status', width: 90, align: 'center' },
-          ]}
-          empty="Nobody matches." />
-      </div>
-    </StageWindow>
+      </>}
+    />
   )
 }
 
@@ -264,13 +268,13 @@ export function DirectorySearchWindow({ onPick, onClose }: { onPick: (row: Direc
    mode grant: an administrator's Grant Access (screens/PrivateNotesViews.tsx)
    for `ids` (Break Glass greyed: "not available for bulk operations"). */
 export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
-  const mode = str(args.mode) || 'add'
-  const id = str(args.id)
+  const mode = argStr(args.mode) || 'add'
+  const id = argStr(args.id)
   const [notes, update] = usePrivateNotes()
   const note = notes[id]
-  const editing = mode === 'edit' ? note?.access.find((r) => r.id === str(args.row)) : undefined
+  const editing = mode === 'edit' ? note?.access.find((r) => r.id === argStr(args.row)) : undefined
   const ownerRecord = mode === 'make-private' || (editing?.kind === 'owner')
-  const [who, setWho] = useState(mode === 'make-private' ? str(args.author) : editing?.who ?? '')
+  const [who, setWho] = useState(mode === 'make-private' ? argStr(args.author) : editing?.who ?? '')
   const [start, setStart] = useState(editing?.start ?? MOIS_TODAY)
   const [stop, setStop] = useState(editing?.stop ?? '')
   const [reasonNote, setReasonNote] = useState(editing?.note ?? (ownerRecord ? note?.reason ?? '' : ''))
@@ -286,11 +290,11 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
   const finish = () => {
     if (mode === 'grant') { setAsking('grant'); return }
     if (mode === 'make-private') {
-      const creator = str(args.creator)
-      const author = str(args.author) || DESKTOP_USER
+      const creator = argStr(args.creator)
+      const author = argStr(args.author) || DESKTOP_USER
       const made: PrivateNote = {
-        id, chart: str(args.chart), patient: str(args.patient), encounter: str(args.encounter), noteKey: str(args.noteKey),
-        apptDate: str(args.apptDate), apptTime: str(args.apptTime), visitReason: str(args.visitReason),
+        id, chart: argStr(args.chart), patient: argStr(args.patient), encounter: argStr(args.encounter), noteKey: argStr(args.noteKey),
+        apptDate: argStr(args.apptDate), apptTime: argStr(args.apptTime), visitReason: argStr(args.visitReason),
         owner: author, author, creator, reason: reasonNote, breakGlass: mode_, breakGlassUsers: users, alert, method, priority,
         access: [{ id: accessId(), who: author, kind: 'owner', start, stop, note: reasonNote }],
       }
@@ -326,7 +330,7 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
       </>}>
       <Group caption="Applies to">
         <div className="pb-row" style={{ gap: 12 }}>
-          <PBInput w={440} readOnly value={mode === 'grant' ? str(args.grantee) || who : who} style={{ background: '#f0f0f0', color: '#666' }} data-tutorial-id="host.mois.field.private-applies-to" />
+          <PBInput w={440} readOnly value={mode === 'grant' ? argStr(args.grantee) || who : who} style={{ background: '#f0f0f0', color: '#666' }} data-tutorial-id="host.mois.field.private-applies-to" />
           <PBButton disabled={ownerRecord || mode === 'edit'} data-tutorial-id="host.mois.command.private-select" onClick={() => setSearching('applies')}>Select...</PBButton>
         </div>
       </Group>
@@ -374,7 +378,7 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
           buttons={[{ label: 'Yes', value: 'yes', default: true }, { label: 'No', value: 'no' }]}
           onClose={(v) => {
             if (v === 'yes') {
-              update(id, (n) => n && ({ ...n, access: [...n.access, { id: accessId(), who: str(args.creator), kind: 'direct', start: MOIS_TODAY, stop: daysFromToday(7), note: 'Transcriptionist' }] }))
+              update(id, (n) => n && ({ ...n, access: [...n.access, { id: accessId(), who: argStr(args.creator), kind: 'direct', start: MOIS_TODAY, stop: daysFromToday(7), note: 'Transcriptionist' }] }))
             }
             close()
           }}>
@@ -386,14 +390,14 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
           buttons={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no', default: true }]}
           onClose={(v) => {
             const ids = Array.isArray(args.ids) ? (args.ids as string[]) : []
-            const grantee = str(args.grantee) || who
+            const grantee = argStr(args.grantee) || who
             if (v === 'yes' && grantee) {
               ids.forEach((nid) => update(nid, (n) => n && ({ ...n, access: [...n.access, { id: accessId(), who: grantee, kind: 'direct', start, stop, note: reasonNote }] })))
             }
             close()
           }}>
           Warning: there is no bulk undo process.<br /><br />
-          Would you like to grant access to {str(args.grantee) || who} to the {Array.isArray(args.ids) ? args.ids.length : 0} encounter notes?
+          Would you like to grant access to {argStr(args.grantee) || who} to the {Array.isArray(args.ids) ? args.ids.length : 0} encounter notes?
         </StageMessageBox>
       )}
     </StageWindow>
@@ -402,7 +406,7 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
 
 /* --- Access Control - Temporary Access (Break Glass) ----------------------- */
 function BreakGlassWindow({ args, close }: AreaWindowProps) {
-  const id = str(args.id)
+  const id = argStr(args.id)
   const [notes, update] = usePrivateNotes()
   const [reason, setReason] = useState('')
   const [extra, setExtra] = useState('')

@@ -3,8 +3,11 @@ import { useLoadedChart } from '../data/charts'
 import { usePatient } from '../data/patient-context'
 import type { PrintParams } from '../data/printPages'
 import type { PrintField, PrintReport } from '../data/printReports'
-import { CmdButton } from './CmdButton'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBWindow, usePBInstrumentation } from '../pb'
+import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter, SectionCaption } from './formKit'
+import { useTickSet } from './listKit'
+import { ParamFrame } from './reportKit'
 
 /* ============================================================================
    The two windows every MOIS print goes through.
@@ -46,9 +49,9 @@ export function defaultPrintParams(report: PrintReport): PrintParams {
 }
 
 const heading = (label: string, key: number) => (
-  <div key={key} style={{ color: '#000080', fontWeight: 700, padding: '4px 10px 2px', borderBottom: '1px solid #bdbdbd', margin: '0 0 4px' }}>
+  <SectionCaption key={key} padding="4px 10px 2px" rule="#bdbdbd" style={{ margin: '0 0 4px' }}>
     {label}
-  </div>
+  </SectionCaption>
 )
 
 export function SelectionParameterDialog({
@@ -120,54 +123,31 @@ export function SelectionParameterDialog({
 
   const size = report.size ?? { width: 650, height: 530 }
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.print-params"
-        title={report.title}
-        onClose={onClose}
-        style={{ width: size.width, height: `min(${size.height}px, calc(100vh - 80px))` }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 12, gap: 0 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-window)' }}>
-            {band && <PBBand>Selection Parameter</PBBand>}
-            <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '2px 0 4px', display: 'flex', flexDirection: 'column' }}>
-              {report.fields.map(field)}
-              {report.note && (
-                <div style={{ marginTop: 'auto', padding: '8px 10px', color: '#8a8a8a' }}>{report.note}</div>
-              )}
-            </div>
-          </div>
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', gap: 19, padding: '14px 0 4px', flex: 'none' }}>
-            {report.leftButton && (
-              <PBButton
-                style={{ position: 'absolute', left: 0, top: 14 }}
-                data-tutorial-id={`host.mois.command.${report.leftButton.window}`}
-                onClick={() => setPickRecords(true)}
-              >
-                {report.leftButton.label}
-              </PBButton>
-            )}
-            <CmdButton
-              className="pb-btn--default"
-              style={{ minWidth: 69 }}
-              command="print-ok"
-              onClick={ok}
-            >
-              {report.okLabel ?? 'Ok'}
-            </CmdButton>
-            <CmdButton style={{ width: 69 }} command="print-cancel" onClick={onClose}>Cancel</CmdButton>
-          </div>
-        </div>
-      </PBWindow>
-      {pickRecords && (
+    <ParamFrame
+      variant="print"
+      id="print-params"
+      prefix="print"
+      title={report.title}
+      w={size.width}
+      h={size.height}
+      band={band}
+      okLabel={report.okLabel ?? 'Ok'}
+      buttonWidth={69}
+      onOk={ok}
+      onCancel={() => onClose?.()}
+      left={report.leftButton && { label: report.leftButton.label, anchor: report.leftButton.window, onClick: () => setPickRecords(true) }}
+      after={pickRecords && (
         <SelectMarRecordsWindow
           onPrint={(ids) => { set('picked', ids.join(',')); lastParams.set(report.menu, { ...values, picked: ids.join(',') }); setPickRecords(false); onOk?.() }}
           onClose={() => setPickRecords(false)}
         />
       )}
-    </div>
+    >
+      {report.fields.map(field)}
+      {report.note && (
+        <div style={{ marginTop: 'auto', padding: '8px 10px', color: '#8a8a8a' }}>{report.note}</div>
+      )}
+    </ParamFrame>
   )
 }
 
@@ -212,7 +192,6 @@ function SegmentGrid({ rows, values, set }: {
 /* 319686 `06e789f8…`: Select MAR Record(s) to Print — the patient across the
    top, then one tickable row per administration, Print / Cancel. */
 export function SelectMarRecordsWindow({ onPrint, onClose }: { onPrint: (ids: string[]) => void; onClose: () => void }) {
-  const host = usePBInstrumentation()
   const patient = usePatient()
   const data = useLoadedChart(patient.chart)
   const rows = useMemo(() => [...(data?.mar ?? [])]
@@ -225,47 +204,42 @@ export function SelectMarRecordsWindow({ onPrint, onClose }: { onPrint: (ids: st
       site: r.str_site ?? '',
       lot: r.str_lot_number ?? '',
     })), [data])
-  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const picked = useTickSet<string>()
   const ins = [patient.insuranceBy, patient.insurance, patient.dep || '00'].filter(Boolean).join(' ')
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 81 }}>
-      <PBWindow child controls={false} tutorialId="host.mois.dialog.select-mar-records" title="Select MAR Record(s) to Print" onClose={onClose} style={{ width: 845, height: 'min(575px, calc(100vh - 60px))' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 80px 150px 55px 40px', rowGap: 2, padding: '6px 8px', background: 'linear-gradient(#ffffff, #cfe6f7)', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-          <span style={{ color: '#6d6d6d' }}>Patient:</span><span>{[patient.last, patient.first].filter(Boolean).join(', ').toUpperCase()}</span>
-          <span style={{ color: '#6d6d6d', textAlign: 'right' }}>DoB:&nbsp;</span><span>{patient.dob}</span>
-          <span style={{ color: '#6d6d6d' }}>Gender:</span><span>{patient.sex}</span>
-          <span style={{ color: '#6d6d6d' }}>Chart:</span><span>{patient.chart}</span>
-          <span style={{ color: '#6d6d6d', textAlign: 'right' }}>Insurance:&nbsp;</span><span style={{ gridColumn: 'span 3' }}>{ins}</span>
-        </div>
-        <div style={{ flex: '1 1 auto', minHeight: 0 }}>
-          <PBDataWindow
-            gutter={false}
-            columns={[
-              {
-                key: 'print', header: 'Print', width: 44, align: 'center',
-                render: (r) => <PBCheckbox checked={picked.has(r.id)} onChange={(c) => setPicked((s) => { const n = new Set(s); c ? n.add(r.id) : n.delete(r.id); return n })} />,
-              },
-              { key: 'date', header: 'Date', width: 78 },
-              { key: 'med', header: 'Medication / Agent', width: 300 },
-              { key: 'series', header: 'Series', width: 58 },
-              { key: 'site', header: 'Site', width: 170 },
-              { key: 'lot', header: 'Lot Number' },
-            ]}
-            rows={rows}
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none' }}>
-          <PBButton style={{ width: 78 }} data-tutorial-id="host.mois.command.print-selected-mar" onClick={() => onPrint([...picked])}>Print</PBButton>
-          {/* anchored and reported, so a lesson can send the learner back to the
-              parameter window through it */}
-          <PBButton
-            style={{ width: 78 }}
-            data-tutorial-id="host.mois.command.select-mar-cancel"
-            onClick={() => { host?.report('command', { command: 'select-mar-cancel' }); onClose() }}
-          >Cancel</PBButton>
-        </div>
-      </PBWindow>
-    </div>
+    <ModalWindow id="select-mar-records" title="Select MAR Record(s) to Print" onClose={onClose} zIndex={81}
+      windowStyle={{ width: 845, height: 'min(575px, calc(100vh - 60px))' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 80px 150px 55px 40px', rowGap: 2, padding: '6px 8px', background: 'linear-gradient(#ffffff, #cfe6f7)', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
+        <span style={{ color: '#6d6d6d' }}>Patient:</span><span>{[patient.last, patient.first].filter(Boolean).join(', ').toUpperCase()}</span>
+        <span style={{ color: '#6d6d6d', textAlign: 'right' }}>DoB:&nbsp;</span><span>{patient.dob}</span>
+        <span style={{ color: '#6d6d6d' }}>Gender:</span><span>{patient.sex}</span>
+        <span style={{ color: '#6d6d6d' }}>Chart:</span><span>{patient.chart}</span>
+        <span style={{ color: '#6d6d6d', textAlign: 'right' }}>Insurance:&nbsp;</span><span style={{ gridColumn: 'span 3' }}>{ins}</span>
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0 }}>
+        <PBDataWindow
+          gutter={false}
+          columns={[
+            {
+              key: 'print', header: 'Print', width: 44, align: 'center',
+              render: (r) => <PBCheckbox checked={picked.has(r.id)} onChange={(c) => picked.set(r.id, c)} />,
+            },
+            { key: 'date', header: 'Date', width: 78 },
+            { key: 'med', header: 'Medication / Agent', width: 300 },
+            { key: 'series', header: 'Series', width: 58 },
+            { key: 'site', header: 'Site', width: 170 },
+            { key: 'lot', header: 'Lot Number' },
+          ]}
+          rows={rows}
+        />
+      </div>
+      <DialogFooter plain gap={10} padding="10px 0">
+        <PBButton style={{ width: 78 }} data-tutorial-id="host.mois.command.print-selected-mar" onClick={() => onPrint([...picked.ticked])}>Print</PBButton>
+        {/* anchored and reported, so a lesson can send the learner back to the
+            parameter window through it */}
+        <PBButton style={{ width: 78 }} command="select-mar-cancel" onClick={onClose}>Cancel</PBButton>
+      </DialogFooter>
+    </ModalWindow>
   )
 }
 
@@ -381,50 +355,47 @@ export function RichtextReportWindow({
   const sans = report.font === 'sans'
   const file = `C:\\Users\\${'MOIS'}\\AppData\\Local\\Temp\\MOIS09\\${patient.chart}.rtf`
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.print-report"
-        title={`Richtext Report: ${report.reportTitle}`}
-        onClose={onClose}
-        style={{ width: 'min(870px, calc(100vw - 60px))', height: 'min(720px, calc(100vh - 60px))' }}
+    <ModalWindow
+      id="print-report"
+      title={`Richtext Report: ${report.reportTitle}`}
+      onClose={() => onClose?.()}
+      zIndex={80}
+      windowStyle={{ width: 'min(870px, calc(100vw - 60px))', height: 'min(720px, calc(100vh - 60px))' }}
+    >
+      <div className="pb-row" style={{ gap: 4, padding: '3px 4px', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
+        <PBButton command="print">Print</PBButton>
+        <PBButton command="print-and-attach">Print and Attach</PBButton>
+        <PBButton>Fax</PBButton>
+        <PBButton onClick={onClose}>Cancel</PBButton>
+        <span className="pb-form__label" style={{ marginLeft: 12 }}>Print Pages:</span>
+        <PBInput w={80} />
+        <span className="pb-form__label" style={{ marginLeft: 8 }}>Printer:</span>
+        <PBSelect w={190} options={['\\\\print01\\Office', 'CutePDFWriter']} />
+      </div>
+      <Ribbon />
+      <div
+        data-tutorial-id="host.mois.field.report-page"
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflow: 'auto',
+          background: '#fff',
+          padding: '10px 14px',
+          fontFamily: sans ? 'Arial, "Helvetica Neue", sans-serif' : '"Lucida Console", "DejaVu Sans Mono", Menlo, monospace',
+          fontSize: 12,
+          lineHeight: 1.35,
+          whiteSpace: sans ? 'normal' : 'pre',
+          /* the kit's text mode widens word gaps (pb/text.css); a fixed-pitch
+             page lines its columns up with spaces, so it keeps them exact */
+          wordSpacing: 'normal',
+          letterSpacing: 'normal',
+        }}
       >
-        <div className="pb-row" style={{ gap: 4, padding: '3px 4px', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-          <PBButton data-tutorial-id="host.mois.command.print">Print</PBButton>
-          <PBButton data-tutorial-id="host.mois.command.print-and-attach">Print and Attach</PBButton>
-          <PBButton>Fax</PBButton>
-          <PBButton onClick={onClose}>Cancel</PBButton>
-          <span className="pb-form__label" style={{ marginLeft: 12 }}>Print Pages:</span>
-          <PBInput w={80} />
-          <span className="pb-form__label" style={{ marginLeft: 8 }}>Printer:</span>
-          <PBSelect w={190} options={['\\\\print01\\Office', 'CutePDFWriter']} />
-        </div>
-        <Ribbon />
-        <div
-          data-tutorial-id="host.mois.field.report-page"
-          style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            overflow: 'auto',
-            background: '#fff',
-            padding: '10px 14px',
-            fontFamily: sans ? 'Arial, "Helvetica Neue", sans-serif' : '"Lucida Console", "DejaVu Sans Mono", Menlo, monospace',
-            fontSize: 12,
-            lineHeight: 1.35,
-            whiteSpace: sans ? 'normal' : 'pre',
-            /* the kit's text mode widens word gaps (pb/text.css); a fixed-pitch
-               page lines its columns up with spaces, so it keeps them exact */
-            wordSpacing: 'normal',
-            letterSpacing: 'normal',
-          }}
-        >
-          <ReportPage page={page} font={report.font} />
-        </div>
-        <div className="pb-row" style={{ padding: '2px 6px', borderTop: '1px solid #9a9a9a', flex: 'none', color: '#404040' }}>
-          FILE: {file}
-        </div>
-      </PBWindow>
-    </div>
+        <ReportPage page={page} font={report.font} />
+      </div>
+      <div className="pb-row" style={{ padding: '2px 6px', borderTop: '1px solid #9a9a9a', flex: 'none', color: '#404040' }}>
+        FILE: {file}
+      </div>
+    </ModalWindow>
   )
 }

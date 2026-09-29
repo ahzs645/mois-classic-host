@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { MOIS_TODAY } from '../data/patients'
+import { argStr } from '../data/text'
 import { CURRENT_USER, TASK_PRIORITIES, WORKSPACE_USERS } from '../data/tasks'
 import { workspaceStore } from '../data/workspaceStore'
 import { PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter, FormLabel } from './formKit'
 import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 import { MhkMessageNotes, MhkSendToPatient } from './MyHealthKeyChartView'
 
@@ -36,8 +38,6 @@ import { MhkMessageNotes, MhkSendToPatient } from './MyHealthKeyChartView'
    `subject`, `sendTo` (a user to pre-fill — Create Message from Task puts the
    task's creator there, art. 303599).
    ========================================================================= */
-
-const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
 const SELECT_USER = '< select user >'
 
@@ -80,24 +80,24 @@ function RecipientGrid({ caption, users, onChange, id }: {
 }
 
 export function CreateMessageDialog({ args, close }: AreaWindowProps) {
-  const linked = Boolean(str(args.recordId) || str(args.linkedTo))
-  const [sendTo, setSendTo] = useState<string[]>(str(args.sendTo) ? [str(args.sendTo)] : [])
-  const [copies, setCopies] = useState<string[]>(str(args.copiesTo) ? str(args.copiesTo).split(';').map((c) => c.trim()).filter(Boolean) : [])
+  const linked = Boolean(argStr(args.recordId) || argStr(args.linkedTo))
+  const [sendTo, setSendTo] = useState<string[]>(argStr(args.sendTo) ? [argStr(args.sendTo)] : [])
+  const [copies, setCopies] = useState<string[]>(argStr(args.copiesTo) ? argStr(args.copiesTo).split(';').map((c) => c.trim()).filter(Boolean) : [])
   const [priority, setPriority] = useState('M')
-  const [subject, setSubject] = useState(str(args.subject))
-  const [detail, setDetail] = useState(str(args.detail))
-  const [chart, setChart] = useState(str(args.chart))
+  const [subject, setSubject] = useState(argStr(args.subject))
+  const [detail, setDetail] = useState(argStr(args.detail))
+  const [chart, setChart] = useState(argStr(args.chart))
   /* myhealthkey patient messaging (2280708 `8150b451…`; MyHealthKeyChartView.tsx):
      Send To Patient, and the record's notes (`args.notes`, ';'-separated) */
   const [toPatient, setToPatient] = useState(false)
   const [pickedNotes, setPickedNotes] = useState<string[]>([])
-  const notes = str(args.notes) ? str(args.notes).split(';').map((n) => n.trim()).filter(Boolean) : []
+  const notes = argStr(args.notes) ? argStr(args.notes).split(';').map((n) => n.trim()).filter(Boolean) : []
 
   const save = () => {
     workspaceStore.addMessage({
       p: priority,
       sent: MOIS_TODAY,
-      patient: str(args.patient),
+      patient: argStr(args.patient),
       subject: subject || '(no subject)',
       sentBy: CURRENT_USER.login,
       sentTo: sendTo.join('; '),
@@ -107,8 +107,6 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
     })
     close()
   }
-
-  const label = (text: string) => <span className="pb-form__label" style={{ width: 76, flex: 'none' }}>{text}</span>
 
   return (
     <WorkspaceDialogFrame id="create-message" title="Create New Message" width={922} height={592} onClose={close}>
@@ -125,7 +123,7 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
 
           <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <div className="pb-row" style={{ gap: 8, padding: '14px 10px', flex: 'none' }} data-tutorial-id="host.mois.field.message-priority">
-              {label('Priority:')}
+              <FormLabel w={76}>Priority:</FormLabel>
               <span className="pb-row" style={{ gap: 0, flex: '1 1 auto', justifyContent: 'space-between', paddingRight: 30 }}>
                 {TASK_PRIORITIES.map((p) => (
                   <PBRadio key={p.code} name="message-priority" label={p.label} checked={priority === p.code} onChange={() => setPriority(p.code)} />
@@ -134,9 +132,9 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
             </div>
             <FormRule />
             <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', gridTemplateRows: 'auto 1fr', rowGap: 6, padding: '10px 10px', flex: '1 1 auto', minHeight: 0 }}>
-              {label('Message:')}
+              <FormLabel w={76}>Message:</FormLabel>
               <PBInput w="100%" value={subject} data-tutorial-id="host.mois.field.message-subject" onChange={(e) => setSubject(e.target.value)} />
-              {label('Detail:')}
+              <FormLabel w={76}>Detail:</FormLabel>
               <PBTextArea
                 value={detail}
                 data-tutorial-id="host.mois.field.message-detail"
@@ -146,24 +144,24 @@ export function CreateMessageDialog({ args, close }: AreaWindowProps) {
             </div>
             <FormRule />
             <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr auto 220px', rowGap: 8, columnGap: 8, padding: '10px 10px 14px', flex: 'none' }}>
-              {label('Chart:')}
+              <FormLabel w={76}>Chart:</FormLabel>
               {linked ? <span>{chart}</span> : <PBLookup w={96} value={chart} name="message-chart" onChange={setChart} />}
               {linked ? <span className="pb-form__label">Linked to:</span> : <span />}
-              <span>{linked ? str(args.linkedTo) : ''}</span>
-              {label('Patient:')}
-              <span>{str(args.patient)}</span>
+              <span>{linked ? argStr(args.linkedTo) : ''}</span>
+              <FormLabel w={76}>Patient:</FormLabel>
+              <span>{argStr(args.patient)}</span>
               {linked ? <span className="pb-form__label">Record ID:</span> : <span />}
-              <span style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>{linked ? str(args.recordId) : ''}</span>
+              <span style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>{linked ? argStr(args.recordId) : ''}</span>
             </div>
           </div>
         </div>
       </div>
 
       {toPatient && notes.length > 0 && <MhkMessageNotes notes={notes} picked={pickedNotes} onPick={setPickedNotes} />}
-      <div className="pb-row" style={{ gap: 14, padding: '14px 0', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={14} padding="14px 0">
         <DialogButton id="message-save" onClick={save} isDefault>{linked ? 'Save (F2)' : 'Create (F2)'}</DialogButton>
         <DialogButton id="message-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PBCommandRow, PBDataWindow, PBInput, PBViewHeader } from '../pb'
+import { hhmm } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
+import { SESSION_LOGIN } from '../data/session'
 import {
   LOCKOUT_ENDS_ROW, LOCKOUT_MESSAGE_ROW, LOCKOUT_RELEASED_KEY,
   SETTING_BANDS, SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, mirrorSystemSettings, settingRowId, settingSlug, type SystemSetting,
@@ -44,10 +46,7 @@ import { useSessionState } from '../host/screen-windows'
 /** yy.mm.dd hh:mm, the footer's stamp format in `f10608fc…` */
 function stamp(): string {
   const [y, m, d] = MOIS_TODAY.split('.')
-  const now = new Date()
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  return `${y!.slice(2)}.${m}.${d}  ${hh}:${mm}`
+  return `${y!.slice(2)}.${m}.${d}  ${hhmm()}`
 }
 
 export function SystemSettingsView({ onClose }: { onClose?: () => void }) {
@@ -194,7 +193,7 @@ export function SystemSettingsView({ onClose }: { onClose?: () => void }) {
         <span className="pb-form__label">Record Created:</span>
         <span>SYSTEM</span>
         <span className="pb-form__label">Last Modified:</span>
-        <span>{modified ? `${modified}  JALA2` : ''}</span>
+        <span>{modified ? `${modified}  ${SESSION_LOGIN}` : ''}</span>
       </div>
     </>
   )

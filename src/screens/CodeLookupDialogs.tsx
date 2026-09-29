@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBLookup, PBRadio, PBSelect, PBWindow,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBLookup, PBRadio, PBSelect,
   pbSlug, usePBInstrumentation,
 } from '../pb'
 import { usePatient } from '../data/patient-context'
@@ -13,6 +13,10 @@ import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { useCodeRecords } from './adminSession'
 import { registerAreaWindow } from './areaWindowRegistry'
+import { ModalWindow } from './dialogKit'
+import {
+  FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, LookupNote, LookupPager, PickListWindow, SearchForRow, usePagedCursor,
+} from './lookupKit'
 
 /* ============================================================================
    The two code lookups the encounter header's `…` buttons open.
@@ -212,15 +216,13 @@ export function UniversalSearchDialog({ onPick, onClose, admin }: {
   const bold = (s: Section) => (section === s ? 700 : 400)
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.universal-search"
-        title={admin ? 'MOIS - Universal Search Window' : `MOIS - Universal Search Window for Chart Number: ${patient.chart} ${patient.first} ${patient.last}`}
-        onClose={onClose}
-        style={{ width: 'min(1000px, 100%)', height: 'min(720px, 100%)' }}
-      >
+    <ModalWindow
+      id="universal-search"
+      zIndex={95}
+      title={admin ? 'MOIS - Universal Search Window' : `MOIS - Universal Search Window for Chart Number: ${patient.chart} ${patient.first} ${patient.last}`}
+      onClose={onClose}
+      windowStyle={{ width: 'min(1000px, 100%)', height: 'min(720px, 100%)' }}
+    >
         <div onKeyDown={onKeyDown} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           {/* ---- the three parameter panes ---------------------------------- */}
           <div style={{ display: 'flex', flex: 'none', borderBottom: '1px solid var(--pb-border)' }}>
@@ -331,11 +333,7 @@ export function UniversalSearchDialog({ onPick, onClose, admin }: {
                 …
               </button>
             </span>
-            <PBButton
-              style={{ minWidth: 90 }}
-              data-tutorial-id="host.mois.command.search"
-              onClick={() => { host?.report('command', { command: 'search' }); runSearch() }}
-            >
+            <PBButton style={{ minWidth: 90 }} command="search" onClick={runSearch}>
               Search
             </PBButton>
 
@@ -426,33 +424,28 @@ export function UniversalSearchDialog({ onPick, onClose, admin }: {
             <PBButton
               style={{ minWidth: 118 }}
               disabled={!row}
-              data-tutorial-id="host.mois.command.select-term"
-              onClick={() => { host?.report('command', { command: 'select-term' }); if (row) { remember(); onPick(row) } }}
+              command="select-term"
+              onClick={() => { if (row) { remember(); onPick(row) } }}
             >
               Select
             </PBButton>
-            <PBButton
-              style={{ minWidth: 118 }}
-              data-tutorial-id="host.mois.command.usw-cancel"
-              onClick={() => { host?.report('command', { command: 'usw-cancel' }); onClose() }}
-            >
+            <PBButton style={{ minWidth: 118 }} command="usw-cancel" onClick={onClose}>
               Cancel
             </PBButton>
             <span style={{ flex: '1 1 auto' }} />
             <PBButton
               style={{ minWidth: 186 }}
               disabled={!row || admin}
-              data-tutorial-id="host.mois.command.usw-add-health-issue"
+              command="usw-add-health-issue"
               /* the one button that writes: it files the term as a health issue
                  on the chart as well as returning it to the field */
-              onClick={() => { host?.report('command', { command: 'usw-add-health-issue' }); if (row) onPick(row, true) }}
+              onClick={() => { if (row) onPick(row, true) }}
             >
               Select &amp; Add Health Issue
             </PBButton>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -523,8 +516,6 @@ registerAreaWindow('universal-search-window', ({ args, close }) => (
    the roster. It filters from one `Search For` box rather than a box per
    column, and carries a Source / Save on Close strip under the buttons.
    ------------------------------------------------------------------------ */
-const PAGE = 12
-
 export function ServiceCodeLookupDialog({ onPick, onClose }: {
   onPick: (row: ServiceCodeRow) => void
   onClose: () => void
@@ -533,7 +524,6 @@ export function ServiceCodeLookupDialog({ onPick, onClose }: {
   const [status, setStatus] = useState('ALL')
   const [source, setSource] = useState('ALL')
   const [saveOnClose, setSaveOnClose] = useState(false)
-  const [cur, setCur] = useState(0)
 
   const rows = useMemo(() => {
     const want = search.trim().toUpperCase()
@@ -543,25 +533,27 @@ export function ServiceCodeLookupDialog({ onPick, onClose }: {
     ))
   }, [search])
 
-  const row = rows[Math.min(cur, rows.length - 1)]
-  const step = (delta: number) => setCur((i) => Math.max(0, Math.min(rows.length - 1, i + delta)))
+  const cursor = usePagedCursor(rows.length, 12)
+  const row = rows[cursor.at]
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.service-code-lookup"
-        title="Advanced Lookup Service"
-        onClose={onClose}
-        style={{ width: 'min(1000px, 100%)', height: 'min(720px, 100%)' }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8, gap: 6 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            <div className="pb-band--ruled"><PBBand>Master Service Code List</PBBand></div>
-            <div className="pb-row" style={{ gap: 4, padding: '3px 4px', flex: 'none' }}>
-              <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-              <PBLookup w="100%" value={search} onChange={setSearch} name="service-code-search" />
+    <PickListWindow<ServiceCodeRow>
+      window={{
+        id: 'service-code-lookup',
+        title: 'Advanced Lookup Service',
+        onClose,
+        zIndex: 95,
+        windowStyle: { width: 'min(1000px, 100%)', height: 'min(720px, 100%)' },
+      }}
+      body={LOOKUP_BODY}
+      panel={LOOKUP_PANEL}
+      band={<LookupBand variant="ruled">Master Service Code List</LookupBand>}
+      search={(
+        <SearchForRow
+          style={{ gap: 4, padding: '3px 4px', flex: 'none' }}
+          input={<PBLookup w="100%" value={search} onChange={setSearch} name="service-code-search" />}
+          after={(
+            <>
               <span>Status:</span>
               <PBSelect
                 w={92}
@@ -569,69 +561,53 @@ export function ServiceCodeLookupDialog({ onPick, onClose }: {
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
               />
-            </div>
-            <PBDataWindow
-              flush
-              rules="white"
-              style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={[
-                { key: 'code', header: 'Code', width: 86, align: 'center' },
-                { key: 'description', header: 'Description' },
-                { key: 'msp', header: 'MSP', width: 78, align: 'right' },
-                { key: 'wcb', header: 'WCB', width: 78, align: 'right' },
-                { key: 'private', header: 'Private', width: 82, align: 'right' },
-                { key: 'system', header: 'Code System', width: 108 },
-                { key: 'category', header: 'Category', width: 128 },
-                { key: 'type', header: 'Type', width: 88 },
-              ]}
-              rows={rows}
-              current={Math.min(cur, Math.max(0, rows.length - 1))}
-              onCurrentChange={setCur}
-              onActivate={(r) => onPick(r)}
-              empty="No service code matches."
-            />
-          </div>
-
-          <div
-            className="pb-field"
-            style={{ height: 96, flex: 'none', padding: '3px 5px', background: '#fff' }}
-          >
-            This is the master service code selection list
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-            <PBButton wide onClick={() => setCur(0)}>Home</PBButton>
-            <PBButton wide onClick={() => step(-PAGE)}>PgUp</PBButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton
-              wide
-              className="pb-btn--default"
-              disabled={!row}
-              data-tutorial-id="host.mois.command.pick-service-code"
-              onClick={() => row && onPick(row)}
-            >
-              Ok
-            </PBButton>
-            <span style={{ width: 14 }} />
-            <PBButton wide onClick={onClose}>Cancel</PBButton>
-            <span style={{ flex: '1 1 auto' }} />
-            <PBButton wide onClick={() => step(PAGE)}>PgDwn</PBButton>
-            <PBButton wide onClick={() => setCur(rows.length - 1)}>End</PBButton>
-          </div>
-
-          {/* the strip the Patient Chart List does not have */}
-          <div className="pb-row" style={{ gap: 10, flex: 'none' }}>
-            <span>Source:</span>
-            <PBSelect
-              w={200}
-              options={['ALL', 'BCMSPFEE', 'BCMAFEE', 'USER']}
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-            />
-            <PBCheckbox label="Save on Close" checked={saveOnClose} onChange={setSaveOnClose} />
-          </div>
+            </>
+          )}
+        />
+      )}
+      gridBox={null}
+      grid={{
+        flush: true,
+        rules: 'white',
+        style: FILL_GRID,
+        columns: [
+          { key: 'code', header: 'Code', width: 86, align: 'center' },
+          { key: 'description', header: 'Description' },
+          { key: 'msp', header: 'MSP', width: 78, align: 'right' },
+          { key: 'wcb', header: 'WCB', width: 78, align: 'right' },
+          { key: 'private', header: 'Private', width: 82, align: 'right' },
+          { key: 'system', header: 'Code System', width: 108 },
+          { key: 'category', header: 'Category', width: 128 },
+          { key: 'type', header: 'Type', width: 88 },
+        ],
+        rows,
+        current: cursor.at,
+        onCurrentChange: cursor.setCurrent,
+        onActivate: (r) => onPick(r),
+        empty: 'No service code matches.',
+      }}
+      below={<LookupNote height={96}>This is the master service code selection list</LookupNote>}
+      footerInside
+      footer={(
+        <LookupPager
+          cursor={cursor}
+          ok={{ command: 'pick-service-code', isDefault: true, disabled: !row, onClick: () => row && onPick(row) }}
+          cancel={{ onClick: onClose }}
+        />
+      )}
+      after={(
+        /* the strip the Patient Chart List does not have */
+        <div className="pb-row" style={{ gap: 10, flex: 'none' }}>
+          <span>Source:</span>
+          <PBSelect
+            w={200}
+            options={['ALL', 'BCMSPFEE', 'BCMAFEE', 'USER']}
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          />
+          <PBCheckbox label="Save on Close" checked={saveOnClose} onChange={setSaveOnClose} />
         </div>
-      </PBWindow>
-    </div>
+      )}
+    />
   )
 }

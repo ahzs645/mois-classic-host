@@ -5,12 +5,16 @@ import {
   builderRunHistory, deleteBuilderReport, loadReportNavigator, recordBuilderChange, recordBuilderRun,
   saveBuilderReport, shareBuilderReport, yearsOld, type BuilderReport,
 } from '../data/reportParams'
+import { stageStamp } from '../data/clock'
 import { patients, MOIS_TODAY, type Patient } from '../data/patients'
 import { RS_FACILITIES, RS_PROVIDERS, RS_SERVICE_CENTERS, RS_STATUS_CODES } from '../data/reportSpecs/types'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBMessageBox, PBSelect, PBTextArea, pbSlug, usePBInstrumentation,
+  PBBand, PBCheckbox, PBDataWindow, PBMessageBox, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter, NAVY, SectionCaption } from './formKit'
+import { useTickSet } from './listKit'
+import { CmdCheck, CmdRadio, DotsButton, FieldInput, FieldSelect } from './reportKit'
 import { ReportPicker } from './ReportSpecWindow'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
@@ -97,7 +101,6 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    ========================================================================= */
 
 const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
-const NAVY = '#000080'
 const ROW_A = ['Patient Data', 'Health Conditions', 'Measures', 'Medications', 'Imaging', 'Procedures', 'Consults', 'Admissions']
 const ROW_B = ['Interventions', 'Encounters', 'Connections', 'Alias ID', 'Order', 'Preference', 'Risk for Cond.', 'MAR']
 const RULE_ROWS = 16
@@ -105,11 +108,6 @@ const WHEN = ['ANY TIME', 'IN RANGE', 'IGNORE']
 const DONE = ['', 'Done', 'Not Done']
 const HAS = ['', 'Has', 'Does Not Have']
 const COMPARE = ['>', '>=', '<', '<=', '=', '<>']
-
-const now = () => {
-  const d = new Date()
-  return `${MOIS_TODAY} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
 
 /* ===========================================================================
    The criteria model
@@ -369,7 +367,7 @@ function BuilderListWindow({ close, open }: AreaWindowProps) {
 
   return (
     <WorkspaceDialogFrame id="advanced-report-builder-list" title="Advanced Medical Report Builder" width={992} height={600} onClose={close}>
-      <div style={{ background: NAVY, color: '#fff', fontSize: 17, fontWeight: 700, padding: '4px 6px', flex: 'none' }}>Advanced Medical Reports</div>
+      <div style={{ background: NAVY.win, color: '#fff', fontSize: 17, fontWeight: 700, padding: '4px 6px', flex: 'none' }}>Advanced Medical Reports</div>
       <div className="pb-row" style={{ gap: 0, padding: '2px 0', background: '#d4d0c8', borderBottom: '1px solid #808080', flex: 'none' }}>
         <DialogButton id="arb-new" width={80} onClick={() => open('advanced-report-builder', { isNew: true })}>New</DialogButton>
         <DialogButton id="arb-delete" width={80} onClick={() => picked && setConfirm({ kind: 'delete', report: picked })}>Delete</DialogButton>
@@ -442,68 +440,8 @@ function BuilderListWindow({ close, open }: AreaWindowProps) {
    The editor's small controls
    ======================================================================== */
 const Heading = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '6px 0 3px', borderBottom: '1px solid #c0c0c0', marginBottom: 4 }}>{children}</div>
+  <SectionCaption padding="6px 0 3px" rule="#c0c0c0" style={{ marginBottom: 4 }}>{children}</SectionCaption>
 )
-
-function Field({ id, value, onChange, w, align, disabled }: {
-  id?: string; value: string; onChange: (v: string) => void; w: number | string; align?: 'center' | 'right'; disabled?: boolean
-}) {
-  return (
-    <input
-      className={`pb-field${align === 'center' ? ' pb-field--center' : align === 'right' ? ' pb-field--right' : ''}`}
-      style={{ width: w }}
-      value={value}
-      disabled={disabled}
-      data-tutorial-id={id ? `host.mois.field.${id}` : undefined}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  )
-}
-
-function Select({ id, value, options, onChange, w }: { id?: string; value: string; options: readonly string[]; onChange: (v: string) => void; w: number }) {
-  return (
-    <PBSelect w={w} value={value} options={options} data-tutorial-id={id ? `host.mois.field.${id}` : undefined} onChange={(e) => onChange(e.target.value)} />
-  )
-}
-
-function Dots({ id, onClick }: { id?: string; onClick?: () => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <button
-      type="button"
-      className="pb-inputgroup__btn pb-inputgroup__btn--dots"
-      style={{ height: 19 }}
-      data-tutorial-id={id ? host?.anchor('lookup', id) : undefined}
-      onClick={() => { if (id) host?.report('lookup', { field: id }); onClick?.() }}
-    >
-      …
-    </button>
-  )
-}
-
-function Check({ id, label, checked, onChange }: { id: string; label?: ReactNode; checked: boolean; onChange: (v: boolean) => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <PBCheckbox
-      label={label}
-      checked={checked}
-      tutorialId={host?.anchor('command', id)}
-      onChange={(v) => { host?.report('command', { command: id }); onChange(v) }}
-    />
-  )
-}
-
-function Radio({ id, name, label, checked, onChange }: { id: string; name: string; label: ReactNode; checked: boolean; onChange: () => void }) {
-  const host = usePBInstrumentation()
-  return (
-    <label className="pb-check pb-check--radio">
-      <input type="radio" name={name} checked={checked} data-tutorial-id={host?.anchor('command', id)}
-        onChange={() => { host?.report('command', { command: id }); onChange() }} />
-      <span className="pb-check__box"><span className="pb-check__dot" /></span>
-      <span className="pb-check__label">{label}</span>
-    </label>
-  )
-}
 
 const PATIENT_FIELDS = ['Address 1', 'Address 2', 'City', 'Province', 'Country', 'Postal Code', 'Home Phone', 'Work Phone', 'Cell Phone', 'Other Phone', 'Fax', 'Home Email', 'Work Email', 'Location Code', 'Insurance Provider', 'Ethnicity - Father', 'Ethnicity - Mother']
 
@@ -582,7 +520,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
 
   /* --- outputs ----------------------------------------------------------- */
   const matched = () => matchedPatients(c)
-  const run = (output: string, n: number) => recordBuilderRun(reportName.toUpperCase(), output, n, now())
+  const run = (output: string, n: number) => recordBuilderRun(reportName.toUpperCase(), output, n, stageStamp())
   const reportOutput = () => {
     const list = matched()
     run('Report', list.length)
@@ -668,7 +606,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
     if (patientKeys.some((k) => baseline.c[k] !== c[k]) || JSON.stringify(baseline.c.fields) !== JSON.stringify(c.fields)) {
       list.push({ change: 'Patient Data changed', detail: `Patient Status ${c.status}; Age ${c.ageFrom} to ${c.ageTo}; Sex ${c.sex || '(any)'}; Last contact ${c.lastYears || '(ignored)'} year(s)` })
     }
-    recordBuilderChange(n, list, now())
+    recordBuilderChange(n, list, stageStamp())
     setName(n)
     setOriginal(n)
     setIsNew(false)
@@ -702,8 +640,8 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
           const pick = col.pick ?? []
           return (
             <span key={col.key} className="pb-inputgroup" style={{ width: col.w - 4 }}>
-              <Field id={id} value={v} w="100%" onChange={(x) => setRow(t, i, { [col.key]: x.toUpperCase() })} />
-              <Dots
+              <FieldInput id={id} value={v} w="100%" onChange={(x) => setRow(t, i, { [col.key]: x.toUpperCase() })} />
+              <DotsButton h={19}
                 id={i === 0 ? `arb-${slug}-${col.key}-1` : undefined}
                 onClick={() => setPicking({
                   title: `Select ${typeof col.header === 'string' ? col.header.replace(/ contains.*$/, '') : 'Concept'}`,
@@ -723,7 +661,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
         case 'select':
           return (
             <span key={col.key}>
-              <Select id={id} value={v || (col.key === 'when' ? 'ANY TIME' : '')} options={col.options ?? []} w={col.w - 4}
+              <FieldSelect id={id} value={v || (col.key === 'when' ? 'ANY TIME' : '')} options={col.options ?? []} w={col.w - 4}
                 onChange={(x) => setRow(t, i, { [col.key]: x })} />
             </span>
           )
@@ -731,14 +669,14 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
           return (
             <span key={col.key} style={{ textAlign: 'center' }}>
               {i === 0
-                ? <Check id={`arb-${slug}-csv-1`} checked={r.csv === true} onChange={(x) => setRow(t, i, { csv: x })} />
+                ? <CmdCheck id={`arb-${slug}-csv-1`} checked={r.csv === true} onChange={(x) => setRow(t, i, { csv: x })} />
                 : <PBCheckbox checked={r.csv === true} onChange={(x) => setRow(t, i, { csv: x })} />}
             </span>
           )
         case 'num':
-          return <span key={col.key} style={{ textAlign: 'center' }}><Field id={id} value={v} w={col.w - 18} align="center" onChange={(x) => setRow(t, i, { [col.key]: x })} /></span>
+          return <span key={col.key} style={{ textAlign: 'center' }}><FieldInput id={id} value={v} w={col.w - 18} align="center" onChange={(x) => setRow(t, i, { [col.key]: x })} /></span>
         default:
-          return <span key={col.key}><Field id={id} value={v} w={col.w - 4} onChange={(x) => setRow(t, i, { [col.key]: x })} /></span>
+          return <span key={col.key}><FieldInput id={id} value={v} w={col.w - 4} onChange={(x) => setRow(t, i, { [col.key]: x })} /></span>
       }
     }
     return (
@@ -746,34 +684,34 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
         <Heading>{cfg.heading}</Heading>
         <div className="pb-row" style={{ gap: 16, padding: '2px 0 6px', borderBottom: '1px solid #c0c0c0', alignItems: 'flex-start' }}>
           <span className="pb-row" style={{ gap: 6 }}>
-            <Check id={`arb-${slug}-all`} label={all ? `Patient has all the ${cfg.noun} listed below.` : 'Patient has at least'} checked={all}
+            <CmdCheck id={`arb-${slug}-all`} label={all ? `Patient has all the ${cfg.noun} listed below.` : 'Patient has at least'} checked={all}
               onChange={(v) => edit((d) => { d.all[t] = v })} />
             {!all && (
               <>
-                <Field id={`arb-${slug}-at-least`} value={c.atLeast[t] ?? '1'} w={32} align="center" onChange={(v) => edit((d) => { d.atLeast[t] = v })} />
+                <FieldInput id={`arb-${slug}-at-least`} value={c.atLeast[t] ?? '1'} w={32} align="center" onChange={(v) => edit((d) => { d.atLeast[t] = v })} />
                 <span>{cfg.noun} listed below.</span>
               </>
             )}
           </span>
           <span style={{ flex: '1 1 auto' }} />
           {cfg.stop && (
-            <Check id={`arb-${slug}-stop-date`} label="Include records with a stop date." checked={c.stop[t] ?? false} onChange={(v) => edit((d) => { d.stop[t] = v })} />
+            <CmdCheck id={`arb-${slug}-stop-date`} label="Include records with a stop date." checked={c.stop[t] ?? false} onChange={(v) => edit((d) => { d.stop[t] = v })} />
           )}
           {(cfg.extended || cfg.noKnown) && (
             <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {cfg.extended && <Check id={`arb-${slug}-extended`} label="Include Extended Information in CSV File" checked={c.extended} onChange={(v) => edit((d) => { d.extended = v })} />}
-              {cfg.noKnown && <Check id={`arb-${slug}-no-known`} label="Include Patients with No Known." checked={c.noKnown[t] ?? false} onChange={(v) => edit((d) => { d.noKnown[t] = v })} />}
+              {cfg.extended && <CmdCheck id={`arb-${slug}-extended`} label="Include Extended Information in CSV File" checked={c.extended} onChange={(v) => edit((d) => { d.extended = v })} />}
+              {cfg.noKnown && <CmdCheck id={`arb-${slug}-no-known`} label="Include Patients with No Known." checked={c.noKnown[t] ?? false} onChange={(v) => edit((d) => { d.noKnown[t] = v })} />}
             </span>
           )}
           {cfg.limit && (
             <span className="pb-row" style={{ gap: 6 }}>
               <span>Limited investigation to a date range?</span>
-              <Check id={`arb-${slug}-limit`} checked={limit} onChange={(v) => edit((d) => { d.limited[t] = v })} />
+              <CmdCheck id={`arb-${slug}-limit`} checked={limit} onChange={(v) => edit((d) => { d.limited[t] = v })} />
               {limit && (
                 <>
                   <span>Only look at data from the last</span>
-                  <Field id="arb-lookback" value={c.lookback.n} w={32} align="center" onChange={(v) => edit((d) => { d.lookback.n = v })} />
-                  <Select value={c.lookback.unit} options={['Year(s)', 'Month(s)', 'Day(s)']} w={66} onChange={(v) => edit((d) => { d.lookback.unit = v })} />
+                  <FieldInput id="arb-lookback" value={c.lookback.n} w={32} align="center" onChange={(v) => edit((d) => { d.lookback.n = v })} />
+                  <FieldSelect value={c.lookback.unit} options={['Year(s)', 'Month(s)', 'Day(s)']} w={66} onChange={(v) => edit((d) => { d.lookback.unit = v })} />
                 </>
               )}
             </span>
@@ -808,68 +746,68 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
       <Heading>Encounters</Heading>
       <div className="pb-row" style={{ gap: 6, padding: '2px 270px 6px 0', borderBottom: '1px solid #c0c0c0', justifyContent: 'flex-end' }}>
         <span>Limited investigation to a date range?</span>
-        <Check id="arb-encounters-limit" checked={c.limited.Encounters ?? false} onChange={(v) => edit((d) => { d.limited.Encounters = v })} />
+        <CmdCheck id="arb-encounters-limit" checked={c.limited.Encounters ?? false} onChange={(v) => edit((d) => { d.limited.Encounters = v })} />
         {c.limited.Encounters && (
           <>
             <span>Only look at data from the last</span>
-            <Field id="arb-lookback" value={c.lookback.n} w={32} align="center" onChange={(v) => edit((d) => { d.lookback.n = v })} />
-            <Select value={c.lookback.unit} options={['Year(s)', 'Month(s)', 'Day(s)']} w={66} onChange={(v) => edit((d) => { d.lookback.unit = v })} />
+            <FieldInput id="arb-lookback" value={c.lookback.n} w={32} align="center" onChange={(v) => edit((d) => { d.lookback.n = v })} />
+            <FieldSelect value={c.lookback.unit} options={['Year(s)', 'Month(s)', 'Day(s)']} w={66} onChange={(v) => edit((d) => { d.lookback.unit = v })} />
           </>
         )}
       </div>
       <div style={{ fontWeight: 700, padding: '4px 0 2px' }}>Conditions</div>
       <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', rowGap: 4, alignItems: 'center', paddingBottom: 6, borderBottom: '1px solid #c0c0c0' }}>
-        <span>When:</span><span><Select id="arb-encounters-when" value={e.when} options={WHEN} w={82} onChange={(v) => setE({ when: v })} /></span>
+        <span>When:</span><span><FieldSelect id="arb-encounters-when" value={e.when} options={WHEN} w={82} onChange={(v) => setE({ when: v })} /></span>
         <span style={{ alignSelf: 'start' }}>Check for:</span>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Radio id="arb-encounters-have" name="arb-enc-check" label="Have visits with following information" checked={e.check === 'have'} onChange={() => setE({ check: 'have' })} />
-          <Radio id="arb-encounters-not" name="arb-enc-check" label="Does not have visits with following information" checked={e.check === 'not'} onChange={() => setE({ check: 'not' })} />
+          <CmdRadio id="arb-encounters-have" name="arb-enc-check" label="Have visits with following information" checked={e.check === 'have'} onChange={() => setE({ check: 'have' })} />
+          <CmdRadio id="arb-encounters-not" name="arb-enc-check" label="Does not have visits with following information" checked={e.check === 'not'} onChange={() => setE({ check: 'not' })} />
         </span>
       </div>
       <div style={{ fontWeight: 700, padding: '4px 0 2px' }}>Constraint(s)</div>
       <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', rowGap: 3, alignItems: 'center', paddingBottom: 18, borderBottom: '1px solid #c0c0c0' }}>
         <span>With at least</span>
         <span className="pb-row" style={{ gap: 6 }}>
-          <Field id="arb-encounters-at-least" value={e.atLeast} w={42} align="center" onChange={(v) => setE({ atLeast: v })} /> visits.
+          <FieldInput id="arb-encounters-at-least" value={e.atLeast} w={42} align="center" onChange={(v) => setE({ atLeast: v })} /> visits.
           <span style={{ width: 16 }} />With no more than
-          <Field id="arb-encounters-no-more" value={e.noMore} w={42} align="center" onChange={(v) => setE({ noMore: v })} /> visits.
+          <FieldInput id="arb-encounters-no-more" value={e.noMore} w={42} align="center" onChange={(v) => setE({ noMore: v })} /> visits.
         </span>
         <span>Visit Code(s):</span>
         <span className="pb-row" style={{ gap: 6 }}>
           <span className="pb-inputgroup" style={{ width: 134 }}>
-            <Field id="arb-encounters-visit-codes" value={e.visitCodes} w="100%" onChange={(v) => setE({ visitCodes: v.toUpperCase() })} />
-            <Dots id="arb-encounters-visit-codes" onClick={() => setPicking({ title: 'Visit Codes', options: ['OV - OFFICE VISIT', 'PH - PHONE', 'VV - VIRTUAL VISIT', 'HV - HOME VISIT', 'GR - GROUP'], multi: true, value: e.visitCodes, apply: (v) => setE({ visitCodes: v }) })} />
+            <FieldInput id="arb-encounters-visit-codes" value={e.visitCodes} w="100%" onChange={(v) => setE({ visitCodes: v.toUpperCase() })} />
+            <DotsButton h={19} id="arb-encounters-visit-codes" onClick={() => setPicking({ title: 'Visit Codes', options: ['OV - OFFICE VISIT', 'PH - PHONE', 'VV - VIRTUAL VISIT', 'HV - HOME VISIT', 'GR - GROUP'], multi: true, value: e.visitCodes, apply: (v) => setE({ visitCodes: v }) })} />
           </span>
           (comma separated list)
         </span>
         <span>Appt Status:</span>
         <span className="pb-row" style={{ gap: 6 }}>
           <span className="pb-inputgroup" style={{ width: 118 }}>
-            <Field id="arb-encounters-appt-status" value={e.apptStatus} w="100%" onChange={(v) => setE({ apptStatus: v.toUpperCase() })} />
-            <Dots id="arb-encounters-appt-status" onClick={() => setPicking({ title: 'Appointment Status', options: ['A - ARRIVED', 'C - CANCELLED', 'N - NO SHOW', 'R - REBOOKED', 'S - SEEN', 'ALL'], multi: true, value: e.apptStatus, apply: (v) => setE({ apptStatus: v }) })} />
+            <FieldInput id="arb-encounters-appt-status" value={e.apptStatus} w="100%" onChange={(v) => setE({ apptStatus: v.toUpperCase() })} />
+            <DotsButton h={19} id="arb-encounters-appt-status" onClick={() => setPicking({ title: 'Appointment Status', options: ['A - ARRIVED', 'C - CANCELLED', 'N - NO SHOW', 'R - REBOOKED', 'S - SEEN', 'ALL'], multi: true, value: e.apptStatus, apply: (v) => setE({ apptStatus: v }) })} />
           </span>
           if BLANK - (C)ancel, (R)ebook and (N)o show will be automatically excluded.  To include these, enter ALL.
         </span>
         <span>Diagnoses:</span>
         <span className="pb-row" style={{ gap: 6 }}>
           <span className="pb-inputgroup" style={{ width: 460 }}>
-            <Field id="arb-encounters-diagnoses" value={e.diagnoses} w="100%" onChange={(v) => setE({ diagnoses: v.toUpperCase() })} />
-            <Dots id="arb-encounters-diagnoses" onClick={() => setPicking({ title: 'Diagnoses', options: ['250 - DIABETES MELLITUS', '401 - HYPERTENSION', '428 - HEART FAILURE', '493 - ASTHMA', '496 - COPD', '311 - DEPRESSION'], multi: true, value: e.diagnoses, apply: (v) => setE({ diagnoses: v }) })} />
+            <FieldInput id="arb-encounters-diagnoses" value={e.diagnoses} w="100%" onChange={(v) => setE({ diagnoses: v.toUpperCase() })} />
+            <DotsButton h={19} id="arb-encounters-diagnoses" onClick={() => setPicking({ title: 'Diagnoses', options: ['250 - DIABETES MELLITUS', '401 - HYPERTENSION', '428 - HEART FAILURE', '493 - ASTHMA', '496 - COPD', '311 - DEPRESSION'], multi: true, value: e.diagnoses, apply: (v) => setE({ diagnoses: v }) })} />
           </span>
           (comma separated list)
         </span>
         <span>Service Code(s):</span>
         <span className="pb-row" style={{ gap: 6 }}>
           <span className="pb-inputgroup" style={{ width: 460 }}>
-            <Field id="arb-encounters-service-codes" value={e.serviceCodes} w="100%" onChange={(v) => setE({ serviceCodes: v.toUpperCase() })} />
-            <Dots id="arb-encounters-service-codes" onClick={() => setPicking({ title: 'Service Codes', options: ['00100 - VISIT IN OFFICE', '13050 - COMPLEX CARE MANAGEMENT', '14033 - ANNUAL CHRONIC CARE BONUS', '14076 - PATIENT CONFERENCE'], multi: true, value: e.serviceCodes, apply: (v) => setE({ serviceCodes: v }) })} />
+            <FieldInput id="arb-encounters-service-codes" value={e.serviceCodes} w="100%" onChange={(v) => setE({ serviceCodes: v.toUpperCase() })} />
+            <DotsButton h={19} id="arb-encounters-service-codes" onClick={() => setPicking({ title: 'Service Codes', options: ['00100 - VISIT IN OFFICE', '13050 - COMPLEX CARE MANAGEMENT', '14033 - ANNUAL CHRONIC CARE BONUS', '14076 - PATIENT CONFERENCE'], multi: true, value: e.serviceCodes, apply: (v) => setE({ serviceCodes: v }) })} />
           </span>
           (comma separated list)
         </span>
       </div>
       <div style={{ fontWeight: 700, padding: '6px 0 4px' }}>Output(s)</div>
       <div style={{ paddingLeft: 84 }}>
-        <Check id="arb-encounters-visit-count" label="Visit Count" checked={e.visitCount} onChange={(v) => setE({ visitCount: v })} />
+        <CmdCheck id="arb-encounters-visit-count" label="Visit Count" checked={e.visitCount} onChange={(v) => setE({ visitCount: v })} />
       </div>
     </div>
   )
@@ -884,18 +822,18 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
           <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
             <span className="pb-form__label" style={{ width: 80 }}>Patient Status:</span>
             <span className="pb-inputgroup" style={{ width: 134 }}>
-              <Field id="arb-status" value={c.status} onChange={(v) => setP({ status: v.toUpperCase() })} w="100%" />
-              <Dots id="arb-status" onClick={() => setPicking({ title: 'Patient Status', options: RS_STATUS_CODES, multi: true, value: c.status, apply: (v) => setP({ status: v }) })} />
+              <FieldInput id="arb-status" value={c.status} onChange={(v) => setP({ status: v.toUpperCase() })} w="100%" />
+              <DotsButton h={19} id="arb-status" onClick={() => setPicking({ title: 'Patient Status', options: RS_STATUS_CODES, multi: true, value: c.status, apply: (v) => setP({ status: v }) })} />
             </span>
             <span>(comma separated)</span>
           </div>
           <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
             <span className="pb-form__label" style={{ width: 80 }}>Age Range:</span>
-            <Field id="arb-age-from" value={c.ageFrom} onChange={(v) => setP({ ageFrom: v })} w={46} align="right" /> to <Field id="arb-age-to" value={c.ageTo} onChange={(v) => setP({ ageTo: v })} w={46} align="right" />
+            <FieldInput id="arb-age-from" value={c.ageFrom} onChange={(v) => setP({ ageFrom: v })} w={46} align="right" /> to <FieldInput id="arb-age-to" value={c.ageTo} onChange={(v) => setP({ ageTo: v })} w={46} align="right" />
           </div>
           <div className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
             <span className="pb-form__label" style={{ width: 80 }}>Sex:</span>
-            <Field id="arb-sex" value={c.sex} onChange={(v) => setP({ sex: v.toUpperCase() })} w={46} />
+            <FieldInput id="arb-sex" value={c.sex} onChange={(v) => setP({ sex: v.toUpperCase() })} w={46} />
           </div>
         </div>
         <div>
@@ -903,7 +841,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
           {([['Provider:', 'provider', RS_PROVIDERS], ['Facility Code:', 'facility', RS_FACILITIES], ['Service Center:', 'service', RS_SERVICE_CENTERS]] as const).map(([l, k, opts]) => (
             <div key={l} className="pb-row" style={{ gap: 6, padding: '1px 0' }}>
               <span className="pb-form__label" style={{ width: 80 }}>{l}</span>
-              <Select id={`arb-${k}`} value={c[k]} options={opts} w={172} onChange={(v) => setP({ [k]: v } as Partial<Criteria>)} />
+              <FieldSelect id={`arb-${k}`} value={c[k]} options={opts} w={172} onChange={(v) => setP({ [k]: v } as Partial<Criteria>)} />
             </div>
           ))}
         </div>
@@ -911,7 +849,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
       <Heading>Last Contact Date</Heading>
       <div className="pb-row" style={{ gap: 6 }}>
         <span className="pb-form__label" style={{ width: 80 }}>In the last:</span>
-        <Field id="arb-last-contact" value={c.lastYears} onChange={(v) => setP({ lastYears: v })} w={72} align="center" /> year(s)
+        <FieldInput id="arb-last-contact" value={c.lastYears} onChange={(v) => setP({ lastYears: v })} w={72} align="center" /> year(s)
       </div>
       <Heading>Additional Patient Data</Heading>
       <div style={{ display: 'grid', gridTemplateColumns: '180px 230px 90px 90px', alignItems: 'end', rowGap: 1 }}>
@@ -923,9 +861,9 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
           const setF = (patch: Partial<typeof v>) => edit((d) => { d.fields[f] = { ...v, ...patch } })
           return [
             <span key={`${f}l`}>{f}</span>,
-            <Field key={`${f}f`} id={`arb-field-${slug}`} value={v.filter} w={224} onChange={(x) => setF({ filter: x })} />,
-            <span key={`${f}c`} style={{ textAlign: 'center' }}><Check id={`arb-field-${slug}-csv`} checked={v.csv} onChange={(x) => setF({ csv: x })} /></span>,
-            <span key={`${f}o`} style={{ textAlign: 'center' }}>{v.csv ? <Field value={v.order} w={60} align="center" onChange={(x) => setF({ order: x })} /> : null}</span>,
+            <FieldInput key={`${f}f`} id={`arb-field-${slug}`} value={v.filter} w={224} onChange={(x) => setF({ filter: x })} />,
+            <span key={`${f}c`} style={{ textAlign: 'center' }}><CmdCheck id={`arb-field-${slug}-csv`} checked={v.csv} onChange={(x) => setF({ csv: x })} /></span>,
+            <span key={`${f}o`} style={{ textAlign: 'center' }}>{v.csv ? <FieldInput value={v.order} w={60} align="center" onChange={(x) => setF({ order: x })} /> : null}</span>,
           ]
         })}
       </div>
@@ -940,15 +878,15 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
           <fieldset className="pb-fieldset" style={{ margin: 0, flex: '1 1 auto' }}>
             <legend className="pb-fieldset__legend" style={{ color: '#000', fontWeight: 700 }}>Detail</legend>
             <div className="pb-fieldset__body" style={{ display: 'grid', gridTemplateColumns: '44px 1fr', rowGap: 3, alignItems: 'center' }}>
-              <span>Name:</span><Field id="arb-name" value={name} onChange={(v) => { setName(v.toUpperCase()); setSaved(false) }} w={456} />
+              <span>Name:</span><FieldInput id="arb-name" value={name} onChange={(v) => { setName(v.toUpperCase()); setSaved(false) }} w={456} />
               <span style={{ alignSelf: 'start' }}>Desc.:</span>
               <PBTextArea rows={2} w={456} value={desc} data-tutorial-id="host.mois.field.arb-desc" onChange={(ev) => { setDesc(ev.target.value); setSaved(false) }} />
               <span>Access:</span>
               <span className="pb-row" style={{ gap: 6 }}>
-                <Select id="arb-access" value={access} options={['Private', 'Limited', 'Public']} onChange={(v) => { setAccess(v); setSaved(false) }} w={80} />
+                <FieldSelect id="arb-access" value={access} options={['Private', 'Limited', 'Public']} onChange={(v) => { setAccess(v); setSaved(false) }} w={80} />
                 <span style={{ color: '#6d6d6d', width: 130 }}>{owner}</span>
                 <span style={{ marginLeft: 'auto' }}>Group:</span>
-                <Field id="arb-group" value={group} onChange={(v) => { setGroup(v); setSaved(false) }} w={144} />
+                <FieldInput id="arb-group" value={group} onChange={(v) => { setGroup(v); setSaved(false) }} w={144} />
               </span>
             </div>
           </fieldset>
@@ -958,7 +896,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
               <DialogButton id="arb-save" width={90} onClick={save}>Save Changes</DialogButton>
               <span style={{ color: '#6d6d6d' }}>Other</span>
               <span className="pb-row" style={{ gap: 8 }}>
-                <Select id="arb-other" value={other} options={['Other options...', 'Change History Review', 'Run History Review']} onChange={setOther} w={164} />
+                <FieldSelect id="arb-other" value={other} options={['Other options...', 'Change History Review', 'Run History Review']} onChange={setOther} w={164} />
                 <DialogButton id="arb-go" width={62} onClick={go}>Go</DialogButton>
               </span>
             </div>
@@ -1076,9 +1014,9 @@ function HistoryWindow({ kind, report, onClose }: { kind: 'change' | 'run'; repo
           <PBTextArea rows={5} w="100%" readOnly value={changes[cur]?.detail ?? ''} data-tutorial-id="host.mois.field.arb-change-detail" />
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px', flex: 'none' }}>
+      <DialogFooter plain padding="4px 0 10px">
         <DialogButton id="arb-history-close" width={75} isDefault onClick={onClose}>Close</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -1099,10 +1037,10 @@ const EXTENDED_ITEMS = [
 function ExtendedOutputWindow({ report, patients: panel, onCancel, onGenerate }: {
   report: string; patients: Patient[]; onCancel: () => void; onGenerate: (head: string[], rows: string[][]) => void
 }) {
-  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const picked = useTickSet<string>()
   const [due, setDue] = useState(true)
   const [cur, setCur] = useState(0)
-  useScreenReport({ extendedItems: [...picked].map(pbSlug).join(',') })
+  useScreenReport({ extendedItems: [...picked.ticked].map(pbSlug).join(',') })
   const generate = () => {
     const items = EXTENDED_ITEMS.filter((x) => picked.has(x.item))
     const head = ['CHART', 'LAST NAME', 'FIRST NAME', 'DOB', 'SEX', ...items.flatMap((x) => [`${x.item.toUpperCase()} LAST DONE`, ...(due ? [`${x.item.toUpperCase()} NEXT DUE`] : [])])]
@@ -1130,8 +1068,8 @@ function ExtendedOutputWindow({ report, patients: panel, onCancel, onGenerate }:
             {
               key: 'pick', header: 'Include', width: 60, align: 'center',
               render: (r) => (
-                <Check id={`arb-extended-${pbSlug(r.item)}`} checked={picked.has(r.item)}
-                  onChange={(v) => setPicked((s) => { const n = new Set(s); v ? n.add(r.item) : n.delete(r.item); return n })} />
+                <CmdCheck id={`arb-extended-${pbSlug(r.item)}`} checked={picked.has(r.item)}
+                  onChange={(v) => picked.set(r.item, v)} />
               ),
             },
             { key: 'item', header: 'Data Element', width: 280 },
@@ -1140,12 +1078,12 @@ function ExtendedOutputWindow({ report, patients: panel, onCancel, onGenerate }:
         />
       </div>
       <div style={{ padding: '6px 10px', flex: 'none' }}>
-        <Check id="arb-extended-next-due" label="Include the next due date recommended by the guideline" checked={due} onChange={setDue} />
+        <CmdCheck id="arb-extended-next-due" label="Include the next due date recommended by the guideline" checked={due} onChange={setDue} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 19, padding: '4px 0 10px', flex: 'none' }}>
+      <DialogFooter plain gap={19} padding="4px 0 10px">
         <DialogButton id="arb-extended-generate" width={110} isDefault onClick={generate} disabled={!picked.size}>Generate CSV</DialogButton>
         <DialogButton id="arb-extended-cancel" width={75} onClick={onCancel}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

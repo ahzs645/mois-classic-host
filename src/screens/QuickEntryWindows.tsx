@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   QUICK_ENTRY_CHART_TITLE, QUICK_ENTRY_EDITOR_TITLE, QUICK_ENTRY_GROUPS, TRAINING_QUICK_ENTRY_HEADER, exportedQuickEntries,
   importQuickEntryTemplates, nextQuickEntryId, quickEntryExportName, quickEntryTemplates, saveQuickEntryTemplate,
@@ -10,8 +10,12 @@ import { SESSION_USER } from '../data/chartSession'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_PROVIDER } from '../data/letterFlow'
-import { PBCheckbox, PBDataWindow, PBInput, PBMessageBox, PBSelect, PBTextArea, pbSlug } from '../pb'
+import { PBCheckbox, PBDataWindow, PBInput, PBPatientBand, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { RaisedMessageBox } from './RaisedMessageBox'
+import { Win32FileDialog } from './fileDialog'
+import { DialogFooter } from './formKit'
+import { SelectAllPair, useTickSet } from './listKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 import {
   BLANK_GOAL, BLANK_MSP, BLANK_ORDER, BLANK_PREFERENCE, BLANK_REACTION, GoalEditor, MspEditor, OrderEditor,
@@ -78,13 +82,11 @@ function Message({ title, icon = 'info', children, buttons, onClose }: {
   onClose: (value: string) => void
 }) {
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 98 }}>
-      <PBMessageBox title={title} icon={icon}
-        buttons={buttons.map((b) => ({ label: b.label, value: b.value, default: b.default, tutorialId: `host.mois.command.${b.id}` }))}
-        onClose={onClose}>
-        {children}
-      </PBMessageBox>
-    </div>
+    <RaisedMessageBox zIndex={98} title={title} icon={icon}
+      buttons={buttons.map((b) => ({ label: b.label, value: b.value, default: b.default, tutorialId: `host.mois.command.${b.id}` }))}
+      onClose={onClose}>
+      {children}
+    </RaisedMessageBox>
   )
 }
 
@@ -105,10 +107,10 @@ function SelectOptionDialog({ close, open }: AreaWindowProps) {
           columns={[{ key: 'group', header: 'Template Group' }]}
         />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 12, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={12} padding="10px 0">
         <DialogButton id="qe-option-continue" width={75} isDefault onClick={() => go()}>Continue</DialogButton>
         <DialogButton id="qe-option-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -173,10 +175,10 @@ function TemplateEditorDialog({ args, close }: AreaWindowProps) {
           <TemplateDetail t={t} onChange={setT} />
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={8} padding="10px 0">
         <DialogButton id="qe-template-save" width={75} isDefault onClick={save}>Save</DialogButton>
         <DialogButton id="qe-template-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
       {missing && (
         <Message title="Quick Entry" icon="warn" onClose={() => setMissing(false)}
           buttons={[{ label: 'OK', value: 'ok', id: 'qe-template-missing-ok', default: true }]}>
@@ -197,53 +199,23 @@ function FileDialog({ mode, initial, files, onDone, onClose, onLocal }: {
   /** a file the learner picked from their own computer */
   onLocal?: (file: File) => void
 }) {
-  const [place, setPlace] = useState('Desktop')
-  const [name, setName] = useState(initial)
-  const picker = useRef<HTMLInputElement>(null)
-  const id = mode === 'save' ? 'qe-export-to' : 'qe-select-import-file'
   return (
-    <WorkspaceDialogFrame id={id} title={mode === 'save' ? 'Export To...' : 'Select Import File'} width={640} height={400} onClose={onClose} controls={false} zIndex={97}>
-      <div className="pb-row" style={{ padding: '8px 10px', flex: 'none' }}>
-        <span style={{ width: 64 }}>{mode === 'save' ? 'Save in:' : 'Look in:'}</span>
-        <PBSelect w={300} options={['Desktop', 'Documents', 'This PC']} value={place} onChange={(e) => setPlace(e.target.value)} />
-      </div>
-      <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: '0 10px' }}>
-        <div style={{ width: 100, flex: 'none', background: '#fff', border: '1px solid #9a9a9a', padding: 4 }}>
-          {['Home', 'Desktop', 'Libraries', 'This PC', 'Network'].map((p) => (
-            <div key={p} onClick={() => setPlace(p)}
-              style={{ padding: '8px 4px', textAlign: 'center', cursor: 'default', background: place === p ? '#cce8ff' : undefined }}>{p}</div>
-          ))}
-        </div>
-        <div style={{ flex: '1 1 auto', background: '#fff', border: '1px solid #9a9a9a', padding: 4, overflow: 'auto' }}>
-          {files.length === 0 && <div style={{ color: '#6d6d6d', padding: 6 }}>{mode === 'open' ? 'No 7z files in this folder.' : ''}</div>}
-          {files.map((f) => (
-            <div key={f} data-tutorial-id={`host.mois.row.${id}-file`} onClick={() => setName(f.replace(/\.7z$/, ''))}
-              onDoubleClick={() => onDone(`${DESKTOP_DIR}${f}`)}
-              style={{ padding: '4px 6px', background: name === f.replace(/\.7z$/, '') ? '#cce8ff' : undefined, cursor: 'default' }}>
-              {f}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr 90px', gap: 6, padding: '8px 10px', alignItems: 'center', flex: 'none' }}>
-        <span>File name:</span>
-        <PBInput w="100%" value={name} data-tutorial-id={`host.mois.field.${id}-name`} onChange={(e) => setName(e.target.value)} />
-        <DialogButton id={`${id}-${mode}`} width={84} isDefault onClick={() => name.trim() && onDone(`${DESKTOP_DIR}${name.trim().replace(/\.7z$/, '')}.7z`)}>
-          {mode === 'save' ? 'Save' : 'Open'}
-        </DialogButton>
-        <span>{mode === 'save' ? 'Save as type:' : 'Files of type:'}</span>
-        <PBSelect w="100%" options={[mode === 'save' ? 'All Files (*.*)' : '7z Files (*.7z)']} />
-        <DialogButton id={`${id}-cancel`} width={84} onClick={onClose}>Cancel</DialogButton>
-      </div>
-      {onLocal && (
-        <div className="pb-row" style={{ padding: '0 10px 8px', flex: 'none' }}>
-          <DialogButton id={`${id}-local`} width={150} onClick={() => picker.current?.click()}>From this computer...</DialogButton>
-          <span style={{ color: '#6d6d6d' }}>a MOIS Quick Entry export (.7z) or its quick_entrys.xml</span>
-          <input ref={picker} type="file" accept=".7z,.xml" hidden data-tutorial-id={`host.mois.field.${id}-local`}
-            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onLocal(f) }} />
-        </div>
-      )}
-    </WorkspaceDialogFrame>
+    <Win32FileDialog
+      id={mode === 'save' ? 'qe-export-to' : 'qe-select-import-file'}
+      mode={mode}
+      title={mode === 'save' ? 'Export To...' : 'Select Import File'}
+      zIndex={97}
+      initialName={initial}
+      files={files}
+      extension=".7z"
+      empty={mode === 'open' ? 'No 7z files in this folder.' : ''}
+      fileTypes={[mode === 'save' ? 'All Files (*.*)' : '7z Files (*.7z)']}
+      onDone={(name) => onDone(`${DESKTOP_DIR}${name}`)}
+      onClose={onClose}
+      onLocal={onLocal}
+      localHint="a MOIS Quick Entry export (.7z) or its quick_entrys.xml"
+      localAccept=".7z,.xml"
+    />
   )
 }
 
@@ -283,11 +255,10 @@ function SelectGrid({ rows, selected, onToggle, duplicate }: {
 function ExportDialog({ close }: AreaWindowProps) {
   const rows = useQuickEntryTemplates()
   const [output, setOutput] = useState(() => `${DEFAULT_OUTPUT}${quickEntryExportName()}`)
-  const [selected, setSelected] = useState<Set<number>>(() => new Set())
+  const selected = useTickSet()
   const [browse, setBrowse] = useState(false)
   const [message, setMessage] = useState<null | 'done' | 'none'>(null)
   const [saved, setSaved] = useState('')
-  const toggle = (i: number, v: boolean) => setSelected((s) => { const n = new Set(s); v ? n.add(i) : n.delete(i); return n })
   const write = async (chosen: QuickEntryTemplate[]) => {
     const name = output.split('\\').pop() || quickEntryExportName()
     const file = await buildQuickEntryExport(chosen, exportHeader(TRAINING_QUICK_ENTRY_HEADER, SESSION_USER), name)
@@ -305,12 +276,12 @@ function ExportDialog({ close }: AreaWindowProps) {
         </div>
         <div style={{ background: 'var(--pb-face)', padding: '4px 8px', fontWeight: 700, borderBottom: '1px solid #9a9a9a' }}>Quick Entry Templates</div>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-          <SelectGrid rows={rows} selected={selected} onToggle={toggle} />
+          <SelectGrid rows={rows} selected={selected.ticked} onToggle={selected.set} />
         </div>
       </div>
       <div className="pb-row" style={{ padding: '8px', gap: 8, flex: 'none' }}>
-        <DialogButton id="qe-export-select-all" width={88} onClick={() => setSelected(new Set(rows.map((_, i) => i)))}>Select All</DialogButton>
-        <DialogButton id="qe-export-unselect-all" width={88} onClick={() => setSelected(new Set())}>Unselect All</DialogButton>
+        <SelectAllPair ids={['qe-export-select-all', 'qe-export-unselect-all']} width={88}
+          onSelectAll={() => selected.selectAll(rows.map((_, i) => i))} onUnselectAll={selected.clear} />
         <span style={{ width: 260 }} />
         <DialogButton id="qe-export-ok" width={88} isDefault onClick={() => {
           if (selected.size === 0) { setMessage('none'); return }
@@ -352,7 +323,7 @@ function ImportDialog({ close }: AreaWindowProps) {
   const [file, setFile] = useState('')
   const [rows, setRows] = useState<QuickEntryTemplate[]>([])
   const [header, setHeader] = useState<QuickEntryFileHeader>(TRAINING_QUICK_ENTRY_HEADER)
-  const [selected, setSelected] = useState<Set<number>>(() => new Set())
+  const selected = useTickSet()
   const [browse, setBrowse] = useState(false)
   const [message, setMessage] = useState<null | 'none' | 'done'>(null)
   const [problem, setProblem] = useState('')
@@ -360,7 +331,7 @@ function ImportDialog({ close }: AreaWindowProps) {
   const openLocal = async (picked: File) => {
     try {
       const read = await readQuickEntryFile(picked)
-      setFile(`${DESKTOP_DIR}${picked.name}`); setRows(read.templates); setHeader(read.header); setSelected(new Set()); setBrowse(false)
+      setFile(`${DESKTOP_DIR}${picked.name}`); setRows(read.templates); setHeader(read.header); selected.clear(); setBrowse(false)
       if (read.skipped.length) {
         const types = [...new Set(read.skipped.map((x) => x.recordType || '(none)'))].join(', ')
         setNotice(`${read.skipped.length} template(s) of a type this window cannot import were left out (${types}).`)
@@ -369,7 +340,6 @@ function ImportDialog({ close }: AreaWindowProps) {
       setProblem((e as Error).message || 'This file could not be read.')
     }
   }
-  const toggle = (i: number, v: boolean) => setSelected((s) => { const n = new Set(s); v ? n.add(i) : n.delete(i); return n })
   const isDuplicate = (t: QuickEntryTemplate) => current.some((c) => c.group === t.group && c.name === t.name)
   const available = exportedQuickEntries()
   const fileName = useMemo(() => quickEntryExportName(), [])
@@ -401,12 +371,12 @@ function ImportDialog({ close }: AreaWindowProps) {
           </div>
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-          <SelectGrid rows={rows} selected={selected} onToggle={toggle} duplicate={isDuplicate} />
+          <SelectGrid rows={rows} selected={selected.ticked} onToggle={selected.set} duplicate={isDuplicate} />
         </div>
       </div>
       <div className="pb-row" style={{ padding: '8px', gap: 8, flex: 'none' }}>
-        <DialogButton id="qe-import-select-all" width={88} onClick={() => setSelected(new Set(rows.map((_, i) => i)))}>Select All</DialogButton>
-        <DialogButton id="qe-import-unselect-all" width={88} onClick={() => setSelected(new Set())}>Unselect All</DialogButton>
+        <SelectAllPair ids={['qe-import-select-all', 'qe-import-unselect-all']} width={88}
+          onSelectAll={() => selected.selectAll(rows.map((_, i) => i))} onUnselectAll={selected.clear} />
         <span style={{ width: 260 }} />
         <DialogButton id="qe-import-ok" width={88} isDefault onClick={() => {
           if (selected.size === 0) { setMessage('none'); return }
@@ -419,7 +389,7 @@ function ImportDialog({ close }: AreaWindowProps) {
         <FileDialog mode="open" initial={fileName.replace(/\.7z$/, '')} files={[fileName]}
           onDone={(path) => {
             const incoming = available.length ? available.map((t) => structuredClone(t)) : SAMPLE_IMPORT()
-            setFile(path); setRows(incoming); setHeader(TRAINING_QUICK_ENTRY_HEADER); setSelected(new Set()); setBrowse(false)
+            setFile(path); setRows(incoming); setHeader(TRAINING_QUICK_ENTRY_HEADER); selected.clear(); setBrowse(false)
           }}
           onLocal={(f) => { void openLocal(f) }}
           onClose={() => setBrowse(false)} />
@@ -575,22 +545,18 @@ function ChartQuickEntryWindow({ args, close }: AreaWindowProps) {
     else applyQuickEntry(applied)
     close()
   }
-  const cell = (label: string, value: ReactNode, w?: number) => (
-    <div style={{ width: w, flex: w ? 'none' : '1 1 auto', display: 'flex', flexDirection: 'column' }}>
-      <span style={{ fontSize: 11 }}>{label}</span><strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{value}</strong>
-    </div>
-  )
   return (
     <WorkspaceDialogFrame id="quick-entry-chart" title={`Quick Entry - ${QUICK_ENTRY_CHART_TITLE[group]}`} width={1120} height={760} onClose={close}>
-      <div className="pb-row" data-tutorial-id="host.mois.field.qe-chart-banner"
-        style={{ background: 'linear-gradient(#2f8fd0, #1d6aa8)', color: '#fff', padding: '4px 8px', gap: 10, flex: 'none', margin: '6px 6px 0' }}>
-        {cell('CHART NO.', patient.chart, 90)}
-        {cell('PATIENT (F/M/L)', `${patient.first}  ${patient.last}`.toUpperCase(), 230)}
-        {cell('DATE OF BIRTH', `${patient.dob}  ${patient.age.toUpperCase()}`, 240)}
-        {cell('GENDER', patient.sex, 70)}
-        {cell('PERSONAL HEALTH NO.', patient.bchn ?? '', 150)}
-        {cell('PREFERRED PHONE NUMBER', patient.phone ?? '')}
-      </div>
+      <PBPatientBand layout="stack" className="pb-row" anchor="host.mois.field.qe-chart-banner"
+        style={{ background: 'linear-gradient(#2f8fd0, #1d6aa8)', color: '#fff', padding: '4px 8px', gap: 10, flex: 'none', margin: '6px 6px 0' }}
+        cells={[
+          { label: 'CHART NO.', value: patient.chart, w: 90 },
+          { label: 'PATIENT (F/M/L)', value: `${patient.first}  ${patient.last}`.toUpperCase(), w: 230 },
+          { label: 'DATE OF BIRTH', value: `${patient.dob}  ${patient.age.toUpperCase()}`, w: 240 },
+          { label: 'GENDER', value: patient.sex, w: 70 },
+          { label: 'PERSONAL HEALTH NO.', value: patient.bchn ?? '', w: 150 },
+          { label: 'PREFERRED PHONE NUMBER', value: patient.phone ?? '' },
+        ]} />
       <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, margin: '0 6px', border: '1px solid #9a9a9a', background: '#fff' }}>
         <div style={{ width: 340, flex: 'none', borderRight: '1px solid #9a9a9a', display: 'flex', flexDirection: 'column' }}>
           <QeBand style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -627,10 +593,10 @@ function ChartQuickEntryWindow({ args, close }: AreaWindowProps) {
           </div>
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={8} padding="10px 0">
         <DialogButton id="qe-chart-continue" width={110} isDefault onClick={proceed}>Continue</DialogButton>
         <DialogButton id="qe-chart-cancel" width={110} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
       {message && (
         <Message title="Quick Entry" icon="warn" onClose={() => setMessage(false)}
           buttons={[{ label: 'OK', value: 'ok', id: 'qe-chart-none-ok', default: true }]}>

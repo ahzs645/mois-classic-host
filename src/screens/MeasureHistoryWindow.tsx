@@ -4,9 +4,10 @@ import { date } from '../data/charts/relations'
 import { usePatient } from '../data/patient-context'
 import { useEncounterSession } from '../host/encounterArea'
 import {
-  PBBand, PBButton, PBDataWindow, PBInput, PBPatientBannerYellow, PBTextArea, PBWindow,
+  PBBand, PBButton, PBDataWindow, PBInput, PBPatientBannerYellow, PBTextArea,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Measure History — Measures ▸ Action ▸ Show History (or the row's right-click
@@ -36,15 +37,14 @@ function MeasureHistory({ close, open }: AreaWindowProps) {
     <PBInput w={w} value={value ?? ''} readOnly style={yellow ? { background: 'var(--pb-yellow)' } : undefined} />
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measure-history"
-        title="Measure History"
-        onClose={close}
-        style={{ width: 'min(955px, 100%)', height: 'min(633px, 100%)' }}
-      >
+    <ModalWindow
+      tutorialId="host.mois.dialog.measure-history"
+      title="Measure History"
+      onClose={close}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowStyle={{ width: 'min(955px, 100%)', height: 'min(633px, 100%)' }}
+    >
         <PBPatientBannerYellow name={patient.short} bchn={patient.bchn ?? ''} home={patient.phone} dob={patient.dob} sex={patient.sex} />
         <div style={{ display: 'flex', gap: 2, padding: '4px 6px 0', flex: 'none' }}>
           <div className="pb-groupbox" style={{ flex: '1 1 auto', minWidth: 0 }}>
@@ -101,13 +101,12 @@ function MeasureHistory({ close, open }: AreaWindowProps) {
         <div className="pb-row" style={{ padding: '8px 6px 8px', flex: 'none' }}>
           <PBButton style={{ minWidth: 75 }} onClick={() => { const code = record?.str_code ?? selected?.code; close(); if (code) open('measurement-graph', { code }) }}>Graph</PBButton>
           <span className="pb-row__spacer" />
-          <PBButton style={{ minWidth: 75 }} data-tutorial-id="host.mois.command.measure-history-save" onClick={close}>Save (F2)</PBButton>
+          <PBButton style={{ minWidth: 75 }} command="measure-history-save" onClick={close}>Save (F2)</PBButton>
           <PBButton style={{ minWidth: 75 }} onClick={close}>Cancel</PBButton>
           <span className="pb-row__spacer" />
           <span style={{ width: 75 }} />
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

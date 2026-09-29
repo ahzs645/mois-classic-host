@@ -9,11 +9,14 @@ import {
 } from '../data/clinicManagement'
 import { userListSpec } from '../data/userManagement'
 import { visitCodeRows } from '../data/daybook'
-import { MOIS_TODAY } from '../data/patients'
+import { MOIS_TODAY, stageStamp } from '../data/clock'
+import { S } from '../data/text'
 import { registerScreenWindows, useSessionState, type ScreenWindow } from '../host/screen-windows'
 import { SESSION_USER } from '../data/chartSession'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
+import { CaptionGroup, DialogFooter, FormLine, SectionCaption } from './formKit'
+import { useRecordList } from './listKit'
 import { PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
 import {
   BillingServiceCodeLookup, ChangeAssociatedUserDialog, ServiceConceptSearchWindow, type AssociationChange,
@@ -111,7 +114,6 @@ export function useClinicRows(node: string): [ClinicRow[], Update] {
 const EMPTY: ClinicRow[] = []
 
 const keyOf = (node: string) => clinicListSpec(node)?.anchorKey ?? 'name'
-const S = (v: unknown) => (v == null ? '' : String(v))
 const fieldId = (label: string) => `host.mois.field.${pbSlug(label)}`
 
 function patchRow(update: Update, node: string, key: string, patch: ClinicRow) {
@@ -134,20 +136,15 @@ function Line({ label, w = 92, right, children, style }: {
   label?: ReactNode; w?: number; right?: boolean; children?: ReactNode; style?: CSSProperties
 }) {
   return (
-    <div className="pb-row" style={{ gap: 6, padding: '1px 0', alignItems: 'center', minHeight: 22, ...style }}>
-      <span className="pb-form__label" style={{ width: w, flex: 'none', textAlign: right ? 'right' : undefined }}>{label}</span>
+    <FormLine label={label} w={w} padding="1px 0" align="center" minHeight={22} labelAlign={right ? 'right' : undefined} style={style}>
       {children}
-    </div>
+    </FormLine>
   )
 }
 
 /** a navy caption over a grey rule — "Provider Identification", "Service Information" */
 function Head({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  return (
-    <div style={{ color: '#000080', fontWeight: 700, padding: '6px 8px 3px', borderBottom: '1px solid #a0a0a0', flex: 'none', ...style }}>
-      {children}
-    </div>
-  )
+  return <SectionCaption fixed style={style}>{children}</SectionCaption>
 }
 
 /** the navy band a detail window opens with ("Resource", "Facility") */
@@ -157,13 +154,7 @@ const NavyBand = ({ children }: { children: ReactNode }) => (
 
 /** the centred button pair, with an optional button parked at the left */
 function Footer({ left, children }: { left?: ReactNode; children: ReactNode }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', padding: '8px 9px', flex: 'none', borderTop: '1px solid #c9c9c9' }}>
-      <span>{left}</span>
-      <span className="pb-row" style={{ gap: 8 }}>{children}</span>
-      <span />
-    </div>
-  )
+  return <DialogFooter frame="grid" left={left} gap={8} padding="8px 9px" border="#c9c9c9">{children}</DialogFooter>
 }
 
 const Btn = ({ command, w = 88, onClick, children }: { command: string; w?: number; onClick?: () => void; children: ReactNode }) => (
@@ -531,16 +522,7 @@ const IDENT: CSSProperties = { background: '#e4e4e4', fontWeight: 700 }
 
 /** A block of a Provider tab: bold navy caption inside a light outline (#61–#68). */
 function Group({ title, fill, style, children }: { title: ReactNode; fill?: boolean; style?: CSSProperties; children: ReactNode }) {
-  return (
-    <div style={{
-      border: '1px solid #d4d4d4', padding: '4px 10px 8px', minWidth: 0,
-      ...(fill ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : null),
-      ...style,
-    }}>
-      <div style={{ color: '#000080', fontWeight: 700, padding: '0 0 6px' }}>{title}</div>
-      {children}
-    </div>
-  )
+  return <CaptionGroup title={title} fill={fill} style={style}>{children}</CaptionGroup>
 }
 
 export function ProviderTab({ tab, draft, set, onChangeUser }: {
@@ -838,7 +820,7 @@ function ServiceTab() {
     </button>
   )
   const now = new Date()
-  const stamp = () => `${MOIS_TODAY}  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}  ${SESSION_USER}`
+  const stamp = () => `${stageStamp('  ', now)}  ${SESSION_USER}`
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 220, border: '1px solid #8a8a8a' }}>
@@ -852,9 +834,8 @@ function ServiceTab() {
                 <PBButton
                   key={b}
                   size="sm"
-                  data-tutorial-id={host?.anchor('command', `service-${pbSlug(b)}`)}
+                  command={`service-${pbSlug(b)}`}
                   onClick={() => {
-                    host?.report('command', { command: `service-${pbSlug(b)}` })
                     if (b === 'New') {
                       setRows((r) => [...r, { service: '', code: '', default: false, start: '', end: '', stopped: '', comment: '', stoppedNote: '', created: stamp() }])
                       setCur(shown.length)
@@ -1476,13 +1457,13 @@ function ResourceDetailWindow({ rowKey, close }: { rowKey: string; close: () => 
    ======================================================================== */
 
 function FacilityDetailWindow({ rowKey, close }: { rowKey: string; close: () => void }) {
-  const host = usePBInstrumentation()
   const [rows, update] = useClinicRows('ad-facility-list')
   const [stored, setStored] = useSessionState<Record<string, ClinicRow[]> | null>(FACILITY_LOCATIONS_KEY, null)
   const row = rows.find((r) => S(r.code) === rowKey) ?? { code: rowKey }
   const [draft, setDraft] = useState<Draft>(() => ({ ...row }))
-  const [locations, setLocations] = useState<ClinicRow[]>(() => (stored ?? FACILITY_LOCATIONS)[rowKey] ?? [])
-  const [cur, setCur] = useState(0)
+  const {
+    rows: locations, setRows: setLocations, cur, setCur, add, remove,
+  } = useRecordList<ClinicRow>(() => (stored ?? FACILITY_LOCATIONS)[rowKey] ?? [])
   const set = (patch: Draft) => setDraft((d) => ({ ...d, ...patch }))
   const edit = (i: number, patch: ClinicRow) => setLocations((l) => l.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const save = () => {
@@ -1523,13 +1504,12 @@ function FacilityDetailWindow({ rowKey, close }: { rowKey: string; close: () => 
             <PBButton
               key={b}
               size="sm"
-              data-tutorial-id={host?.anchor('command', `locations-${pbSlug(b)}`)}
+              command={`locations-${pbSlug(b)}`}
               onClick={() => {
-                host?.report('command', { command: `locations-${pbSlug(b)}` })
                 /* 303057: "Select 'New' to enter a location" — a new location
                    starts active */
-                if (b === 'New') { setLocations((l) => [...l, { code: '', desc: '', default: false, active: true }]); setCur(locations.length) }
-                else { setLocations((l) => l.filter((_, i) => i !== cur)); setCur(0) }
+                if (b === 'New') add({ code: '', desc: '', default: false, active: true })
+                else remove()
               }}
             >
               {b}

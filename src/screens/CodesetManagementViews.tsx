@@ -7,11 +7,13 @@ import {
   type AltTerm, type CodeMapping, type CodeRecord, type CodeSourceRow, type CodeSystemRow, type ValueSet, type ValueSetValue,
 } from '../data/codesets'
 import { REFERENCE_SETS } from '../data/adminLists'
+import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { useCodeMappings, useCodeRecords, useStoredList, useValueSets } from './adminSession'
 import { ButtonBand, CellSelect, CellText, CentredFooter, Cmd, Line, NavyBand, onF2 } from './adminKit'
 import { UniversalSearchDialog } from './CodeLookupDialogs'
 import { DemographicModal } from './DemographicDialogs'
+import { useColumnFilters, useRecordCursor } from './listKit'
 import { StageMessageBox } from './StageWindow'
 
 /* ============================================================================
@@ -54,8 +56,6 @@ import { StageMessageBox } from './StageWindow'
      dialogs new-code-system, code-system-detail, new-value-set,
              value-set-detail, codeset-message
    ========================================================================= */
-
-const S = (v: unknown) => (v == null ? '' : String(v))
 
 export const codesetNodes = ['ad-code-sources', 'ad-code-systems', 'ad-codes', 'ad-value-sets', 'ad-code-mapping']
 
@@ -134,8 +134,11 @@ function CodeSystemList({ onClose }: { onClose: () => void }) {
   const [cur, setCur] = useState(0)
   const [dialog, setDialog] = useState<'new' | 'edit' | null>(null)
   const [notice, setNotice] = useState('')
-  const [filter, setFilter] = useState<Record<string, string>>({})
-  const shown = rows.filter((r) => ['system', 'desc'].every((k) => S(r[k as keyof CodeSystemRow]).toUpperCase().includes((filter[k] ?? '').trim().toUpperCase())))
+  const { shown, filterRow } = useColumnFilters(rows, [
+    { key: 'system', anchor: 'filter-code-system' },
+    { key: 'desc', anchor: 'filter-description' },
+    null, null, null,
+  ])
   const row = shown[Math.min(cur, Math.max(0, shown.length - 1))]
   useScreenReport({ rows: rows.length, row: row ? `system-${pbSlug(row.system)}` : null })
   const del = () => {
@@ -161,11 +164,7 @@ function CodeSystemList({ onClose }: { onClose: () => void }) {
           onCurrentChange={setCur}
           onActivate={(_r, i) => { setCur(i); setDialog('edit') }}
           rowTutorialId={(r) => `host.mois.row.system-${pbSlug(r.system)}`}
-          filters={[
-            <PBInput key="s" value={filter.system ?? ''} onChange={(e) => setFilter({ ...filter, system: e.target.value })} data-tutorial-id="host.mois.field.filter-code-system" />,
-            <PBInput key="d" value={filter.desc ?? ''} onChange={(e) => setFilter({ ...filter, desc: e.target.value })} data-tutorial-id="host.mois.field.filter-description" />,
-            null, null, null,
-          ]}
+          filters={filterRow}
           style={{ ['--pb-band' as string]: '#ffffff' }}
           rowClassName={(r) => (r.active ? undefined : 'is-inactive')}
           columns={[
@@ -247,7 +246,8 @@ function CodesWindow() {
   const [saved, setSaved] = useState(false)
   const [altCur, setAltCur] = useState(0)
   const [setCur, setSetCur] = useState(0)
-  const [mapCur, setMapCur] = useState(0)
+  const mapList = useRecordCursor(maps, setMaps)
+  const { cur: mapCur, setCur: setMapCur } = mapList
 
   const keyOf = (r: { system: string; code: string }) => codeKey(r.system, r.code)
   const stored = draft && !isNew ? records.find((r) => keyOf(r) === keyOf(draft)) : undefined
@@ -379,19 +379,19 @@ function CodesWindow() {
             caption="Associated Mappings"
             scope="mappings"
             buttons={[
-              { label: 'Add From', disabled: !draft, onPress: () => { if (!draft) return; setMaps((m) => [...m, { fromSystem: draft.system, fromCode: draft.code, fromTerm: draft.term, toSystem: '', toCode: '', toTerm: '', active: true }]); setMapCur(maps.length); setSaved(false) } },
-              { label: 'Add To', disabled: !draft, onPress: () => { if (!draft) return; setMaps((m) => [...m, { fromSystem: '', fromCode: '', fromTerm: '', toSystem: draft.system, toCode: draft.code, toTerm: draft.term, active: true }]); setMapCur(maps.length); setSaved(false) } },
+              { label: 'Add From', disabled: !draft, onPress: () => { if (!draft) return; mapList.add({ fromSystem: draft.system, fromCode: draft.code, fromTerm: draft.term, toSystem: '', toCode: '', toTerm: '', active: true }); setSaved(false) } },
+              { label: 'Add To', disabled: !draft, onPress: () => { if (!draft) return; mapList.add({ fromSystem: '', fromCode: '', fromTerm: '', toSystem: draft.system, toCode: draft.code, toTerm: draft.term, active: true }); setSaved(false) } },
               { label: 'Delete', disabled: !draft, onPress: () => {
-                const m = maps[mapCur]
+                const m = mapList.row
                 if (!m) return
                 if (m.preloaded) { setNotice('Mappings that are pre-loaded into the system cannot be modified.'); return }
-                setMaps((all) => all.filter((_, j) => j !== mapCur)); setMapCur(0); setSaved(false)
+                mapList.remove(); setSaved(false)
               } },
             ]}
           />
           <Grid>
             <MappingGrid rows={maps} cur={mapCur} setCur={setMapCur} systems={systems.map((s) => s.system)} termOf={termOf}
-              onEdit={(i, patch) => { setMaps((all) => all.map((m, j) => (j === i ? { ...m, ...patch } : m))); setSaved(false) }} />
+              onEdit={(i, patch) => { mapList.edit(i, patch); setSaved(false) }} />
           </Grid>
           <div style={{ padding: '2px 14px', color: '#404040', flex: 'none' }}>Rows:&nbsp;&nbsp;&nbsp;&nbsp;{maps.length}</div>
         </div>
@@ -534,11 +534,13 @@ function CodeMappingWindow() {
 function ValueSetList({ onClose }: { onClose: () => void }) {
   const [sets, update] = useValueSets()
   const [cur, setCur] = useState(0)
-  const [filter, setFilter] = useState({ name: '', desc: '' })
+  const { shown, filterRow } = useColumnFilters(sets, [
+    { key: 'name', anchor: 'filter-common-name' },
+    { key: 'desc', anchor: 'filter-description' },
+  ], { onChange: () => setCur(0) })
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
-  const shown = sets.filter((s) => s.name.toUpperCase().includes(filter.name.trim().toUpperCase()) && s.desc.toUpperCase().includes(filter.desc.trim().toUpperCase()))
   const at = Math.min(cur, Math.max(0, shown.length - 1))
   const row = shown[at]
   useScreenReport({ rows: sets.length, row: row ? `value-set-${pbSlug(row.name)}` : null })
@@ -565,10 +567,7 @@ function ValueSetList({ onClose }: { onClose: () => void }) {
           onActivate={(r) => setOpen(r.name)}
           rowTutorialId={(r) => `host.mois.row.value-set-${pbSlug(r.name)}`}
           style={{ ['--pb-band' as string]: '#ffffff' }}
-          filters={[
-            <PBInput key="n" value={filter.name} onChange={(e) => { setFilter({ ...filter, name: e.target.value }); setCur(0) }} data-tutorial-id="host.mois.field.filter-common-name" />,
-            <PBInput key="d" value={filter.desc} onChange={(e) => { setFilter({ ...filter, desc: e.target.value }); setCur(0) }} data-tutorial-id="host.mois.field.filter-description" />,
-          ]}
+          filters={filterRow}
           columns={[
             { key: 'name', header: 'Common Name', width: 314, headAlign: 'center' },
             { key: 'desc', header: 'Description', width: 414, headAlign: 'center' },
@@ -619,13 +618,14 @@ export function ValueSetDetailWindow({ name, onClose }: { name: string; onClose:
   const [sets, update] = useValueSets()
   const set = sets.find((s) => s.name === name)
   const [values, setValues] = useState<ValueSetValue[]>(() => structuredClone(set?.values ?? []))
-  const [cur, setCur] = useState(0)
+  const list = useRecordCursor(values, setValues, { afterRemove: 'previous' })
+  const { cur, setCur } = list
   const [tab, setTab] = useState('Value List')
   const labCodes = set?.labCodes ?? []
   const linkedTab = labCodes.length ? `Linked Lab Codes (${labCodes.length})` : 'Linked Lab Codes'
   useScreenReport({ dialog: 'value-set-detail', values: values.length })
   const blank = (): ValueSetValue => ({ value: '', quick: '', desc: '', sort: '0', rank: '0', active: true })
-  const edit = (i: number, patch: Partial<ValueSetValue>) => setValues((all) => all.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  const edit = list.edit
   const save = () => {
     update((all) => all.map((s) => (s.name === name ? { ...s, values: values.filter((x) => x.value.trim()).map((x) => ({ ...x, value: x.value.trim().toUpperCase() })) } : s)))
     onClose()
@@ -647,14 +647,14 @@ export function ValueSetDetailWindow({ name, onClose }: { name: string; onClose:
               ? (
                 <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   <div className="pb-row" style={{ gap: 0, padding: 2, background: '#dcd7d2', flex: 'none' }}>
-                    <Cmd id="value-list-add-record" w={80} sm onClick={() => { setValues((all) => [...all, blank()]); setCur(values.length) }}>Add Record</Cmd>
+                    <Cmd id="value-list-add-record" w={80} sm onClick={() => list.add(blank())}>Add Record</Cmd>
                     <Cmd id="value-list-insert-record" w={86} sm onClick={() => { setValues((all) => [...all.slice(0, cur), blank(), ...all.slice(cur)]) }}>Insert Record</Cmd>
-                    <Cmd id="value-list-delete-value" w={82} sm onClick={() => { setValues((all) => all.filter((_, j) => j !== cur)); setCur(Math.max(0, cur - 1)) }}>Delete Value</Cmd>
+                    <Cmd id="value-list-delete-value" w={82} sm onClick={() => list.remove()}>Delete Value</Cmd>
                   </div>
                   <Grid>
                     <PBDataWindow<ValueSetValue>
                       rows={values}
-                      current={Math.min(cur, Math.max(0, values.length - 1))}
+                      current={list.at}
                       onCurrentChange={setCur}
                       empty=" "
                       rowTutorialId={(x, i) => `host.mois.row.value-${pbSlug(x.value) || i + 1}`}

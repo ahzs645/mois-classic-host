@@ -13,10 +13,12 @@ import {
 } from '../data/preferenceVocab'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBMessageBox, PBRadio, PBTextArea, PBWindow, pbSlug,
+  PBCheckbox, PBInput, PBLookup, PBMessageBox, PBRadio, PBTextArea, pbSlug,
   type PBCommand,
 } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { DialogFooter } from './formKit'
+import { LookupBand, PickButtons, PickListWindow, SIZE, SearchForRow } from './lookupKit'
 import { PreferenceChoice } from './PreferenceChoice'
 import { applyQuickEntry, type QuickEntryApplied } from './quickEntryApply'
 import type { SearchField } from './SearchForBand'
@@ -356,10 +358,10 @@ function NewPreferenceDialog({ close }: AreaWindowProps) {
           )}
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={10} padding="10px 0">
         <DialogButton id="new-preference-save" width={75} isDefault onClick={save}>Save</DialogButton>
         <DialogButton id="new-preference-cancel" width={75} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
 
       {lookup && (
         <PreferenceLookup
@@ -391,37 +393,39 @@ function PreferenceLookup({ subject, by, onPick, onClose }: {
   const pick = rows[Math.min(cur, rows.length - 1)]
   const title = `${by} Lookup${subject ? ` - ${subject}` : ''}`
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-      <PBWindow child controls={false} title={title} onClose={onClose} tutorialId="host.mois.dialog.preference-lookup"
-        style={{ width: 520, height: 400, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)', padding: '8px 10px 0' }}>
-          <div className="pb-row" style={{ paddingBottom: 4 }}>
-            <span>Search For:</span>
-            <PBInput w="100%" value={search} autoFocus data-tutorial-id="host.mois.field.preference-lookup-search"
-              onChange={(e) => { setSearch(e.target.value); setCur(0) }} />
-          </div>
-          <PBBand>{subject ? `${subject} ${by === 'Concept' ? 'Concepts' : 'Codes'}` : 'Choose a Subject first'}</PBBand>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-            <PBDataWindow
-              rows={rows}
-              current={cur}
-              onCurrentChange={setCur}
-              onActivate={(r) => onPick(r)}
-              rowTutorialId={(r) => `host.mois.row.preference-term-${pbSlug(r.code)}`}
-              empty={subject ? 'No entries.' : 'Pick a Subject to list its concepts and codes.'}
-              columns={[
-                { key: 'code', header: 'Code', width: 90 },
-                { key: 'description', header: 'Description' },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none', background: 'var(--pb-face)' }}>
-          <DialogButton id="preference-lookup-select" width={75} isDefault disabled={!pick} onClick={() => pick && onPick(pick)}>Select</DialogButton>
-          <DialogButton id="preference-lookup-cancel" width={75} onClick={onClose}>Cancel</DialogButton>
-        </div>
-      </PBWindow>
-    </div>
+    <PickListWindow
+      window={{
+        id: 'preference-lookup', title, onClose, zIndex: 90,
+        windowStyle: { width: 520, height: 400, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' },
+      }}
+      body={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)', padding: '8px 10px 0' }}
+      searchFirst
+      search={(
+        <SearchForRow link={false} value={search} autoFocus field="preference-lookup-search" style={{ paddingBottom: 4 }}
+          onChange={(v) => { setSearch(v); setCur(0) }} />
+      )}
+      band={<LookupBand>{subject ? `${subject} ${by === 'Concept' ? 'Concepts' : 'Codes'}` : 'Choose a Subject first'}</LookupBand>}
+      grid={{
+        rows,
+        current: cur,
+        onCurrentChange: setCur,
+        onActivate: (r) => onPick(r),
+        rowTutorialId: (r) => `host.mois.row.preference-term-${pbSlug(r.code)}`,
+        empty: subject ? 'No entries.' : 'Pick a Subject to list its concepts and codes.',
+        columns: [
+          { key: 'code', header: 'Code', width: 90 },
+          { key: 'description', header: 'Description' },
+        ],
+      }}
+      footer={(
+        <PickButtons className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '10px 0', flex: 'none', background: 'var(--pb-face)' }}
+          size={SIZE.dialog(75)}
+          buttons={[
+            { label: 'Select', command: 'preference-lookup-select', isDefault: true, disabled: !pick, onClick: () => pick && onPick(pick) },
+            { label: 'Cancel', command: 'preference-lookup-cancel', onClick: onClose },
+          ]} />
+      )}
+    />
   )
 }
 

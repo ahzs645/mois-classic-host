@@ -5,7 +5,9 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useEncounterSession, type SessionNote } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBInput, PBRadio, PBWindow, usePBInstrumentation } from '../pb'
+import { PBButton, PBInput, PBRadio } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter, SectionCaption } from './formKit'
 
 /* ============================================================================
    Print Encounter Note — what the note band's `Print Note` opens.
@@ -42,8 +44,6 @@ export type PrintEncounterNoteJob = { title: string; pages: string[]; option: Pr
 
 /** the encounter the window was opened from */
 export type PrintNoteEncounter = { id: string; date: string; reason: string; provider: string }
-
-const NAVY = '#000080'
 
 export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onClose }: {
   encounter: PrintNoteEncounter
@@ -102,74 +102,61 @@ export function PrintEncounterNoteDialog({ encounter, notes, current, onOk, onCl
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.print-encounter-note"
-        title="Print Encounter Note"
-        onClose={onClose}
-        style={{ width: 'min(360px, 100%)' }}
+    <ModalWindow
+      id="print-encounter-note"
+      title="Print Encounter Note"
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowStyle={{ width: 'min(360px, 100%)' }}
+    >
+      <div
+        style={{ padding: '14px 12px 0' }}
+        onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); print() } }}
       >
-        <div
-          style={{ padding: '14px 12px 0' }}
-          onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); print() } }}
-        >
-          <div style={{ border: '1px solid #a0a0a0', boxShadow: 'inset 1px 1px 0 #fff', paddingBottom: 18 }}>
-            <Caption>Print Type</Caption>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0 6px 82px' }}>
-              <PBRadio
-                name="print-note-mode"
-                label="Offset Note from Top"
-                checked={option === 'offset'}
-                onChange={() => setOption('offset')}
-                tutorialId="host.mois.field.print-note-offset-mode"
-              />
-              <PBRadio
-                name="print-note-mode"
-                label="Cumulative Note"
-                checked={option === 'cumulative'}
-                onChange={() => setOption('cumulative')}
-                tutorialId="host.mois.field.print-note-cumulative"
-              />
-            </div>
-            <Caption>Appointment Date Range (inclusive)</Caption>
-            <div className="pb-row" style={{ gap: 6, padding: '4px 10px 0' }}>
-              <span>Date(s):</span>
-              <PBInput w={84} align="center" value={from}
-                onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.print-note-from" />
-              <span style={{ margin: '0 4px' }}>to</span>
-              <PBInput w={84} align="center" value={to}
-                onChange={(e) => setTo(e.target.value)} data-tutorial-id="host.mois.field.print-note-to" />
-            </div>
+        <div style={{ border: '1px solid #a0a0a0', boxShadow: 'inset 1px 1px 0 #fff', paddingBottom: 18 }}>
+          <Caption>Print Type</Caption>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 0 6px 82px' }}>
+            <PBRadio
+              name="print-note-mode"
+              label="Offset Note from Top"
+              checked={option === 'offset'}
+              onChange={() => setOption('offset')}
+              tutorialId="host.mois.field.print-note-offset-mode"
+            />
+            <PBRadio
+              name="print-note-mode"
+              label="Cumulative Note"
+              checked={option === 'cumulative'}
+              onChange={() => setOption('cumulative')}
+              tutorialId="host.mois.field.print-note-cumulative"
+            />
+          </div>
+          <Caption>Appointment Date Range (inclusive)</Caption>
+          <div className="pb-row" style={{ gap: 6, padding: '4px 10px 0' }}>
+            <span>Date(s):</span>
+            <PBInput w={84} align="center" value={from}
+              onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.print-note-from" />
+            <span style={{ margin: '0 4px' }}>to</span>
+            <PBInput w={84} align="center" value={to}
+              onChange={(e) => setTo(e.target.value)} data-tutorial-id="host.mois.field.print-note-to" />
           </div>
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '14px 0 14px', flex: 'none' }}>
-          <DialogCommand id="print-encounter-note-print" onClick={print}>Print (F2)</DialogCommand>
-          <DialogCommand id="print-encounter-note-cancel" onClick={onClose}>Cancel</DialogCommand>
-        </div>
-      </PBWindow>
-    </div>
+      </div>
+      <DialogFooter gap={10} padding="14px 0 14px">
+        <PBButton command="print-encounter-note-print" style={COMMAND} onClick={print}>Print (F2)</PBButton>
+        <PBButton command="print-encounter-note-cancel" style={COMMAND} onClick={onClose}>Cancel</PBButton>
+      </DialogFooter>
+    </ModalWindow>
   )
 }
 
 /** a navy caption over a rule the width of the frame, as #21 paints both */
 const Caption = ({ children }: { children: ReactNode }) => (
-  <div style={{ color: NAVY, fontWeight: 700, padding: '5px 10px 3px', borderBottom: '1px solid #a0a0a0', boxShadow: '0 1px 0 #fff' }}>{children}</div>
+  <SectionCaption padding="5px 10px 3px" style={{ boxShadow: '0 1px 0 #fff' }}>{children}</SectionCaption>
 )
 
-function DialogCommand({ id, onClick, children }: { id: string; onClick: () => void; children: string }) {
-  const host = usePBInstrumentation()
-  return (
-    <PBButton
-      style={{ width: 74, minWidth: 0, height: 22 }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick() }}
-    >
-      {children}
-    </PBButton>
-  )
-}
+const COMMAND = { width: 74, minWidth: 0, height: 22 }
 
 /* --- the printouts (page markup: screens/PrintFlow ReportPage) ------------- */
 const clean = (v: string) => v.replace(/\*\*/g, '').replace(/\|/g, '/').replace(/^%/gm, ' %')

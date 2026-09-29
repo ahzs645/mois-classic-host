@@ -12,6 +12,7 @@ import {
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { Ask, BlueHead, Dim, Field, FilterGroup, RadioSet, ScreenDialog } from './billingProgramsKit'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { NAVY, SectionCaption } from './formKit'
 
 /* ============================================================================
    Billing ▸ LFP Management — LFP Setup, Provider Registration and Provider
@@ -57,17 +58,8 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 export const LFP_WINDOWS = { profile: 'lfp-provider-profile' } as const
 registerScreenWindows(Object.values(LFP_WINDOWS))
 
-const NAVY = '#0b3d8c'
-
 /** The navy caption and rule of an LFP window section ("Configuration"). */
-function SectionHead({ children, right }: { children: ReactNode; right?: ReactNode }) {
-  return (
-    <div className="pb-row" style={{ borderBottom: '1px solid #b8b8b8', padding: '6px 10px 2px', flex: 'none' }}>
-      <b style={{ color: NAVY }}>{children}</b>
-      {right && <><span className="pb-row__spacer" />{right}</>}
-    </div>
-  )
-}
+const SECTION_HEAD = { inner: 'b', color: NAVY.billing, padding: '6px 10px 2px', rule: '#b8b8b8', fixed: true, row: true } as const
 
 /* --- LFP - Setup ----------------------------------------------------------- */
 
@@ -94,7 +86,7 @@ export function LfpSetupView({ onClose }: { onClose?: () => void }) {
         { label: 'Save', onClick: () => { billingPrograms.saveLfpSetup(draft); setSaved(true) } },
         { label: 'Close Window', onClick: onClose },
       ]} />
-      <SectionHead>Configuration</SectionHead>
+      <SectionCaption {...SECTION_HEAD}>Configuration</SectionCaption>
       <div className="pb-row" style={{ gap: 18, padding: '6px 14px', alignItems: 'flex-start', flex: 'none' }}>
         <PBCheckbox label="Activate Longitudinal Family Physician Model" checked={draft.active} onChange={(v) => patch({ active: v })} tutorialId="host.mois.field.lfp-activate" />
         <PBCheckbox label="Enable Time Claim Wizard" checked={draft.wizard} onChange={(v) => patch({ wizard: v })} tutorialId="host.mois.field.lfp-time-claim-wizard" />
@@ -105,7 +97,7 @@ export function LfpSetupView({ onClose }: { onClose?: () => void }) {
           </Dim>
         </div>
       </div>
-      <SectionHead>Claim Codes</SectionHead>
+      <SectionCaption {...SECTION_HEAD}>Claim Codes</SectionCaption>
       <div style={{ padding: '6px 14px 10px', flex: 'none' }}>
         <Field id="lfp-diagnosis" label={<Dim>Diagnosis:</Dim>} labelW={140} value={draft.diagnosis} onChange={(v) => patch({ diagnosis: v })} w={110} align="center" />
       </div>
@@ -294,7 +286,7 @@ function LfpProfileWindow({ provider, onClose }: { provider: string; onClose: ()
         <BlueHead><b style={{ fontSize: 13 }}>({p.prefix}) {p.provider}</b></BlueHead>
         <div className="pb-row" style={{ alignItems: 'flex-start', padding: '6px 10px 10px', gap: 40, borderBottom: '1px solid #a0a0a0', flex: 'none' }}>
           <div>
-            <b style={{ color: NAVY }}>MSP / Billing Information</b>
+            <b style={{ color: NAVY.billing }}>MSP / Billing Information</b>
             <div className="pb-row" style={{ gap: 6, paddingTop: 4 }}><span style={label}>Practitioner No.:</span><PBInput w={156} value={form.practitioner} onChange={(e) => set('practitioner')(e.target.value)} data-tutorial-id="host.mois.field.lfp-practitioner-no" /><Dim>(MSP Practitioner Number)</Dim></div>
             <div className="pb-row" style={{ gap: 6, paddingTop: 4 }}><span style={label}>Payee No.:</span><PBInput w={156} value={form.payee} onChange={(e) => set('payee')(e.target.value)} data-tutorial-id="host.mois.field.lfp-payee-no" /><Dim>(MSP Payee Number)</Dim></div>
             <div className="pb-row" style={{ gap: 6, paddingTop: 4 }}>
@@ -309,7 +301,7 @@ function LfpProfileWindow({ provider, onClose }: { provider: string; onClose: ()
             <div className="pb-row" style={{ gap: 6, paddingTop: 4 }}><span style={label}>Sub-Facility</span><PBInput w={110} value={form.subFacility} onChange={(e) => set('subFacility')(e.target.value)} data-tutorial-id="host.mois.field.lfp-sub-facility" /></div>
           </div>
           <div>
-            <b style={{ color: NAVY }}>Quick Entry Fee Codes:</b>
+            <b style={{ color: NAVY.billing }}>Quick Entry Fee Codes:</b>
             {([['Default Code:', 'defaultCode'], ['F11 Code:', 'f11'], ['F12 Code:', 'f12']] as const).map(([l, k]) => (
               <div key={k} className="pb-row" style={{ gap: 6, paddingTop: k === 'defaultCode' ? 4 : 30 }}>
                 <span style={{ ...label, width: 104 }}>{l}</span>

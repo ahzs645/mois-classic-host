@@ -7,6 +7,8 @@ import { MOIS_TODAY } from '../../data/patients'
 import { useScreenReport } from '../../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { FormLine } from '../formKit'
+import { useTickSet } from '../listKit'
 
 /* ============================================================================
    Sent Claims ▸ Utilities ▸ Claim Review Wizard: find a batch of sent claims
@@ -69,12 +71,12 @@ function DateBlock({ title, noun, state, set, id }: {
   id: string
 }) {
   const row = (mode: DateMode, label: string, extra?: ReactNode) => (
-    <div className="pb-row" style={{ gap: 8, minHeight: 24, alignItems: 'center' }}>
-      <span style={{ width: 170, flex: 'none' }}>
-        <PBRadio name={`${id}-date`} label={label} checked={state.mode === mode} onChange={() => set({ ...state, mode })} tutorialId={`host.mois.radio.${id}-${mode}`} />
-      </span>
+    <FormLine
+      w={170} gap={8} minHeight={24} align="center" labelClass={false}
+      label={<PBRadio name={`${id}-date`} label={label} checked={state.mode === mode} onChange={() => set({ ...state, mode })} tutorialId={`host.mois.radio.${id}-${mode}`} />}
+    >
       {extra}
-    </div>
+    </FormLine>
   )
   const box = (key: 'a' | 'b', w = 110, on = true) => (
     <PBInput w={w} value={state[key]} disabled={!on} onChange={(e) => set({ ...state, [key]: e.target.value })} data-tutorial-id={`host.mois.field.${id}-${key}`} />
@@ -151,11 +153,10 @@ export function MspReviewWizard({ close, open }: AreaWindowProps) {
   useScreenReport({ matches: matches.length })
 
   const other = (label: string, value: string, set: (v: string) => void, note: string, id: string) => (
-    <div className="pb-row" style={{ gap: 10, minHeight: 25, alignItems: 'center' }}>
-      <span style={{ width: 150, flex: 'none', paddingLeft: 20 }}>{label}</span>
+    <FormLine label={label} w={150} gap={10} minHeight={25} align="center" labelClass={false} labelStyle={{ paddingLeft: 20 }}>
       <PBInput w={330} value={value} onChange={(e) => set(e.target.value)} data-tutorial-id={`host.mois.field.review-${id}`} />
       <span>{note}</span>
-    </div>
+    </FormLine>
   )
 
   return (
@@ -244,7 +245,7 @@ export function ClaimReviewWindow({ args, close, open }: AreaWindowProps) {
   const sent = useSentClaims()
   const ids = (args.ids as string[] | undefined) ?? []
   const rows = sent.rows.filter((c) => ids.includes(c.id)).sort((a, b) => a.last.localeCompare(b.last))
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const excluded = useTickSet<string>()
   const [cur, setCur] = useState(0)
   const [action, setAction] = useState<Action | null>(null)
   const [note, setNote] = useState('')
@@ -286,7 +287,7 @@ export function ClaimReviewWindow({ args, close, open }: AreaWindowProps) {
                 render: (c: SentClaim) => (
                   <PBCheckbox
                     checked={excluded.has(c.id)}
-                    onChange={(v) => setExcluded((prev) => { const n = new Set(prev); if (v) n.add(c.id); else n.delete(c.id); return n })}
+                    onChange={(v) => excluded.set(c.id, v)}
                     tutorialId={`host.mois.check.claim-review-exclude-${c.last.toLowerCase()}`}
                   />
                 ),
@@ -396,10 +397,10 @@ export function ResubmissionWizard({ args, close }: AreaWindowProps) {
         <div style={{ padding: '10px 36px', flex: 'none' }}>
           <div className="pb-row" style={{ gap: 30, paddingBottom: 6 }}><span style={{ width: 134 }}>Select Item to Change</span><span>New Code</span></div>
           {ITEMS.map((i) => (
-            <div key={i.key} className="pb-row" style={{ gap: 30, minHeight: 26 }}>
-              <span style={{ width: 134, flex: 'none' }}>
-                <PBCheckbox label={i.label} checked={on[i.key]} onChange={(v) => setOn({ ...on, [i.key]: v })} tutorialId={`host.mois.check.resubmit-${i.key}`} />
-              </span>
+            <FormLine
+              key={i.key} w={134} gap={30} minHeight={26} labelClass={false}
+              label={<PBCheckbox label={i.label} checked={on[i.key]} onChange={(v) => setOn({ ...on, [i.key]: v })} tutorialId={`host.mois.check.resubmit-${i.key}`} />}
+            >
               <PBInput
                 w={104}
                 value={value[i.key]}
@@ -407,7 +408,7 @@ export function ResubmissionWizard({ args, close }: AreaWindowProps) {
                 onChange={(e) => setValue({ ...value, [i.key]: e.target.value })}
                 data-tutorial-id={`host.mois.field.resubmit-${i.key}`}
               />
-            </div>
+            </FormLine>
           ))}
           <div style={{ paddingTop: 8 }}>Add Note</div>
           <div className="pb-row" style={{ alignItems: 'flex-start', gap: 30, paddingTop: 4 }}>

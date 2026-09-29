@@ -8,6 +8,7 @@ import { useScreenReport } from '../../host/screen-state'
 import { useSessionState } from '../../host/screen-windows'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
+import { FormLine } from '../formKit'
 
 /* ============================================================================
    The two Sent Claim Detail windows behind Sent Claims ▸ Action beside
@@ -93,10 +94,9 @@ export function AdjustmentSummaryWindow({ close }: AreaWindowProps) {
 /** A label / bold value pair in the Claim Information box. */
 function KV({ label, children, w = 96 }: { label: string; children: ReactNode; w?: number }) {
   return (
-    <div style={{ display: 'flex', gap: 8, lineHeight: '18px' }}>
-      <span style={{ width: w, flex: 'none' }}>{label}</span>
+    <FormLine label={label} w={w} gap={8} className={false} labelClass={false} style={{ display: 'flex', lineHeight: '18px' }}>
       <b>{children}</b>
-    </div>
+    </FormLine>
   )
 }
 

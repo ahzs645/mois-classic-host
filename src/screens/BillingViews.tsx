@@ -323,7 +323,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
               <PBButton
                 size="sm"
                 style={{ minWidth: 17, width: 17, padding: 0 }}
-                data-tutorial-id="host.mois.command.claim-status-reasons"
+                command="claim-status-reasons"
                 onClick={() => setConfirm('missing')}
               >
                 …
@@ -336,7 +336,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
             <At x={925}>
               <PBButton
                 style={{ width: 76, height: 32, lineHeight: 1.05, whiteSpace: 'normal', padding: 0 }}
-                data-tutorial-id="host.mois.command.refresh-patient-data"
+                command="refresh-patient-data"
                 onClick={() => c.chart && fromChart(c.chart)}
               >
                 Refresh Patient Data
@@ -648,7 +648,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
         <PBMessageBox
           title="BC PCPC"
           icon="warn"
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.claim-pcpc-ok' }]}
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-pcpc-ok' }]}
           onClose={() => setPcpcIssue('')}
         >
           {pcpcIssue}
@@ -659,7 +659,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
         <PBMessageBox
           title="Claim Status"
           icon={gapsNow.length ? 'warn' : 'info'}
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.claim-status-ok' }]}
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-status-ok' }]}
           onClose={() => setConfirm(null)}
         >
           {gapsNow.length

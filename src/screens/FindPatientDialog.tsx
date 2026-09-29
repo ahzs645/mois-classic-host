@@ -3,6 +3,7 @@ import { PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBWindow, type PBCol
 import {
   superfindForNode, type SuperfindRow, type SuperfindScreen,
 } from '../data/chartUtilities'
+import { ModalLayer } from './dialogKit'
 
 /* ============================================================================
    Find Patient — the Superfind window.
@@ -184,7 +185,7 @@ export function FindPatientDialog({
   const setTerm = (i: number, v: string) => setTerms((t) => t.map((old, j) => (j === i ? v : old)))
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
+    <ModalLayer zIndex={80}>
       <style href="mois-classic/find-patient" precedence="medium">{TEAL_CAPTION}</style>
       <PBWindow
         child
@@ -241,7 +242,7 @@ export function FindPatientDialog({
           <Painted left={653} top={y(60)} width={72}>
             <PBButton
               style={{ width: 72, height: 16, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.superfind-print-list"
+              command="superfind-print-list"
               onClick={onPrintList}
             >
               Print List
@@ -250,7 +251,7 @@ export function FindPatientDialog({
           <Painted left={728} top={y(60)} width={69}>
             <PBButton
               style={{ width: 69, height: 16, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.chart-navigator"
+              command="chart-navigator"
               /* the navigator holds the patients this search found (303787:
                  "open the Chart Navigator to … populate a call list") */
               onClick={() => onChartNavigator?.([...new Map(rows.map((r) => [r.chart, {
@@ -288,7 +289,7 @@ export function FindPatientDialog({
           <Painted left={325} top={y(557)} width={61}>
             <PBButton
               style={{ width: 61, height: 16, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.superfind-select"
+              command="superfind-select"
               disabled={!picked}
               onClick={() => picked && onSelect?.(picked.chart)}
             >
@@ -298,7 +299,7 @@ export function FindPatientDialog({
           <Painted left={392} top={y(557)} width={61}>
             <PBButton
               style={{ width: 61, height: 16, minWidth: 0 }}
-              data-tutorial-id="host.mois.command.superfind-cancel"
+              command="superfind-cancel"
               onClick={onClose}
             >
               Cancel
@@ -306,6 +307,6 @@ export function FindPatientDialog({
           </Painted>
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }

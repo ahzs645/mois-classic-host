@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { hhmm } from '../data/clock'
 import { useSessionState } from '../host/screen-windows'
 import {
   CODE_MAPPINGS_KEY, CODE_MAPPING_ROWS, CODE_RECORDS, CODE_RECORDS_KEY, VALUE_SETS, VALUE_SETS_KEY,
@@ -30,6 +31,5 @@ export const useCodeMappings = () => useStoredList<CodeMapping>(CODE_MAPPINGS_KE
 
 /** yyyy.mm.dd  hh:mm — the created / modified stamp the admin windows print. */
 export function nowStamp(today: string): string {
-  const now = new Date()
-  return `${today}  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  return `${today}  ${hhmm()}`
 }

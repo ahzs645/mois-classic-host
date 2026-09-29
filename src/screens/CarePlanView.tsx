@@ -9,13 +9,14 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBIdentityStrip, PBInput, PBLookup,
+  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput, PBLookup,
   PBSlider, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation, type PBColumn, type PBCommand,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { useChartGoals } from './CarePlanRecordWindows'
 import { dot, editableColumns, searchView, slash, useCarePlanFolder, type CellEdit } from './carePlanFolder'
 import { SearchForBand, useFolderSearch, type SearchField } from './SearchForBand'
+import { ChartIdentityStrip } from './patientKit'
 import { UniversalSearchDialog } from './CodeLookupDialogs'
 import { DesktopLayer } from './StageWindow'
 
@@ -175,15 +176,7 @@ export function CarePlanView({ screen }: { screen: CarePlanKey; onNew?: () => vo
       <PBViewHeader title={cfg.title} right={<ChartHeaderIdentity />} />
       <PBCommandRow commands={commands} />
 
-      <PBIdentityStrip
-        fields={[
-          { label: 'FIRST:', value: patient.first },
-          { label: 'MIDDLE:', value: patient.middle },
-          { label: 'LAST:', value: patient.last },
-          { label: 'DoB:', value: patient.dob },
-        ]}
-        encounter="NO ENCOUNTER"
-      />
+      <ChartIdentityStrip />
 
       <SearchForBand context={cfg.title} fields={SEARCH[screen] ?? NO_FIELDS} value={search.text} onChange={search.setText} />
 
@@ -430,13 +423,8 @@ function LinkedPage({ band, goals, rows, editable, objectId, chart }: {
 }) {
   const [cur, setCur] = useState(0)
   const open = useOpenWindow()
-  const host = usePBInstrumentation()
   const button = (id: string, label: string, onClick: () => void, disabled?: boolean) => (
-    <PBButton
-      size="sm" disabled={disabled}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick() }}
-    >
+    <PBButton size="sm" disabled={disabled} command={id} onClick={() => onClick()}>
       {label}
     </PBButton>
   )

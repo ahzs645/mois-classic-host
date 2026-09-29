@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
-import { PBButton, PBCheckbox, PBInput, PBLookup, PBSelect, PBWindow } from '../../pb'
+import { PBButton, PBCheckbox, PBInput, PBLookup, PBSelect } from '../../pb'
 import { currentRow, schedulerStore, useSchedulerStore } from '../../data/schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
-import { NAVY } from './SchedulerDialog'
+import { LAYER, ModalWindow } from '../dialogKit'
+import { CaptionGroup } from '../formKit'
 
 /* ============================================================================
    Quick Patient Registration Form — the row menu's (or Utilities')
@@ -21,10 +23,10 @@ import { NAVY } from './SchedulerDialog'
    ========================================================================= */
 
 const Group = ({ title, children }: { title: string; children: ReactNode }) => (
-  <fieldset className="pb-fieldset" style={{ margin: '0 0 6px' }}>
-    <legend className="pb-fieldset__legend" style={NAVY}>{title}</legend>
-    <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', rowGap: 3, alignItems: 'center', padding: '2px 4px' }}>{children}</div>
-  </fieldset>
+  <CaptionGroup frame="fieldset" title={title} style={{ margin: '0 0 6px' }}
+    bodyStyle={{ display: 'grid', gridTemplateColumns: '92px 1fr', rowGap: 3, alignItems: 'center', padding: '2px 4px' }}>
+    {children}
+  </CaptionGroup>
 )
 const L = ({ children }: { children: ReactNode }) => <span>{children}</span>
 
@@ -36,15 +38,8 @@ function QuickRegistration({ close }: AreaWindowProps) {
     close()
   }
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Quick Patient Registration Form"
-        tutorialId="host.mois.dialog.quick-registration"
-        onClose={close}
-        style={{ width: 430, height: 660, maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id="quick-registration" title="Quick Patient Registration Form" onClose={close} zIndex={LAYER.stage}
+      windowStyle={{ width: 430, height: 660, maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', padding: '8px 10px', background: 'var(--pb-face)' }}>
           <Group title="Patient Identification">
             <L>Chart No.:</L><PBInput w={94} readOnly style={{ background: 'var(--pb-field-ro)' }} />
@@ -76,7 +71,7 @@ function QuickRegistration({ close }: AreaWindowProps) {
             <L>Facility:</L><PBSelect w={180} options={['']} />
             <L>Location:</L><PBSelect w={180} options={['', 'PRINCE GEORGE CLINIC']} />
             <L>Service:</L><PBSelect w={180} options={['']} />
-            <L>Service Provider:</L><PBSelect w={180} options={['', 'TECHNICAL SUPPORT', 'BEARDWOOD, WALTER']} />
+            <L>Service Provider:</L><PBSelect w={180} options={['', DESKTOP_PROVIDER_DEFAULT, 'BEARDWOOD, WALTER']} />
           </Group>
           <Group title="Connections">
             <L>Referring:</L><PBLookup w={240} />
@@ -84,11 +79,10 @@ function QuickRegistration({ close }: AreaWindowProps) {
           </Group>
         </div>
         <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '6px 0 8px', flex: 'none', background: 'var(--pb-face)' }}>
-          <PBButton style={{ minWidth: 90 }} className="pb-btn--default" data-tutorial-id="host.mois.command.register" onClick={register}>Register (F2)</PBButton>
+          <PBButton style={{ minWidth: 90 }} className="pb-btn--default" command="register" onClick={register}>Register (F2)</PBButton>
           <PBButton style={{ minWidth: 76 }} onClick={close}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

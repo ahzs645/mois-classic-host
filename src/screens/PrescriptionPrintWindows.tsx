@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { useChartExport } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
 import { usePatient } from '../data/patient-context'
+import { hhmm } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { STAGE_USER, useMedRows, useMedSession, type Med } from './medication-model'
 import { MED_WINDOWS } from './MedicationWindows'
 import { AddressBookWindow } from './AddressBookWindow'
 import { useSessionState } from '../host/screen-windows'
+import { useTickSet } from './listKit'
 import { CurrentPatientBlock, FooterButton, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -56,7 +58,6 @@ export function isPrintJob(v: unknown): v is PrintJob {
   return !!v && typeof v === 'object' && Array.isArray((v as PrintJob).include) && typeof (v as PrintJob).mode === 'string'
 }
 
-const nowTime = () => new Date().toTimeString().slice(0, 5)
 
 /** File a print (or a signed print / fax) in the session: Last Printed on
     each row, and a Print History entry. */
@@ -66,7 +67,7 @@ export function useFilePrint() {
   return (job: PrintJob, signed: boolean) => {
     const picked = rows.filter((m) => job.include.includes(m.id))
     if (!picked.length) return
-    const when = `${MOIS_TODAY}  ${nowTime()}`
+    const when = `${MOIS_TODAY}  ${hhmm()}`
     update((s) => ({
       ...s,
       printed: { ...s.printed, ...Object.fromEntries(picked.map((m) => [m.id, when])) },
@@ -236,8 +237,8 @@ const BAND_FILL: Record<InteractionSeverity, string> = { Major: '#ea8d9c', Moder
 
 export function DrugInteractionWindow({ found, onPrint, onClose }: { found: Interaction[]; onPrint: () => void; onClose: () => void }) {
   const [show, setShow] = useState<'all' | 'drug-drug' | 'drug-adverse'>('all')
-  const [shut, setShut] = useState<Set<string>>(new Set())
-  const [openRows, setOpenRows] = useState<Set<number>>(new Set())
+  const shut = useTickSet<string>()
+  const openRows = useTickSet<number>()
   const shown = found.filter((f) => show === 'all' || f.kind === show)
   const count = (k: Interaction['kind']) => found.filter((f) => f.kind === k).length
   const bands: { key: string; title: string; fill: string; rows: Interaction[] }[] = [
@@ -283,7 +284,7 @@ export function DrugInteractionWindow({ found, onPrint, onClose }: { found: Inte
                 <div
                   role="button" tabIndex={0} aria-expanded={open}
                   style={{ background: band.fill, padding: '2px 6px 2px 14px', fontWeight: 700, cursor: 'default' }}
-                  onClick={() => setShut((s) => { const n = new Set(s); open ? n.add(band.key) : n.delete(band.key); return n })}
+                  onClick={() => shut.set(band.key, open)}
                 >
                   {box(open)}{band.title} ( {band.rows.length} )
                 </div>
@@ -293,7 +294,7 @@ export function DrugInteractionWindow({ found, onPrint, onClose }: { found: Inte
                   return (
                     <div key={i} style={{ borderBottom: '1px solid #e2e2e2', padding: '6px 10px 6px 32px' }}>
                       <div role="button" tabIndex={0} aria-expanded={expanded} style={{ cursor: 'default' }}
-                        onClick={() => setOpenRows((s) => { const n = new Set(s); expanded ? n.delete(i) : n.add(i); return n })}>
+                        onClick={() => openRows.set(i, !expanded)}>
                         {box(expanded)}<b>{f.a}</b>&nbsp;&nbsp; and &nbsp;&nbsp;<b>{f.b}</b>
                       </div>
                       {expanded && <div style={{ background: '#d4ebf8', margin: '4px 0 0 17px', padding: '4px 6px' }}>{f.text}</div>}
@@ -389,7 +390,7 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
   const p = usePatient()
   const data = useChartExport()
   const rows = useMedRows('rx').filter((m) => !m.voided)
-  const [include, setInclude] = useState<Set<string>>(() => new Set(preset))
+  const include = useTickSet<string>(() => preset)
   const [pharmacy, setPharmacy] = useState(false)
   const [printer, setPrinter] = useState('Default')
   const [fax, setFax] = useState('DEFAULT')
@@ -457,7 +458,7 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
             {
               key: 'include', header: 'Include', width: 52, align: 'center',
               render: (m) => <PBCheckbox checked={include.has(m.id)} tutorialId={`host.mois.cell.include-${pbSlug(m.med || m.order).slice(0, 32)}`}
-                onChange={(on) => setInclude((s) => { const n = new Set(s); on ? n.add(m.id) : n.delete(m.id); return n })} />,
+                onChange={(on) => include.set(m.id, on)} />,
             },
             { key: 'order', header: 'Order', width: 78, align: 'center' },
             { key: 'cdic', header: 'CDIC', width: 78, align: 'center' },

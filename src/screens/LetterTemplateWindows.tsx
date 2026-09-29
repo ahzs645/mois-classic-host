@@ -1,4 +1,5 @@
 import { useTemplateMeta, type DesignerStart } from '../data/letterDocs'
+import { argStr } from '../data/text'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { LetterWriterWindow } from './LetterWriterWindow'
 
@@ -28,7 +29,7 @@ export const LETTER_TEMPLATE_DESIGNER = 'letter-template-designer'
 
 function LetterTemplateDesigner({ args, close }: AreaWindowProps) {
   const start: DesignerStart = {
-    template: typeof args.template === 'string' && args.template ? args.template : 'NEW TEMPLATE',
+    template: argStr(args.template) || 'NEW TEMPLATE',
     type: typeof args.type === 'string' ? args.type : 'MISC',
     option: args.option === 'template' || args.option === 'file' ? args.option : 'blank',
     from: typeof args.from === 'string' ? args.from : undefined,
@@ -41,7 +42,7 @@ function LetterTemplateDesigner({ args, close }: AreaWindowProps) {
       designer={start}
       onClose={close}
       onCommand={(label) => {
-        if (label === 'Save') saveMeta({ name: start.template, type: start.type, description: typeof args.description === 'string' ? args.description : '' })
+        if (label === 'Save') saveMeta({ name: start.template, type: start.type, description: argStr(args.description) })
       }}
     />
   )

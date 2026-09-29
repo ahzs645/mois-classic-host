@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { INCENTIVE_DIAG_CODES, INCENTIVE_FEE_CODES, type ClaimLookupRow } from '../data/demographic-claim-lookups'
-import { PBBand, PBDataWindow, PBInput, pbSlug } from '../pb'
+import { pbSlug } from '../pb'
 import { DemographicModal } from './DemographicDialogs'
-import { DialogButton } from './WorkspaceDialogFrame'
+import { LookupBand, PickButtons, PickListWindow, SIZE, SearchForRow } from './lookupKit'
 
 /* ============================================================================
    Advanced Lookup Service over the Incentives tab's code columns: the "…"
@@ -50,45 +50,53 @@ export function IncentiveCodeLookupDialog({ kind, initial = '', onPick, onClose 
   const at = Math.min(cur, Math.max(0, rows.length - 1))
   const row = rows[at]
   return (
-    <DemographicModal title="Advanced Lookup Service" width={620} height={520} onClose={onClose} dialog={set.slug}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}>
-        <div style={{ border: '1px solid #a0a0a0', background: '#fff', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
-          <PBBand><b>{set.band}</b></PBBand>
-          <div className="pb-row" style={{ gap: 4, padding: '2px 4px', flex: 'none' }}>
-            <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-            <PBInput
-              w="100%"
-              aria-label={`${set.band} search`}
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setCur(0) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && row) { e.preventDefault(); onPick(row) } }}
-              style={{ flex: '1 1 auto', background: '#f4caa8' }}
-              data-tutorial-id={`host.mois.field.${set.slug}-search`}
-            />
-          </div>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-            <PBDataWindow
-              flush
-              rules="white"
-              columns={[
-                { key: 'code', header: 'Code', width: 90, headAlign: 'center' },
-                { key: 'description', header: 'Description', headAlign: 'center' },
-                { key: 'category', header: 'Category', width: 110, headAlign: 'center' },
-              ]}
-              rows={rows}
-              current={at}
-              onCurrentChange={setCur}
-              onActivate={(r) => onPick(r)}
-              rowTutorialId={(r) => `host.mois.row.${set.slug}-${pbSlug(r.code)}`}
-              empty="No code matches."
-            />
-          </div>
-        </div>
-      </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 22, padding: '10px 8px', flex: 'none' }}>
-        <DialogButton id={`${set.slug}-ok`} width={74} isDefault disabled={!row} onClick={() => row && onPick(row)}>Ok</DialogButton>
-        <DialogButton id={`${set.slug}-cancel`} width={74} onClick={onClose}>Cancel</DialogButton>
-      </div>
-    </DemographicModal>
+    <PickListWindow<ClaimLookupRow>
+      frame={(content, footer) => (
+        <DemographicModal title="Advanced Lookup Service" width={620} height={520} onClose={onClose} dialog={set.slug}>
+          {content}
+          {footer}
+        </DemographicModal>
+      )}
+      body={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}
+      panel={{ border: '1px solid #a0a0a0', background: '#fff', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
+      band={<LookupBand variant="bold">{set.band}</LookupBand>}
+      search={(
+        <SearchForRow
+          salmon
+          inputStyle={{ flex: '1 1 auto' }}
+          ariaLabel={`${set.band} search`}
+          value={search}
+          onChange={(v) => { setSearch(v); setCur(0) }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && row) { e.preventDefault(); onPick(row) } }}
+          field={`${set.slug}-search`}
+        />
+      )}
+      grid={{
+        flush: true,
+        rules: 'white',
+        columns: [
+          { key: 'code', header: 'Code', width: 90, headAlign: 'center' },
+          { key: 'description', header: 'Description', headAlign: 'center' },
+          { key: 'category', header: 'Category', width: 110, headAlign: 'center' },
+        ],
+        rows,
+        current: at,
+        onCurrentChange: setCur,
+        onActivate: (r) => onPick(r),
+        rowTutorialId: (r) => `host.mois.row.${set.slug}-${pbSlug(r.code)}`,
+        empty: 'No code matches.',
+      }}
+      footer={(
+        <PickButtons
+          className="pb-row"
+          style={{ justifyContent: 'center', gap: 22, padding: '10px 8px', flex: 'none' }}
+          size={SIZE.dialog(74)}
+          buttons={[
+            { label: 'Ok', command: `${set.slug}-ok`, isDefault: true, disabled: !row, onClick: () => row && onPick(row) },
+            { label: 'Cancel', command: `${set.slug}-cancel`, onClick: onClose },
+          ]}
+        />
+      )}
+    />
   )
 }

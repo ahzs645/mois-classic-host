@@ -56,7 +56,7 @@ export function useNoKnown(folder: string, rows: number) {
   const windows = refused && (
     <PBMessageBox
       title="MOIS" icon="info" onClose={() => setRefused(false)}
-      buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.no-known-ok' }]}
+      buttons={[{ label: 'OK', value: 'ok', default: true, command: 'no-known-ok' }]}
     >
       Health Conditions are on file for this patient.<br />
       No Known can only be recorded when there are no Health Conditions.

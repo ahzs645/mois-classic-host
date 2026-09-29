@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
-import { PBButton, PBDataWindow, PBInput, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBDataWindow, PBInput, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
+import { ModalLayer } from './dialogKit'
+import { DialogFooter } from './formKit'
+import { LookupBand, LookupPager, usePagedCursor } from './lookupKit'
 import { matchesSearch, parseSearch, type SearchField } from './SearchForBand'
 
 /* ============================================================================
@@ -89,7 +92,6 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
   const [synonyms, setSynonyms] = useSessionState<Record<string, string[]>>(REACTION_SYNONYMS_KEY, SEED_SYNONYMS)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<{ key: keyof Agent; desc: boolean } | null>(null)
-  const [cur, setCur] = useState(0)
   const [editing, setEditing] = useState(false)
   const parsed = useMemo(() => parseSearch(search, FIELDS), [search])
   const rows = useMemo(() => {
@@ -100,16 +102,16 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
     const out = [...hit].sort(by)
     return sort.desc ? out.reverse() : out
   }, [parsed, synonyms, sort])
-  const at = Math.min(cur, Math.max(0, rows.length - 1))
+  const cursor = usePagedCursor(rows.length, 20)
+  const { at, setCurrent: setCur } = cursor
   const row = rows[at]
   const state = parsed.empty ? 'empty' : parsed.errors.length ? 'invalid' : 'valid'
   useScreenReport({ dialog: 'master-reaction-agent-list', lookupRows: rows.length, lookupSort: sort ? `${sort.key}${sort.desc ? '-desc' : ''}` : null, searchState: state })
 
-  const step = (to: number) => setCur(Math.max(0, Math.min(rows.length - 1, to)))
   const pick = () => { if (row) { onPick?.(row); onClose() } }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
+    <ModalLayer zIndex={95}>
       <PBWindow child controls={false} title="Advanced Lookup Service" onClose={onClose} tutorialId="host.mois.dialog.master-reaction-agent-list"
         style={{ width: 'min(688px, 100%)', height: 'min(668px, 100%)' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}>
@@ -171,17 +173,16 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
             </div>
           </div>
         </div>
-        <div className="pb-row" style={{ gap: 0, padding: '10px 8px', flex: 'none' }}>
-          <PBButton style={{ width: 77, minWidth: 0 }} onClick={() => step(0)}>Home</PBButton>
-          <PBButton style={{ width: 77, minWidth: 0 }} onClick={() => step(at - 20)}>PgUp</PBButton>
-          <span style={{ flex: '1 1 auto' }} />
-          <CmdButton command="reaction-agent-ok" style={{ width: 74 }} disabled={!row} onClick={pick}>Ok</CmdButton>
-          <span style={{ width: 22 }} />
-          <CmdButton command="reaction-agent-cancel" style={{ width: 74 }} onClick={onClose}>Cancel</CmdButton>
-          <span style={{ flex: '1 1 auto' }} />
-          <PBButton style={{ width: 77, minWidth: 0 }} onClick={() => step(at + 20)}>PgDwn</PBButton>
-          <PBButton style={{ width: 77, minWidth: 0 }} onClick={() => step(rows.length - 1)}>End</PBButton>
-        </div>
+        <LookupPager
+          cursor={cursor}
+          className="pb-row"
+          style={{ gap: 0, padding: '10px 8px', flex: 'none' }}
+          navSize={{ width: 77, minWidth: 0 }}
+          pickSize={{ width: 74 }}
+          pickGap={22}
+          ok={{ command: 'reaction-agent-ok', disabled: !row, onClick: pick }}
+          cancel={{ command: 'reaction-agent-cancel', onClick: onClose }}
+        />
       </PBWindow>
       {editing && row && (
         <SynonymEntry
@@ -190,7 +191,7 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
           onClose={() => setEditing(false)}
         />
       )}
-    </div>
+    </ModalLayer>
   )
 }
 
@@ -204,7 +205,7 @@ function SynonymEntry({ initial, onOk, onClose }: { initial: string[]; onOk: (li
         style={{ margin: '8px 10px 0', border: '1px solid #9a9a9a', background: '#fff' }}
         onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); ok() } }}
       >
-        <div style={{ background: 'linear-gradient(#ecebe8, #d8d5d0)', fontWeight: 700, padding: '3px 6px' }}>Synonyms</div>
+        <LookupBand variant="grey">Synonyms</LookupBand>
         <div style={{ padding: '4px 8px 10px' }}>
           {lines.map((l, i) => (
             <div key={i} className="pb-row" style={{ gap: 6, padding: '1px 0', background: i % 2 ? '#f0f0f0' : '#fff' }}>
@@ -214,10 +215,10 @@ function SynonymEntry({ initial, onOk, onClose }: { initial: string[]; onOk: (li
           ))}
         </div>
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: 10 }}>
+      <DialogFooter fixed={false} gap={8} padding={10}>
         <CmdButton command="synonym-ok" style={{ width: 74 }} onClick={ok}>Ok (F2)</CmdButton>
         <CmdButton command="synonym-cancel" style={{ width: 74 }} onClick={onClose}>Cancel</CmdButton>
-      </div>
+      </DialogFooter>
     </DemographicModal>
   )
 }

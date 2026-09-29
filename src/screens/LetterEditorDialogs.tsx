@@ -2,9 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { LETTER_TEMPLATES } from '../data/letterSetup'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBWindow,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs,
   pbSlug, usePBInstrumentation,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
+import { DialogFooter, FormLabel, NAVY } from './formKit'
 
 /* ============================================================================
    The word processor's own dialogs — what the Letter Writer's menus open.
@@ -211,18 +213,18 @@ function FieldRow({ f, name }: { f: Field; name: string }) {
   const host = usePBInstrumentation()
   switch (f.kind) {
     case 'section':
-      return <div style={{ color: '#000080', fontWeight: 700, borderBottom: '1px solid #bdbdbd', margin: '6px 0 3px' }}>{f.label}</div>
+      return <div style={{ color: NAVY.win, fontWeight: 700, borderBottom: '1px solid #bdbdbd', margin: '6px 0 3px' }}>{f.label}</div>
     case 'text':
       return (
         <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
-          <span className="pb-form__label" style={{ width: 130 }}>{f.label}</span>
+          <FormLabel w={130} flex={false}>{f.label}</FormLabel>
           <PBInput w={f.w ?? 160} defaultValue={f.value} data-tutorial-id={host?.anchor('field', `${name}-${pbSlug(f.label)}`)} />
         </div>
       )
     case 'select':
       return (
         <div className="pb-row" style={{ gap: 6, padding: '2px 0' }}>
-          <span className="pb-form__label" style={{ width: 130 }}>{f.label}</span>
+          <FormLabel w={130} flex={false}>{f.label}</FormLabel>
           <PBSelect w={f.w ?? 160} options={f.options} data-tutorial-id={host?.anchor('field', `${name}-${pbSlug(f.label)}`)} />
         </div>
       )
@@ -231,7 +233,7 @@ function FieldRow({ f, name }: { f: Field; name: string }) {
     case 'radios':
       return (
         <div className="pb-row" style={{ gap: 12, padding: '2px 0', flexWrap: 'wrap' }}>
-          {f.label && <span className="pb-form__label" style={{ width: 130 }}>{f.label}</span>}
+          {f.label && <FormLabel w={130} flex={false}>{f.label}</FormLabel>}
           {f.options.map((o, i) => <PBRadio key={o} name={`${name}-${pbSlug(f.label ?? 'r')}`} label={o} checked={radio === i} onChange={() => setRadio(i)} tutorialId={host?.anchor('field', `${name}-${pbSlug(o)}`)} />)}
         </div>
       )
@@ -268,28 +270,17 @@ function DialogShell({ id, title, width, height, onClose, children, buttons, onB
   buttons: string[]
   onButton: (b: string) => void
 }) {
-  const host = usePBInstrumentation()
   useScreenReport({ dialog: id })
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 98 }}>
-      <PBWindow child controls={false} title={title} onClose={onClose} tutorialId={`host.mois.dialog.${id}`}
-        style={{ width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
+    <ModalWindow id={id} title={title} onClose={onClose} zIndex={98}
+      windowStyle={{ width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)', padding: 10, overflow: 'auto' }}>
           {children}
         </div>
-        <div className="pb-footer">
-          <span className="pb-footer__spacer" />
-          {buttons.map((b) => (
-            <PBButton key={b} wide className={b === buttons[0] ? 'pb-btn--default' : undefined}
-              data-tutorial-id={host?.anchor('command', `${id}-${pbSlug(b)}`)}
-              onClick={() => { host?.report('command', { command: `${id}-${pbSlug(b)}` }); onButton(b) }}>
-              {b}
-            </PBButton>
-          ))}
-          <span className="pb-footer__spacer" />
-        </div>
-      </PBWindow>
-    </div>
+        <DialogFooter frame="pb" buttons={buttons.map((b) => ({
+          label: b, command: `${id}-${pbSlug(b)}`, wide: true, primary: b === buttons[0], onClick: () => onButton(b),
+        }))} />
+    </ModalWindow>
   )
 }
 
@@ -319,7 +310,6 @@ export function LetterEditorDialog({ id, onClose, onOk }: { id: string; onClose:
 /* --- Print (303589 `87ae0c73…`) ------------------------------------------ */
 function PrintDialog({ onClose, onPrint }: { onClose: () => void; onPrint: () => void }) {
   const [range, setRange] = useState('All')
-  const host = usePBInstrumentation()
   useScreenReport({ dialog: 'letter-print' })
   const group = (title: string, children: ReactNode) => (
     <fieldset style={{ border: '1px solid #c8c8c8', margin: '0 0 6px', padding: '2px 8px 6px' }}>
@@ -327,9 +317,8 @@ function PrintDialog({ onClose, onPrint }: { onClose: () => void; onPrint: () =>
     </fieldset>
   )
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 98 }}>
-      <PBWindow child controls={false} title="Print" onClose={onClose} tutorialId="host.mois.dialog.letter-print"
-        style={{ width: 830, height: 650, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
+    <ModalWindow id="letter-print" title="Print" onClose={onClose} zIndex={98}
+      windowStyle={{ width: 830, height: 650, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 8, padding: 8, background: 'var(--pb-face)' }}>
           <div style={{ width: 410, flex: 'none', overflow: 'auto' }}>
             {group('Printer', <>
@@ -365,12 +354,10 @@ function PrintDialog({ onClose, onPrint }: { onClose: () => void; onPrint: () =>
         </div>
         <div className="pb-footer">
           <span className="pb-footer__spacer" />
-          <PBButton wide className="pb-btn--default" data-tutorial-id={host?.anchor('command', 'letter-print-print')}
-            onClick={() => { host?.report('command', { command: 'letter-print-print' }); onPrint() }}>Print</PBButton>
-          <PBButton wide data-tutorial-id={host?.anchor('command', 'letter-print-cancel')} onClick={onClose}>Cancel</PBButton>
+          <PBButton wide className="pb-btn--default" command="letter-print-print" onClick={() => onPrint()}>Print</PBButton>
+          <PBButton wide command="letter-print-cancel" onClick={onClose}>Cancel</PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -393,7 +380,6 @@ export function NewLetterDialog({ onContinue, onClose }: { onContinue: (choice: 
   const [option, setOption] = useState(0)
   const [file, setFile] = useState('')
   const [cur, setCur] = useState(0)
-  const host = usePBInstrumentation()
   useScreenReport({ dialog: 'new-letter', newLetterOption: ['blank', 'template', 'file'][option]!, newLetterFile: !!file })
   const templates = [...new Map(LETTER_TEMPLATES.map((t) => [t.name, t])).values()]
   const cont = () => {
@@ -401,8 +387,7 @@ export function NewLetterDialog({ onContinue, onClose }: { onContinue: (choice: 
     onContinue(option === 0 ? { option: 'blank' } : option === 1 ? { option: 'template', template: templates[cur]?.name } : { option: 'file', file })
   }
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 95 }}>
-      <PBWindow child controls={false} title="New Letter" onClose={onClose} tutorialId="host.mois.dialog.new-letter" style={{ width: 671, height: 498, maxWidth: 'calc(100% - 16px)' }}>
+    <ModalWindow id="new-letter" title="New Letter" onClose={onClose} zIndex={95} windowStyle={{ width: 671, height: 498, maxWidth: 'calc(100% - 16px)' }}>
         <div className="pb-row" style={{ alignItems: 'flex-start', gap: 20, padding: '8px 10px', background: 'var(--pb-face)', flex: 'none', borderBottom: '1px solid #a0a0a0' }}>
           <span className="pb-form__label">Options:</span>
           <div>
@@ -419,8 +404,8 @@ export function NewLetterDialog({ onContinue, onClose }: { onContinue: (choice: 
             <div className="pb-row" style={{ gap: 6, padding: '4px 8px' }}>
               <span className="pb-form__label">File Name:</span>
               <PBInput w={420} readOnly value={file} data-tutorial-id="host.mois.field.new-letter-file-name" />
-              <PBButton data-tutorial-id={host?.anchor('command', 'new-letter-browse')}
-                onClick={() => { host?.report('command', { command: 'new-letter-browse' }); setFile('C:\\Users\\mois\\MOIS Cloud Files\\Letters\\Virtual Psychiatry Clinic Referral.docx') }}>
+              <PBButton command="new-letter-browse"
+                onClick={() => setFile('C:\\Users\\mois\\MOIS Cloud Files\\Letters\\Virtual Psychiatry Clinic Referral.docx')}>
                 Browse
               </PBButton>
             </div>
@@ -437,14 +422,10 @@ export function NewLetterDialog({ onContinue, onClose }: { onContinue: (choice: 
             />
           )}
         </div>
-        <div className="pb-footer">
-          <span className="pb-footer__spacer" />
-          <PBButton wide className="pb-btn--default" disabled={option === 2 && !file} data-tutorial-id={host?.anchor('command', 'new-letter-continue')}
-            onClick={() => { host?.report('command', { command: 'new-letter-continue' }); cont() }}>Continue</PBButton>
-          <PBButton wide data-tutorial-id={host?.anchor('command', 'new-letter-cancel')} onClick={onClose}>Cancel</PBButton>
-          <span className="pb-footer__spacer" />
-        </div>
-      </PBWindow>
-    </div>
+        <DialogFooter frame="pb" buttons={[
+          { label: 'Continue', command: 'new-letter-continue', wide: true, primary: true, disabled: option === 2 && !file, onClick: cont },
+          { label: 'Cancel', command: 'new-letter-cancel', wide: true, onClick: onClose },
+        ]} />
+    </ModalWindow>
   )
 }

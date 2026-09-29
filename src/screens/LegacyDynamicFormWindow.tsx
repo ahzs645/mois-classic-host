@@ -2,7 +2,8 @@ import type { MoisRecord } from '../data/charts/types'
 import { date } from '../data/charts/relations'
 import { legacyDynamicFormTitle, savedDynamicFormSections } from '../data/legacy-dynamic-forms'
 import { usePatient } from '../data/patient-context'
-import { PBButton, PBInput, PBTextArea, PBWindow } from '../pb'
+import { PBButton, PBInput, PBPatientBand, PBTextArea, PBWindow } from '../pb'
+import { ModalLayer } from './dialogKit'
 import './legacy-dynamic-form.css'
 
 /** Read-only reconstruction of an exported native MOIS Dynamic Form instance. */
@@ -17,7 +18,7 @@ export function LegacyDynamicFormWindow({ header, records, onClose }: {
   const answered = sections.reduce((count, section) => count + section.fields.filter((field) => field.value !== '').length, 0)
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 91 }}>
+    <ModalLayer zIndex={91} style={{ position: 'fixed', padding: 8 }}>
       <PBWindow
         title={title.toUpperCase()}
         child
@@ -27,11 +28,11 @@ export function LegacyDynamicFormWindow({ header, records, onClose }: {
         className="pb-legacy-dform"
         style={{ width: 'min(1000px, 100%)', height: 'min(840px, 100%)' }}
       >
-        <div className="pb-legacy-dform__patient">
-          <span>CHART NO.<strong>{patient.chart}</strong></span>
-          <span>PATIENT (F/M/L)<strong>{[patient.first, patient.middle, patient.last].filter(Boolean).join(' ').toUpperCase()}</strong></span>
-          <span>DATE OF BIRTH<strong>{patient.dob ?? ''}</strong></span>
-        </div>
+        <PBPatientBand layout="caption" className="pb-legacy-dform__patient" cells={[
+          { label: 'CHART NO.', value: patient.chart },
+          { label: 'PATIENT (F/M/L)', value: [patient.first, patient.middle, patient.last].filter(Boolean).join(' ').toUpperCase() },
+          { label: 'DATE OF BIRTH', value: patient.dob ?? '' },
+        ]} />
         <div className="pb-legacy-dform__metadata">
           <label>Form Date: <PBInput value={date(header.dtm_form)} readOnly w={100} /></label>
           <label>This form was created by: <PBInput value={header.stp_user_create ?? ''} readOnly w={220} /></label>
@@ -60,9 +61,9 @@ export function LegacyDynamicFormWindow({ header, records, onClose }: {
         </div>
         <div className="pb-legacy-dform__footer">
           <PBButton disabled>Save Form</PBButton>
-          <PBButton data-tutorial-id="host.mois.command.close-form" onClick={onClose}>Close Form</PBButton>
+          <PBButton command="close-form" onClick={onClose}>Close Form</PBButton>
         </div>
       </PBWindow>
-    </div>
+    </ModalLayer>
   )
 }
