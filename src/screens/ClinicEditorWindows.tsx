@@ -14,6 +14,7 @@ import { registerScreenWindows, useSessionState, type ScreenWindow } from '../ho
 import { SESSION_USER } from '../data/chartSession'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
+import { PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
 import {
   BillingServiceCodeLookup, ChangeAssociatedUserDialog, ServiceConceptSearchWindow, type AssociationChange,
 } from './AdminPickerWindows'
@@ -126,7 +127,7 @@ const HINT: CSSProperties = { color: '#808080' }
 /* a read-only identity field: grey face, bold ink (Resource / Facility Code) */
 const LOCKED: CSSProperties = { background: '#e8e8e8', fontWeight: 700 }
 /* a field MOIS fills itself while Synchronize is ticked */
-const SYNCED: CSSProperties = { background: '#c8c8c8' }
+const SYNCED: CSSProperties = { background: '#c0c0c0' }
 
 /** label, then the control(s), on one line */
 function Line({ label, w = 92, right, children, style }: {
@@ -225,12 +226,17 @@ const signatureOf = (first: string, last: string) => [first, last].filter(Boolea
 /** the User Accounts roster, as New Provider Profile's User Profile drops it */
 const userProfiles = () => ['', ...(userListSpec('ad-users')?.rows ?? []).map((r) => S(r.display))]
 
-function NameBlock({ names, onNames, prefix = '' }: {
+function NameBlock({ names, onNames, prefix = '', profile }: {
   names: { first: string; middle: string; last: string; display: string; signature: string; syncDisplay: boolean; syncSignature: boolean }
   onNames: (next: typeof names) => void
   /** Change Provider Name sits over the Provider window, whose own fields
       carry the plain anchors */
   prefix?: string
+  /** New Provider Profile: the three fixed sections of the TRAINING capture
+      (2026-09-29 13:38, ÷ 1.5) — names 102 tall at rows 28 / 49 / 69,
+      Display Name 57 (row 29), Signature Line 62 (row 33); name boxes 178
+      wide, the synchronized pair 267 */
+  profile?: boolean
 }) {
   const set = (patch: Partial<typeof names>) => onNames({ ...names, ...patch })
   const display = names.syncDisplay ? displayOf(names.first, names.last) : names.display
@@ -241,6 +247,39 @@ function NameBlock({ names, onNames, prefix = '' }: {
       <PBInput w={176} value={names[key]} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={fieldId(prefix + label)} />
     </Line>
   )
+  if (profile) {
+    const synced = (label: string, value: string, sync: boolean, key: 'display' | 'signature', syncKey: 'syncDisplay' | 'syncSignature', anchor: string) => (
+      <>
+        <PBInput w={267} value={value} readOnly={sync} style={sync ? SYNCED : undefined}
+          onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={fieldId(`${prefix}${label}`)} />
+        <span style={{ width: 5 }} />
+        <PBCheckbox label="Synchronize with Name Fields" checked={sync}
+          onChange={(v) => set({ [syncKey]: v, [key]: value })} tutorialId={fieldId(`${prefix}${anchor}`)} />
+      </>
+    )
+    const name = (y: number, label: string, key: 'first' | 'middle' | 'last') => (
+      <ProfileRow y={y} label={label}>
+        <PBInput w={178} value={names[key]} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={fieldId(prefix + label)} />
+      </ProfileRow>
+    )
+    return (
+      <>
+        <ProfileSection height={102}>
+          {name(28, 'First Name:', 'first')}
+          {name(49, 'Middle Name:', 'middle')}
+          {name(69, 'Last Name:', 'last')}
+        </ProfileSection>
+        <ProfileSection height={57}>
+          {/* MOIS prints the synchronized "LAST, FIRST" even when both are
+              blank, so an untouched dialog shows a lone "," (13:38 capture) */}
+          <ProfileRow y={29} label="Display Name:">{synced('Display Name', names.syncDisplay && !display ? ',' : display, names.syncDisplay, 'display', 'syncDisplay', 'sync-display-name')}</ProfileRow>
+        </ProfileSection>
+        <ProfileSection height={62}>
+          <ProfileRow y={33} label="Signature Line:">{synced('Signature Line', signature, names.syncSignature, 'signature', 'syncSignature', 'sync-signature-line')}</ProfileRow>
+        </ProfileSection>
+      </>
+    )
+  }
   return (
     <>
       {text('First Name:', 'first')}
@@ -312,23 +351,22 @@ function NewProviderProfileDialog({ close, open, onAdded }: {
   }
   return (
     <DemographicModal title="New Provider Profile" width={552} onClose={close} dialog="new-provider-profile">
-      <div style={{ padding: '10px 14px 6px', background: 'var(--pb-face)' }}>
-        <NameBlock names={names} onNames={setNames} />
-        <div style={{ height: 1, background: '#a0a0a0', margin: '8px 0' }} />
-        <Line label="User Profile:" w={96} style={{ alignItems: 'flex-start' }}>
-          <div>
-            <PBSelect w={176} options={userProfiles()} value={profile} onChange={(e) => setProfile(e.target.value)} data-tutorial-id={fieldId('User Profile')} />
-            <div style={{ paddingTop: 3 }}>
-              Providers requiring electronic downloads or workspace functionality<br />
-              MUST be associated to a User Profile.
-            </div>
-          </div>
-        </Line>
-      </div>
-      <Footer>
-        <Btn command="continue" w={100} onClick={proceed}>Continue</Btn>
+      {/* white sections on a grey footer (TRAINING capture 2026-09-29 13:38);
+          the body was the window face before, which the capture never shows */}
+      <NameBlock names={names} onNames={setNames} profile />
+      <ProfileSection height={83}>
+        <ProfileRow y={25} label="User Profile:">
+          <PBSelect w={178} options={userProfiles()} value={profile} onChange={(e) => setProfile(e.target.value)} data-tutorial-id={fieldId('User Profile')} />
+        </ProfileRow>
+        <div style={{ position: 'absolute', top: 37, left: PROFILE_CONTROL_X, lineHeight: '14px' }}>
+          Providers requiring electronic downloads or workspace functionality<br />
+          MUST be associated to a User Profile.
+        </div>
+      </ProfileSection>
+      <ProfileFooter>
+        <Btn command="continue" w={88} onClick={proceed}>Continue</Btn>
         <Btn command="cancel" w={88} onClick={close}>Cancel</Btn>
-      </Footer>
+      </ProfileFooter>
     </DemographicModal>
   )
 }

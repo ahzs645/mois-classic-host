@@ -1,13 +1,13 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
+  PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { clinicListSpec, clinicRowsKey, type ClinicRow } from '../data/clinicManagement'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { useStoredList } from './adminSession'
-import { ButtonBand, CentredFooter, Cmd, Line } from './adminKit'
+import { ButtonBand, CentredFooter, Cmd, Line, PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
 import { ProviderTab } from './ClinicEditorWindows'
 import { DemographicModal } from './DemographicDialogs'
 import { AliasIdGrid, InboxForwardingGrid, SharingWorkspaceGrid, userNames } from './ProviderTabGrids'
@@ -62,11 +62,34 @@ import { StageMessageBox } from './StageWindow'
                   Start / Stop (optional), Notification Method / Priority,
                   Save / Cancel) → the row, with Edit / Delete.
 
+   TRAINING captures, 2026-09-29 (v02.31.23 b250508, 150 % DPI — sizes here
+   are the capture's ÷ 1.5), which win over the manual where they differ:
+     12:54 / 13:03  Organization: the header also carries Friendly Name and
+                  ☐ Can be used to control chart access, on a blue-to-white
+                  gradient (light blue at the top); Service End shows its
+                  empty mask 0000.00.00; the tabs have no Online Booking.
+     13:00        Member (Organization): only the bands that have members
+                  (Org. Roles, Users); a two-row header with "Access to
+                  Workspace Items" over Basket · Task List · Message Board; an
+                  inherited member in orange-brown with "Inherits from …"
+                  running across the three columns; grey-gradient bands;
+                  dates printed 2026-09-29.
+     13:32        New Organization Profile (so no longer inferred): Name,
+                  Category, no Signature; the ticks; ☐ Can be used to control
+                  chart access last. Allow users to create temporary
+                  memberships is greyed on a new profile.
+     13:32        New Org Role Profile: Category drops a Category ·
+                  Description list, empty on this site.
+   The seed lists add the capture's own org roles and organizations
+   (AADTP …, ABI …, PAAC 1 ADMIN / NURSE 1 PRG; ATLIN PHYSICIANS …,
+   CHRONIC DISEASE MANAGEMENT TER with its letterhead, PAAC 1 PRG with its
+   two org roles and JALIL, AHMAD as members).
+
    INFERRED:
-     · "New Organization Profile" — the Organization List's New Record is
-       not captured; it is New Org Role Profile without Signature.
-     · Category's list (TEAM, LOCATION, CLINIC — 2069798's "Team, Location
-       or Clinic"), and Change Name... (a Name / Signature Line pair).
+     · Allow users to create temporary memberships comes alive once Allow
+       workspace blending is ticked (it is only ever seen greyed).
+     · Change Name... (a Name / Signature Line pair); whether an Org Role
+       window has Friendly Name (no capture of one at v02.31).
      · the member picker: a "MOIS - Search Window" over this session's org
        roles, providers and users (Name · Type), Ok / Cancel.
      · the refusal when an organization with a workspace has no named user
@@ -100,7 +123,18 @@ export const ORG_WINDOWS = ['new-org-role-profile', 'new-organization-profile', 
 type Kind = 'org-role' | 'organization'
 const nodeOf = (kind: Kind) => (kind === 'org-role' ? 'ad-org-role-list' : 'ad-org-list')
 const S = (v: unknown) => (v == null ? '' : String(v))
-const CATEGORIES = ['', 'CLINIC', 'LOCATION', 'TEAM']
+/** Category is a DDDW of Category · Description, empty on the TRAINING
+    site (13:32 capture) */
+const CATEGORIES: { category: string; description: string }[] = []
+function CategoryField({ value, onSelect, w = 220, tutorialId = 'host.mois.field.category' }: {
+  value: string; onSelect: (v: string) => void; w?: number; tutorialId?: string
+}) {
+  return (
+    <PBDropDownDataWindow w={w} listW={473} value={value} tutorialId={tutorialId} rows={CATEGORIES}
+      columns={[{ key: 'category', header: 'Category', width: 200 }, { key: 'description', header: 'Description' }]}
+      onSelect={(r) => onSelect(r.category)} />
+  )
+}
 
 export function useOrgRows(kind: Kind) {
   const node = nodeOf(kind)
@@ -115,11 +149,11 @@ export function NewOrgProfileDialog({ kind, close, open, onAdded }: {
   kind: Kind; close: () => void; open: (id: string, args?: Record<string, unknown>) => void; onAdded?: () => void
 }) {
   const [rows, update] = useOrgRows(kind)
-  const [d, setD] = useState({ name: '', category: '', signature: '', short: '', daybook: false, documents: false, tasks: false, messages: false, blending: false, temporary: false })
+  const [d, setD] = useState({ name: '', category: '', signature: '', short: '', daybook: false, documents: false, tasks: false, messages: false, blending: false, temporary: false, chartAccess: false })
   const workspace = d.documents || d.tasks || d.messages
   const set = (patch: Partial<typeof d>) => setD({ ...d, ...patch })
-  const tick = (key: 'daybook' | 'documents' | 'tasks' | 'messages' | 'blending' | 'temporary', anchor: string, label: string) => (
-    <div style={{ padding: '2px 0 2px 94px' }}><PBCheckbox label={label} checked={d[key]} onChange={(v) => set({ [key]: v })} tutorialId={`host.mois.field.${anchor}`} /></div>
+  const tick = (y: number, key: 'daybook' | 'documents' | 'tasks' | 'messages' | 'blending' | 'temporary' | 'chartAccess', anchor: string, label: string, disabled = false) => (
+    <ProfileRow y={y}><PBCheckbox label={label} checked={d[key]} disabled={disabled} onChange={(v) => set({ [key]: v })} tutorialId={`host.mois.field.${anchor}`} /></ProfileRow>
   )
   const proceed = () => {
     const name = d.name.trim().toUpperCase()
@@ -127,37 +161,40 @@ export function NewOrgProfileDialog({ kind, close, open, onAdded }: {
     update((all) => [...all, {
       name, category: d.category, signature: kind === 'org-role' ? d.signature : '', abbrev: d.short,
       scheduleAppts: d.daybook, basket: d.documents, taskList: d.tasks, messageBoard: d.messages,
-      blending: d.blending, temporary: d.temporary, activeYes: true, assigned: MOIS_TODAY,
+      blending: d.blending, temporary: d.blending && d.temporary, chartAccess: kind === 'organization' && d.chartAccess,
+      activeYes: true, assigned: MOIS_TODAY,
     }])
     onAdded?.()
     open(kind, { key: name })
   }
   const title = kind === 'org-role' ? 'New Org Role Profile' : 'New Organization Profile'
+  /* TRAINING captures 13:32:06 / 13:32:19 ÷ 1.5: an identity section 90
+     tall, the Workspace / Scheduling section 215, the grey footer */
   return (
-    <DemographicModal title={title} width={546} onClose={close} dialog={kind === 'org-role' ? 'new-org-role-profile' : 'new-organization-profile'}>
-      <div style={{ padding: '10px 14px 4px', background: '#fff' }}>
-        <Line label="Name:" w={80}><PBInput w={326} value={d.name} onChange={(e) => set({ name: e.target.value })} data-tutorial-id="host.mois.field.name" /></Line>
-        <Line label="Category:" w={80}><PBSelect w={216} options={CATEGORIES} value={d.category} onChange={(e) => set({ category: e.target.value })} data-tutorial-id="host.mois.field.category" /></Line>
-        {kind === 'org-role' && <Line label="Signature:" w={80}><PBInput w={216} value={d.signature} onChange={(e) => set({ signature: e.target.value })} data-tutorial-id="host.mois.field.signature" /></Line>}
-      </div>
-      <div style={{ height: 1, background: '#a0a0a0' }} />
-      <div style={{ padding: '8px 14px 30px', background: '#fff' }}>
-        <div>Workspace / Scheduling:</div>
-        {tick('daybook', 'ws-daybook', 'Will require a daybook for scheduling appointments / encounters')}
-        {tick('documents', 'ws-documents', 'Will require a workspace for acknowledging clinical documents')}
-        {tick('tasks', 'ws-tasks', 'Will require a workspace for receiving / managing internal tasks')}
-        {tick('messages', 'ws-messages', 'Will require a workspace for receiving / managing internal message.')}
-        <Line label="Short Name:" w={88}>
+    <DemographicModal title={title} width={552} onClose={close} dialog={kind === 'org-role' ? 'new-org-role-profile' : 'new-organization-profile'}>
+      <ProfileSection height={90}>
+        <ProfileRow y={27} label="Name:"><PBInput w={330} value={d.name} onChange={(e) => set({ name: e.target.value })} data-tutorial-id="host.mois.field.name" /></ProfileRow>
+        <ProfileRow y={48} label="Category:"><CategoryField value={d.category} onSelect={(category) => set({ category })} /></ProfileRow>
+        {kind === 'org-role' && <ProfileRow y={68} label="Signature:"><PBInput w={220} value={d.signature} onChange={(e) => set({ signature: e.target.value })} data-tutorial-id="host.mois.field.signature" /></ProfileRow>}
+      </ProfileSection>
+      <ProfileSection height={215}>
+        <ProfileRow y={17} label="Workspace / Scheduling:" x={PROFILE_CONTROL_X} />
+        {tick(39, 'daybook', 'ws-daybook', 'Will require a daybook for scheduling appointments / encounters')}
+        {tick(59, 'documents', 'ws-documents', 'Will require a workspace for acknowledging clinical documents')}
+        {tick(79, 'tasks', 'ws-tasks', 'Will require a workspace for receiving / managing internal tasks')}
+        {tick(99, 'messages', 'ws-messages', 'Will require a workspace for receiving / managing internal message.')}
+        <ProfileRow y={119} label="Short Name:">
           <PBInput w={60} value={d.short} disabled={!workspace} onChange={(e) => set({ short: e.target.value })} data-tutorial-id="host.mois.field.short-name" />
-          <span style={{ color: '#808080' }}>(Abbreviated Reference for Workspace identification)</span>
-        </Line>
-        {tick('blending', 'allow-blending', 'Allow workspace blending amongst active members')}
-        {tick('temporary', 'allow-temporary', 'Allow users to create temporary memberships')}
-      </div>
-      <CentredFooter>
+          <span style={{ color: '#808080', paddingLeft: 5 }}>(Abbreviated Reference for Workspace identification)</span>
+        </ProfileRow>
+        {tick(142, 'blending', 'allow-blending', 'Allow workspace blending amongst active members')}
+        {tick(162, 'temporary', 'allow-temporary', 'Allow users to create temporary memberships', !d.blending)}
+        {kind === 'organization' && tick(182, 'chartAccess', 'chart-access', 'Can be used to control chart access')}
+      </ProfileSection>
+      <ProfileFooter>
         <Cmd id="continue" w={88} onClick={proceed}>Continue</Cmd>
         <Cmd id="cancel" w={88} onClick={close}>Cancel</Cmd>
-      </CentredFooter>
+      </ProfileFooter>
     </DemographicModal>
   )
 }
@@ -167,9 +204,12 @@ export function NewOrgProfileDialog({ kind, close, open, onAdded }: {
    ======================================================================== */
 
 const TABS = ['General', 'Scheduling', 'Billing', 'Alias ID', 'Workspace', 'Member', 'Service', 'Location', 'Online Booking', 'Telehealth', 'Subscriptions']
+/** an Organization has no Online Booking tab (TRAINING capture 12:54) */
+const tabsOf = (kind: Kind) => (kind === 'organization' ? TABS.filter((t) => t !== 'Online Booking') : TABS)
 type Draft = Record<string, string | boolean | undefined>
 
-const IDENT: CSSProperties = { background: '#e4e4e4', fontWeight: 700 }
+/* the read-only Name: the header's blue shows through it (12:54 capture) */
+const IDENT: CSSProperties = { background: 'rgba(255,255,255,0.2)', fontWeight: 700 }
 
 /** a block of a tab: bold navy caption inside a light outline */
 function Group({ title, children, style }: { title: ReactNode; children: ReactNode; style?: CSSProperties }) {
@@ -195,6 +235,19 @@ export type Member = {
 export const membersKey = (kind: Kind, name: string) => `admin:${kind}:${name}:members`
 const ORG_ROLE_MEMBERS_INDEX = 'admin:org-role-members-index'
 
+/* PAAC 1 PRG as the TRAINING capture shows it (2026-09-29 13:00): two org
+   roles, each holding JALIL, AHMAD, and JALIL, AHMAD as a user member —
+   every one with all three Workspace Items, from 2026-09-29 */
+const seeded = (name: string, type: Member['type']): Member => ({ name, type, basket: true, taskList: true, messageBoard: true, start: '2026.09.29', end: '', note: '' })
+const SEED_ROLE_MEMBERS: Record<string, Member[]> = {
+  'PAAC 1 ADMIN 1 PRG': [seeded('JALIL, AHMAD', 'USER')],
+  'PAAC 1 NURSE 1 PRG': [seeded('JALIL, AHMAD', 'USER')],
+}
+const SEED_MEMBERS: Record<string, Member[]> = {
+  [membersKey('organization', 'PAAC 1 PRG')]: [seeded('PAAC 1 ADMIN 1 PRG', 'ORG ROLE'), seeded('PAAC 1 NURSE 1 PRG', 'ORG ROLE'), seeded('JALIL, AHMAD', 'USER')],
+  ...Object.fromEntries(Object.entries(SEED_ROLE_MEMBERS).map(([role, list]) => [membersKey('org-role', role), list])),
+}
+
 export function OrgWindow({ kind, rowKey, close }: { kind: Kind; rowKey: string; close: () => void }) {
   const [rows, update] = useOrgRows(kind)
   const [key, setKey] = useState(rowKey)
@@ -203,16 +256,16 @@ export function OrgWindow({ kind, rowKey, close }: { kind: Kind; rowKey: string;
     activeYes: true, scheduleAppts: true, access: 'public', basket: true, taskList: true, messageBoard: true, assigned: MOIS_TODAY,
     ...row, display: S(row.name), first: '', last: '',
   }))
-  const [members, setOwnMembers] = useSessionState<Member[]>(membersKey(kind, key), [])
+  const [members, setOwnMembers] = useSessionState<Member[]>(membersKey(kind, key), SEED_MEMBERS[membersKey(kind, key)] ?? [])
   /* an org role's members are also filed under its name in one index, which
      is where an organization reads the members its org roles pass down */
-  const [, setIndex] = useSessionState<Record<string, Member[]>>(ORG_ROLE_MEMBERS_INDEX, {})
+  const [, setIndex] = useSessionState<Record<string, Member[]>>(ORG_ROLE_MEMBERS_INDEX, SEED_ROLE_MEMBERS)
   const setMembers = (next: Member[] | ((prev: Member[]) => Member[])) => setOwnMembers((prev) => {
     const value = typeof next === 'function' ? next(prev) : next
     if (kind === 'org-role') setIndex((ix) => ({ ...ix, [key]: value }))
     return value
   })
-  const [tab, setTab] = useState(TABS[0]!)
+  const [tab, setTab] = useState(tabsOf(kind)[0]!)
   const [renaming, setRenaming] = useState(false)
   const [notice, setNotice] = useState('')
   const [saved, setSaved] = useState(false)
@@ -254,20 +307,28 @@ export function OrgWindow({ kind, rowKey, close }: { kind: Kind; rowKey: string;
 
   return (
     <DemographicModal title={label} width={975} height={722} onClose={close} dialog={kind}>
-      <div className="pb-row" style={{ alignItems: 'flex-start', gap: 0, padding: '6px 12px 18px', flex: 'none', background: 'linear-gradient(#f3f9fd, #cfe7f7)', borderBottom: '1px solid #9ab' }}>
-        <div>
-          <Line label="Name:" w={80}><PBInput w={286} value={S(draft.name)} readOnly style={IDENT} data-tutorial-id="host.mois.field.name" /></Line>
-          <Line label="Category:" w={80}><PBSelect w={216} options={CATEGORIES} value={S(draft.category)} onChange={(e) => set({ category: e.target.value })} data-tutorial-id="host.mois.field.category" /></Line>
+      {/* 77 tall on a light-blue-to-white gradient (12:54 / 13:03 captures):
+          Name / Category at the left, Friendly Name (an Org Role: Signature
+          Line) in the middle, Change Name... and the chart-access tick right */}
+      <div style={{ position: 'relative', height: 77, flex: 'none', background: 'linear-gradient(#cbe8fa, #ffffff)', borderBottom: '1px solid #9ab' }}>
+        <div style={{ position: 'absolute', left: 20, top: 7 }}>
+          <Line label="Name:" w={81}><PBInput w={291} value={S(draft.name)} readOnly style={IDENT} data-tutorial-id="host.mois.field.name" /></Line>
+          <Line label="Category:" w={81}><CategoryField value={S(draft.category)} onSelect={(category) => set({ category })} /></Line>
         </div>
-        {kind === 'org-role' && (
-          <div style={{ marginLeft: 50 }}>
-            <Line label="Signature Line:" w={90}><PBInput w={212} value={S(draft.signature)} onChange={(e) => set({ signature: e.target.value })} data-tutorial-id="host.mois.field.signature-line" /></Line>
+        <div style={{ position: 'absolute', left: 445, top: 7 }}>
+          {kind === 'org-role'
+            ? <Line label="Signature Line:" w={80}><PBInput w={214} value={S(draft.signature)} onChange={(e) => set({ signature: e.target.value })} data-tutorial-id="host.mois.field.signature-line" /></Line>
+            : <Line label="Friendly Name:" w={80}><PBInput w={214} value={S(draft.friendlyName)} onChange={(e) => set({ friendlyName: e.target.value })} data-tutorial-id="host.mois.field.friendly-name" /></Line>}
+        </div>
+        <div style={{ position: 'absolute', right: 107, top: 7 }}><Cmd id="change-name" w={93} onClick={() => setRenaming(true)}>Change Name...</Cmd></div>
+        {kind === 'organization' && (
+          <div style={{ position: 'absolute', right: 12, top: 48 }}>
+            <PBCheckbox label="Can be used to control chart access" checked={Boolean(draft.chartAccess)} onChange={(v) => set({ chartAccess: v })} tutorialId="host.mois.field.chart-access" />
           </div>
         )}
-        <div style={{ marginLeft: 'auto' }}><Cmd id="change-name" w={92} onClick={() => setRenaming(true)}>Change Name...</Cmd></div>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <PBTabs tabs={TABS} active={tab} onChange={setTab} compact face>
+        <PBTabs tabs={tabsOf(kind)} active={tab} onChange={setTab} compact face>
           <div key={tab} style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {page}
           </div>
@@ -325,8 +386,9 @@ function Assigned({ title, kind, draft }: { title: string; kind: Kind; draft: Dr
 /* General — `6b135a61…`: Status with the Deactivate button, then the
    Correspondence Information the Provider window also carries */
 function OrgGeneral({ draft, set }: { draft: Draft; set: (patch: Draft) => void }) {
-  const text = (label: string, key: string, w: number) => (
-    <PBInput w={w} value={S(draft[key])} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={`host.mois.field.${pbSlug(label)}`} />
+  /* the postal code and phone numbers print centred in their boxes (13:03) */
+  const text = (label: string, key: string, w: number, align?: 'center') => (
+    <PBInput w={w} align={align} value={S(draft[key])} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={`host.mois.field.${pbSlug(label)}`} />
   )
   const hint = { color: '#808080' }
   return (
@@ -337,7 +399,10 @@ function OrgGeneral({ draft, set }: { draft: Draft; set: (patch: Draft) => void 
           <span style={{ width: 24 }} />
           <Cmd id="deactivate" w={68} disabled={draft.activeYes === false} onClick={() => set({ activeYes: false, serviceEnd: S(draft.serviceEnd) || MOIS_TODAY })}>Deactivate</Cmd>
         </Line>
-        <Line label="Service End:">{text('Service End', 'serviceEnd', 74)}</Line>
+        {/* an empty date shows its mask, 0000.00.00 (12:54 capture) */}
+        <Line label="Service End:">
+          <PBInput w={74} value={S(draft.serviceEnd) || '0000.00.00'} onChange={(e) => set({ serviceEnd: e.target.value === '0000.00.00' ? '' : e.target.value })} data-tutorial-id="host.mois.field.service-end" />
+        </Line>
         <Line label="Agreement:">{text('Agreement', 'agreement', 74)}<span style={hint}>(service agreement accepted date)</span></Line>
       </Group>
       <Group title="Correspondence Information">
@@ -346,10 +411,10 @@ function OrgGeneral({ draft, set }: { draft: Draft; set: (patch: Draft) => void 
           <Line key={n} label={n === 1 ? 'Letterhead:' : ''}>{text(`Letterhead ${n}`, `letterhead${n}`, 264)}<span style={hint}>(letterhead {n})</span></Line>
         ))}
         <div style={{ ...hint, padding: '4px 0' }}>Other values (this information is not automatically included in the letterhead sections of report - for this information to appear in the letterhead, it must be duplicated in the above designated fields)</div>
-        <Line label="Postal Code:">{text('Postal Code', 'postal', 96)}</Line>
-        <Line label="Phone 1:">{text('Phone 1', 'phone1', 96)}</Line>
-        <Line label="Phone 2:">{text('Phone 2', 'phone2', 96)}</Line>
-        <Line label="Fax 1:">{text('Fax 1', 'fax1', 96)}</Line>
+        <Line label="Postal Code:">{text('Postal Code', 'postal', 96, 'center')}</Line>
+        <Line label="Phone 1:">{text('Phone 1', 'phone1', 96, 'center')}</Line>
+        <Line label="Phone 2:">{text('Phone 2', 'phone2', 96, 'center')}</Line>
+        <Line label="Fax 1:">{text('Fax 1', 'fax1', 96, 'center')}</Line>
         <div style={{ ...hint, padding: '4px 0' }}>Primary Location is used to inform Labs or other testing facilities of this provider&apos;s primary location when it is different from the current clinic.</div>
         <Line label="Primary Location:">{text('Primary Location', 'primaryLocation', 264)}</Line>
       </Group>
@@ -408,7 +473,7 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
   const [adding, setAdding] = useState<Member['type'] | null>(null)
   const [editing, setEditing] = useState<{ index: number; member: Member } | null>(null)
   /* an org role's own members inherit into an organization (`e3c5e7c3…`) */
-  const [orgRoleMembers] = useSessionState<Record<string, Member[]>>(ORG_ROLE_MEMBERS_INDEX, {})
+  const [orgRoleMembers] = useSessionState<Record<string, Member[]>>(ORG_ROLE_MEMBERS_INDEX, SEED_ROLE_MEMBERS)
   const live = (m: Member) => !m.end || m.end >= MOIS_TODAY
   const kept = members.map((m, index) => ({ m, index })).filter(({ m }) => show === 'All' || (show === 'Active' ? live(m) : !live(m)))
   const rows: MemberRow[] = []
@@ -426,7 +491,6 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
     <button type="button" className="pb-link" style={{ textDecoration: 'underline', marginRight: 36 }}
       data-tutorial-id={host?.anchor('command', id)} onClick={() => { host?.report('command', { command: id }); act() }}>{label}</button>
   )
-  const yn = (v: boolean) => (v ? 'Y' : '')
   return (
     <>
       <div style={{ border: '1px solid #8a8a8a', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 300 }}>
@@ -436,11 +500,11 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
             <PBRadio key={v} name={`show-records-${kind}`} label={v} checked={show === v} onChange={() => setShow(v)} tutorialId={`host.mois.field.show-records-${v.toLowerCase()}`} />
           ))}
           <span className="pb-row__spacer" />
-          {kind === 'organization' && <Cmd id="add-org-role" w={98} onClick={() => setAdding('ORG ROLE')}>Add Org. Role</Cmd>}
-          <Cmd id="add-provider" w={98} onClick={() => setAdding('PROVIDER')}>Add Provider</Cmd>
-          <Cmd id="add-user" w={98} onClick={() => setAdding('USER')}>Add User</Cmd>
-          <Cmd id="member-edit" w={98} disabled={!row || Boolean(row.inherits)} onClick={() => row && !row.inherits && setEditing({ index: row.index, member: members[row.index]! })}>Edit</Cmd>
-          <Cmd id="member-delete" w={98} disabled={!row || Boolean(row.inherits)} onClick={() => { if (row && !row.inherits) { setMembers((all) => all.filter((_, j) => j !== row.index)); setCur(0) } }}>Delete</Cmd>
+          {kind === 'organization' && <Cmd id="add-org-role" w={88} onClick={() => setAdding('ORG ROLE')}>Add Org. Role</Cmd>}
+          <Cmd id="add-provider" w={88} onClick={() => setAdding('PROVIDER')}>Add Provider</Cmd>
+          <Cmd id="add-user" w={88} onClick={() => setAdding('USER')}>Add User</Cmd>
+          <Cmd id="member-edit" w={88} disabled={!row || Boolean(row.inherits)} onClick={() => row && !row.inherits && setEditing({ index: row.index, member: members[row.index]! })}>Edit</Cmd>
+          <Cmd id="member-delete" w={88} disabled={!row || Boolean(row.inherits)} onClick={() => { if (row && !row.inherits) { setMembers((all) => all.filter((_, j) => j !== row.index)); setCur(0) } }}>Delete</Cmd>
         </div>
         <div className="pb-row" style={{ padding: '3px 12px', background: 'linear-gradient(#e6f3fc, #c6e3f7)', borderTop: '1px solid #9ab', flex: 'none' }}>
           {link('expand-all', 'Expand All', () => setCollapsed(new Set()))}
@@ -448,32 +512,17 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
           {link('member-refresh', 'Refresh', () => setCur(0))}
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
-          <PBDataWindow<MemberRow>
+          <MemberGrid
             rows={rows}
+            bands={BANDS.filter((b) => rows.some((r) => r.band === b))}
             current={at}
-            onCurrentChange={setCur}
+            onCurrent={setCur}
             onActivate={(r) => { if (!r.inherits) setEditing({ index: r.index, member: members[r.index]! }) }}
-            groupBy={(r) => r.band}
-            groups={kind === 'organization' ? BANDS : BANDS.slice(1)}
             collapsed={collapsed}
-            onCollapsedChange={setCollapsed}
-            groupTutorialId={(g) => `host.mois.group.members-${pbSlug(g)}`}
-            rowTutorialId={(r) => (r.inherits ? undefined : `host.mois.row.member-${pbSlug(r.name)}`)}
-            rowClassName={(r) => (r.inherits ? 'is-inherited' : undefined)}
-            empty=" "
-            columns={[
-              { key: 'name', header: 'Member', width: 300, render: (r) => <span style={{ paddingLeft: r.inherits ? 8 : 0 }}>{r.name}</span> },
-              { key: 'basket', header: 'Basket', width: 80, align: 'center', render: (r) => (r.inherits ? <span>Inherits from {r.inherits}</span> : yn(r.basket)) },
-              { key: 'taskList', header: 'Task List', width: 76, align: 'center', render: (r) => (r.inherits ? '' : yn(r.taskList)) },
-              { key: 'messageBoard', header: 'Message Board', width: 110, align: 'center', render: (r) => (r.inherits ? '' : yn(r.messageBoard)) },
-              { key: 'start', header: 'Start', width: 90, align: 'center' },
-              { key: 'end', header: 'End', width: 90, align: 'center' },
-              { key: 'note', header: '', width: 190, render: (r) => <span style={{ color: '#808080' }}>{r.inherits ? '' : r.note}</span> },
-            ]}
+            onCollapsed={setCollapsed}
           />
         </div>
       </div>
-      <style>{'.is-inherited > td { color: #c0504d !important; }'}</style>
       <Group title="Membership Settings">
         <div className="pb-row" style={{ gap: 90 }}>
           <PBCheckbox label="Allow workspace blending amongst active members" checked={Boolean(draft.blending)} onChange={(v) => set({ blending: v })} tutorialId="host.mois.field.allow-blending" />
@@ -501,6 +550,78 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
         />
       )}
     </>
+  )
+}
+
+/* The Member grid (TRAINING capture 13:00, ÷ 1.5). A DataWindow with a
+   two-row header — "Access to Workspace Items" over Basket · Task List ·
+   Message Board — and group bands only for the member types present, so it
+   is drawn here rather than through PBDataWindow, which has neither. An
+   inherited member is indented and orange-brown, its "Inherits from …"
+   running across the three workspace columns; dates print 2026-09-29. */
+const MEMBER_COLS = [
+  { key: 'gutter', w: 20 }, { key: 'member', w: 318 }, { key: 'basket', w: 71 }, { key: 'taskList', w: 60 },
+  { key: 'messageBoard', w: 99 }, { key: 'start', w: 80 }, { key: 'end', w: 73 },
+] as const
+const INHERITED = '#a8572a'
+const HEAD_RULE = '1px solid #b9cddb'
+
+function MemberGrid({ rows, bands, current, onCurrent, onActivate, collapsed, onCollapsed }: {
+  rows: MemberRow[]; bands: string[]; current: number; onCurrent: (i: number) => void; onActivate: (r: MemberRow) => void
+  collapsed: Set<string>; onCollapsed: (next: Set<string>) => void
+}) {
+  const iso = (d: string) => d.replace(/\./g, '-')
+  const yn = (v: boolean) => (v ? 'Y' : '')
+  const total = MEMBER_COLS.reduce((n, c) => n + c.w, 0)
+  const x = (key: typeof MEMBER_COLS[number]['key']) => { let n = 0; for (const c of MEMBER_COLS) { if (c.key === key) return n; n += c.w } return n }
+  const cell = (key: typeof MEMBER_COLS[number]['key'], children: ReactNode, style?: CSSProperties) => (
+    <span style={{ position: 'absolute', left: x(key), width: MEMBER_COLS.find((c) => c.key === key)!.w, textAlign: 'center', whiteSpace: 'nowrap', ...style }}>{children}</span>
+  )
+  const toggle = (band: string) => {
+    const next = new Set(collapsed)
+    if (next.has(band)) next.delete(band); else next.add(band)
+    onCollapsed(next)
+  }
+  const wsLeft = x('basket')
+  const wsWidth = x('start') - wsLeft
+  return (
+    <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'auto', background: '#fff' }}>
+      <div style={{ position: 'relative', height: 47, minWidth: total, background: 'linear-gradient(#cde8f8, #f5fafe)', borderBottom: HEAD_RULE }}>
+        {[x('member'), wsLeft, x('start'), x('end'), total].map((l) => <span key={l} style={{ position: 'absolute', left: l, top: 0, bottom: 0, borderLeft: HEAD_RULE }} />)}
+        {[x('taskList'), x('messageBoard')].map((l) => <span key={l} style={{ position: 'absolute', left: l, top: 23, bottom: 0, borderLeft: HEAD_RULE }} />)}
+        <span style={{ position: 'absolute', left: wsLeft, width: wsWidth, top: 4, textAlign: 'center' }}>Access to Workspace Items</span>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 26 }}>
+          {cell('member', 'Member', { textAlign: 'left', paddingLeft: 5 })}
+          {cell('basket', 'Basket')}{cell('taskList', 'Task List')}{cell('messageBoard', 'Message Board')}
+          {cell('start', 'Start')}{cell('end', 'End')}
+        </div>
+      </div>
+      {bands.map((band) => {
+        const open = !collapsed.has(band)
+        return (
+          <div key={band}>
+            <div role="button" tabIndex={-1} data-tutorial-id={`host.mois.group.members-${pbSlug(band)}`}
+              onClick={() => toggle(band)}
+              style={{ position: 'relative', height: 24, minWidth: total, background: 'linear-gradient(#cbccce, #f7f7f8)', display: 'flex', alignItems: 'center', cursor: 'default' }}>
+              <span aria-hidden style={{ marginLeft: 11, width: 9, height: 9, border: '1px solid #8a8a8a', background: '#fff', fontSize: 9, lineHeight: '8px', textAlign: 'center' }}>{open ? '−' : '+'}</span>
+              <strong style={{ marginLeft: 10 }}>{band}</strong>
+            </div>
+            {open && rows.map((r, i) => (r.band !== band ? null : (
+              <div key={`${band}-${i}`} data-tutorial-id={r.inherits ? undefined : `host.mois.row.member-${pbSlug(r.name)}`}
+                onClick={() => onCurrent(i)} onDoubleClick={() => onActivate(r)}
+                style={{ position: 'relative', height: 20, lineHeight: '20px', minWidth: total, cursor: 'default', background: i === current ? '#eac8b9' : undefined, color: r.inherits ? INHERITED : undefined }}>
+                {cell('member', r.name, { textAlign: 'left', paddingLeft: r.inherits ? 16 : 9 })}
+                {r.inherits
+                  ? <span style={{ position: 'absolute', left: wsLeft, width: wsWidth, textAlign: 'center', whiteSpace: 'nowrap' }}>Inherits from {r.inherits}</span>
+                  : <>{cell('basket', yn(r.basket))}{cell('taskList', yn(r.taskList))}{cell('messageBoard', yn(r.messageBoard))}</>}
+                {cell('start', iso(r.start))}{cell('end', iso(r.end))}
+                {!r.inherits && r.note && <span style={{ position: 'absolute', left: total + 8, color: '#808080', whiteSpace: 'nowrap' }}>{r.note}</span>}
+              </div>
+            )))}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

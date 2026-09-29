@@ -4,6 +4,7 @@ import type { MoisRecord } from '../data/charts'
 import { date } from '../data/charts/relations'
 import { ROW_MAPS } from '../data/charts/to-rows'
 import { PBBand, PBButton, PBDataWindow, PBWindow, type PBColumn } from '../pb'
+import './preferences-detail.css'
 
 const columns: PBColumn<Record<string, string>>[] = [
   { key: 'date', header: 'Date', width: 90, align: 'center' },
@@ -16,8 +17,11 @@ const columns: PBColumn<Record<string, string>>[] = [
   { key: 'reason', header: 'Note', width: 210 },
 ]
 
-export function PreferenceEncounterDialog({ encounterId, encounters, onChange, onClose }: {
-  encounterId: string; encounters: MoisRecord[]; onChange: (id: string) => void; onClose: () => void
+/** Encounter ID: a record's encounter, with Change Encounter to relink it.
+    The Preferences folder opens it, and so does a Dynamic Form's
+    "Encounter Date:" link, over the form window (hence `zIndex`). */
+export function PreferenceEncounterDialog({ encounterId, encounters, onChange, onClose, zIndex = 80 }: {
+  encounterId: string; encounters: MoisRecord[]; onChange: (id: string) => void; onClose: () => void; zIndex?: number
 }) {
   const [picking, setPicking] = useState(false)
   const anchor = useRef<HTMLSpanElement>(null)
@@ -48,9 +52,9 @@ export function PreferenceEncounterDialog({ encounterId, encounters, onChange, o
     ['Diag Code(s):', codes('str_diag_code')],
     ['Service Code(s):', codes('str_fee_code')],
   ]
-  const content = <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
+  const content = <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
     <div role="dialog" aria-modal="true" aria-label={picking ? 'Encounter List' : `Encounter ID: ${encounterId || 'EMPTY'}`}
-      style={{ width: picking ? 'min(1000px, 96%)' : 'min(470px, 96%)', minWidth: 0 }}
+      style={{ width: picking ? 'min(1000px, 96%)' : 'min(415px, 96%)', minWidth: 0 }}
       ref={dialog} tabIndex={-1} onKeyDown={event => {
         if (event.key === 'Escape') { event.stopPropagation(); onClose() }
         if (event.key === 'Tab') {
@@ -62,7 +66,7 @@ export function PreferenceEncounterDialog({ encounterId, encounters, onChange, o
       }}>
       <PBWindow child controls={false} title={picking ? 'Encounter List' : `Encounter ID: ${encounterId || 'EMPTY'}`}
         onClose={onClose} tutorialId={picking ? 'host.mois.dialog.preference-encounter-list' : 'host.mois.dialog.preference-encounter'}
-        style={{ width: '100%', height: picking ? 'min(650px, 85vh)' : 344, maxHeight: '90vh' }}>
+        style={{ width: '100%', height: picking ? 'min(650px, 85vh)' : 300, maxHeight: '90vh', ...(picking ? {} : { background: '#fff' }) }}>
         {picking ? <>
           <div style={{ margin: '18px 16px 0', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <PBBand>Select Encounter</PBBand>
@@ -85,7 +89,7 @@ export function PreferenceEncounterDialog({ encounterId, encounters, onChange, o
               <span>{label}</span><strong>{value}</strong>{secondary && <span>{secondary}&nbsp; <strong>{extra}</strong></span>}
             </div>) : <div className="pb-preference-encounter__empty"><p>Encounter No.: {encounterId}</p><p>This encounter is not included in the current chart export.</p></div>}
           </div>
-          <div className="pb-row" style={{ padding: '22px 16px', justifyContent: 'center', gap: 10 }}>
+          <div className="pb-row pb-preference-encounter__buttons">
             <PBButton onClick={() => setPicking(true)}>Change Encounter</PBButton>
             <PBButton onClick={onClose}>Close (Esc)</PBButton>
           </div>

@@ -1,9 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  QUICK_ENTRY_CHART_TITLE, QUICK_ENTRY_EDITOR_TITLE, QUICK_ENTRY_GROUPS, exportedQuickEntries, importQuickEntryTemplates,
-  nextQuickEntryId, quickEntryExportName, quickEntryTemplates, saveQuickEntryTemplate, setExportedQuickEntries,
-  useQuickEntryTemplates, type QuickEntryGroup, type QuickEntryTemplate,
+  QUICK_ENTRY_CHART_TITLE, QUICK_ENTRY_EDITOR_TITLE, QUICK_ENTRY_GROUPS, TRAINING_QUICK_ENTRY_HEADER, exportedQuickEntries,
+  importQuickEntryTemplates, nextQuickEntryId, quickEntryExportName, quickEntryTemplates, saveQuickEntryTemplate,
+  setExportedQuickEntries, useQuickEntryTemplates, type QuickEntryGroup, type QuickEntryTemplate,
 } from '../data/quickEntryTemplates'
+import { buildQuickEntryExport, exportHeader, readQuickEntryFile, saveBlob } from '../data/quickEntryArchive'
+import type { QuickEntryFileHeader } from '../data/quickEntryXml'
+import { SESSION_USER } from '../data/chartSession'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_PROVIDER } from '../data/letterFlow'
@@ -51,9 +54,16 @@ import { applyQuickEntry, type QuickEntryApplied } from './quickEntryApply'
                                 right; Continue / Cancel.
                                 `9ce42050…` `8b8958b7…` `3a1f89a7…` `9ac10271…`
 
+   Real files: the Select Import File stand-in's "From this computer..."
+   opens the browser's own file picker, so a MOIS export 7z (or its
+   quick_entrys.xml / meta.xml) from a real site imports, its header filling
+   Data Provider / Software Provider; Export's Ok also saves the MOIS-shaped
+   7z to the learner's downloads (data/quickEntryArchive.ts).
+
    INFERRED: the Delete Record confirmation and the "Name is required" /
    "select a template" messages (no capture); the common file dialog is a
-   stand-in, not the Windows shell dialog.
+   stand-in, not the Windows shell dialog; the stand-in's "From this
+   computer..." button (the emulator's door to the real disk).
    ========================================================================= */
 
 const DEFAULT_OUTPUT = 'C:\\AIHS\\SHARED_FOLDER\\'
@@ -178,15 +188,18 @@ function TemplateEditorDialog({ args, close }: AreaWindowProps) {
 }
 
 /* --- the common file dialog stand-in ------------------------------------- */
-function FileDialog({ mode, initial, files, onDone, onClose }: {
+function FileDialog({ mode, initial, files, onDone, onClose, onLocal }: {
   mode: 'save' | 'open'
   initial: string
   files: string[]
   onDone: (path: string) => void
   onClose: () => void
+  /** a file the learner picked from their own computer */
+  onLocal?: (file: File) => void
 }) {
   const [place, setPlace] = useState('Desktop')
   const [name, setName] = useState(initial)
+  const picker = useRef<HTMLInputElement>(null)
   const id = mode === 'save' ? 'qe-export-to' : 'qe-select-import-file'
   return (
     <WorkspaceDialogFrame id={id} title={mode === 'save' ? 'Export To...' : 'Select Import File'} width={640} height={400} onClose={onClose} controls={false} zIndex={97}>
@@ -222,6 +235,14 @@ function FileDialog({ mode, initial, files, onDone, onClose }: {
         <PBSelect w="100%" options={[mode === 'save' ? 'All Files (*.*)' : '7z Files (*.7z)']} />
         <DialogButton id={`${id}-cancel`} width={84} onClick={onClose}>Cancel</DialogButton>
       </div>
+      {onLocal && (
+        <div className="pb-row" style={{ padding: '0 10px 8px', flex: 'none' }}>
+          <DialogButton id={`${id}-local`} width={150} onClick={() => picker.current?.click()}>From this computer...</DialogButton>
+          <span style={{ color: '#6d6d6d' }}>a MOIS Quick Entry export (.7z) or its quick_entrys.xml</span>
+          <input ref={picker} type="file" accept=".7z,.xml" hidden data-tutorial-id={`host.mois.field.${id}-local`}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onLocal(f) }} />
+        </div>
+      )}
     </WorkspaceDialogFrame>
   )
 }
@@ -265,7 +286,14 @@ function ExportDialog({ close }: AreaWindowProps) {
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
   const [browse, setBrowse] = useState(false)
   const [message, setMessage] = useState<null | 'done' | 'none'>(null)
+  const [saved, setSaved] = useState('')
   const toggle = (i: number, v: boolean) => setSelected((s) => { const n = new Set(s); v ? n.add(i) : n.delete(i); return n })
+  const write = async (chosen: QuickEntryTemplate[]) => {
+    const name = output.split('\\').pop() || quickEntryExportName()
+    const file = await buildQuickEntryExport(chosen, exportHeader(TRAINING_QUICK_ENTRY_HEADER, SESSION_USER), name)
+    saveBlob(file.blob, file.name)
+    setSaved(file.name)
+  }
   return (
     <WorkspaceDialogFrame id="quick-entry-export" title="Quick Entry Export" width={1000} height={640} onClose={close} controls={false}>
       <div style={{ margin: '8px 8px 0', border: '1px solid #9a9a9a', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#fff' }}>
@@ -286,8 +314,10 @@ function ExportDialog({ close }: AreaWindowProps) {
         <span style={{ width: 260 }} />
         <DialogButton id="qe-export-ok" width={88} isDefault onClick={() => {
           if (selected.size === 0) { setMessage('none'); return }
-          setExportedQuickEntries(rows.filter((_, i) => selected.has(i)).map((t) => structuredClone(t)))
+          const chosen = rows.filter((_, i) => selected.has(i)).map((t) => structuredClone(t))
+          setExportedQuickEntries(chosen)
           setMessage('done')
+          void write(chosen)
         }}>Ok</DialogButton>
         <DialogButton id="qe-export-cancel" width={88} onClick={close}>Cancel</DialogButton>
       </div>
@@ -299,6 +329,7 @@ function ExportDialog({ close }: AreaWindowProps) {
         <Message title="Export Complete" onClose={() => { setMessage(null); close() }}
           buttons={[{ label: 'OK', value: 'ok', id: 'qe-export-complete-ok', default: true }]}>
           Exported to {output}
+          {saved && <><br />Saved a copy to this computer as {saved}.</>}
         </Message>
       )}
       {message === 'none' && (
@@ -320,9 +351,24 @@ function ImportDialog({ close }: AreaWindowProps) {
   const current = useQuickEntryTemplates()
   const [file, setFile] = useState('')
   const [rows, setRows] = useState<QuickEntryTemplate[]>([])
+  const [header, setHeader] = useState<QuickEntryFileHeader>(TRAINING_QUICK_ENTRY_HEADER)
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
   const [browse, setBrowse] = useState(false)
   const [message, setMessage] = useState<null | 'none' | 'done'>(null)
+  const [problem, setProblem] = useState('')
+  const [notice, setNotice] = useState('')
+  const openLocal = async (picked: File) => {
+    try {
+      const read = await readQuickEntryFile(picked)
+      setFile(`${DESKTOP_DIR}${picked.name}`); setRows(read.templates); setHeader(read.header); setSelected(new Set()); setBrowse(false)
+      if (read.skipped.length) {
+        const types = [...new Set(read.skipped.map((x) => x.recordType || '(none)'))].join(', ')
+        setNotice(`${read.skipped.length} template(s) of a type this window cannot import were left out (${types}).`)
+      }
+    } catch (e) {
+      setProblem((e as Error).message || 'This file could not be read.')
+    }
+  }
   const toggle = (i: number, v: boolean) => setSelected((s) => { const n = new Set(s); v ? n.add(i) : n.delete(i); return n })
   const isDuplicate = (t: QuickEntryTemplate) => current.some((c) => c.group === t.group && c.name === t.name)
   const available = exportedQuickEntries()
@@ -342,15 +388,15 @@ function ImportDialog({ close }: AreaWindowProps) {
           <div style={{ flex: '1 1 50%', padding: '4px 8px' }}>
             <div style={{ color: '#000080', fontWeight: 700, borderBottom: '1px solid #000', paddingBottom: 2 }}>Data Provider:</div>
             <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', rowGap: 4, paddingTop: 4 }}>
-              {info('Clinic:', 'HALLIWELL MEDICAL CLINIC')}{info('Contact:', 'ADMIN, SYS')}{info('Reference:', 'Not Available')}
+              {info('Clinic:', header.site)}{info('Contact:', header.contact)}{info('Reference:', header.reference && header.reference !== '0' ? header.reference : 'Not Available')}
             </div>
           </div>
           <div style={{ flex: '1 1 50%', padding: '4px 8px' }}>
             <div style={{ color: '#000080', fontWeight: 700, borderBottom: '1px solid #000', paddingBottom: 2 }}>Software Provider:</div>
             <div style={{ display: 'grid', gridTemplateColumns: '70px 110px 90px 1fr', rowGap: 4, paddingTop: 4 }}>
-              {info('Software:', 'MOIS')}<span /><span />
-              {info('Version:', '02.31.34')}{info('Build:', '250909')}
-              {info('Date:', MOIS_TODAY.replace(/\./g, '/'))}{info('Time:', '07:37:57')}
+              {info('Software:', header.supplier)}<span /><span />
+              {info('Version:', header.version)}{info('Build:', header.build)}
+              {info('Date:', header.date)}{info('Time:', header.time)}
             </div>
           </div>
         </div>
@@ -373,14 +419,27 @@ function ImportDialog({ close }: AreaWindowProps) {
         <FileDialog mode="open" initial={fileName.replace(/\.7z$/, '')} files={[fileName]}
           onDone={(path) => {
             const incoming = available.length ? available.map((t) => structuredClone(t)) : SAMPLE_IMPORT()
-            setFile(path); setRows(incoming); setSelected(new Set()); setBrowse(false)
+            setFile(path); setRows(incoming); setHeader(TRAINING_QUICK_ENTRY_HEADER); setSelected(new Set()); setBrowse(false)
           }}
+          onLocal={(f) => { void openLocal(f) }}
           onClose={() => setBrowse(false)} />
       )}
       {message === 'none' && (
         <Message title="Import Quick Entry" icon="warn" onClose={() => setMessage(null)}
           buttons={[{ label: 'OK', value: 'ok', id: 'qe-import-none-ok', default: true }]}>
           Please select at least one Quick Entry template to import.
+        </Message>
+      )}
+      {problem && (
+        <Message title="Import Quick Entry" icon="error" onClose={() => setProblem('')}
+          buttons={[{ label: 'OK', value: 'ok', id: 'qe-import-error-ok', default: true }]}>
+          {problem}
+        </Message>
+      )}
+      {notice && !problem && (
+        <Message title="Import Quick Entry" icon="warn" onClose={() => setNotice('')}
+          buttons={[{ label: 'OK', value: 'ok', id: 'qe-import-notice-ok', default: true }]}>
+          {notice}
         </Message>
       )}
       {message === 'done' && (
@@ -400,7 +459,16 @@ const CHART_GROUPS: ChartGroup[] = ['Chart Preference', 'Goal', 'Order', 'Reacti
 export type QuickEntryChartValues = Record<string, string>
 
 const INITIAL: Record<ChartGroup, (t?: QuickEntryTemplate) => QuickEntryChartValues> = {
-  'Chart Preference': (t) => ({ start: MOIS_TODAY, stopped: '', subjectDetail: '', instruction: t?.preference?.instruction ?? '', instructionDetail: '', reason: '', reasonDetail: '', form: '', by: '' }),
+  /* a template's own chart fields (the ROI ones carry Form / By / an
+     instruction comment) start the window; its dates do not — a template
+     filed today starts today (INFERRED) */
+  'Chart Preference': (t) => {
+    const c = t?.preference?.chart ?? {}
+    return {
+      start: MOIS_TODAY, stopped: '', subjectDetail: c.subjectDetail ?? '', instruction: t?.preference?.instruction ?? '',
+      instructionDetail: c.instructionDetail ?? '', reason: c.reason ?? '', reasonDetail: c.reasonDetail ?? '', form: c.form ?? '', by: c.by ?? '',
+    }
+  },
   Goal: (t) => ({ start: MOIS_TODAY, end: '', phase: '', operator: t?.goal?.operator ?? '', target: t?.goal?.target ?? '', every: t?.goal?.every ?? '', units: t?.goal?.units ?? '', detail: '', expectedOutcome: '' }),
   Order: () => ({ orderDate: MOIS_TODAY, orderBy: DESKTOP_PROVIDER, orderTo: '', copyTo1: '', copyTo2: '', attending: DESKTOP_PROVIDER.replace(/ \[DR\]$/, ''), note: '' }),
   'Reaction Risk': (t) => ({ firstOccurrence: '', age: '', stopped: '', severity: t?.reaction?.severity ?? '', comments: '' }),
@@ -423,6 +491,7 @@ function ChartFields({ group, t, v, set }: {
   )
   if (group === 'Chart Preference') {
     const instructions = t?.preference ? ['', ...new Set([t.preference.instruction, ...['ALLOW', 'NOT ALLOW', 'DESIRED', 'NOT DESIRED']].filter(Boolean))] : ['']
+    const reasons = [...new Set([...REASONS, v.reason ?? ''])]
     return (
       <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div className="pb-row" style={{ gap: 8 }}>
@@ -431,7 +500,7 @@ function ChartFields({ group, t, v, set }: {
         </div>
         <span>Subject Detail:</span>{area('subjectDetail')}
         <span>Instruction:</span>{select('instruction', instructions)}{area('instructionDetail')}
-        <span>Reason:</span>{select('reason', REASONS)}{area('reasonDetail')}
+        <span>Reason:</span>{select('reason', reasons)}{area('reasonDetail')}
         <div className="pb-row" style={{ gap: 0 }}>
           <span style={{ width: 290 }}>Form:</span><span>By:</span>
         </div>

@@ -37,7 +37,7 @@ export type MoisChartGroup =
  * field audit's verified columns.
  */
 export type MoisOptionalGroup =
-  | 'admission' | 'intervention' | 'social_hx' | 'chart_barrier' | 'medication_lt'
+  | 'admission' | 'intervention' | 'social_hx' | 'chart_barrier' | 'medication_lt' | 'observation'
 
 export type MoisChartExport = {
   /** who exported it, from which build — the provenance MOIS stamps itself */

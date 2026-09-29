@@ -137,3 +137,31 @@ export function NavyBand({ children }: { children: ReactNode }) {
 export const onF2 = (fn: () => void) => (e: KeyboardEvent) => {
   if (e.key === 'F2') { e.preventDefault(); fn() }
 }
+
+/* --- the New … Profile dialogs --------------------------------------------
+   New Provider Profile, New Org Role Profile and New Organization Profile
+   share one shape (TRAINING captures 2026-09-29 13:32–13:38, 150 % DPI, so
+   every size here is the capture's ÷ 1.5): white sections of a fixed height,
+   each ruled off full width, then a grey footer 60 px tall with 88-wide
+   Continue / Cancel centred 13 px apart. Labels start 15 px in and every
+   control at 97 px, so the sections line up down the dialog.            */
+export const PROFILE_LABEL_X = 15
+export const PROFILE_CONTROL_X = 97
+
+export function ProfileSection({ height, children }: { height: number; children?: ReactNode }) {
+  return <div style={{ position: 'relative', height, flex: 'none', background: '#fff', borderBottom: '1px solid #939393' }}>{children}</div>
+}
+
+/** one row of a profile section, its vertical centre at `y` */
+export function ProfileRow({ y, label, children, x = PROFILE_CONTROL_X }: { y: number; label?: ReactNode; children?: ReactNode; x?: number }) {
+  return (
+    <div className="pb-row" style={{ position: 'absolute', top: y - 10, height: 20, left: 0, right: 0, gap: 0 }}>
+      <span style={{ width: x, flex: 'none', paddingLeft: PROFILE_LABEL_X, whiteSpace: 'nowrap' }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
+export function ProfileFooter({ children }: { children: ReactNode }) {
+  return <div className="pb-row" style={{ height: 60, flex: 'none', justifyContent: 'center', gap: 13, background: '#f0f0f0' }}>{children}</div>
+}

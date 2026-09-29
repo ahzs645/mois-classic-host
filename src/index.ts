@@ -13,6 +13,7 @@ export { printReportByMenu, printReports, type PrintReport } from './data/printR
    (a `viewonly=measure` column, a `Graph` link), the gnuplot window that link
    opens, and the signed-in user the form header names */
 export { useLoadedChart, loadChartExport, hasChartExport, type MoisRecord } from './data/charts'
+export { replaceDynamicFormWrites, resetDynamicFormWrites, type DynamicFormWrites } from './data/dynamic-form-writes'
 export { MeasurementGraphWindow, graphForCode } from './screens/MeasurementGraphWindow'
 /* a Dynamic Form's Select Flowsheet... / Open Flowsheet open the same flow sheet */
 export { FlowSheetWindow, FLOWSHEET_TYPES, type FlowSheetParams } from './screens/FlowSheetWindows'
@@ -22,4 +23,6 @@ export { DirectorySearchWindow } from './screens/DirectorySearchWindow'
 export { directoryEntries, type DirectoryEntry } from './data/providers'
 /* the JORG List and Service Location Selection List a Dynamic Form's "..." lookups open */
 export { JorgListWindow, ServiceLocationSelectionWindow } from './screens/JorgLookupWindows'
+/* Encounter ID, which a Dynamic Form's "Encounter Date:" link opens */
+export { PreferenceEncounterDialog } from './screens/PreferenceEncounterDialog'
 export { NOT_ASSIGNED, dformServiceLocations, jorgUnits, type JorgUnit, type ServiceLocation } from './data/jorg'

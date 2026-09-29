@@ -782,11 +782,13 @@ const ORG_ROLE_LIST: ClinicListSpec = {
     { key: 'name', header: 'Name', width: 308 },
     { key: 'category', header: 'Category', width: 274 },
   ],
+  /* the manual's examples, then the TRAINING capture's own (2026-09-29
+     13:32 Org Role List; 13:00 PAAC 1 PRG's Member tab), in name order */
   rows: [
-    { name: 'ACUTE 1 PLN 1 PRG', category: '' },
-    { name: 'NURSE', category: '' },
-    { name: 'TECHNICAL SUPPORT', category: '' },
-  ],
+    'AADTP MHSUC 3 PRG', 'AADTP MHSUC CAS 1 PRG', 'AADTP SUPPORT WORKER 1 FJN', 'ABI 1 ADMIN 1 NH', 'ABI 1 LSW 1 NH',
+    'ABI 1 SW 1 NH', 'ABI 1 SW 2 NH', 'ABI/DDMH/HSCL/NSS 1 TL 1 PRG', 'ACUTE 1 PLN 1 PRG', 'NURSE', 'PAAC 1 ADMIN 1 PRG',
+    'PAAC 1 NURSE 1 PRG', 'TECHNICAL SUPPORT',
+  ].map((name) => ({ name, category: '' })),
   anchorPrefix: 'org-role',
   anchorKey: 'name',
 }
@@ -802,11 +804,29 @@ const ORGANIZATION_LIST: ClinicListSpec = {
     { key: 'name', header: 'Name', width: 308 },
     { key: 'category', header: 'Category', width: 274 },
   ],
+  /* the manual's examples, then the TRAINING capture's own (2026-09-29
+     13:32 Organization List; 12:54 / 13:00 PAAC 1 PRG; 13:03 CHRONIC
+     DISEASE MANAGEMENT TER and its Correspondence Information), in name
+     order */
   rows: [
     { name: 'ADULT PSYCH 1 PRG', category: '' },
+    { name: 'ATLIN PHYSICIANS', category: '' },
+    { name: 'AWMU 1 PRG', category: '' },
+    { name: 'BEHAVIOURAL THERAPY TER', category: '' },
+    { name: 'BULKLEY VALLEY PEDIATRIC OUTREACH TEAM', category: '' },
+    { name: 'BURN/WOUND 1 PRG', category: '' },
+    { name: 'CALL CENTRE AGENTS', category: '' },
+    { name: 'CAR 60 1 FJN', category: '' },
+    { name: 'CAR 60 1 PRG', category: '' },
+    {
+      name: 'CHRONIC DISEASE MANAGEMENT TER', category: '',
+      letterhead1: 'Chronic Disease Management', letterhead2: '3412 Kalum St', letterhead3: 'Terrace, BC', letterhead4: 'V8G 4T2',
+      letterhead5: 'PH: 250-631-4672', postal: 'V8G 4T2', phone1: '250-631-4672',
+    },
     { name: 'CT1PRG', category: '' },
     { name: 'GIM CLINIC', category: '' },
     { name: 'HOME CARE', category: '' },
+    { name: 'PAAC 1 PRG', category: '' },
   ],
   anchorPrefix: 'organization',
   anchorKey: 'name',

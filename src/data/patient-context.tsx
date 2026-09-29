@@ -62,10 +62,14 @@ export function PatientProvider({ chart, roster, children }: {
     /* no chart loaded — MOIS as it opens: every field blank but Dep, which
        reads 00 (`reference/patient-summary-empty.png`) */
     if (!chart) return toChartPatient(NO_CHART)
-    const found = data ? patientFromExport(data) : findPatient(chart, list)
+    const found = data && data.header.source !== 'dynamic-form-preview' ? patientFromExport(data) : findPatient(chart, list)
+    const chartPatch = data?.header.source === 'dynamic-form-preview' ? {
+      ...(data.chart.dtm_dob !== undefined ? { dob: data.chart.dtm_dob.replace(/\//g, '.') } : {}),
+      ...(data.chart.str_gestation !== undefined ? { multiGestation: data.chart.str_gestation === 'Y' } : {}),
+    } : {}
     /* the export first, then the training rows its list tabs lack, then the
        session's unsaved and saved edits */
-    return toChartPatient({ ...(found ?? { chart, first: '', middle: '', last: '', dob: '', gender: '', status: 'A' }), ...TRAINING_CHART_ROWS[chart], ...edits })
+    return toChartPatient({ ...(found ?? { chart, first: '', middle: '', last: '', dob: '', gender: '', status: 'A' }), ...TRAINING_CHART_ROWS[chart], ...chartPatch, ...edits })
   }, [chart, roster, data, edits])
   return <PatientRosterContext.Provider value={roster ?? patients}><PatientContext.Provider value={value}>{children}</PatientContext.Provider></PatientRosterContext.Provider>
 }

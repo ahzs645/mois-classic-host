@@ -44,7 +44,7 @@ registerQuickEntryApplier('Chart Preference', ({ chart, template, values: v }) =
   const p = template.preference
   if (!p) return
   addPreference(chart, {
-    type: p.type, subject: p.subject, identifiedBy: p.identifiedBy, concept: p.concept,
+    type: p.type, subject: p.subject, identifiedBy: p.identifiedBy || undefined, code: p.code ?? '', concept: p.concept,
     subjectDetail: v.subjectDetail ?? '', instruction: v.instruction || p.instruction, instructionDetail: v.instructionDetail ?? '',
     reason: v.reason ?? '', reasonDetail: v.reasonDetail ?? '', start: v.start ?? '', end: v.stopped ?? '',
     sensitive: p.sensitive, showOnDemo: p.showOnDemo, form: v.form ?? '', by: v.by ?? '',

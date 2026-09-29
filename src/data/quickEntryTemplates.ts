@@ -31,24 +31,45 @@
                                      THREATENING)
          70168                       `1032aefc4faf…` (ACTIVE WOUND MGMT-ACUTE
                                      PHASE AFTER DEBRIDEMENT · 00090 MAJOR TRAY)
-   INFERRED: the Influenza Vaccine template's detail (only its list row is
-   captured) and the Pharmanet one (the article names Pharmanet consent as a
-   preference; no template capture carries it).
+   The Chart Preference templates are the TRAINING site's own: its Quick
+   Entry export of 2026-09-29 (MOIS 02.31.23 b250508), embedded verbatim in
+   quickEntryTrainingExport.generated.ts (scripts/embed-quick-entry-export.mjs)
+   and read at load by data/quickEntryXml.ts — 31 templates: the consents,
+   the Mental Health Act directives (Forms 4.1–21, Section 37), MOST, the
+   risk assessments and Release of Information. They replace the manual's
+   Influenza Vaccine / VACCINATIONS / Pharmanet examples.
+   The Order templates beside Arterial Blood Gas Panel are the TRAINING Quick
+   Entry List capture (2026-09-29 11:54): its rows ACUTE TERTIARY OUTPATIENT …
+   DENTAL HEALTH PERINATAL with their descriptions, and ACUTE TERTIARY
+   OUTPATIENT's editor (CONSULTATION · TERTIARY REHABILITATIVE - ADULT).
+   INFERRED: the other TRAINING Orders' detail (CONSULTATION, Order For the
+   description's program name, as the captured one reads), the tails the
+   capture's Name / Description columns cut off, and every TRAINING Goal,
+   MSP and Reaction Risk template (none captured, so the manual's stay).
    ========================================================================= */
 import { useSyncExternalStore } from 'react'
 import type { PreferenceIdentifiedBy, PreferenceType } from './preferenceVocab'
+import { TRAINING_QUICK_ENTRY_XML } from './quickEntryTrainingExport.generated'
+import { parseQuickEntryXml, type QuickEntryFileHeader, type QuickEntrySource } from './quickEntryXml'
 
 export const QUICK_ENTRY_GROUPS = ['Chart Preference', 'Goal', 'MSP Secondary Claims', 'Order', 'Reaction Risk'] as const
 export type QuickEntryGroup = typeof QUICK_ENTRY_GROUPS[number]
 
 export type QuickEntryPreference = {
-  type: PreferenceType
+  /** blank on a new template until a Type radio is picked */
+  type: PreferenceType | ''
   subject: string
-  identifiedBy: PreferenceIdentifiedBy
+  /** blank until an Identified By radio is picked */
+  identifiedBy: PreferenceIdentifiedBy | ''
+  /** the code behind the concept / code term (str_code), when there is one */
+  code?: string
   concept: string
   instruction: string
   sensitive: boolean
   showOnDemo: boolean
+  /** chart fields a template carries (the ROI templates' Form / By /
+      instruction comment …); the chart window starts from them */
+  chart?: Partial<Record<'subjectDetail' | 'instructionDetail' | 'reason' | 'reasonDetail' | 'form' | 'by' | 'start' | 'stopped', string>>
 }
 
 export type QuickEntryGoal = {
@@ -89,6 +110,8 @@ export type QuickEntryTemplate = {
   order?: QuickEntryOrder
   reaction?: QuickEntryReaction
   msp?: QuickEntryMsp
+  /** the record a template read from an export file came from */
+  source?: QuickEntrySource
 }
 
 /** the chart window caption per group — "Quick Entry - Chart Preference" … */
@@ -111,6 +134,44 @@ export const QUICK_ENTRY_EDITOR_TITLE: Record<QuickEntryGroup, string> = {
   'Reaction Risk': 'Quick Entry Template - Reaction Risk',
 }
 
+/* --- the TRAINING Order rows (Quick Entry List capture, 2026-09-29) ------- */
+/** Name / Description as the list prints them ([sic] spellings kept) */
+const TRAINING_ORDER_ROWS: [string, string][] = [
+  ['ACUTE TERTIARY OUTPATIENT', 'MHSU66 - Tertiary Rehabilitative - Adult'],
+  ['ADDED CARE FUNDING CLBC', 'HCC56 - Added Care Funding CLBC'],
+  ['ADULT ADDICTIONS DAY TREATMENT PROGRAM (AADTP)', 'MHSU54 - Day Treatment'],
+  ['ADULT COMMUNITY ADDICTION SERVICES (ACAS)', 'MHSU39 - Substance Use Communtiy Based Outpatient Services'],
+  ['ADULT DAY CENTRE', 'HCC01 - Adult Day Services'],
+  ['ASSERTIVE COMMUNITY TREATMENT (ACT)', 'MHSU08 - Assertive Community Treatment'],
+  ['ASSISTED LIVING', 'HCC02 - Assisted Living'],
+  ['ASSISTED LIVING SPOUSE', 'HCC10 - Assisted Living Spouse'],
+  ['CAR60 AND SPECIALIZED RESPONSE TEAM (SRT)', 'MHSU35 - Community Crisis Response'],
+  ['CHRONIC DISEASE AND CONDITION MANAGMENT', 'PC03 - Chronic Disease and Condition Management'],
+  ['COMMUNICABLE DISEASE CASE MANAGEMENT', 'PH01 - Communicable Disease Case Management'],
+  ['COMMUNICABLE DISEASE CONTROL', 'PH07 - Communicable Disease Control'],
+  ['COMMUNITY ACUTE STABILIZATION TEAM (CAST)', 'MHSU09 - Adult Short Term Assessment and Treatment'],
+  ['COMMUNITY OUTREACH AND ASSERTIVE SERVICES TEAM (COAST)', 'MHSU07 - Case Management (Mental Health & Substance Use)'],
+  ['COMMUNITY PSYCHIATRISTS', 'MHSU90 - Community Psychiatric Consultation'],
+  ['COMMUNITY REHABILITATION', 'HCC66 - Community Rehabilitation'],
+  ['COMMUNITY RESIDENTIAL CARE FACILITIES', 'MHSU57 - Community Residential Care Facilities and Family Care'],
+  ['COMMUNITY RESPONSE UNIT (CRU)', 'MHSU01 - Intake/Screening/Walk-In and/or Brief Intervention'],
+  ['CONSULTATION', 'HCC53 - Consultation'],
+  ['CONTACT RAI', ''],
+  ['CONVALESCENT CARE (RESIDENTIAL CARE)', 'HCC49 - Convalescent Care (Residential Care)'],
+  ['COVID CASE AND CONTACT MANAGEMENT', 'PH13 - COVID Case and Contact Management'],
+  ['DENTAL EARLY CHILDHOOD CARIES PREVENTION', 'PH09 - Dental Early Childhood Caries Prevention'],
+  ['DENTAL HEALTH INTERVENTION', 'PH03 - Dental Health Intervention'],
+  ['DENTAL HEALTH KINDERGARTEN', 'PH10 - Dental Health Kindergarten'],
+  ['DENTAL HEALTH PERINATAL', 'PH08 - Dental Health Perinatal'],
+]
+/** "MHSU66 - Tertiary Rehabilitative - Adult" → TERTIARY REHABILITATIVE -
+    ADULT, the captured row's Order For; a row without a description orders
+    its own name */
+function orderForOf(name: string, description: string): string {
+  const at = description.indexOf(' - ')
+  return (at >= 0 ? description.slice(at + 3) : name).toUpperCase()
+}
+
 /* --- vocabularies the editors drop ---------------------------------------- */
 /** art. 3071982, "Quick Entry Template - Goal" */
 export const GOAL_SUBJECTS = ['CONSULT', 'IMAGE', 'INTERVENTION', 'MEASURE', 'PROCEDURE']
@@ -130,7 +191,7 @@ export const QE_ORDER_TYPES = [
 ]
 /** what the Order For "…" offers per type — INFERRED (no capture opens it) */
 export const QE_ORDER_FOR: Record<string, string[]> = {
-  CONSULTATION: ['CARDIOLOGY', 'DERMATOLOGY', 'INTERNAL MEDICINE', 'PSYCHIATRY'],
+  CONSULTATION: [...new Set(['CARDIOLOGY', 'DERMATOLOGY', 'INTERNAL MEDICINE', 'PSYCHIATRY', ...TRAINING_ORDER_ROWS.map(([name, d]) => orderForOf(name, d))])],
   IMAGE: ['CHEST X-RAY', 'MAMMOGRAM - SCREENING', 'ULTRASOUND - ABDOMEN'],
   INTERVENTION: ['INFLUENZA VACCINE', 'PNEUMOCOCCAL VACCINE', 'TETANUS BOOSTER'],
   LAB: ['ARTERIAL BLOOD GAS PANEL', 'HBA1C', 'LIPID PANEL - FASTING', 'SERUM CREATININE / EGFR'],
@@ -163,19 +224,11 @@ export const QE_MSP_FEES: QuickEntryCodeTerm[] = [
 ]
 
 /* --- the seed list -------------------------------------------------------- */
-const SEED: QuickEntryTemplate[] = [
-  {
-    id: 'qe-1', group: 'Chart Preference', name: 'Influenza Vaccine - Not Desired', description: '',
-    preference: { type: 'Directive', subject: 'MEDICATION', identifiedBy: 'Concept', concept: 'INFLUENZA VACCINE', instruction: 'NOT DESIRED', sensitive: false, showOnDemo: true },
-  },
-  {
-    id: 'qe-2', group: 'Chart Preference', name: 'VACCINATIONS - NOT DESIRED', description: 'Declined all vaccines',
-    preference: { type: 'Consent', subject: 'MEDICATION', identifiedBy: 'Concept', concept: 'ALL VACCINES', instruction: 'NOT ALLOW', sensitive: false, showOnDemo: true },
-  },
-  {
-    id: 'qe-3', group: 'Chart Preference', name: 'Pharmanet Consent - Allow', description: 'Consent for Pharmanet access on file',
-    preference: { type: 'Disclosure', subject: 'OTHER', identifiedBy: 'Free Text', concept: 'PHARMANET ACCESS', instruction: 'ALLOW', sensitive: false, showOnDemo: true },
-  },
+/** the TRAINING export the Chart Preference seed is read from */
+const TRAINING_FILE = parseQuickEntryXml(TRAINING_QUICK_ENTRY_XML, (i) => `qe-training-${i + 1}`)
+export const TRAINING_QUICK_ENTRY_HEADER: QuickEntryFileHeader = TRAINING_FILE.header
+
+const MANUAL_SEED: QuickEntryTemplate[] = [
   {
     id: 'qe-4', group: 'Goal', name: 'Smoking Cessation', description: 'Reduce to under one pack a day',
     goal: { quantitative: true, subject: 'MEASURE', identifiedBy: 'Concept', concept: 'CIGARETTES SMOKED PACKS PER DAY', operator: '<', target: '1 pkg per day', every: '', units: '' },
@@ -198,12 +251,23 @@ const SEED: QuickEntryTemplate[] = [
   },
 ]
 
+const TRAINING_ORDERS: QuickEntryTemplate[] = TRAINING_ORDER_ROWS.map(([name, description], i) => ({
+  id: `qe-order-${i + 1}`, group: 'Order', name, description,
+  order: { type: 'CONSULTATION', orderFor: orderForOf(name, description), attachment: '' },
+}))
+
+const SEED: QuickEntryTemplate[] = [
+  ...TRAINING_FILE.templates,
+  ...MANUAL_SEED.filter((t) => t.group !== 'Order'),
+  ...[...MANUAL_SEED.filter((t) => t.group === 'Order'), ...TRAINING_ORDERS].sort((a, b) => a.name.localeCompare(b.name)),
+].sort((a, b) => QUICK_ENTRY_GROUPS.indexOf(a.group) - QUICK_ENTRY_GROUPS.indexOf(b.group))
+
 /* --- the store ------------------------------------------------------------ */
 /** the templates the last Export wrote, which Import then offers — the
     session's stand-in for the 7z on disk */
 let exported: QuickEntryTemplate[] = []
 let templates: QuickEntryTemplate[] = SEED
-let seq = SEED.length
+let seq = 0
 let version = 0
 const listeners = new Set<() => void>()
 const emit = () => { version += 1; listeners.forEach((l) => l()) }
@@ -216,7 +280,11 @@ export function useQuickEntryTemplates(): QuickEntryTemplate[] {
 
 export const quickEntryTemplates = () => templates
 
-export const nextQuickEntryId = () => `qe-${++seq}`
+export function nextQuickEntryId(): string {
+  let id: string
+  do { id = `qe-${++seq}` } while (templates.some((t) => t.id === id))
+  return id
+}
 
 export function saveQuickEntryTemplate(t: QuickEntryTemplate) {
   templates = templates.some((x) => x.id === t.id) ? templates.map((x) => (x.id === t.id ? t : x)) : [...templates, t]
@@ -237,7 +305,7 @@ export function importQuickEntryTemplates(rows: QuickEntryTemplate[]) {
 /** a new frame starts on the seed list */
 export function resetQuickEntryTemplates() {
   templates = SEED
-  seq = SEED.length
+  seq = 0
   exported = []
   version += 1
 }

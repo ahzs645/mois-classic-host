@@ -13,7 +13,8 @@
    that chart, and bundling it eagerly doubled the stage's payload for every
    learner who never selects it.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
+import { mergeDynamicFormWrites, useDynamicFormWrites } from '../dynamic-form-writes'
 import { chart87288Summary } from './chart-87288.summary'
 import { withTrainingRecords } from './overlays'
 import type { MoisChartExport, MoisRecord } from './types'
@@ -35,14 +36,16 @@ const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
 /** Loading and missing exports are empty, never permission to borrow fixture data. */
 export function useLoadedChart(chart: string): MoisChartExport | null {
-  return useSyncExternalStore(subscribe, () => loaded[chart] ?? null, () => null)
+  const base = useSyncExternalStore(subscribe, () => loaded[chart] ?? null, () => null)
+  const writes = useDynamicFormWrites(chart)
+  return useMemo(() => mergeDynamicFormWrites(base, chart, writes), [base, chart, writes])
 }
 
 export const hasChartExport = (chart: string): boolean => chart in loaders
 
 /** the export if it is already in memory; null means "not loaded yet" */
 export const chartExportFor = (chart: string): MoisChartExport | null =>
-  loaded[chart] ?? null
+  mergeDynamicFormWrites(loaded[chart] ?? null, chart)
 
 /** load a chart's records, returning the cached copy on every later call */
 export async function loadChartExport(chart: string): Promise<MoisChartExport | null> {
