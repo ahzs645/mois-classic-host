@@ -1,6 +1,7 @@
 import type { Patient } from '../patients'
 import type { ReportSpec, RSContext, RSField, RSRow } from './types'
 import { MOIS_TODAY, rsDaysAgo, rsMoney, rsName, rsSample } from './types'
+import { toSlashes } from '../clock'
 
 /* ============================================================================
    Report specs transcribed from manual article 304044 (Accounts - Private
@@ -84,7 +85,7 @@ export const pvDot = (ago: number) => rsDaysAgo(ago)
 /** 8/2/2011 — the A/R captures print the bill date this way */
 export const pvMdy = (ago: number) => { const [y, m, d] = rsDaysAgo(ago).split('.'); return `${Number(m)}/${Number(d)}/${y}` }
 /** 2010/10/18 — the Written Off capture */
-export const pvSlash = (ago: number) => rsDaysAgo(ago).replace(/\./g, '/')
+export const pvSlash = (ago: number) => toSlashes(rsDaysAgo(ago))
 /** `C  BUMSTEAD` / `M L  MOUSE` — initials then surname, as the A/R Sorted and Overpaid pages print */
 export const pvInitials = (p: Patient) => `${[p.first, p.middle].filter(Boolean).map((s) => s[0]).join(' ')}  ${p.last}`
 

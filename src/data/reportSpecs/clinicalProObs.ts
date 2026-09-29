@@ -5,6 +5,7 @@ import {
   RS_PROVIDERS, rsAge, rsDaysAgo, rsMatchOf, rsName, rsPatients,
   type ReportSpec, type RSContext, type RSField, type RSRow,
 } from './types'
+import { yn } from '../text'
 
 /* ============================================================================
    Report specs transcribed from manual article 304050 (Reports ▸ Clinical -
@@ -310,7 +311,6 @@ const mdy = (ago: number) => {
   return `${Number(m)}/${Number(d)}/${y}`
 }
 const up = (s: string) => s.toUpperCase()
-const yn = (b: boolean) => (b ? 'Y' : 'N')
 /** bold, or nothing when blank */
 const b = (s: string) => (s ? `**${s}**` : '')
 const byName = (a: Hit, b: Hit) => rsName(a.p).localeCompare(rsName(b.p))

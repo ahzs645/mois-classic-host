@@ -1,5 +1,6 @@
 import type { MoisChartExport, MoisRecord } from './charts'
 import { MOIS_TODAY } from './patients'
+import { daysFromToday, toDashes } from './clock'
 
 /* ============================================================================
    The MAR as MOIS lists it: parent orders with their administration events.
@@ -113,11 +114,7 @@ export function marOrdersFromExport(data: MoisChartExport | null): MarOrder[] {
 
 /** The stage's running order (see the header). */
 export function practiceOrder(): MarOrder {
-  const [y, m, d] = MOIS_TODAY.split('.').map(Number)
-  const day = (n: number) => {
-    const t = new Date(Date.UTC(y!, m! - 1, d! + n))
-    return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-  }
+  const day = daysFromToday
   const med = 'ACETAMINOPHEN 500MG TABLET'
   return {
     id: 'practice-order-1',
@@ -132,7 +129,7 @@ export function practiceOrder(): MarOrder {
     duration: '7',
     durationUnit: 'DAY (Days)',
     route: 'ORAL',
-    signed: { action: 'SIGNED', note: 'ready', on: `${MOIS_TODAY.replace(/\./g, '-')} 08:52 - TECHNICAL SUPPORT` },
+    signed: { action: 'SIGNED', note: 'ready', on: `${toDashes(MOIS_TODAY)} 08:52 - TECHNICAL SUPPORT` },
     created: `${MOIS_TODAY}  08:45  TECHNICAL SUPPORT`,
     modified: `${MOIS_TODAY}  08:52  TECHNICAL SUPPORT`,
     practice: true,

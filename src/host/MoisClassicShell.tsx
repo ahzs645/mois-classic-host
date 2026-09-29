@@ -8,7 +8,7 @@ import { chartScreens, moduleScreens, schedulerScreens, type ChartScreen } from 
 import { clinicListSpecs } from '../data/clinicManagement'
 import {
   apptStatusOf, billedCount, bookedCount, dayRows, encounterOf, offsetOfStamp, providerOfSlug,
-  resetSchedulerStore, schedulerKitAction, schedulerSnapshot, schedulerStore, useSchedulerStore,
+  schedulerKitAction, schedulerSnapshot, schedulerStore, useSchedulerStore,
 } from '../data/schedulerStore'
 import { SCHEDULER_EXTRA_NODES, SchedulerExtraView } from '../screens/scheduler/SchedulerExtraView'
 import { designerNodes } from '../data/designerSection'
@@ -34,7 +34,6 @@ import { adminListNodes } from '../data/adminLists'
 import { AdminListsView } from '../screens/AdminListsView'
 /* Designer Section ▸ Quick Entry (art. 3071982) and its template store */
 import { QuickEntryListView } from '../screens/QuickEntryListView'
-import { resetQuickEntryTemplates } from '../data/quickEntryTemplates'
 import {
   PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBMessageBox, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
@@ -99,16 +98,9 @@ import '../screens/areaWindows.register'
 import { FolderViewLayer, isFolderView } from '../screens/folderViewRegistry'
 import '../screens/folderViews.register'
 import { reportNavigatorRows } from '../data/reportParams'
-import { resetWorkspaceStore, useWorkspaceStore } from '../data/workspaceStore'
+import { useWorkspaceStore } from '../data/workspaceStore'
 import { workspaceItemCounts } from '../data/workspaceLists'
-import { resetWorkspaceSettings } from '../data/workspaceSettings'
-import { resetChartSession } from '../data/chartSession'
-import { resetCarePlanRecords } from '../data/carePlanRecords'
-import { resetAllergySession } from '../data/allergySession'
-import { resetGoalRecords } from '../data/goalRecords'
-import { resetSummarySettings } from '../data/summarySettings'
 import { setFrameNodeOpener } from './frame-nav'
-import { resetSystemSettingsMirror } from '../data/systemSettings'
 import { WorkspaceSettingsView } from '../screens/WorkspaceSettingsView'
 import { FavouriteMedicationListView } from '../screens/FavouriteMedicationListView'
 import { MOIS_CLASSIC_NO_CHART_FIXTURE, launchModeOfFixture, resolveMoisClassicFixture, type MoisClassicLaunchStart } from './manifest'
@@ -118,9 +110,6 @@ import '../screens/screen-windows-register'
 import { ScreenStateProvider, mergeScreenReports, type ScreenReport, type ScreenReporter } from './screen-state'
 import { promptCurrentField, useMoisHotkeys } from './hotkeys'
 import { setFieldValue } from './field-input'
-import { resetPatientEdits } from '../data/patient-edits'
-import { resetBillingPrograms } from '../data/billingPrograms'
-import { resetChartBasicsState } from '../data/chart-basics-state'
 import { DesktopProviderField } from '../screens/ChartBasicsWindows'
 import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './types'
 /* Registers each module's menu overrides. Imported last, from the frame
@@ -714,31 +703,14 @@ function Frame({
      New Task, Create New Message, …) — see screens/areaWindowRegistry.ts —
      and the Workspace's session edits, fresh for every frame */
   const [areaWindow, setAreaWindow] = useState<{ id: string; args?: Record<string, unknown> } | null>(null)
-  /* every session store registered with data/sessionStore.ts starts over */
+  /* every session store registered with data/sessionStore.ts starts over —
+     the Workspace, Scheduler and billing edits, the chart edits and chart
+     basics, the Care Plan, allergy, goal, summary and determinant records,
+     the templates, the letter in flight, the System Settings mirror… Each
+     store registers its own reset; the chart-export cache and the Webforms
+     app's dynamic-form writes deliberately do not (see their modules). */
   useState(() => resetSessionStores())
-  useState(() => resetWorkspaceStore())
-  /* …and the chart edits, merge log, signatures and Desktop Provider the
-     chart basics windows keep (data/patient-edits.ts, data/chart-basics-state.ts) */
-  useState(() => { resetPatientEdits(); resetChartBasicsState() })
-  /* the Scheduler's session edits (data/schedulerStore.ts), fresh per frame */
-  useState(() => resetSchedulerStore())
-  /* PBF / LFP / PAS session edits (data/billingPrograms.ts), fresh per frame */
-  useState(() => resetBillingPrograms())
   const sched = useSchedulerStore()
-  useState(() => resetWorkspaceSettings())
-  /* the Care Plan tags, snapshots, folder reviews and sent letters a lesson
-     writes (data/chartSession.ts), fresh for every frame too */
-  useState(() => resetChartSession())
-  /* Preferences, Planned Actions, Barriers, Resources, Risks and Needs entered
-     in the session, and goal links (data/carePlanRecords.ts) */
-  useState(() => resetCarePlanRecords())
-  useState(() => resetAllergySession())
-  /* Goals and Summary Settings edits (data/goalRecords.ts, data/summarySettings.ts) */
-  useState(() => { resetGoalRecords(); resetSummarySettings() })
-  /* the clinic's Quick Entry templates start from the seed list per frame */
-  useState(() => resetQuickEntryTemplates())
-  /* System Settings' committed values as the menus read them (data/systemSettings.ts) */
-  useState(() => resetSystemSettingsMirror())
   const workspace = useWorkspaceStore()
   /* the Letter Writer is reached through a two-dialog run-up, so one state
      holds where in it we are rather than three booleans that can disagree */

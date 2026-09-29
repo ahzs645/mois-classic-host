@@ -1,4 +1,4 @@
-import { MOIS_TODAY, rsMoney, rsSample, type ReportSpec, type RSContext, type RSRow } from './types'
+import { MOIS_TODAY, rsFromDay as fromDay, rsMoney, rsSample, rsToDay as toDay, type ReportSpec, type RSContext, type RSRow } from './types'
 
 /* ============================================================================
    Report specs transcribed from manual article 304042 (Reports ▸ Accounts -
@@ -14,16 +14,6 @@ const dash = (n: number) => (n ? rsMoney(n) : '-')
 const signed = (n: number) => (n < 0 ? `(${rsMoney(-n)})` : rsMoney(n))
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
-const DATE = /^(\d{4})\.(\d{2})\.(\d{2})$/
-function toDay(s: string): number | null {
-  const m = DATE.exec(s.trim())
-  if (!m || m[1] === '0000') return null
-  return Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!) / 86400000
-}
-function fromDay(n: number): string {
-  const t = new Date(n * 86400000)
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
 /** a range parameter as days; a blank To means "only that one day" (the
     windows' own hint), a blank From reaches back four months */
 function span(ctx: RSContext, id: string): [number, number] {

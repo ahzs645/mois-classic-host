@@ -1,4 +1,4 @@
-import { MOIS_TODAY } from './patients'
+import { daysFromToday } from './clock'
 
 /* ============================================================================
    Alternate launch modes — Encounter Lite (3797326) and MyEncounters
@@ -51,11 +51,8 @@ export type LiteChart = {
   preferred: string; home: string; work: string; cell: string
 }
 
-export function dayOffset(n: number): string {
-  const [y, m, d] = MOIS_TODAY.split('.').map(Number)
-  const t = new Date(Date.UTC(y!, m! - 1, d! + n))
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
+/** yyyy.mm.dd n days after the stage's day (data/clock.ts daysFromToday) */
+export const dayOffset = daysFromToday
 
 const enc = (id: string, chart: string, name: string, days: number, hh: string, mm: string, reason: string, status: LiteEncounter['status'], note = ''): LiteEncounter => ({
   id, chart, name, date: dayOffset(days), hh, mm, visitCode: 'R', reason, status, slots: '3', mode: 'DE', location: '',

@@ -1,5 +1,6 @@
-import { useSyncExternalStore } from 'react'
+import { createStore, onSessionReset } from './sessionStore'
 import type { TaskRow } from './tasks'
+import { hhmm } from './clock'
 
 /* ============================================================================
    The Workspace state the Blended Workspaces, Task Inbox, Workflow Summary
@@ -88,75 +89,68 @@ const initial = (): WorkspaceExtrasState => ({
   last: '',
 })
 
-let state: WorkspaceExtrasState = initial()
+/* a session store: back to the training data as each frame mounts
+   (data/sessionStore.ts), with the note serial */
+const store = createStore<WorkspaceExtrasState>(initial)
+const state = store.get
 let serial = 0
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+onSessionReset(() => { serial = 0 })
 function set(next: Partial<WorkspaceExtrasState>) {
-  state = { ...state, ...next }
-  emit()
+  store.set((prev) => ({ ...prev, ...next }))
 }
 
-/** Back to the training data; the frame's first render calls this, so it
-    does not notify (see resetWorkspaceStore). */
+/** Back to the training data (the session reset does this as the frame
+    mounts; resetWorkspaceStore() does it on demand). */
 export function resetWorkspaceExtras() {
-  state = initial()
+  store.reset()
   serial = 0
 }
 
 export function useWorkspaceExtras(): WorkspaceExtrasState {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l) },
-    () => state,
-    () => state,
-  )
+  return store.use()
 }
 
-const stamp = () => {
-  const d = new Date()
-  const two = (n: number) => String(n).padStart(2, '0')
-  return `${two(d.getHours())}:${two(d.getMinutes())}`
-}
+const stamp = () => hhmm()
 
 export const workspaceExtras = {
-  get: () => state,
+  get: () => state(),
 
   addFollowUp(task: string, note: Omit<FollowUpNote, 'id'>) {
-    const list = state.followUps[task] ?? []
-    set({ followUps: { ...state.followUps, [task]: [...list, { ...note, id: `n${++serial}` }] }, last: 'follow-up-added' })
+    const list = state().followUps[task] ?? []
+    set({ followUps: { ...state().followUps, [task]: [...list, { ...note, id: `n${++serial}` }] }, last: 'follow-up-added' })
   },
   updateFollowUp(task: string, id: string, note: string, by: string, when: string) {
-    const list = (state.followUps[task] ?? []).map((n) => (n.id === id ? { ...n, note, modifiedBy: by, modified: when } : n))
-    set({ followUps: { ...state.followUps, [task]: list }, last: 'follow-up-changed' })
+    const list = (state().followUps[task] ?? []).map((n) => (n.id === id ? { ...n, note, modifiedBy: by, modified: when } : n))
+    set({ followUps: { ...state().followUps, [task]: list }, last: 'follow-up-changed' })
   },
   deleteFollowUp(task: string, id: string) {
-    set({ followUps: { ...state.followUps, [task]: (state.followUps[task] ?? []).filter((n) => n.id !== id) }, last: 'follow-up-deleted' })
+    set({ followUps: { ...state().followUps, [task]: (state().followUps[task] ?? []).filter((n) => n.id !== id) }, last: 'follow-up-deleted' })
   },
 
   saveWorkgroup(name: string, users: string[], was?: string) {
-    const rest = state.workgroups.filter((w) => w.name !== (was ?? name))
+    const rest = state().workgroups.filter((w) => w.name !== (was ?? name))
     set({ workgroups: [...rest, { name, users }].sort((a, b) => a.name.localeCompare(b.name)), last: was ? 'workgroup-modified' : 'workgroup-created' })
   },
   deleteWorkgroup(name: string) {
-    set({ workgroups: state.workgroups.filter((w) => w.name !== name), last: 'workgroup-deleted' })
+    set({ workgroups: state().workgroups.filter((w) => w.name !== name), last: 'workgroup-deleted' })
   },
 
-  saveDefault(users: string[] | null) { set({ defaultBlend: users, last: users ? 'default-saved' : state.last }) },
+  saveDefault(users: string[] | null) { set({ defaultBlend: users, last: users ? 'default-saved' : state().last }) },
 
   addMembership(m: Membership) {
-    set({ memberships: [...state.memberships.filter((x) => x.org !== m.org), m], last: 'membership-added' })
+    set({ memberships: [...state().memberships.filter((x) => x.org !== m.org), m], last: 'membership-added' })
   },
 
   record(entry: Omit<HistoryEntry, 'at'> & { at?: string }, date: string) {
-    set({ history: [...state.history, { ...entry, at: entry.at ?? `${date} ${stamp()}` }] })
+    set({ history: [...state().history, { ...entry, at: entry.at ?? `${date} ${stamp()}` }] })
   },
 
   linkOrder(key: string, order: string, status: string) {
-    set({ orderLinks: { ...state.orderLinks, [key]: { order, status } }, last: 'order-linked' })
+    set({ orderLinks: { ...state().orderLinks, [key]: { order, status } }, last: 'order-linked' })
   },
 
-  setComment(key: string, text: string) { set({ comments: { ...state.comments, [key]: text }, last: 'measure-comment-saved' }) },
-  setOrderType(key: string, type: string) { set({ orderTypes: { ...state.orderTypes, [key]: type } }) },
+  setComment(key: string, text: string) { set({ comments: { ...state().comments, [key]: text }, last: 'measure-comment-saved' }) },
+  setOrderType(key: string, type: string) { set({ orderTypes: { ...state().orderTypes, [key]: type } }) },
 
   clean() { set({ cleaned: true, last: 'list-cleaned' }) },
   setTaskView(v: WorkspaceExtrasState['taskView']) { set({ taskView: v }) },
@@ -168,7 +162,7 @@ export const workspaceExtras = {
     const row: TaskRow & { box: 'messages' | 'tasks' } = a.method === 'MOIS Task'
       ? { box: 'tasks', p, due: a.date, patient: a.patient, chart: a.chart, task: 'Break Glass - private note accessed', assignee: a.owner.split(',')[0]!.trim(), user: a.owner, created: a.date, createdAt: a.date, createdBy: a.by, detail }
       : { box: 'messages', p, sent: a.date, from: a.by, patient: a.patient, chart: a.chart, subject: 'Break Glass - private note accessed', assignee: a.owner.split(',')[0]!.trim(), sentTo: a.owner, detail }
-    set({ alerts: [...state.alerts, row], last: 'break-glass-alert' })
+    set({ alerts: [...state().alerts, row], last: 'break-glass-alert' })
   },
 
   done(last: string) { set({ last }) },

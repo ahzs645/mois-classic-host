@@ -28,7 +28,7 @@
    An admin-module demonstration dataset (not chart data), so it is global
    rather than per chart; edits last for the session.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 
 /** the Item Category drop-down: the capture's three plus the article 303514
     categories a rule can pull (Measure, Image, Consult, Intervention,
@@ -124,14 +124,14 @@ const SEED: CarePlanTemplate[] = [
 
 let templates: CarePlanTemplate[] = SEED
 let seq = 0
-const listeners = new Set<() => void>()
-let version = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+/* a new frame starts on the captured list (resets with the session; before,
+   resetCarePlanTemplates existed but nothing called it) */
+const changes = createSignal(() => { templates = SEED })
+const emit = changes.emit
 
 /** re-render on any change, then read the list */
 export function useCarePlanTemplates(): CarePlanTemplate[] {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return templates
 }
 
@@ -155,11 +155,9 @@ export function deleteCarePlanTemplate(id: string) {
   emit()
 }
 
-/** back to the captured list */
-export function resetCarePlanTemplates() {
-  templates = SEED
-  version += 1
-}
+/** back to the captured list (the session reset runs this as the frame
+    mounts — data/sessionStore.ts) */
+export const resetCarePlanTemplates = () => changes.reset()
 
 export const blankTemplateElement = (): TemplateElement =>
   ({ category: 'MEASURE', section: 'MEASUREMENTS', rank: '10', identifiedBy: 'Concept', identification: '', rule: 'RECENT', records: '1' })

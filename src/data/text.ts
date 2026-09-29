@@ -18,5 +18,14 @@ export const argBool = (v: unknown): boolean => v === true
 /** a boolean as MOIS stores it: 'Y' / 'N' */
 export const yn = (v: boolean | null | undefined): 'Y' | 'N' => (v ? 'Y' : 'N')
 
+/** a label as the slug anchors and payloads use: lower case, `&` → `and`,
+    runs of anything else → `-` (`Reports & Letters` → `reports-and-letters`).
+    The same rule as pb/instrumentation's pbSlug, without its React. */
+export const slug = (label: string): string => label
+  .toLowerCase()
+  .replace(/&/g, ' and ')
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '')
+
 /** 'Y' (any case) → true; 'N', '' and anything else → false */
 export const isY = (v: unknown): boolean => typeof v === 'string' && v.trim().toUpperCase() === 'Y'

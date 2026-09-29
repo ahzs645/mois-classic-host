@@ -2,7 +2,7 @@
    The stage's clock and date formats, React-free.
 
    The emulator runs on fixed days so every lesson sees the same records:
-     · MOIS_TODAY (data/patients.ts) — the chart day, 2026.09.18. Anything a
+     · MOIS_TODAY — the chart day, 2026.09.18. Anything a
        lesson files today (a preference, a goal, a stamp) is dated this day.
      · SCHEDULER_TODAY — the Scheduler's own day, 2026.08.11, the day the day
        book captures were taken (data/billingPrograms.ts explains the split).
@@ -14,12 +14,17 @@
      2026-09-18   the Member grid, the Richtext reports           (dashes)
    Every converter takes any of the three (and a trailing time), so a value
    can be passed along without knowing where it came from.
+
+   A leaf module — it imports nothing — so host/manifest.ts can read the
+   stage days without pulling in the data.
    ========================================================================= */
-import { MOIS_TODAY } from './patients'
 
-export { MOIS_TODAY }
+/** The date the training environment was captured; ages are figured from it
+    (data/patients.ts re-exports it, where the screens have always read it). */
+export const MOIS_TODAY = '2026.09.18'
 
-/** the Scheduler's day (data/schedulerStore.ts EPOCH, host/manifest.ts) */
+/** the Scheduler's day (data/schedulerStore.ts EPOCH, host/manifest.ts's
+    fixture daybook) */
 export const SCHEDULER_TODAY = '2026.08.11'
 
 export const pad2 = (n: number) => String(n).padStart(2, '0')

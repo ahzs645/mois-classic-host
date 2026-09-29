@@ -1,4 +1,5 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useRef } from 'react'
+import { createStore } from './sessionStore'
 
 /* ============================================================================
    Data Exchange menu → screen commands.
@@ -37,18 +38,14 @@ export function useExchangeCommand(handler: (command: ExchangeCommand) => void) 
    chart while the learner works through it, 303507), opened from the Quality
    Review tab of Lab Results or Inbound Messages. Which row's Tear Off opened
    it decides what it lists. */
-let tornOff = ''
-const tornListeners = new Set<() => void>()
+/* a session store: a new frame has torn nothing off (before, the last
+   lesson's row carried into the next) */
+const tornOff = createStore('')
 
 export function setTornOff(item: string) {
-  tornOff = item
-  tornListeners.forEach((listener) => listener())
+  tornOff.set(item)
 }
 
 export function useTornOff(): string {
-  return useSyncExternalStore(
-    (listener) => { tornListeners.add(listener); return () => { tornListeners.delete(listener) } },
-    () => tornOff,
-    () => '',
-  )
+  return tornOff.use()
 }

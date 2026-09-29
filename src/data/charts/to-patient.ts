@@ -11,6 +11,7 @@
    ========================================================================= */
 import type { Patient } from '../patients'
 import type { MoisChartExport, MoisRecord } from './types'
+import { MOIS_TODAY, dotsOf, toDashes } from '../clock'
 
 const dot = (v?: string) => (v ? v.replace(/\//g, '.') : undefined)
 /** MOIS stores a bare 10-digit number; the windows print it grouped */
@@ -20,9 +21,11 @@ const phone = (v?: string) =>
 /** The Demographics pharmacy comes from a current, visible chart connection.
  * Organization contact details are not included in the patient export; keep
  * them blank rather than splitting an address out of the provider's label. */
-export function pharmacyFromConnections(connections: MoisRecord[], now = new Date()): Patient['pharmacy'] {
+export function pharmacyFromConnections(connections: MoisRecord[], now?: Date): Patient['pharmacy'] {
   const day = (value?: string) => value?.slice(0, 10).replace(/[/.]/g, '-') ?? ''
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  /* current on the stage's day (MOIS_TODAY), like every other "current" the
+     chart shows — not the computer's, which drifts past the capture */
+  const today = toDashes(now ? dotsOf(now) : MOIS_TODAY)
   const current = connections.filter(r =>
     r.str_connection_type === 'PHARMACY' && r.str_include_demo !== 'N'
     && (!r.dtm_start || day(r.dtm_start) <= today)

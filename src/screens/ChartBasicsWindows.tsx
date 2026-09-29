@@ -1,7 +1,7 @@
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import {
-  SESSION_USER, addPatientText, addSignatureEvent, nowStamp, recordMerge, rollBackMerge,
+  SESSION_LOGIN, addPatientText, addSignatureEvent, nowStamp, recordMerge, rollBackMerge,
   saveDefaultValue, setDesktopProvider, useDesktopProvider, useMergeLog, usePatientTexts,
   useSignatureHistory, type MergeLogRow,
 } from '../data/chart-basics-state'
@@ -538,7 +538,7 @@ function MergeChartDialog({ onClose }: { onClose: () => void }) {
           <div className="pb-groupbox">
             <PBBand>Merge Log</PBBand>
             <div className="pb-form" style={{ gridTemplateColumns: '60px 1fr 60px 1fr', padding: '4px 8px', alignItems: 'start' }}>
-              <span>Date:</span><b>{stamp.date}</b><span>User:</span><b>{SESSION_USER}</b>
+              <span>Date:</span><b>{stamp.date}</b><span>User:</span><b>{SESSION_LOGIN}</b>
               <span>Reason:</span>
               <PBTextArea aria-label="Merge reason" rows={2} style={{ gridColumn: 'span 3' }} value={reason} onChange={(e) => setReason(e.target.value)} data-tutorial-id="host.mois.field.merge-reason" />
             </div>
@@ -613,7 +613,7 @@ function MergeChartDialog({ onClose }: { onClose: () => void }) {
           onClose={(v) => {
             if (v !== 'yes') { setStep(null); return }
             recordMerge(p.chart, {
-              mergeDate: stamp.date, user: SESSION_USER, reason, status: 'ACTIVE', chart: a.chart,
+              mergeDate: stamp.date, user: SESSION_LOGIN, reason, status: 'ACTIVE', chart: a.chart,
               patient: `${a.first}  ${a.last}`, dob: a.dob, sex: a.gender, insBy: a.insuranceBy ?? '',
               insurance: a.insurance ?? '', dep: a.dep ?? '', bchn: a.bchn ?? '',
             })
@@ -706,7 +706,7 @@ function UnmergeChartDialog({ onClose }: { onClose: () => void }) {
           buttons={[{ label: 'Yes', value: 'yes', default: true }, { label: 'No', value: 'no' }]}
           onClose={(v) => {
             if (v !== 'yes') { setStep(null); return }
-            rollBackMerge(p.chart, row.chart, nowStamp().date, SESSION_USER)
+            rollBackMerge(p.chart, row.chart, nowStamp().date, SESSION_LOGIN)
             setStep('done')
           }}
         >
@@ -815,14 +815,14 @@ function PatientTextDialog({ onClose }: { onClose: () => void }) {
               <span>Description:</span>
               <PBInput aria-label="Patient text description" value={description} onChange={(e) => setDescription(e.target.value)} data-tutorial-id="host.mois.field.patient-text-description" />
               <span>Author:</span>
-              <PBInput aria-label="Patient text author" value={SESSION_USER} readOnly />
+              <PBInput aria-label="Patient text author" value={SESSION_LOGIN} readOnly />
               <span style={{ alignSelf: 'start' }}>Text:</span>
               <PBTextArea aria-label="Patient text" rows={10} style={{ gridColumn: 'span 3' }} value={text} onChange={(e) => setText(e.target.value)} />
             </div>
           </div>
           <DialogButtons>
             <CmdButton command="patient-text-save" wide disabled={!description.trim()} onClick={() => {
-              addPatientText(p.chart, { author: SESSION_USER, description: description.trim(), text })
+              addPatientText(p.chart, { author: SESSION_LOGIN, description: description.trim(), text })
               setCur(texts.length)
               setEditing(false)
             }}>Save</CmdButton>
@@ -879,7 +879,7 @@ export function RecordHistoryDialog({ recordKey, signed, onClose }: {
       {asking && (
         <DemographicModal title={`${verb} Current Record`} width={360} onClose={() => setAsking(false)}>
           <div className="pb-form" style={{ padding: '14px 18px', gridTemplateColumns: '80px 1fr', alignItems: 'start' }}>
-            <span>User Name:</span><b>{SESSION_USER}</b>
+            <span>User Name:</span><b>{SESSION_LOGIN}</b>
             <span>Date:</span><span>{stamp.date}</span>
             <span>Time:</span><span>{stamp.time}</span>
             <span>Reason:</span>
@@ -887,7 +887,7 @@ export function RecordHistoryDialog({ recordKey, signed, onClose }: {
           </div>
           <DialogButtons>
             <CmdButton command={`confirm-${verb.toLowerCase()}`} wide disabled={!reason.trim()} onClick={() => {
-              addSignatureEvent(recordKey, { ...stamp, action: signed ? 'UNSIGNED' : 'SIGNED', user: SESSION_USER, reason: reason.trim() })
+              addSignatureEvent(recordKey, { ...stamp, action: signed ? 'UNSIGNED' : 'SIGNED', user: SESSION_LOGIN, reason: reason.trim() })
               setAsking(false)
             }}>{verb}</CmdButton>
             <CmdButton command="signature-cancel" wide onClick={() => setAsking(false)}>Cancel</CmdButton>

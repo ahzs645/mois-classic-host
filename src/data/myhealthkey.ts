@@ -1,5 +1,5 @@
 import { useSessionState } from '../host/screen-windows'
-import { MOIS_TODAY } from './patients'
+import { daysFromToday } from './clock'
 
 /* ============================================================================
    myhealthkey (MHK), the patient portal — 2280708 "myhealthkey".
@@ -76,12 +76,8 @@ export function useMhkChart(chart: string): [MhkChart, (patch: Partial<MhkChart>
 /** Whether a chart can be sent a myhealthkey message (an active account). */
 export const hasActiveMhk = (c: MhkChart) => c.registration === 'ALLOW'
 
-/** yyyy.mm.dd n days after the stage's day. */
-export function daysFromToday(n: number): string {
-  const [y, m, d] = MOIS_TODAY.split('.').map(Number)
-  const t = new Date(Date.UTC(y!, m! - 1, d! + n))
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
+/** yyyy.mm.dd n days after the stage's day (data/clock.ts). */
+export { daysFromToday }
 
 /* --- Administration ▸ myhealthkey (BETA) -------------------------------------------- */
 export const MHK_SETTINGS: { name: string; value: string }[] = [

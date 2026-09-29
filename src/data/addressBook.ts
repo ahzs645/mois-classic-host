@@ -24,6 +24,7 @@
    ========================================================================= */
 import { clinicListSpecs } from './clinicManagement'
 import { directoryEntries } from './providers'
+import { S } from './text'
 
 export type AddressBookList =
   | 'Internal Provider List'
@@ -247,7 +248,6 @@ export const SEED_CONTACT_DETAILS: Record<string, Partial<ContactListDetail>> = 
 
 /** External providers as directory entries (Clinic Management's session rows). */
 export function externalProviderEntry(r: Record<string, unknown>): AddressBookEntry {
-  const S = (v: unknown) => (v == null ? '' : String(v))
   return {
     name: S(r.name), location: S(r.address1), city: S(r.city), phone: S(r.primary), fax: S(r.fax),
     list: 'External Provider List', practNo: S(r.pract), specialty: S(r.spec), active: true,
@@ -256,7 +256,6 @@ export function externalProviderEntry(r: Record<string, unknown>): AddressBookEn
 
 /** External organizations as directory entries. */
 export function externalOrganizationEntry(r: Record<string, unknown>): AddressBookEntry & { orgType: string } {
-  const S = (v: unknown) => (v == null ? '' : String(v))
   return {
     name: S(r.name), location: S(r.address1), city: S(r.city), phone: S(r.phone), fax: S(r.fax),
     list: 'External Organization List', group: S(r.orgType), orgType: S(r.orgType), active: true,

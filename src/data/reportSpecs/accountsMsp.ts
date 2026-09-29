@@ -1,4 +1,4 @@
-import { MOIS_TODAY, rsMoney, rsSample, type ReportSpec, type RSContext, type RSField, type RSRow } from './types'
+import { MOIS_TODAY, rsFromDay as fromDay, rsMoney, rsSample, rsToDay as toDay, type ReportSpec, type RSContext, type RSField, type RSRow } from './types'
 import type { Patient } from '../patients'
 
 /* ============================================================================
@@ -62,16 +62,6 @@ const LEDGER: Claim[] = [
 
 /* --- dates ----------------------------------------------------------------- */
 
-const DATE = /^(\d{4})\.(\d{2})\.(\d{2})$/
-function toDay(s: string): number | null {
-  const m = DATE.exec(s.trim())
-  if (!m || m[1] === '0000') return null
-  return Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!) / 86400000
-}
-function fromDay(n: number): string {
-  const t = new Date(n * 86400000)
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
 /** the date range a report ran for, in days: a blank To runs up to today (the
     article: "when given only an end date the report runs for all dates up to
     and including the end date"), a blank From reaches back four months */

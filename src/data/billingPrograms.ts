@@ -1,9 +1,10 @@
-import { useSyncExternalStore } from 'react'
+import { createStore, onSessionReset } from './sessionStore'
 import type { UnsentClaim } from './claims'
 import { daybookFor, weekdayOf } from './daybook'
 import { editedCharts, isPatientSaved, patientEdits, savePatient, updatePatient } from './patient-edits'
 import { findPatient, MOIS_TODAY, type BenefitEntry } from './patients'
 import { offsetOfStamp, stampOf } from './schedulerStore'
+import { hhmm as clockHhmm } from './clock'
 
 /* ============================================================================
    Billing ▸ PBF / LFP / PAS Management — what the learner does to the three
@@ -497,31 +498,29 @@ const initial = (): BillingProgramsState => ({
   last: '',
 })
 
-let state: BillingProgramsState = initial()
+/* a session store: back to the training data as each frame mounts
+   (data/sessionStore.ts), with the id serial */
+const store = createStore<BillingProgramsState>(initial)
+const state = store.get
 let serial = 100
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+onSessionReset(() => { serial = 100 })
 const nextId = (p: string) => `${p}${++serial}`
 
 function set(next: Partial<BillingProgramsState>) {
-  state = { ...state, ...next }
-  emit()
+  store.set((prev) => ({ ...prev, ...next }))
 }
 
+/** Back to the training data (the session reset does this as the frame
+    mounts; this is the same reset on demand). */
 export function resetBillingPrograms() {
-  state = initial()
+  store.reset()
   serial = 100
-  emit()
 }
 
-export const billingProgramsState = () => state
+export const billingProgramsState = () => state()
 
 export function useBillingPrograms(): BillingProgramsState {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l) },
-    () => state,
-    () => state,
-  )
+  return store.use()
 }
 
 /* --- derived ---------------------------------------------------------------- */
@@ -661,7 +660,7 @@ export const enrolmentOf = (s: BillingProgramsState, chart: string) => s.enrolme
 
 /** The claim header the enrolment claim window prints, by fee code
     (2257761 `52f24e67…`, `f16e989b…`, `7e4f3103…`). */
-export function claimTitle(fee: string, pbf = state.pbf): string {
+export function claimTitle(fee: string, pbf = state().pbf): string {
   if (fee === pbf.regFee) return 'PBF-PRIMARY CARE REGISTRATION CLAIM'
   if (fee === pbf.deregFee) return 'PBF-PRIMARY CARE DE-REGISTRATION CLAIM'
   if (fee === pbf.regOverrideFee) return 'PBF-PRIMARY CARE REGISTRATION OVERRIDE CLAIM'
@@ -682,10 +681,8 @@ export function unsentRow(chart: string, fee: string, doctor: string, service: s
 }
 
 const log = (chart: string, change: string, status: string): HistoryLine => ({ chart, date: `${PBF_TODAY} ${nowTime()}`, change, status, by: SESSION_USER })
-const nowTime = () => {
-  const d = new Date()
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+/* clock.ts hhmm — this module's own `hhmm` formats minutes */
+const nowTime = () => clockHhmm()
 
 /* --- the chart's own benefit record -------------------------------------------
    A BC-PBF request made on a chart's Benefits tab this session lives in the
@@ -716,20 +713,20 @@ function benefitRequests(): { chart: string; kind: 'enroll' | 'unenroll'; date: 
 
 /* --- actions ---------------------------------------------------------------- */
 
-function updateEnrolment(chart: string, patch: Partial<Enrolment>, s = state): Enrolment[] {
+function updateEnrolment(chart: string, patch: Partial<Enrolment>, s = state()): Enrolment[] {
   const existing = s.enrolments.find((e) => e.chart === chart)
   if (existing) return s.enrolments.map((e) => (e.chart === chart ? { ...e, ...patch, modified: `${PBF_TODAY} ${nowTime()}  ${SESSION_USER}` } : e))
   return [...s.enrolments, { ...enrolment(chart, patch.start ?? PBF_TODAY, patch.provider ?? providerOfChart(s, chart) ?? '', { startStatus: '' }), ...patch }]
 }
 
 export const billingPrograms = {
-  get: () => state,
+  get: () => state(),
 
   /* LFP ------------------------------------------------------------------- */
   saveLfpSetup(setup: LfpSetup) { set({ lfpSetup: setup, lfpSaved: true, last: 'lfp-setup-saved' }) },
 
   saveLfpProfile(provider: string, patch: Partial<LfpProvider>) {
-    set({ lfp: state.lfp.map((p) => (p.provider === provider ? { ...p, ...patch } : p)), last: 'lfp-profile-saved' })
+    set({ lfp: state().lfp.map((p) => (p.provider === provider ? { ...p, ...patch } : p)), last: 'lfp-profile-saved' })
   },
 
   /** Update LFP Enrollment / Service Registration ▸ Continue: "Once
@@ -737,7 +734,7 @@ export const billingPrograms = {
       status changes to: Pending Submission." */
   registerLfp(provider: string, pick: { enrol: '' | 'family' | 'locum'; services: LfpService[]; start: string }) {
     set({
-      lfp: state.lfp.map((p) => {
+      lfp: state().lfp.map((p) => {
         if (p.provider !== provider) return p
         const claims = [...p.claims]
         const add = (key: 'family' | 'locum' | LfpService) => claims.push({
@@ -754,17 +751,17 @@ export const billingPrograms = {
 
   addTimeEntry(entry: Omit<TimeEntry, 'id'>) {
     const e = { ...entry, id: nextId('t') }
-    set({ entries: [...state.entries, e], last: 'time-entry-added' })
+    set({ entries: [...state().entries, e], last: 'time-entry-added' })
     return e
   },
   updateTimeEntry(id: string, patch: Partial<TimeEntry>) {
-    set({ entries: state.entries.map((e) => (e.id === id && !e.claimed ? { ...e, ...patch } : e)), last: 'time-entry-changed' })
+    set({ entries: state().entries.map((e) => (e.id === id && !e.claimed ? { ...e, ...patch } : e)), last: 'time-entry-changed' })
   },
   removeTimeEntry(id: string) {
-    set({ entries: state.entries.filter((e) => e.id !== id || !!e.claimed), last: 'time-entry-removed' })
+    set({ entries: state().entries.filter((e) => e.id !== id || !!e.claimed), last: 'time-entry-removed' })
   },
   replaceDay(provider: string, date: string, rows: TimeEntry[]) {
-    const keep = state.entries.filter((e) => !(e.provider === provider && e.date === date) || e.claimed)
+    const keep = state().entries.filter((e) => !(e.provider === provider && e.date === date) || e.claimed)
     const fresh = rows.filter((r) => !r.claimed).map((r) => ({ ...r, id: r.id || nextId('t'), provider, date }))
     set({ entries: [...keep, ...fresh], last: 'time-entries-saved' })
   },
@@ -778,8 +775,8 @@ export const billingPrograms = {
     }))
     const byEntry = new Map(made.map((c) => [c.entry, c.id]))
     set({
-      timeClaims: [...state.timeClaims, ...made],
-      entries: state.entries.map((e) => (byEntry.has(e.id) ? { ...e, claimed: byEntry.get(e.id) } : e)),
+      timeClaims: [...state().timeClaims, ...made],
+      entries: state().entries.map((e) => (byEntry.has(e.id) ? { ...e, claimed: byEntry.get(e.id) } : e)),
       last: made.some((c) => c.sub === 'D') ? 'time-claims-created-duplicate' : 'time-claims-created',
     })
     return made
@@ -791,28 +788,28 @@ export const billingPrograms = {
   /** Enrollment CR ▸ Refresh (and opening the folder): pick up the BC-PBF
       requests made on charts' Benefits tabs this session. */
   syncFromCharts() {
-    const fresh = benefitRequests().filter((r) => !state.crs.some((c) => c.chart === r.chart && c.kind === r.kind && c.fromBenefits))
+    const fresh = benefitRequests().filter((r) => !state().crs.some((c) => c.chart === r.chart && c.kind === r.kind && c.fromBenefits))
     if (!fresh.length) return
     set({
-      crs: [...state.crs, ...fresh.map((r) => ({
+      crs: [...state().crs, ...fresh.map((r) => ({
         id: nextId('cr'), chart: r.chart, kind: r.kind, date: r.date, status: 'REQUESTED' as const, reason: r.reason,
         source: 'clinic' as const, person: SESSION_USER, requested: PBF_TODAY, fromBenefits: true,
       }))],
       enrolments: fresh.reduce((list, r) => (r.kind === 'enroll' && !list.some((e) => e.chart === r.chart)
-        ? [...list, { ...enrolment(r.chart, r.date, providerOfChart(state, r.chart) || 'BEARDWOOD, WALTER'), startStatus: 'Requested' as DateStatus }]
-        : list), state.enrolments),
+        ? [...list, { ...enrolment(r.chart, r.date, providerOfChart(state(), r.chart) || 'BEARDWOOD, WALTER'), startStatus: 'Requested' as DateStatus }]
+        : list), state().enrolments),
     })
   },
 
   /** 2258278 Step 3a / 3b. */
   decideCr(id: string, decision: 'APPROVED' | 'REJECTED') {
-    const cr = state.crs.find((c) => c.id === id)
+    const cr = state().crs.find((c) => c.id === id)
     if (!cr || cr.status !== 'REQUESTED') return
-    const pbf = state.pbf
-    const doctor = enrolmentOf(state, cr.chart)?.provider || providerOfChart(state, cr.chart) || 'BEARDWOOD, WALTER'
-    let claims = state.claims
-    let enrolments = state.enrolments
-    const history = [...state.history]
+    const pbf = state().pbf
+    const doctor = enrolmentOf(state(), cr.chart)?.provider || providerOfChart(state(), cr.chart) || 'BEARDWOOD, WALTER'
+    let claims = state().claims
+    let enrolments = state().enrolments
+    const history = [...state().history]
     const makeClaim = (fee: string) => {
       claims = [...claims, claim(nextId('e'), cr.chart, fee, doctor, cr.date, 'unsent', { cr: cr.id, created: `${PBF_TODAY} ${nowTime()}  ${SESSION_USER}` })]
     }
@@ -829,12 +826,12 @@ export const billingPrograms = {
       }
     } else if (cr.source === 'msp') {
       makeClaim(cr.kind === 'enroll' ? pbf.regOverrideFee : pbf.deregOverrideFee)
-    } else if (cr.kind === 'enroll' && !enrolmentOf(state, cr.chart)?.start) {
+    } else if (cr.kind === 'enroll' && !enrolmentOf(state(), cr.chart)?.start) {
       enrolments = updateEnrolment(cr.chart, { start: cr.date, startStatus: 'Rejected' })
     }
     history.push(log(cr.chart, `${cr.kind === 'enroll' ? 'Start' : 'Stop'} date ${cr.date}`, decision === 'APPROVED' ? 'Approved' : 'Rejected'))
     set({
-      crs: state.crs.map((c) => (c.id === id ? { ...c, status: decision } : c)),
+      crs: state().crs.map((c) => (c.id === id ? { ...c, status: decision } : c)),
       claims, enrolments, history,
       last: decision === 'APPROVED' ? 'cr-approved' : 'cr-rejected',
     })
@@ -845,18 +842,18 @@ export const billingPrograms = {
       False when a claim has already gone to MSP ("Once MSP Claims have been
       sent … the undo process is blocked"). */
   undoCr(id: string): boolean {
-    const cr = state.crs.find((c) => c.id === id)
+    const cr = state().crs.find((c) => c.id === id)
     if (!cr || cr.status === 'REQUESTED') return false
-    const linked = state.claims.filter((c) => c.cr === id)
+    const linked = state().claims.filter((c) => c.cr === id)
     if (linked.some((c) => c.state !== 'unsent')) return false
     const enrolments = cr.kind === 'enroll'
       ? updateEnrolment(cr.chart, { startStatus: 'Requested' })
       : updateEnrolment(cr.chart, { stopStatus: 'Requested' })
     set({
-      crs: state.crs.map((c) => (c.id === id ? { ...c, status: 'REQUESTED' } : c)),
-      claims: state.claims.filter((c) => c.cr !== id),
+      crs: state().crs.map((c) => (c.id === id ? { ...c, status: 'REQUESTED' } : c)),
+      claims: state().claims.filter((c) => c.cr !== id),
       enrolments,
-      history: [...state.history, log(cr.chart, 'Change request action undone', 'Requested')],
+      history: [...state().history, log(cr.chart, 'Change request action undone', 'Requested')],
       last: 'cr-undone',
     })
     if (cr.kind === 'enroll') setBenefit(cr.chart, ['Approved', 'Rejected'], 'Requested')
@@ -864,29 +861,29 @@ export const billingPrograms = {
   },
 
   updateClaim(id: string, patch: Partial<EnrolmentClaim>, dates?: { start?: string; stop?: string }) {
-    const c = state.claims.find((x) => x.id === id)
+    const c = state().claims.find((x) => x.id === id)
     if (!c) return
-    let enrolments = state.enrolments
-    const history = [...state.history]
+    let enrolments = state().enrolments
+    const history = [...state().history]
     if (dates && (dates.start !== undefined || dates.stop !== undefined)) {
       enrolments = updateEnrolment(c.chart, { ...(dates.start !== undefined ? { start: dates.start } : {}), ...(dates.stop !== undefined ? { stop: dates.stop } : {}) })
       history.push(log(c.chart, 'Benefit plan dates updated from the unsent claim', 'Approved'))
     }
     set({
-      claims: state.claims.map((x) => (x.id === id ? { ...x, ...patch, modified: `${PBF_TODAY} ${nowTime()}  ${SESSION_USER}` } : x)),
+      claims: state().claims.map((x) => (x.id === id ? { ...x, ...patch, modified: `${PBF_TODAY} ${nowTime()}  ${SESSION_USER}` } : x)),
       enrolments, history, last: 'enrolment-claim-saved',
     })
   },
 
   /** "Deleting a claim from the list will 'revert' the related change
-      request to a 'needs review' / 'requested' state." */
+      request to a 'needs review' / 'requested' state()." */
   deleteUnsentClaim(id: string) {
-    const c = state.claims.find((x) => x.id === id)
+    const c = state().claims.find((x) => x.id === id)
     if (!c || c.state !== 'unsent') return
     set({
-      claims: state.claims.filter((x) => x.id !== id),
-      crs: state.crs.map((x) => (x.id === c.cr ? { ...x, status: 'REQUESTED' } : x)),
-      history: [...state.history, log(c.chart, `Unsent claim ${c.fee} deleted`, 'Requested')],
+      claims: state().claims.filter((x) => x.id !== id),
+      crs: state().crs.map((x) => (x.id === c.cr ? { ...x, status: 'REQUESTED' } : x)),
+      history: [...state().history, log(c.chart, `Unsent claim ${c.fee} deleted`, 'Requested')],
       last: 'enrolment-claim-deleted',
     })
   },
@@ -894,23 +891,23 @@ export const billingPrograms = {
   /** Failed Claim Actions ▸ Resubmit: "Resubmission will create another
       unsent enrollment claim, linked accordingly to the failed claim". */
   resubmitClaim(id: string) {
-    const c = state.claims.find((x) => x.id === id)
+    const c = state().claims.find((x) => x.id === id)
     if (!c || c.state !== 'failed') return
     const fresh = claim(nextId('e'), c.chart, c.fee, c.doctor, PBF_TODAY, 'unsent', { replaces: c.id, cr: c.cr, diag: c.diag, sub: c.sub })
     set({
-      claims: [...state.claims.map((x) => (x.id === id ? { ...x, state: 'done' as const, r1: 'R' } : x)), fresh],
-      history: [...state.history, log(c.chart, `Failed claim ${c.fee} resubmitted`, 'Approved')],
+      claims: [...state().claims.map((x) => (x.id === id ? { ...x, state: 'done' as const, r1: 'R' } : x)), fresh],
+      history: [...state().history, log(c.chart, `Failed claim ${c.fee} resubmitted`, 'Approved')],
       last: 'enrolment-claim-resubmitted',
     })
   },
   /** Accept: take MSP's refusal as final (INFERRED — the button is in the
       capture, the article does not describe it). */
   acceptClaim(id: string) {
-    const c = state.claims.find((x) => x.id === id)
+    const c = state().claims.find((x) => x.id === id)
     if (!c || c.state !== 'failed') return
     set({
-      claims: state.claims.map((x) => (x.id === id ? { ...x, state: 'done' as const, r1: 'A' } : x)),
-      history: [...state.history, log(c.chart, `Failed claim ${c.fee} accepted`, 'Rejected')],
+      claims: state().claims.map((x) => (x.id === id ? { ...x, state: 'done' as const, r1: 'A' } : x)),
+      history: [...state().history, log(c.chart, `Failed claim ${c.fee} accepted`, 'Rejected')],
       last: 'enrolment-claim-accepted',
     })
   },
@@ -918,10 +915,10 @@ export const billingPrograms = {
   /** Patient Enrollment ▸ Edit: overriding a registered start / stop date
       (2258278 "Overriding Enrollment Start/Stop Dates"). */
   overrideDates(chart: string, patch: { start?: string; stop?: string; stopReason?: string }) {
-    const before = enrolmentOf(state, chart)
+    const before = enrolmentOf(state(), chart)
     set({
       enrolments: updateEnrolment(chart, patch),
-      history: [...state.history, log(chart, `Override: start ${before?.start ?? ''} → ${patch.start ?? before?.start ?? ''}; stop ${before?.stop || '-'} → ${patch.stop ?? (before?.stop || '-')}`, 'Registered')],
+      history: [...state().history, log(chart, `Override: start ${before?.start ?? ''} → ${patch.start ?? before?.start ?? ''}; stop ${before?.stop || '-'} → ${patch.stop ?? (before?.stop || '-')}`, 'Registered')],
       last: 'enrolment-override-saved',
     })
   },
@@ -935,7 +932,7 @@ export const billingPrograms = {
       : { stop: date, stopStatus: 'Registered', stopReason: reason }
     set({
       enrolments: updateEnrolment(chart, patch),
-      history: [...state.history, log(chart, `By-pass ${mode === 'enroll' ? 'enrolment' : 'unenrolment'} ${date}`, 'Registered')],
+      history: [...state().history, log(chart, `By-pass ${mode === 'enroll' ? 'enrolment' : 'unenrolment'} ${date}`, 'Registered')],
       last: mode === 'enroll' ? 'bypass-enrolled' : 'bypass-unenrolled',
     })
   },
@@ -945,38 +942,38 @@ export const billingPrograms = {
   },
 
   addEligibility(chart: string, provider: string) {
-    set({ eligibility: [...state.eligibility, { id: nextId('el'), chart, provider, date: PBF_TODAY, status: 'NEW', outcome: '' }], last: 'eligibility-requested' })
+    set({ eligibility: [...state().eligibility, { id: nextId('el'), chart, provider, date: PBF_TODAY, status: 'NEW', outcome: '' }], last: 'eligibility-requested' })
   },
   deleteEligibility(id: string) {
-    set({ eligibility: state.eligibility.filter((e) => e.id !== id || e.status !== 'NEW'), last: 'eligibility-deleted' })
+    set({ eligibility: state().eligibility.filter((e) => e.id !== id || e.status !== 'NEW'), last: 'eligibility-deleted' })
   },
 
   deleteMspError(id: string) {
-    set({ mspErrors: state.mspErrors.map((m) => (m.id === id ? { ...m, deleted: true } : m)), last: 'msp-cr-deleted' })
+    set({ mspErrors: state().mspErrors.map((m) => (m.id === id ? { ...m, deleted: true } : m)), last: 'msp-cr-deleted' })
   },
   /** Replay: match and check the remittance record again, against the data
       as it now is (2257761 "Cleaned up MOIS data to ensure the record can be
       successfully reprocessed"). */
   replayMspError(id: string): 'ok' | 'chart' | 'conflict' {
-    const m = state.mspErrors.find((x) => x.id === id)
+    const m = state().mspErrors.find((x) => x.id === id)
     if (!m) return 'chart'
     const match = findPatient(m.chart)
     if (!match) {
       set({ last: 'msp-cr-replay-failed' })
       return 'chart'
     }
-    const e = enrolmentOf(state, m.chart)
+    const e = enrolmentOf(state(), m.chart)
     const enrolled = !!e && isEnrolledNow(e)
     let result: MspCrError['result'] = 'ok'
     let message = 'Successfully processed.'
-    let enrolments = state.enrolments
+    let enrolments = state().enrolments
     if (m.request === 'Registration') {
       if (enrolled) { result = 'conflict'; message = 'Already has active enrollment record.' }
       else enrolments = updateEnrolment(m.chart, { start: m.received, startStatus: 'Registered', stop: '', stopStatus: '' })
     } else if (!enrolled) { result = 'conflict'; message = 'No enrollment record to unenroll.' }
     else enrolments = updateEnrolment(m.chart, { stop: m.received, stopStatus: 'Registered', stopReason: m.reason })
     set({
-      mspErrors: state.mspErrors.map((x) => (x.id === id ? { ...x, result, message } : x)),
+      mspErrors: state().mspErrors.map((x) => (x.id === id ? { ...x, result, message } : x)),
       enrolments,
       last: result === 'ok' ? 'msp-cr-replayed' : 'msp-cr-replay-failed',
     })
@@ -985,7 +982,7 @@ export const billingPrograms = {
 
   recordPcpcRun(run: Omit<PcpcRun, 'id'>) {
     const r = { ...run, id: nextId('run') }
-    set({ pcpcRuns: [...state.pcpcRuns, r], last: 'pcpc-run' })
+    set({ pcpcRuns: [...state().pcpcRuns, r], last: 'pcpc-run' })
     return r
   },
 
@@ -993,8 +990,8 @@ export const billingPrograms = {
   addPanelClaims(charts: string[], provider: string, batch?: string): PanelClaim[] {
     const made = charts.map((chart) => ({ id: nextId('p'), chart, provider, date: MOIS_TODAY, state: 'unsent' as const, batch }))
     set({
-      panelClaims: [...state.panelClaims, ...made],
-      batches: batch ? { ...state.batches, [batch]: made.map((m) => m.id) } : state.batches,
+      panelClaims: [...state().panelClaims, ...made],
+      batches: batch ? { ...state().batches, [batch]: made.map((m) => m.id) } : state().batches,
       last: batch ? 'panel-batch-created' : 'panel-claim-created',
     })
     return made
@@ -1002,43 +999,43 @@ export const billingPrograms = {
   /** "Marking a claim as 'deleted' will flag the patient as being
       unregistered in MOIS" (3788178 `7119ae1f…`). */
   unregister(chart: string) {
-    const latest = state.panelClaims.filter((c) => c.chart === chart).sort((a, b) => b.date.localeCompare(a.date))[0]
+    const latest = state().panelClaims.filter((c) => c.chart === chart).sort((a, b) => b.date.localeCompare(a.date))[0]
     if (!latest) return
-    set({ panelClaims: state.panelClaims.map((c) => (c.id === latest.id ? { ...c, state: 'deleted' as const } : c)), last: 'panel-unregistered' })
+    set({ panelClaims: state().panelClaims.map((c) => (c.id === latest.id ? { ...c, state: 'deleted' as const } : c)), last: 'panel-unregistered' })
   },
   /** DEACON ▸ Undo / delete bulk patient LFP registration claims. Returns
       the charts removed, or null when the batch is not an LFP.PANEL one. */
   undoBatch(batch: string): string[] | null {
-    const ids = state.batches[batch]
+    const ids = state().batches[batch]
     if (!ids) return null
-    const removed = state.panelClaims.filter((c) => ids.includes(c.id) && c.state === 'unsent')
+    const removed = state().panelClaims.filter((c) => ids.includes(c.id) && c.state === 'unsent')
     set({
-      panelClaims: state.panelClaims.filter((c) => !removed.includes(c)),
+      panelClaims: state().panelClaims.filter((c) => !removed.includes(c)),
       last: 'panel-batch-undone',
     })
     return removed.map((c) => c.chart)
   },
   nextBatchId() {
-    return String(10024 + Object.keys(state.batches).length - 1)
+    return String(10024 + Object.keys(state().batches).length - 1)
   },
 
   /* MSP ------------------------------------------------------------------- */
   /** Data Exchange ▸ MSP ▸ Prepare Bills ▸ Run. */
   prepareBills() {
-    const sending = [...new Set(state.claims.filter((c) => c.state === 'unsent' && c.compl && !c.hold).map((c) => c.chart))]
+    const sending = [...new Set(state().claims.filter((c) => c.state === 'unsent' && c.compl && !c.hold).map((c) => c.chart))]
     const bump = (v: LfpState): LfpState => (v === 'pending-submission' ? 'pending-approval' : v)
     set({
-      lfp: state.lfp.map((p) => ({
+      lfp: state().lfp.map((p) => ({
         ...p,
         family: bump(p.family), locum: bump(p.locum),
         services: Object.fromEntries(LFP_SERVICES.map((k) => [k, bump(p.services[k])])) as Record<LfpService, LfpState>,
         claims: p.claims.map((c, i) => (c.seq ? c : { ...c, seq: String(15000 + i + serial), r2: 'U' })),
       })),
-      claims: state.claims.map((c) => (c.state === 'unsent' && c.compl && !c.hold
+      claims: state().claims.map((c) => (c.state === 'unsent' && c.compl && !c.hold
         ? { ...c, state: 'unack' as const, r2: 'U', wo: 'N', sent: PBF_TODAY, seq: String(15700 + Number(c.id.replace(/\D/g, ''))) }
         : c)),
-      enrolments: state.enrolments.map((e) => {
-        const sending = state.claims.some((c) => c.chart === e.chart && c.state === 'unsent' && c.compl && !c.hold)
+      enrolments: state().enrolments.map((e) => {
+        const sending = state().claims.some((c) => c.chart === e.chart && c.state === 'unsent' && c.compl && !c.hold)
         if (!sending) return e
         return {
           ...e,
@@ -1046,9 +1043,9 @@ export const billingPrograms = {
           stopStatus: e.stopStatus === 'Approved' ? 'Submitted' : e.stopStatus,
         }
       }),
-      eligibility: state.eligibility.map((e) => (e.status === 'NEW' ? { ...e, status: 'SUBMITTED' as const, date: PBF_TODAY } : e)),
-      timeClaims: state.timeClaims.map((c) => (c.status === 'unsent' ? { ...c, status: 'sent' as const } : c)),
-      panelClaims: state.panelClaims.map((c) => (c.state === 'unsent' ? { ...c, state: 'sent' as const } : c)),
+      eligibility: state().eligibility.map((e) => (e.status === 'NEW' ? { ...e, status: 'SUBMITTED' as const, date: PBF_TODAY } : e)),
+      timeClaims: state().timeClaims.map((c) => (c.status === 'unsent' ? { ...c, status: 'sent' as const } : c)),
+      panelClaims: state().panelClaims.map((c) => (c.state === 'unsent' ? { ...c, state: 'sent' as const } : c)),
       last: 'msp-prepared',
     })
     sending.forEach((chart) => setBenefit(chart, ['Approved'], 'Submitted'))
@@ -1057,16 +1054,16 @@ export const billingPrograms = {
   /** Data Exchange ▸ MSP ▸ Reconcile Remittance ▸ Run. */
   reconcile() {
     const settle = (v: LfpState): LfpState => (v === 'pending-approval' ? 'current' : v)
-    const acked = state.claims.filter((c) => c.state === 'unack')
+    const acked = state().claims.filter((c) => c.state === 'unack')
     set({
-      lfp: state.lfp.map((p) => ({
+      lfp: state().lfp.map((p) => ({
         ...p,
         family: settle(p.family), locum: settle(p.locum),
         services: Object.fromEntries(LFP_SERVICES.map((k) => [k, settle(p.services[k])])) as Record<LfpService, LfpState>,
         claims: p.claims.map((c) => (c.r2 === 'U' ? { ...c, r2: 'P' } : c)),
       })),
-      claims: state.claims.map((c) => (c.state === 'unack' ? { ...c, state: 'done' as const, r2: 'P' } : c)),
-      enrolments: state.enrolments.map((e) => {
+      claims: state().claims.map((c) => (c.state === 'unack' ? { ...c, state: 'done' as const, r2: 'P' } : c)),
+      enrolments: state().enrolments.map((e) => {
         if (!acked.some((c) => c.chart === e.chart)) return e
         return {
           ...e,
@@ -1074,14 +1071,14 @@ export const billingPrograms = {
           stopStatus: e.stopStatus === 'Submitted' ? 'Registered' : e.stopStatus,
         }
       }),
-      eligibility: state.eligibility.map((e) => {
+      eligibility: state().eligibility.map((e) => {
         if (e.status !== 'SUBMITTED') return e
-        const en = enrolmentOf(state, e.chart)
+        const en = enrolmentOf(state(), e.chart)
         return { ...e, status: 'PROCESSED' as const, outcome: en && isEnrolledNow(en) ? 'REGISTERED' : 'PENDING REGISTRATION' }
       }),
       last: 'msp-reconciled',
     })
-    acked.forEach((c) => setBenefit(c.chart, c.fee === state.pbf.deregFee ? ['Unenrollment Requested', 'Registered'] : ['Submitted'], 'Registered'))
+    acked.forEach((c) => setBenefit(c.chart, c.fee === state().pbf.deregFee ? ['Unenrollment Requested', 'Registered'] : ['Submitted'], 'Registered'))
   },
 }
 
@@ -1101,12 +1098,12 @@ export function deaconRun(fn: string, params: Record<string, string>): DeaconRes
     const mode = param('mode').toUpperCase()
     if (!provider) return { ok: false, message: 'Select the Service Provider.' }
     if (mode !== 'C' && mode !== 'R') return { ok: false, message: 'Enter the Mode: C (claim) or R (review).' }
-    const charts = (state.panel[provider] ?? []).filter((chart) => {
+    const charts = (state().panel[provider] ?? []).filter((chart) => {
       const p = findPatient(chart)
       if (!p) return false
       if (statuses.length && !statuses.includes(p.status ?? 'A')) return false
       if (asOf && (p.registered ?? '') < asOf) return false
-      return panelStatusOf(state, chart).status !== 'Registered'
+      return panelStatusOf(state(), chart).status !== 'Registered'
     })
     if (mode === 'R') return { ok: true, message: `${charts.length} patient(s) meet the selected parameters (review only; no claims were created).` }
     const batch = billingPrograms.nextBatchId()
@@ -1159,13 +1156,13 @@ export type PcpcCheck = {
   payMode?: 'Alternate'
 }
 
-export function isPcpcEnrolled(chart: string, serviceDate: string, s = state): boolean {
+export function isPcpcEnrolled(chart: string, serviceDate: string, s = state()): boolean {
   const e = s.enrolments.find((x) => x.chart === chart)
   if (e && e.startStatus === 'Registered' && e.start <= serviceDate && !(e.stop && e.stopStatus === 'Registered' && e.stop <= serviceDate)) return true
   return (patientEdits(chart).benefits ?? []).some((b) => b.service === PBF_SERVICE && b.status === 'Registered' && (b.start ?? '') <= serviceDate && (!b.stop || b.stop > serviceDate))
 }
 
-export function pcpcClaimCheck(claim: { chart: string; serviceDate: string; fee: string; location: string; wcb?: boolean; mva?: boolean }, s = state): PcpcCheck {
+export function pcpcClaimCheck(claim: { chart: string; serviceDate: string; fee: string; location: string; wcb?: boolean; mva?: boolean }, s = state()): PcpcCheck {
   if (!s.pbf.active || !claim.chart) return { enrolled: false, indicator: '' }
   const enrolled = isPcpcEnrolled(claim.chart, claim.serviceDate, s)
   const std = s.pbf.standardCode || '96198'

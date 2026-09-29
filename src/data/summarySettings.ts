@@ -30,10 +30,11 @@
    default section list, the concept→record matching and the "missing
    record" row text are INFERRED.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 import type { MoisChartExport, MoisRecord } from './charts'
 import { CARE_PLAN_SECTIONS, carePlanRows, type CarePlanRow } from './carePlanRows'
 import type { CarePlanTag } from './chartSession'
+import { toDots } from './clock'
 
 export type SummarySection = { label: string; order: string; type: 'SYSTEM' | 'USER' }
 
@@ -74,11 +75,9 @@ const DEFAULT_SECTIONS: SummarySection[] = CARE_PLAN_SECTIONS.map((label, i) => 
 type ChartState = { sections?: SummarySection[]; elements: CarePlanElement[] }
 
 const state: Record<string, ChartState> = {}
-const listeners = new Set<() => void>()
-let version = 0
 let seq = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
+const emit = changes.emit
 const of = (chart: string): ChartState => (state[chart] ??= { elements: [] })
 const EMPTY: ChartState = { elements: [] }
 
@@ -91,7 +90,7 @@ const read = (chart: string): SummarySettingsState => {
 
 /** re-render on any change, then read the chart's sections and elements */
 export function useSummarySettings(chart: string): SummarySettingsState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return read(chart)
 }
 
@@ -162,11 +161,9 @@ export function deleteElement(chart: string, id: string) {
   emit()
 }
 
-/** a new frame starts on the chart's default summary */
-export function resetSummarySettings() {
-  for (const key of Object.keys(state)) delete state[key]
-  version += 1
-}
+/** a new frame starts on the chart's default summary (the session reset runs
+    this as the frame mounts — data/sessionStore.ts) */
+export const resetSummarySettings = () => changes.reset()
 
 /* --- resolving a rule against the chart ----------------------------------- */
 
@@ -194,7 +191,7 @@ const CONCEPT_MATCH: Record<string, { codes: string[]; re: RegExp }> = {
 
 type Found = { date: string; description: string; value: string; n: number }
 
-const day = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
+const day = toDots
 
 /** the records a category draws on, as date / description / code / value */
 function pool(data: MoisChartExport | null, category: string): { date: string; description: string; code: string; value: string; n: number }[] {

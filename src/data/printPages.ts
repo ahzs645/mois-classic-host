@@ -24,7 +24,7 @@
 import type { MoisChartExport, MoisRecord } from './charts'
 import { ROW_MAPS } from './charts/to-rows'
 import type { ChartPatient } from './patient-context'
-import { MOIS_TODAY } from './patients'
+import { MOIS_TODAY, toDashes, toDots, toSlashes } from './clock'
 
 export type PrintParams = Record<string, string | boolean>
 
@@ -40,12 +40,15 @@ export const PAGE_WIDTH = 93
 /** the clinic MOIS prints at the top left of every chart report */
 export const CLINIC = 'HALLIWELL MEDICAL CLINIC'
 
+/* the date part of any of MOIS's three forms, re-dated (data/clock.ts). NB
+   `dash` here means hyphens — screens/LetterWriterWindow.tsx has a `dash`
+   that means dots. */
 /** YYYY.MM.DD (the dialog) or YYYY/MM/DD (the export) → YYYY/MM/DD */
-export const slash = (v?: string) => (v ?? '').split(' ')[0]!.replace(/[.-]/g, '/')
+export const slash = toSlashes
 /** → YYYY-MM-DD, the dashed form the Richtext reports print in their rows */
-export const dash = (v?: string) => (v ?? '').split(' ')[0]!.replace(/[./]/g, '-')
+export const dash = toDashes
 /** → YYYY.MM.DD, the MAR report's form */
-export const dot = (v?: string) => (v ?? '').split(' ')[0]!.replace(/[/-]/g, '.')
+export const dot = toDots
 const today = slash(MOIS_TODAY)
 
 const pad = (s: string, n: number) => (s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length))

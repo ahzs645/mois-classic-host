@@ -1,4 +1,4 @@
-import { pbSlug } from '../../pb/instrumentation'
+import { slug as pbSlug } from '../text'
 import type { ReportSpec } from './types'
 import { specs as accountsGeneral } from './accountsGeneral'
 import { specs as accountsMsp } from './accountsMsp'

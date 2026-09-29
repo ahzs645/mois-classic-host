@@ -1,13 +1,18 @@
 import { useSyncExternalStore } from 'react'
 import type { Patient } from './patients'
+import { createSignal } from './sessionStore'
 
 // In-memory preview edits only. Never write patient data to browser storage or XML.
 type Entry = { draft: Partial<Patient>; saved: Partial<Patient> }
 const entries = new Map<string, Entry>()
 const empty: Partial<Patient> = {}
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach(fn => fn())
-const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
+/* Reset with the session, as the shell always did: a new frame is a new
+   sign-in, and the chart it opens is the chart as exported. The readers
+   select per chart (patientEdits / isPatientSaved), so the signal is only
+   the change notice; its version is not their snapshot. */
+const changes = createSignal(() => entries.clear())
+const emit = changes.emit
+const subscribe = changes.subscribe
 export function patientEdits(chart: string) { return entries.get(chart)?.draft ?? empty }
 export function updatePatient(chart: string, patch: Partial<Patient>) {
   const current = entries.get(chart) ?? { draft: {}, saved: {} }
@@ -46,7 +51,6 @@ export function renamePatientEdits(from: string, to: string) {
 }
 
 /** Start the session over: a new frame is a new sign-in, and the chart it
-    opens is the chart as exported. */
-export function resetPatientEdits() {
-  entries.clear()
-}
+    opens is the chart as exported. (The session reset runs this as the frame
+    mounts — data/sessionStore.ts.) */
+export const resetPatientEdits = () => changes.reset()

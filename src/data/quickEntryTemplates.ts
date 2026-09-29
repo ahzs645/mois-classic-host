@@ -47,7 +47,7 @@
    capture's Name / Description columns cut off, and every TRAINING Goal,
    MSP and Reaction Risk template (none captured, so the manual's stay).
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 import type { PreferenceIdentifiedBy, PreferenceType } from './preferenceVocab'
 import { TRAINING_QUICK_ENTRY_XML } from './quickEntryTrainingExport.generated'
 import { parseQuickEntryXml, type QuickEntryFileHeader, type QuickEntrySource } from './quickEntryXml'
@@ -268,13 +268,16 @@ const SEED: QuickEntryTemplate[] = [
 let exported: QuickEntryTemplate[] = []
 let templates: QuickEntryTemplate[] = SEED
 let seq = 0
-let version = 0
-const listeners = new Set<() => void>()
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+/* a new frame starts on the seed list (resets with the session) */
+const changes = createSignal(() => {
+  templates = SEED
+  seq = 0
+  exported = []
+})
+const emit = changes.emit
 
 export function useQuickEntryTemplates(): QuickEntryTemplate[] {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return templates
 }
 
@@ -302,13 +305,9 @@ export function importQuickEntryTemplates(rows: QuickEntryTemplate[]) {
   emit()
 }
 
-/** a new frame starts on the seed list */
-export function resetQuickEntryTemplates() {
-  templates = SEED
-  seq = 0
-  exported = []
-  version += 1
-}
+/** a new frame starts on the seed list (the session reset runs this as the
+    frame mounts — data/sessionStore.ts) */
+export const resetQuickEntryTemplates = () => changes.reset()
 
 /** the grid's row shape: Template Group / Name / Description */
 export const quickEntryRow = (t: QuickEntryTemplate) => ({ group: t.group, name: t.name, description: t.description })

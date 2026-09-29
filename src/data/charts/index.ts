@@ -15,6 +15,7 @@
    ========================================================================= */
 import { useMemo, useSyncExternalStore } from 'react'
 import { mergeDynamicFormWrites, useDynamicFormWrites } from '../dynamic-form-writes'
+import { createSignal } from '../sessionStore'
 import { chart87288Summary } from './chart-87288.summary'
 import { withTrainingRecords } from './overlays'
 import type { MoisChartExport, MoisRecord } from './types'
@@ -32,11 +33,14 @@ const loaders: Record<string, () => Promise<MoisChartExport>> = {
 /** resolved exports, so a chart is fetched once per session */
 const loaded: Record<string, MoisChartExport> = {}
 const pending: Record<string, Promise<MoisChartExport> | undefined> = {}
-const listeners = new Set<() => void>()
-const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
+/* NOT reset with the session (no reset given): this is a cache of the chart
+   exports as shipped, which no lesson writes to — a new frame would only
+   fetch the same records again. What lessons write lives in the session
+   stores beside it (dynamic-form-writes.ts, patient-edits.ts, …). */
+const loadedChanged = createSignal()
 /** Loading and missing exports are empty, never permission to borrow fixture data. */
 export function useLoadedChart(chart: string): MoisChartExport | null {
-  const base = useSyncExternalStore(subscribe, () => loaded[chart] ?? null, () => null)
+  const base = useSyncExternalStore(loadedChanged.subscribe, () => loaded[chart] ?? null, () => null)
   const writes = useDynamicFormWrites(chart)
   return useMemo(() => mergeDynamicFormWrites(base, chart, writes), [base, chart, writes])
 }
@@ -54,7 +58,7 @@ export async function loadChartExport(chart: string): Promise<MoisChartExport | 
   if (!load) return null
   pending[chart] ??= load().then((data) => {
     loaded[chart] = data
-    listeners.forEach((listener) => listener())
+    loadedChanged.emit()
     return data
   }).finally(() => { delete pending[chart] })
   return pending[chart]!

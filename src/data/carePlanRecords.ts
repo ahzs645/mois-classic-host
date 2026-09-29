@@ -36,10 +36,11 @@
    PROVENANCE: manual articles 300925, 303511, 303512, 303513, 303447 (text
    only; the Care Plan articles carry no local captures).
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 import type { MoisChartExport, MoisRecord } from './charts'
 import { SESSION_USER } from './chartSession'
-import { MOIS_TODAY } from './patients'
+import { MOIS_TODAY, hhmm, toDots } from './clock'
+import { yn } from './text'
 
 /** a Planned Action entered in this session (art. 303511). Dates are
     `YYYY.MM.DD`, the way MOIS prints them. */
@@ -122,11 +123,12 @@ const fresh = (): ChartState => ({
 })
 
 const state: Record<string, ChartState> = {}
-const listeners = new Set<() => void>()
-let version = 0
 let seq = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const changes = createSignal(() => {
+  for (const key of Object.keys(state)) delete state[key]
+  for (const key of Object.keys(created)) delete created[key]
+})
+const emit = changes.emit
 const EMPTY: ChartState = fresh()
 const of = (chart: string): ChartState => (state[chart] ??= fresh())
 /** replace the chart's slice, so readers see a new object */
@@ -142,7 +144,7 @@ export const isSessionId = (id: string | undefined) => !!id && id.startsWith('se
 
 /** re-render on any change, then read the chart's slice */
 export function useCarePlanRecords(chart: string): ChartState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return state[chart] ?? EMPTY
 }
 
@@ -150,12 +152,9 @@ export const carePlanRecords = (chart: string): ChartState => state[chart] ?? EM
 
 /* --- dates: the typed shapes carry MOIS's printed form, records the export's */
 const slash = (v = '') => v.replace(/\./g, '/')
-const dot = (v = '') => v.split(' ')[0]!.replace(/\//g, '.')
-const yn = (v?: boolean) => (v ? 'Y' : 'N')
-const clock = () => {
-  const n = new Date()
-  return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}:00`
-}
+const dot = toDots
+/* the export's stamps carry seconds; MOIS writes :00 */
+const clock = () => `${hhmm()}:00`
 /** the Created stamp a record entered now carries */
 export const createdStamp = (): MoisRecord => ({ stp_user_create: SESSION_USER, stp_date_create: `${slash(MOIS_TODAY)} ${clock()}` })
 
@@ -387,9 +386,6 @@ export function linkedGoalIds(data: MoisChartExport | null, s: ChartState, objec
   return out
 }
 
-/** a new frame starts on the chart as exported */
-export function resetCarePlanRecords() {
-  for (const key of Object.keys(state)) delete state[key]
-  for (const key of Object.keys(created)) delete created[key]
-  version += 1
-}
+/** a new frame starts on the chart as exported (the session reset runs this
+    as the frame mounts — data/sessionStore.ts) */
+export const resetCarePlanRecords = () => changes.reset()

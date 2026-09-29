@@ -34,10 +34,10 @@
    belongs to a drug category"); the export's `str_is_drug` is `N` for its
    PENICILLIN category record, so a Drug (Specific) agent is filed `Y`.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 import type { MoisRecord } from './charts'
 import { SESSION_USER } from './chartSession'
-import { MOIS_TODAY } from './patients'
+import { MOIS_TODAY, hhmmss, toSlashes } from './clock'
 
 export type ReactionType = 'Allergy' | 'Intolerance'
 export type AgentType = 'Drug (Specific)' | 'Drug (Category)' | 'Food' | 'Environmental'
@@ -112,28 +112,24 @@ type AllergyState = {
 }
 
 const state: Record<string, AllergyState> = {}
-const listeners = new Set<() => void>()
-let version = 0
 let seq = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
+const emit = changes.emit
 const blank = (): AllergyState => ({ risks: [], events: [], parts: {}, links: [], unlinked: [], noKnown: {} })
 const EMPTY = blank()
 /* each write replaces the chart's slice, so a reader memoising on it sees
    the change */
 const of = (chart: string): AllergyState => (state[chart] = { ...(state[chart] ?? blank()) })
 
-const now = () => {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${MOIS_TODAY.replace(/\./g, '/')} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-}
+/* stamped on the stage's day, as the export writes it: 2026/09/18 14:05:09 */
+const now = () => `${toSlashes(MOIS_TODAY)} ${hhmmss()}`
+/* not clock.ts toSlashes: this keeps a trailing time and leaves dashes alone */
 const slash = (d?: string) => (d ?? '').replace(/\./g, '/')
 export const pairKey = (l: EventRiskLink) => `${l.event}|${l.risk}`
 
 /** re-render on any change, then read the chart's slice */
 export function useAllergySession(chart: string): AllergyState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return state[chart] ?? EMPTY
 }
 
@@ -312,8 +308,6 @@ export function storedEvent(chart: string, id?: string): AdverseEventInput | und
   return allergySession(chart).events.find((x) => x.id === id)?.input
 }
 
-/** a new frame starts on the chart as exported */
-export function resetAllergySession() {
-  for (const key of Object.keys(state)) delete state[key]
-  version += 1
-}
+/** a new frame starts on the chart as exported (the session reset runs this
+    as the frame mounts — data/sessionStore.ts) */
+export const resetAllergySession = () => changes.reset()

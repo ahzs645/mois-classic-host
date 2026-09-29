@@ -1,5 +1,6 @@
 import { useSessionState } from '../host/screen-windows'
 import { MOIS_TODAY } from './patients'
+import { daysFromToday } from './clock'
 
 /* ============================================================================
    Private progress notes — who may read which encounter note.
@@ -164,9 +165,5 @@ export const privateLine = (n: PrivateNote) => `${firstLast(n.author || n.owner)
 /** "PAYNE, LIZ" → "LIZ PAYNE", the way the private line prints a name. */
 export const firstLast = (name: string) => (name.includes(', ') ? name.split(', ').reverse().join(' ') : name)
 
-/** A date `days` after today, yyyy.mm.dd. */
-export function daysFromToday(days: number): string {
-  const [y, m, d] = MOIS_TODAY.split('.').map(Number)
-  const t = new Date(Date.UTC(y!, m! - 1, d! + days))
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
+/** A date `days` after today, yyyy.mm.dd (data/clock.ts). */
+export { daysFromToday }

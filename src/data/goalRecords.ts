@@ -37,10 +37,10 @@
    It returns the new goal's id (`session-goal-N`), which the Goals grid
    lists first.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 import type { MoisRecord } from './charts'
 import { SESSION_USER } from './chartSession'
-import { MOIS_TODAY } from './patients'
+import { MOIS_TODAY, toDots } from './clock'
 
 export type GoalFields = {
   goal: string
@@ -78,17 +78,15 @@ type ChartState = {
 
 const fresh = (): ChartState => ({ goals: [], edits: {}, deletedGoals: [] })
 const state: Record<string, ChartState> = {}
-const listeners = new Set<() => void>()
-let version = 0
 let seq = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
+const emit = changes.emit
 const EMPTY: ChartState = fresh()
 const of = (chart: string): ChartState => (state[chart] ??= fresh())
 
 /** re-render on any change, then read the chart's slice */
 export function useGoalRecords(chart: string): ChartState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return state[chart] ?? EMPTY
 }
 
@@ -137,7 +135,7 @@ export function deleteGoal(chart: string, id: string) {
 
 /** an exported goal record as goal fields */
 export function goalFieldsOf(r: MoisRecord): GoalFields {
-  const d = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
+  const d = toDots
   return {
     ...BLANK,
     goal: r.str_goal ?? '',
@@ -162,8 +160,6 @@ export function goalFieldsOf(r: MoisRecord): GoalFields {
   }
 }
 
-/** a new frame starts on the chart as exported */
-export function resetGoalRecords() {
-  for (const key of Object.keys(state)) delete state[key]
-  version += 1
-}
+/** a new frame starts on the chart as exported (the session reset runs this
+    as the frame mounts — data/sessionStore.ts) */
+export const resetGoalRecords = () => changes.reset()

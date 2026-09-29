@@ -1,4 +1,5 @@
 import { patients, MOIS_TODAY, type Patient } from '../patients'
+import { addDays, daysFromToday } from '../clock'
 
 /* ============================================================================
    Report specs — one declarative entry per Reports-module report.
@@ -184,11 +185,19 @@ export function rsAge(dob: string): string {
 /** 1234.5 → `1,234.50` */
 export const rsMoney = (n: number) => n.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 /** a date n days before MOIS_TODAY, yyyy.mm.dd */
-export function rsDaysAgo(n: number): string {
-  const [y, m, d] = MOIS_TODAY.split('.').map(Number)
-  const t = new Date(Date.UTC(y!, m! - 1, d!) - n * 86400000)
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
+export const rsDaysAgo = (n: number): string => daysFromToday(-n)
+
+/* a report parameter's date as a day number (days since 1970.01.01), and
+   back — for spreading sample rows across a report's date range
+   (accountsMsp.ts, accountsGeneral.ts). Only a full yyyy.mm.dd counts; a
+   blank or 0000 year is null. */
+const RS_DATE = /^(\d{4})\.(\d{2})\.(\d{2})$/
+export function rsToDay(s: string): number | null {
+  const m = RS_DATE.exec(s.trim())
+  if (!m || m[1] === '0000') return null
+  return Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!) / 86400000
 }
+export const rsFromDay = (n: number): string => addDays('1970.01.01', n)
 
 /**
  * The `%` wildcard (304049): "For any report that has a CONTAINS argument,

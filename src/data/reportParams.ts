@@ -1,6 +1,7 @@
 import type { ChartNavigatorRow } from './chartUtilities'
 import { patients, MOIS_TODAY } from './patients'
 import { unsentClaims } from './claims'
+import { toSlashes } from './clock'
 
 /* ============================================================================
    What running a report in the Reports module needs besides its window.
@@ -102,7 +103,7 @@ export function diagnosisReportPage(problems: string[], minProblems: number): st
     })
   return [
     'MOIS TEST CLINIC',
-    `%TITLE%LIST OF PATIENTS WITH SELECTED PROBLEMS AS OF ${MOIS_TODAY.replace(/\./g, '/')}`,
+    `%TITLE%LIST OF PATIENTS WITH SELECTED PROBLEMS AS OF ${toSlashes(MOIS_TODAY)}`,
     'PROBLEMS (* indicates a concept)',
     '%COLS:25,25,25,25%',
     ...pairs,

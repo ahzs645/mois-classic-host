@@ -78,6 +78,8 @@
    ========================================================================= */
 
 import { useSessionState } from '../host/screen-windows'
+import { onSessionReset } from './sessionStore'
+import { slug } from './text'
 
 export type SystemSetting = {
   band: string
@@ -458,11 +460,7 @@ export const SYSTEM_SETTINGS: SystemSetting[] = [
 export const SETTING_BANDS: string[] = [...new Set(SYSTEM_SETTINGS.map((s) => s.band))]
 
 /** The slug a band's `+` box and a row are anchored by: `host.mois.group.<slug>`. */
-export const settingSlug = (text: string) => text
-  .toLowerCase()
-  .replace(/&/g, ' and ')
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-+|-+$/g, '')
+export const settingSlug = (text: string) => slug(text)
 
 const NAME_COUNTS = SYSTEM_SETTINGS.reduce((m, s) => m.set(settingSlug(s.name), (m.get(settingSlug(s.name)) ?? 0) + 1), new Map<string, number>())
 
@@ -571,6 +569,9 @@ let mirror: Record<string, string> = {}
 /** System Settings' Save copies what it committed here, for non-React readers. */
 export function mirrorSystemSettings(saved: Record<string, string>) { mirror = { ...saved } }
 export function resetSystemSettingsMirror() { mirror = {} }
+/* a new frame starts on the transcribed values (the shell used to call the
+   reset itself) */
+onSessionReset(resetSystemSettingsMirror)
 /** A row's value for code that cannot use a hook (menus). */
 export const systemSettingValue = (rowId: string): string => settingValueIn(mirror, rowId)
 

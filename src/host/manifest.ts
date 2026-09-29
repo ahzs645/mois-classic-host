@@ -1,4 +1,7 @@
 import type { HostEmulatorManifest, HostFixtureSpec } from './types'
+/* type-only, and clock.ts is a leaf: the manifest stays React-free */
+import type { MoisLaunchStart } from '../data/launchModes'
+import { SCHEDULER_TODAY } from '../data/clock'
 
 /* ============================================================================
    host/manifest — what this emulator offers a host page, as plain data.
@@ -43,7 +46,8 @@ export type MoisClassicFixtureId = keyof typeof MOIS_CLASSIC_FIXTURE_STARTS
    Snapshot: `host.screen.launchMode` (the value below, or `closed`) and
    `host.screen.mainLaunched`.
    ------------------------------------------------------------------------ */
-export type MoisClassicLaunchStart = 'main' | 'encounter-lite' | 'my-encounters' | 'select-launch-mode' | 'select-service-group'
+/** data/launchModes.ts MoisLaunchStart, under the manifest's name */
+export type MoisClassicLaunchStart = MoisLaunchStart
 
 export const MOIS_CLASSIC_LAUNCH_MODES: Partial<Record<MoisClassicFixtureId, MoisClassicLaunchStart>> = {
   'encounter-lite': 'encounter-lite',
@@ -77,7 +81,7 @@ function initialState(id: MoisClassicFixtureId) {
     module: start.module, node: start.node, view: start.view,
     tab: null, dialog: null, patient: id === MOIS_CLASSIC_NO_CHART_FIXTURE ? '' : MOIS_CLASSIC_TUTORIAL_CHART,
     windows: 0, draft: false,
-    daybook: '2026.08.11', provider: 'technical-support', theme: 'hybrid',
+    daybook: SCHEDULER_TODAY, provider: 'technical-support', theme: 'hybrid',
     invoice: 'open', appt: '', booked: 0, basket: 0, billed: 0, reminderStopped: false,
   }
 }

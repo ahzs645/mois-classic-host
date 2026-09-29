@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { createStore, onSessionReset } from './sessionStore'
 import type { TaskRow } from './tasks'
 import { resetWorkspaceExtras } from './workspaceExtras'
 
@@ -44,51 +44,47 @@ const initial = (): WorkspaceState => ({
   blend: 'own', sharedWith: [],
 })
 
-let state: WorkspaceState = initial()
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+/* a session store: the session reset (data/sessionStore.ts) returns it to
+   the training data as the frame mounts, and clears the current row below;
+   workspaceExtras.ts registers its own reset */
+const store = createStore<WorkspaceState>(initial)
+const state = store.get
 
 function set(next: Partial<WorkspaceState>) {
-  state = { ...state, ...next }
-  emit()
+  store.set((prev) => ({ ...prev, ...next }))
 }
 
-/** Back to the training data. The frame calls this while it first renders,
-    before anything has subscribed, so it does not notify — a notification
-    from inside a render is a state update React refuses. */
+/** Back to the training data (the session reset does this as the frame
+    mounts; this is the same reset on demand, and it notifies). */
 export function resetWorkspaceStore() {
-  state = initial()
+  store.reset()
   currentRow = null
   resetWorkspaceExtras()
 }
 
 export function useWorkspaceStore(): WorkspaceState {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l) },
-    () => state,
-    () => state,
-  )
+  return store.use()
 }
 
 export const workspaceStore = {
-  get: () => state,
+  get: () => state(),
   addTask(task: TaskRow, toSelf: boolean) {
-    set({ tasks: [...state.tasks, { ...task, box: toSelf ? 'inbox' : 'sent' }] })
+    set({ tasks: [...state().tasks, { ...task, box: toSelf ? 'inbox' : 'sent' }] })
   },
   addMessage(message: TaskRow) {
-    set({ messages: [...state.messages, message] })
+    set({ messages: [...state().messages, message] })
   },
   ackMessage(subject: string) {
-    if (!state.ackedMessages.includes(subject)) set({ ackedMessages: [...state.ackedMessages, subject] })
+    if (!state().ackedMessages.includes(subject)) set({ ackedMessages: [...state().ackedMessages, subject] })
   },
   reassign(keys: string[]) {
-    set({ reassigned: [...new Set([...state.reassigned, ...keys])] })
+    set({ reassigned: [...new Set([...state().reassigned, ...keys])] })
   },
   markForReview(key: string) {
-    if (!state.reviews.includes(key)) set({ reviews: [...state.reviews, key] })
+    if (!state().reviews.includes(key)) set({ reviews: [...state().reviews, key] })
   },
   attach(key: string) {
-    set({ attachments: { ...state.attachments, [key]: (state.attachments[key] ?? 0) + 1 } })
+    set({ attachments: { ...state().attachments, [key]: (state().attachments[key] ?? 0) + 1 } })
   },
   changeWorkspace(blend: WorkspaceBlend, sharedWith: string[]) {
     set({ blend, sharedWith })
@@ -102,6 +98,7 @@ export const workspaceStore = {
    it is kept outside the render state: moving the cursor re-renders nothing. */
 export type CurrentWorkspaceRow = { node: string; row: string; args: Record<string, unknown> }
 let currentRow: CurrentWorkspaceRow | null = null
+onSessionReset(() => { currentRow = null })
 export const setCurrentWorkspaceRow = (next: CurrentWorkspaceRow | null) => { currentRow = next }
 export const currentWorkspaceRow = (node: string): CurrentWorkspaceRow | null =>
   currentRow && currentRow.node === node ? currentRow : null

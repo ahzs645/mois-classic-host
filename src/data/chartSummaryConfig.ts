@@ -31,10 +31,11 @@
    MOIS's behaviour on a filter it cannot run (it is SQL there, and would
    raise a database error); an empty band is this emulator's stand-in.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 import type { SummarySection } from './adminLists'
 import type { MoisRecord } from './charts/types'
 import type { SummarySection as PatientSummarySection } from './summary'
+import { toDots } from './clock'
 
 /** A configuration row, with the flags the window needs on top of the
     transcribed shape: that a learner added it with New Record. */
@@ -45,9 +46,14 @@ export type ConfigSection = SummarySection & {
 }
 
 const saved: Record<string, ConfigSection[]> = {}
-const listeners = new Set<() => void>()
-let version = 0
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+/* a new frame starts on the summaries as configured (resets with the
+   session; before, nothing reset this, so one lesson's saved configuration
+   showed in the next) */
+const changes = createSignal(() => { for (const key of Object.keys(saved)) delete saved[key] })
+
+/** back to the summaries as configured (the session reset runs this as the
+    frame mounts — data/sessionStore.ts) */
+export const resetChartSummaryConfig = () => changes.reset()
 
 /** The saved configuration of one summary (`patient`, `careplan`, …), or null
     when it has never been saved this session. */
@@ -57,12 +63,11 @@ export function savedSummary(summary: string): ConfigSection[] | null {
 
 export function saveSummary(summary: string, sections: ConfigSection[]) {
   saved[summary] = sections.map((s) => ({ ...s }))
-  version += 1
-  listeners.forEach((l) => l())
+  changes.emit()
 }
 
 export function useSavedSummary(summary: string): ConfigSection[] | null {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return saved[summary] ?? null
 }
 
@@ -241,7 +246,7 @@ export function applyRecordFilter(records: MoisRecord[], filter: string): MoisRe
 
 /* --- the Patient Summary's added bands -------------------------------------- */
 
-const summaryDate = (v?: string) => v?.split(' ')[0]?.replace(/\//g, '.') ?? ''
+const summaryDate = toDots
 
 /** The bands a saved PATIENT SUMMARY configuration adds: one per section a
     learner added with New Record whose code this emulator can fill

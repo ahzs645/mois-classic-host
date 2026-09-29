@@ -1,5 +1,6 @@
 import type { MoisChartExport } from './charts'
 import { ageOf, fullName, type Patient } from './patients'
+import { toDots } from './clock'
 
 /* ============================================================================
    Patient Summary — the sections the summary DataWindow groups its rows into.
@@ -95,7 +96,7 @@ export function summarySections(p: Patient, data: MoisChartExport | null = null,
     ...Object.values(p.ethnicity ?? {}).flatMap((r) => r?.race ? [{ description: 'ETHNICITY', detail: r.race }] : []),
   ], { open: true, accent: SUMMARY_ACCENT.demographics })
   if (!data) return sections
-  const date = (v?: string) => v?.split(' ')[0]?.replace(/\//g, '.') ?? ''
+  const date = toDots
   const recent = (v?: string) => {
     if (!v) return false
     const time = new Date(v.split(' ')[0]!.replace(/\//g, '-') + 'T00:00:00').getTime()

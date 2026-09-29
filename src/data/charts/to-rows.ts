@@ -17,8 +17,9 @@
    ========================================================================= */
 import type { MoisChartGroup, MoisOptionalGroup, MoisRecord } from './types'
 import { legacyDynamicFormDefinition, legacyDynamicFormTitle } from '../legacy-dynamic-forms'
+import { toDots } from '../clock'
 
-const d = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
+const d = toDots
 /** the paperclip column: a count, or the dash MOIS prints for none */
 const clip = (v?: string) => (v && v !== '0' ? v : '-')
 /** MOIS writes Y/N; the grids show a tick or nothing */

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { createStore } from './sessionStore'
 import { MOIS_TODAY } from './patients'
 import { SESSION_USER } from './chartSession'
 import {
@@ -238,34 +238,29 @@ const initial = (): WorkspaceSettingsState => ({
   favourites: SEED_FAVOURITES.map((f) => ({ ...f })),
 })
 
-let state: WorkspaceSettingsState = initial()
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+/* a session store: back to the training rows as each frame mounts
+   (data/sessionStore.ts) */
+const store = createStore<WorkspaceSettingsState>(initial)
 
+/** Back to the training rows (the session reset does this as the frame
+    mounts; this is the same reset on demand). */
 export function resetWorkspaceSettings() {
-  state = initial()
-  emit()
+  store.reset()
 }
 
 export function useWorkspaceSettings(): WorkspaceSettingsState {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => { listeners.delete(l) } },
-    () => state,
-    () => state,
-  )
+  return store.use()
 }
 
 export const workspaceSettingsStore = {
-  get: () => state,
+  get: store.get,
   /** Apply Changes on the User Account window's Workspace Management tab. */
   applyWorkspaceManagement(sharing: UserRow[], forwarding: UserRow[]) {
-    state = { ...state, sharing, forwarding }
-    emit()
+    store.set((prev) => ({ ...prev, sharing, forwarding }))
   },
   /** Save on the Favourite Medication List. */
   saveFavourites(favourites: FavouriteMed[]) {
-    state = { ...state, favourites }
-    emit()
+    store.set((prev) => ({ ...prev, favourites }))
   },
 }
 

@@ -11,12 +11,12 @@
    A tiny external store rather than shell state, so the windows that write
    and the windows that read need no wiring through the frame.
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
+import { SESSION_USER } from './session'
 
-/** The signed-in user. The status bar shows the login, `JALA2`; MOIS stamps
-    records with the user's display name, which for that login is this one
-    (`userManagement.ts`, and the chart export's own `stp_user_modify`). */
-export const SESSION_USER = 'JALIL, AHMAD'
+/** The signed-in user's display name — defined in data/session.ts, re-exported
+    here for the screens (and src/index.ts) that import it from this module. */
+export { SESSION_USER }
 
 export type CarePlanTag = { section: string; rank: string; date: string; description: string; detail: string; category: string; code: string }
 export type CarePlanSnapshot = { date: string; createdBy: string; note: string; text: string; letterhead: string }
@@ -35,16 +35,15 @@ type ChartState = {
 }
 
 const state: Record<string, ChartState> = {}
-const listeners = new Set<() => void>()
-let version = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+/* a new frame starts on the chart as exported (resets with the session) */
+const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
+const emit = changes.emit
 const EMPTY: ChartState = { tags: [], snapshots: [], distributions: [] }
 const of = (chart: string): ChartState => (state[chart] ??= { tags: [], snapshots: [], distributions: [] })
 
 /** re-render on any change, then read the chart's slice */
 export function useChartSession(chart: string): ChartState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return state[chart] ?? EMPTY
 }
 
@@ -86,10 +85,6 @@ export function addLetterDistribution(chart: string, d: LetterDistribution) {
   emit()
 }
 
-/** a new frame starts on the chart as exported */
-export function resetChartSession() {
-  for (const key of Object.keys(state)) delete state[key]
-  /* called while the frame renders, before any window subscribes: bump the
-     version without notifying, so nothing updates mid-render */
-  version += 1
-}
+/** a new frame starts on the chart as exported (the session reset runs this
+    as the frame mounts — data/sessionStore.ts) */
+export const resetChartSession = () => changes.reset()

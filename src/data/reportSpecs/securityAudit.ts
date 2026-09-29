@@ -1,4 +1,5 @@
 import { MOIS_TODAY, RS_USERS, rsDaysAgo, type ReportSpec, type RSContext } from './types'
+import { addDays } from '../clock'
 
 /* ============================================================================
    Report specs transcribed from manual article 304056 (Security/Access Audit).
@@ -13,12 +14,6 @@ import { MOIS_TODAY, RS_USERS, rsDaysAgo, type ReportSpec, type RSContext } from
    OPEN WINDOW, REPORT WINDOW, nvo_report_* "where id report medical2 = …").
    ========================================================================= */
 
-/** yyyy.mm.dd plus n days */
-function addDays(d: string, n: number): string {
-  const [y, m, dd] = d.split('.').map(Number)
-  const t = new Date(Date.UTC(y!, m! - 1, dd!) + n * 86400000)
-  return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`
-}
 const isDate = (s: string) => /^\d{4}\.\d{2}\.\d{2}$/.test(s)
 
 /** the date range a "Date: … to …" line asks for; blanks mean the last three days */

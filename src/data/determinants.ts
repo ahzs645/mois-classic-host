@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { createSignal } from './sessionStore'
 
 /* ============================================================================
    Patient Chart ▸ Determinants of Health — what the four tabs show and the
@@ -123,15 +123,13 @@ type DetState = {
 }
 
 const state: Record<string, DetState> = {}
-const listeners = new Set<() => void>()
-let version = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
+const emit = changes.emit
 const EMPTY: DetState = { rows: {}, saved: {}, observations: [], seq: 0 }
 const of = (chart: string): DetState => (state[chart] ??= { rows: {}, saved: {}, observations: [], seq: 0 })
 
 export function useDeterminants(chart: string): DetState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return state[chart] ?? EMPTY
 }
 
@@ -155,6 +153,11 @@ export function undoHistory(chart: string) {
   of(chart).rows = { ...of(chart).saved }
   emit()
 }
+
+/** a new frame starts on the chart's own lists (the session reset runs this
+    as the frame mounts — data/sessionStore.ts; before, nothing reset this
+    store, so one lesson's edits showed in the next) */
+export const resetDeterminants = () => changes.reset()
 
 export function recordObservations(chart: string, added: RecordedObservation[]) {
   of(chart).observations = [...added, ...of(chart).observations]

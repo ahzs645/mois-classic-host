@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useScreenReport } from '../host/screen-state'
-import { SESSION_USER, nowStamp } from '../data/chart-basics-state'
+import { SESSION_LOGIN, nowStamp } from '../data/chart-basics-state'
 import { usePatient } from '../data/patient-context'
 import { updatePatient } from '../data/patient-edits'
 import type { BenefitEntry } from '../data/patients'
@@ -186,7 +186,7 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
           </div>
         </PBSection>
         <div style={{ padding: '4px 4px 6px', color: 'var(--pb-text-dim)' }}>
-          <div>Record Created:&nbsp; {mode === 'new' ? `${nowStamp().date} ${nowStamp().time}   ${SESSION_USER}` : ''}</div>
+          <div>Record Created:&nbsp; {mode === 'new' ? `${nowStamp().date} ${nowStamp().time}   ${SESSION_LOGIN}` : ''}</div>
           <div>Last Modified:</div>
         </div>
       </div>
@@ -210,7 +210,7 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
           <div style={{ padding: 8, flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
             <PBDataWindow
               gutter={false}
-              rows={entry.status ? [{ date: entry.start ?? '', type: 'Change Request', description: entry.stop ? 'Unenrollment Request' : 'Enrollment Request', action: entry.status, by: SESSION_USER }] : []}
+              rows={entry.status ? [{ date: entry.start ?? '', type: 'Change Request', description: entry.stop ? 'Unenrollment Request' : 'Enrollment Request', action: entry.status, by: SESSION_LOGIN }] : []}
               columns={[
                 { key: 'date', header: 'Date', width: 80, align: 'center' },
                 { key: 'type', header: 'Type', width: 110 },

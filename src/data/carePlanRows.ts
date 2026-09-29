@@ -21,6 +21,7 @@
    ========================================================================= */
 import type { MoisChartExport, MoisRecord } from './charts'
 import type { CarePlanTag } from './chartSession'
+import { toDots } from './clock'
 
 export const CARE_PLAN_SECTIONS = [
   'ASSOCIATED PARTY', 'ADVANCE DIRECTIVE', 'PREFERENCES', 'GOALS', 'ACTIONS',
@@ -46,7 +47,7 @@ export type CarePlanRow = {
   link: string
 }
 
-const d = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
+const d = toDots
 const visible = (r: MoisRecord) => r.str_sensitive !== 'Y'
 const newest = (field: string) => (a: MoisRecord, b: MoisRecord) => String(b[field] ?? '').localeCompare(String(a[field] ?? ''))
 const LINK = '↪'

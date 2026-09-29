@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { createStore, onSessionReset } from './sessionStore'
 
 /* ============================================================================
    The Scheduler state the Appointment Series, Group Bookings and day-book
@@ -117,26 +117,25 @@ const initial = (): SchedulerExtrasState => ({
   clipboard: null, pasted: {}, last: '',
 })
 
-let state: SchedulerExtrasState = initial()
+/* a session store: back to the training data as each frame mounts
+   (data/sessionStore.ts), with the serial */
+const store = createStore<SchedulerExtrasState>(initial)
+const state = store.get
 let serial = 0
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+onSessionReset(() => { serial = 0 })
 function set(next: Partial<SchedulerExtrasState>) {
-  state = { ...state, ...next }
-  emit()
+  store.set((prev) => ({ ...prev, ...next }))
 }
 
+/** Back to the training data (the session reset does this as the frame
+    mounts; resetSchedulerStore() does it on demand). */
 export function resetSchedulerExtras() {
-  state = initial()
+  store.reset()
   serial = 0
 }
 
 export function useSchedulerExtras(): SchedulerExtrasState {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l) },
-    () => state,
-    () => state,
-  )
+  return store.use()
 }
 
 export const groupKeyOf = (v: { date: string; hr: string; min: string; provider: string }) =>
@@ -145,63 +144,64 @@ export const groupKeyOf = (v: { date: string; hr: string; min: string; provider:
 const blankDaybook = (): DaybookFormState => ({ mspLoc: '', alias: '', comment: '', noCallList: false })
 
 export const schedulerExtras = {
-  get: () => state,
+  get: () => state(),
 
   addSeries(s: Omit<Series, 'id'>): string {
     const id = `ser${++serial}`
-    const seriesOf = { ...state.seriesOf }
+    const seriesOf = { ...state().seriesOf }
     for (const k of s.keys) seriesOf[k] = id
-    set({ series: [...state.series, { ...s, id }], seriesOf, last: s.kind === 'group' ? 'group-series-created' : 'series-created' })
+    set({ series: [...state().series, { ...s, id }], seriesOf, last: s.kind === 'group' ? 'group-series-created' : 'series-created' })
     return id
   },
 
   /** rows deleted out of a series leave it; an emptied series goes */
   removeFromSeries(keys: string[]) {
-    const seriesOf = { ...state.seriesOf }
+    const seriesOf = { ...state().seriesOf }
     for (const k of keys) delete seriesOf[k]
-    const series = state.series
+    const series = state().series
       .map((s) => ({ ...s, keys: s.keys.filter((k) => !keys.includes(k)) }))
       .filter((s) => s.keys.length)
     set({ seriesOf, series, last: 'series-appointments-deleted' })
   },
 
-  group(key: string): GroupVisitState | undefined { return state.groups[key] },
+  group(key: string): GroupVisitState | undefined { return state().groups[key] },
 
   setGroup(key: string, patch: Partial<GroupVisitState>, base: GroupVisitState) {
-    set({ groups: { ...state.groups, [key]: { ...base, ...state.groups[key], ...patch } } })
+    set({ groups: { ...state().groups, [key]: { ...base, ...state().groups[key], ...patch } } })
   },
 
   setCurrentVisit(v: GroupVisitRow | null) {
-    const c = state.currentVisit
+    const c = state().currentVisit
     if (c === v || (c && v && groupKeyOf(c) === groupKeyOf(v) && c.topic === v.topic && c.desc === v.desc)) return
     set({ currentVisit: v })
   },
 
-  removeVisit(key: string) { set({ removedVisits: [...state.removedVisits, key], last: 'group-visit-deleted' }) },
+  removeVisit(key: string) { set({ removedVisits: [...state().removedVisits, key], last: 'group-visit-deleted' }) },
 
   addVisit(v: GroupVisitRow, lists?: Partial<GroupVisitState>, base?: GroupVisitState) {
-    const groups = lists && base ? { ...state.groups, [groupKeyOf(v)]: { ...base, ...lists } } : state.groups
-    set({ addedVisits: [v, ...state.addedVisits], groups })
+    const groups = lists && base ? { ...state().groups, [groupKeyOf(v)]: { ...base, ...lists } } : state().groups
+    set({ addedVisits: [v, ...state().addedVisits], groups })
   },
 
   daybookForm(provider: string, offset: number): DaybookFormState {
-    return state.daybook[`${provider}|${offset}`] ?? blankDaybook()
+    return state().daybook[`${provider}|${offset}`] ?? blankDaybook()
   },
 
   setDaybookForm(provider: string, offset: number, patch: Partial<DaybookFormState>) {
     const key = `${provider}|${offset}`
-    set({ daybook: { ...state.daybook, [key]: { ...blankDaybook(), ...state.daybook[key], ...patch } } })
+    set({ daybook: { ...state().daybook, [key]: { ...blankDaybook(), ...state().daybook[key], ...patch } } })
   },
 
   setServiceLocation(loc: string, showOnly: boolean) { set({ serviceLocation: loc, showOnly }) },
 
-  setSlide(patch: Partial<SchedulerExtrasState['slide']>) { set({ slide: { ...state.slide, ...patch } }) },
+  setSlide(patch: Partial<SchedulerExtrasState['slide']>) { set({ slide: { ...state().slide, ...patch } }) },
 
   copyEncounter(key: string) { set({ clipboard: key, last: 'encounter-copied' }) },
 
   pasteEncounter(target: string) {
-    if (!state.clipboard) return
-    set({ pasted: { ...state.pasted, [target]: state.clipboard }, last: 'encounter-pasted' })
+    const { clipboard, pasted } = state()
+    if (!clipboard) return
+    set({ pasted: { ...pasted, [target]: clipboard }, last: 'encounter-pasted' })
   },
 
   done(last: string) { set({ last }) },

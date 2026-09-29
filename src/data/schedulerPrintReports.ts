@@ -1,6 +1,7 @@
 import { daybookProviders } from './mois'
 import { printReports, type PrintReport } from './printReports'
 import { dayRows, offsetOfStamp, schedulerStore, stampOf } from './schedulerStore'
+import { DESKTOP_PROVIDER_DEFAULT } from './session'
 
 /* ============================================================================
    The Scheduler's Print-menu reports, added to the shared `printReports`
@@ -22,8 +23,9 @@ import { dayRows, offsetOfStamp, schedulerStore, stampOf } from './schedulerStor
      (`captured: false`) as the day's appointments, time first.
    ========================================================================= */
 
-/** Desktop For — whose day sheet "Desktop Provider" prints (art. 303824). */
-export const DESKTOP_PROVIDER = 'TECHNICAL SUPPORT'
+/** Desktop For — whose day sheet "Desktop Provider" prints (art. 303824;
+    data/session.ts DESKTOP_PROVIDER_DEFAULT) */
+export const DESKTOP_PROVIDER = DESKTOP_PROVIDER_DEFAULT
 
 /** the fee MSP pays for 00100 in this training set */
 const FEE_00100 = 31.62

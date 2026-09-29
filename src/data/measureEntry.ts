@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from 'react'
+import { hhmm } from './clock'
+import { createSignal } from './sessionStore'
 
 /* ============================================================================
    Measures ▸ New Record — the lab-code list the Code column's "…" opens, the
@@ -148,17 +149,20 @@ type EntryState = {
 }
 
 const state: Record<string, EntryState> = {}
-const listeners = new Set<() => void>()
-let version = 0
-const emit = () => { version += 1; listeners.forEach((l) => l()) }
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
+const emit = changes.emit
 const EMPTY: EntryState = { draft: null, forms: {}, sent: {}, seq: 0 }
 const of = (chart: string): EntryState => (state[chart] ??= { draft: null, forms: {}, sent: {}, seq: 0 })
 
 export function useMeasureEntry(chart: string): EntryState {
-  useSyncExternalStore(subscribe, () => version, () => version)
+  changes.use()
   return state[chart] ?? EMPTY
 }
+
+/** a new frame starts with no draft, saved form or sent questionnaire (the
+    session reset runs this as the frame mounts — data/sessionStore.ts;
+    before, nothing reset this store) */
+export const resetMeasureEntry = () => changes.reset()
 
 export const BLANK_DRAFT: MeasureDraft = {
   code: '', test: '', units: '', value: '', flag: '', lower: '', upper: '', category: '', report: '', marker: '-', formModified: '',
@@ -236,7 +240,4 @@ export function longDate(mois: string): string {
 }
 
 /** the `HH:MM` MOIS stamps a saved form with */
-export function clockNow(): string {
-  const now = new Date()
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-}
+export const clockNow = (): string => hhmm()

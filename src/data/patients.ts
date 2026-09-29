@@ -310,9 +310,12 @@ export const TRAINING_CHART_ROWS: Record<string, Partial<Patient>> = {
   },
 }
 
-/** The date the training environment was captured; ages are figured from it. */
-export const MOIS_TODAY = '2026.09.18'
+/** The date the training environment was captured; ages are figured from it.
+    Defined in data/clock.ts (a leaf module the React-free manifest can
+    import) and re-exported here, where the screens have always read it. */
+export { MOIS_TODAY }
 
+import { MOIS_TODAY } from './clock'
 import { chart87288Summary } from './charts/chart-87288.summary'
 import { patientFromChartRecord } from './charts/to-patient'
 

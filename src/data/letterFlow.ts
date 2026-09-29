@@ -19,11 +19,11 @@
    (INFORMATION REQUEST, `Service Event:`, `<Not Coded>`, LOINC X10916) and
    2070139 `5dc6ad4f…` (SHARED CARE PLAN, editable header, Type drop-down).
    ========================================================================= */
-import { useSyncExternalStore } from 'react'
 import type { MoisChartExport, MoisRecord } from './charts'
 import type { ChartPatient } from './patient-context'
-import { MOIS_TODAY } from './patients'
-import { SESSION_USER } from './chartSession'
+import { MOIS_TODAY, toDashes } from './clock'
+import { DESKTOP_PROVIDER_DEFAULT, SESSION_USER } from './session'
+import { createStore, onSessionReset } from './sessionStore'
 
 /* 'misc' · 'note' · 'notification' · 'patient-summary' are the Send
    window's other document types (2961349 `0480d274…`, `9a83e429…`): an
@@ -39,8 +39,9 @@ export const DOC_TYPE_OF: Record<LetterDocId, string> = {
 export const docOfType = (type: string): LetterDocId =>
   (Object.keys(DOC_TYPE_OF) as LetterDocId[]).find((d) => DOC_TYPE_OF[d] === type) ?? 'misc'
 
-/** the Desktop For: provider the frame shows — MOIS's default Author */
-export const DESKTOP_PROVIDER = 'TECHNICAL SUPPORT'
+/** the Desktop For: provider the frame shows — MOIS's default Author
+    (data/session.ts DESKTOP_PROVIDER_DEFAULT) */
+export const DESKTOP_PROVIDER = DESKTOP_PROVIDER_DEFAULT
 
 export type LetterFlowState = {
   doc: LetterDocId
@@ -74,22 +75,20 @@ const initial = (): LetterFlowState => ({
   letterId: null, correctionOf: null, responseTo: null, documentId: null, plainText: '',
 })
 
-let state: LetterFlowState = initial()
-const listeners = new Set<() => void>()
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+/* a session store: a new frame starts with no letter in flight (before, a
+   letter half-written in one lesson was still in flight in the next) */
+const flow = createStore<LetterFlowState>(initial)
 
-export const letterFlow = (): LetterFlowState => state
+export const letterFlow = (): LetterFlowState => flow.get()
 export function setLetterFlow(patch: Partial<LetterFlowState>) {
-  state = { ...state, ...patch }
-  listeners.forEach((l) => l())
+  flow.set((state) => ({ ...state, ...patch }))
 }
 /** a new letter of this kind: everything chosen for the last one is dropped */
 export function beginLetter(doc: LetterDocId = 'referral') {
-  state = { ...initial(), doc, template: DEFAULT_TEMPLATE[doc] }
-  listeners.forEach((l) => l())
+  flow.set({ ...initial(), doc, template: DEFAULT_TEMPLATE[doc] })
 }
 export function useLetterFlow(): LetterFlowState {
-  return useSyncExternalStore(subscribe, () => state, () => state)
+  return flow.use()
 }
 
 /** the template each kind of letter preselects in the picker */
@@ -115,6 +114,8 @@ export const TEMPLATE_TYPE: Record<LetterDocId, string> = {
    Orders grid has current (303589 `a6252ce4…`), and Respond answers it; the
    Orders window publishes it here as its current row moves. */
 let currentOrder: string | null = null
+/* no Orders window is open in a new frame */
+onSessionReset(() => { currentOrder = null })
 export const setCurrentOrder = (id: string | null) => { currentOrder = id }
 export const currentOrderId = () => currentOrder
 
@@ -246,7 +247,8 @@ export type BodyTable = { title: string; columns: string[]; rows: string[][] }
 const P = (s: string): BodyRun => ({ t: 'plain', s })
 const S = (s: string): BodyRun => ({ t: 'pop', s })
 const B = (s: string): BodyRun => ({ t: 'bold', s })
-const dash = (v?: string) => (v ?? '').split(' ')[0]!.replace(/[./]/g, '-')
+/* the letter prints dates with dashes (clock.ts toDashes: the date part, as 2026-09-18) */
+const dash = toDashes
 
 export function letterBody(doc: LetterDocId, p: ChartPatient, header: LetterHeader): BodyLine[] {
   const recipient = header.left.find((f) => f.label === 'Primary Recipient:')?.value ?? ''

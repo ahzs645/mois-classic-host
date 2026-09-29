@@ -1,5 +1,6 @@
-import { useSyncExternalStore } from 'react'
-import { pbSlug } from '../pb/instrumentation'
+import { createStore, onSessionReset } from './sessionStore'
+import { SCHEDULER_TODAY, pad2 } from './clock'
+import { slug as pbSlug } from './text'
 import {
   bookedAppointment, daybookFor, resourceDayFor, TRAINING_CHART, type Appointment,
 } from './daybook'
@@ -84,33 +85,36 @@ const initial = (): SchedulerState => ({
   editor: false, layout: 'default', columns: null, recalls: [], last: '', prefill: null,
 })
 
-let state: SchedulerState = initial()
+/* a session store: back to the training data as each frame mounts
+   (data/sessionStore.ts), with the serial; schedulerExtras.ts registers its
+   own reset */
+const store = createStore<SchedulerState>(initial)
+const state = store.get
 let serial = 0
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+onSessionReset(() => { serial = 0 })
 
 function set(next: Partial<SchedulerState>) {
-  state = { ...state, ...next }
-  emit()
+  store.set((prev) => ({ ...prev, ...next }))
 }
 
+/** Back to the training data (the session reset does this as the frame
+    mounts; this is the same reset on demand). */
 export function resetSchedulerStore() {
-  state = initial()
+  store.reset()
   serial = 0
   resetSchedulerExtras()
-  emit()
 }
 
 export function useSchedulerStore(): SchedulerState {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l) },
-    () => state,
-    () => state,
-  )
+  return store.use()
 }
 
 /* --- the frame reports provider and date as slug and stamp ---------------- */
-const EPOCH = Date.UTC(2026, 7, 11)
+/* the day book's opening day (clock.ts SCHEDULER_TODAY) as a UTC timestamp */
+const EPOCH = (() => {
+  const [y, m, d] = SCHEDULER_TODAY.split('.').map(Number) as [number, number, number]
+  return Date.UTC(y, m - 1, d)
+})()
 
 /** `2026.08.12` → 1 (days from the day book's opening day). */
 export function offsetOfStamp(stamp: string): number {
@@ -157,11 +161,11 @@ export const resourceRows = (resource: string, offset: number): DayRow[] =>
   resourceDayFor(resource, offset).map((row, i) => ({ ...row, key: `res:${resource}|${offset}|b${i}` }))
 
 export function rowAt(provider: string, offset: number, index: number): DayRow | undefined {
-  return dayRows(state, provider, offset)[index]
+  return dayRows(state(), provider, offset)[index]
 }
 
 /** The row the day book has current, or its first. */
-export function currentRow(s: SchedulerState = state): DayRow | undefined {
+export function currentRow(s: SchedulerState = state()): DayRow | undefined {
   if (!s.current) return undefined
   const rows = dayRows(s, s.current.provider, s.current.offset)
   return rows.find((r) => r.key === s.current!.key) ?? rows[0]
@@ -223,8 +227,7 @@ export function encounterOf(row: DayRow | undefined, offset: number, chart: stri
 
 export function stampOf(offset: number): string {
   const d = new Date(EPOCH + offset * 86_400_000)
-  const two = (n: number) => String(n).padStart(2, '0')
-  return `${d.getUTCFullYear()}.${two(d.getUTCMonth() + 1)}.${two(d.getUTCDate())}`
+  return `${d.getUTCFullYear()}.${pad2(d.getUTCMonth() + 1)}.${pad2(d.getUTCDate())}`
 }
 
 /* --- actions ------------------------------------------------------------------ */
@@ -232,42 +235,42 @@ export function stampOf(offset: number): string {
 const newKey = () => `k${++serial}`
 
 export const schedulerStore = {
-  get: () => state,
+  get: () => state(),
 
   setCurrent(provider: string, offset: number, key: string) {
-    const c = state.current
+    const c = state().current
     if (c && c.key === key && c.provider === provider && c.offset === offset) return
     set({ current: { provider, offset, key } })
   },
 
   setStatus(provider: string, offset: number, index: number, code: string) {
-    const row = dayRows(state, provider, offset)[index]
+    const row = dayRows(state(), provider, offset)[index]
     if (!row) throw new Error(`No appointment is at row ${index} of this day book.`)
-    set({ statuses: { ...state.statuses, [row.key]: code }, current: { provider, offset, key: row.key } })
+    set({ statuses: { ...state().statuses, [row.key]: code }, current: { provider, offset, key: row.key } })
   },
 
   setStatusByKey(key: string, code: string) {
-    set({ statuses: { ...state.statuses, [key]: code } })
+    set({ statuses: { ...state().statuses, [key]: code } })
   },
 
   /** New Appointment ▸ Save Appointment */
   book(provider: string, offset: number, draft: Parameters<typeof bookedAppointment>[0]) {
     const row = bookedAppointment(draft)
     const key = newKey()
-    set({ added: [...state.added, { key, provider, offset, row, kind: 'booked' }], current: { provider, offset, key }, last: 'booked', prefill: null })
+    set({ added: [...state().added, { key, provider, offset, row, kind: 'booked' }], current: { provider, offset, key }, last: 'booked', prefill: null })
   },
 
   /** Create Appointment Series ▸ Continue, Create Series (art. 3266635):
       many rows at once, their keys returned so the series can own them */
   bookMany(items: { provider: string; offset: number; draft: Parameters<typeof bookedAppointment>[0]; extra?: Partial<Appointment> }[], last = 'series-booked'): string[] {
     const added: Added[] = items.map((x) => ({ key: newKey(), provider: x.provider, offset: x.offset, row: { ...bookedAppointment(x.draft), ...x.extra }, kind: 'booked' as const }))
-    set({ added: [...state.added, ...added], last })
+    set({ added: [...state().added, ...added], last })
     return added.map((a) => a.key)
   },
 
   /** Delete Recurring Appointment ▸ Select from series ▸ Ok ▸ Yes */
   deleteAppointments(keys: string[]) {
-    set({ removed: [...new Set([...state.removed, ...keys])], last: 'deleted' })
+    set({ removed: [...new Set([...state().removed, ...keys])], last: 'deleted' })
   },
 
   /** Action ▸ Paste Encounter Data (Ctrl+Shift+P): the copied appointment's
@@ -275,29 +278,29 @@ export const schedulerStore = {
   pasteEncounter(target: string, source: string) {
     const from = findRow(source)
     if (!from) return
-    const issues = { ...state.issues }
-    if (state.issues[source] || from.row.issue) issues[target] = state.issues[source] ?? from.row.issue
-    const billed = { ...state.billed }
-    if (state.billed[source]) billed[target] = true
-    const noted = { ...state.noted }
-    if (state.noted[source]) noted[target] = true
+    const issues = { ...state().issues }
+    if (state().issues[source] || from.row.issue) issues[target] = state().issues[source] ?? from.row.issue
+    const billed = { ...state().billed }
+    if (state().billed[source]) billed[target] = true
+    const noted = { ...state().noted }
+    if (state().noted[source]) noted[target] = true
     set({ issues, billed, noted, last: 'encounter-pasted' })
   },
 
   /** MSP Bill (Ctrl+B) on the current row */
   bill(key: string) {
-    set({ billed: { ...state.billed, [key]: true }, last: 'billed' })
+    set({ billed: { ...state().billed, [key]: true }, last: 'billed' })
   },
 
   /** Action ▸ Bill MSP (all encounters), Ctrl+I: every row with a diagnosis */
   billAll(provider: string, offset: number) {
-    const billed = { ...state.billed }
-    for (const row of dayRows(state, provider, offset)) if (row.issue) billed[row.key] = true
+    const billed = { ...state().billed }
+    for (const row of dayRows(state(), provider, offset)) if (row.issue) billed[row.key] = true
     set({ billed, last: 'billed-all' })
   },
 
   setIssue(key: string, code: string) {
-    set({ issues: { ...state.issues, [key]: code }, last: 'diagnosis' })
+    set({ issues: { ...state().issues, [key]: code }, last: 'diagnosis' })
   },
 
   /** Copy / Move Appointment Utility ▸ Continue */
@@ -306,11 +309,11 @@ export const schedulerStore = {
     if (!from) return
     const row: Appointment = { ...from.row, hr: to.hr || from.row.hr, mn: to.mn || from.row.mn, as: move ? from.row.as : '' }
     const added: Added = { key: newKey(), provider: to.provider, offset: to.offset, row, kind: 'copy' }
-    const statuses = { ...state.statuses }
-    if (move && state.statuses[key]) statuses[added.key] = state.statuses[key]!
+    const statuses = { ...state().statuses }
+    if (move && state().statuses[key]) statuses[added.key] = state().statuses[key]!
     set({
-      added: [...state.added, added],
-      removed: move ? [...state.removed, key] : state.removed,
+      added: [...state().added, added],
+      removed: move ? [...state().removed, key] : state().removed,
       statuses,
       last: move ? 'moved' : 'copied',
     })
@@ -320,8 +323,8 @@ export const schedulerStore = {
       the notes and not the appointment statuses; Move takes everything
       (art. 303835). */
   copyMoveDay(fromProvider: string, fromOffset: number, to: { provider: string; offset: number }, move: boolean) {
-    const rows = dayRows(state, fromProvider, fromOffset)
-    const statuses = { ...state.statuses }
+    const rows = dayRows(state(), fromProvider, fromOffset)
+    const statuses = { ...state().statuses }
     const added = rows.map((r) => {
       const { key: _key, ...row } = r
       const next: Added = { key: newKey(), provider: to.provider, offset: to.offset, row: { ...row, as: move ? r.as : '' }, kind: 'copy' }
@@ -329,8 +332,8 @@ export const schedulerStore = {
       return next
     })
     set({
-      added: [...state.added, ...added],
-      removed: move ? [...state.removed, ...rows.map((r) => r.key)] : state.removed,
+      added: [...state().added, ...added],
+      removed: move ? [...state().removed, ...rows.map((r) => r.key)] : state().removed,
       statuses,
       last: move ? 'day-moved' : 'day-copied',
     })
@@ -338,13 +341,13 @@ export const schedulerStore = {
 
   /** Delete Appt (Shift+F2) ▸ Yes */
   deleteAppointment(key: string) {
-    set({ removed: [...state.removed, key], last: 'deleted' })
+    set({ removed: [...state().removed, key], last: 'deleted' })
   },
 
   /** Quick Patient Registration Form ▸ Register (F2) */
   register(key: string) {
-    const chart = String(19000 + Object.keys(state.charted).length + 1)
-    set({ charted: { ...state.charted, [key]: chart }, last: 'registered' })
+    const chart = String(19000 + Object.keys(state().charted).length + 1)
+    set({ charted: { ...state().charted, [key]: chart }, last: 'registered' })
     return chart
   },
 
@@ -354,7 +357,7 @@ export const schedulerStore = {
       key: newKey(), provider, offset, kind: 'slot' as const,
       row: { ...bookedAppointment({ hr: s.hr, mn: s.mn, slots: s.n, chart: '', reason: '', code: s.code }), reason: '' },
     }))
-    set({ added: [...state.added, ...added], last: 'slots-created' })
+    set({ added: [...state().added, ...added], last: 'slots-created' })
   },
 
   openedEncounter(key: string | null) {
@@ -363,12 +366,13 @@ export const schedulerStore = {
 
   /** Encounter Detail Window ▸ Save: the note is complete, DS reads C */
   noteSaved() {
-    if (!state.openedFrom) return
-    set({ noted: { ...state.noted, [state.openedFrom]: true }, last: 'note-saved' })
+    const { openedFrom, noted } = state()
+    if (!openedFrom) return
+    set({ noted: { ...noted, [openedFrom]: true }, last: 'note-saved' })
   },
 
   createRecall(recall: Recall) {
-    set({ recalls: [...state.recalls, recall], last: 'recall-created' })
+    set({ recalls: [...state().recalls, recall], last: 'recall-created' })
   },
 
   setEditor(on: boolean) { set({ editor: on, last: on ? 'editor-on' : 'editor-off' }) },
@@ -378,44 +382,44 @@ export const schedulerStore = {
 
   addBlock(owner: string, resource: boolean, block: ReservationBlock) {
     const key = resource ? 'resourceBlocks' : 'blocks'
-    const list = state[key][owner] ?? []
-    set({ [key]: { ...state[key], [owner]: [block, ...list] }, last: 'block-added' } as Partial<SchedulerState>)
+    const list = state()[key][owner] ?? []
+    set({ [key]: { ...state()[key], [owner]: [block, ...list] }, last: 'block-added' } as Partial<SchedulerState>)
   },
 
   addBlocks(owners: string[], resource: boolean, make: (owner: string) => ReservationBlock[]) {
     const key = resource ? 'resourceBlocks' : 'blocks'
-    const next = { ...state[key] }
+    const next = { ...state()[key] }
     for (const owner of owners) next[owner] = [...make(owner), ...(next[owner] ?? [])]
     set({ [key]: next, last: 'series-created' } as Partial<SchedulerState>)
   },
 
   setBlockOwner(owner: string, resource: boolean) {
-    const b = state.blockOwner
+    const b = state().blockOwner
     if (b && b.owner === owner && b.resource === resource) return
     set({ blockOwner: { owner, resource } })
   },
 
   updateBlock(owner: string, resource: boolean, id: string, patch: Partial<ReservationBlock>) {
     const key = resource ? 'resourceBlocks' : 'blocks'
-    const list = (state[key][owner] ?? []).map((b) => (b.id === id ? { ...b, ...patch } : b))
-    set({ [key]: { ...state[key], [owner]: list } } as Partial<SchedulerState>)
+    const list = (state()[key][owner] ?? []).map((b) => (b.id === id ? { ...b, ...patch } : b))
+    set({ [key]: { ...state()[key], [owner]: list } } as Partial<SchedulerState>)
   },
 
   deleteBlock(owner: string, resource: boolean, id: string, series: boolean) {
     const key = resource ? 'resourceBlocks' : 'blocks'
-    const list = state[key][owner] ?? []
+    const list = state()[key][owner] ?? []
     const target = list.find((b) => b.id === id)
     const keep = list.filter((b) => (series && target?.series ? b.series !== target.series || b.date < stampOf(0) : b.id !== id))
-    set({ [key]: { ...state[key], [owner]: keep }, last: series ? 'series-deleted' : 'block-deleted' } as Partial<SchedulerState>)
+    set({ [key]: { ...state()[key], [owner]: keep }, last: series ? 'series-deleted' : 'block-deleted' } as Partial<SchedulerState>)
   },
 
   addShiftRows(providers: string[], resource: boolean) {
     const key = resource ? 'resourceShifts' : 'shifts'
     const blank = () => ({ from1: '', to1: '', from2: '', to2: '', note: '' })
     const fresh = providers
-      .filter((p) => !state[key].some((r) => r.provider === p))
+      .filter((p) => !state()[key].some((r) => r.provider === p))
       .map((provider) => ({ provider, days: Array.from({ length: 7 }, blank) }))
-    set({ [key]: [...state[key], ...fresh], last: 'shift-added' } as Partial<SchedulerState>)
+    set({ [key]: [...state()[key], ...fresh], last: 'shift-added' } as Partial<SchedulerState>)
   },
 
   setShifts(rows: ShiftRow[], resource: boolean) {
@@ -423,7 +427,7 @@ export const schedulerStore = {
   },
 
   setShiftSelection(owner: string, week: number, resource: boolean) {
-    const c = state.shiftSelection
+    const c = state().shiftSelection
     if (c && c.owner === owner && c.week === week && c.resource === resource) return
     set({ shiftSelection: { owner, week, resource } })
   },
@@ -436,13 +440,13 @@ export const schedulerStore = {
 }
 
 function findRow(key: string): { row: Appointment; provider: string; offset: number } | null {
-  const added = state.added.find((x) => x.key === key)
+  const added = state().added.find((x) => x.key === key)
   if (added) return { row: added.row, provider: added.provider, offset: added.offset }
   const [provider, off, b] = key.split('|')
   if (!provider || off === undefined || !b) return null
   const offset = Number(off)
   const row = daybookFor(provider, offset)[Number(b.slice(1))]
-  return row ? { row: { ...row, as: state.statuses[key] ?? row.as }, provider, offset } : null
+  return row ? { row: { ...row, as: state().statuses[key] ?? row.as }, provider, offset } : null
 }
 
 /* The frame forwards the encounter window's bar here (it reports
@@ -451,7 +455,7 @@ function findRow(key: string): { row: Appointment; provider: string; offset: num
    complete (DS, or Document Status, on the Day Book view will change from I
    to C)" — and Close lets it go. The window closes itself. */
 export function schedulerKitAction(action: string, payload?: Record<string, unknown>): void {
-  if (action !== 'host.mois.encounterMenu' || !state.openedFrom) return
+  if (action !== 'host.mois.encounterMenu' || !state().openedFrom) return
   if (payload?.menu === 'save') schedulerStore.noteSaved()
   if (payload?.menu === 'close') schedulerStore.openedEncounter(null)
 }

@@ -31,8 +31,8 @@
    All records are fictional training data.
    ========================================================================= */
 import { useSessionState } from '../host/screen-windows'
-import { MOIS_TODAY } from './patients'
 import { SRFAX_ENABLED_ROW, VIEWER_MODE_ROW, isYes, useSystemSetting } from './systemSettings'
+import { stageStamp } from './clock'
 
 /* ---- Add Database Field: the sources and their fields -------------------- */
 
@@ -375,7 +375,7 @@ export function useSessionDocDistributions(): [DocDistribution[], (d: DocDistrib
   return [rows, (d) => set((all) => [d, ...all])]
 }
 
-export const nowStamp = () => `${MOIS_TODAY} ${new Date().toTimeString().slice(0, 5)}`
+export const nowStamp = () => stageStamp()
 
 /* ---- the clipboard a measurement graph is copied to -----------------------
    304699: "Select the small graphic on the top left of the graph · Options

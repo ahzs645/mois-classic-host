@@ -4,6 +4,7 @@ import type { WcbFormState } from '../data/wcbForm'
 import { usePatient } from '../data/patient-context'
 import { useOpenWindow } from '../screens/areaWindowRegistry'
 import { useSessionState } from './screen-windows'
+import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 
 /* ============================================================================
    host/encounterArea — what the Encounters and Measures lessons change that
@@ -21,8 +22,9 @@ import { useSessionState } from './screen-windows'
    the measurement graph) are registered in screens/encounterAreaWindows.tsx.
    ========================================================================= */
 
-/** the user the emulator's desktop is logged in as (the frame's Desktop For) */
-export const DESKTOP_USER = 'TECHNICAL SUPPORT'
+/** the user the emulator's desktop is logged in as (the frame's Desktop For;
+    data/session.ts DESKTOP_PROVIDER_DEFAULT) */
+export const DESKTOP_USER = DESKTOP_PROVIDER_DEFAULT
 
 export type SessionEncounter = {
   id: string; date: string; hr: string; mn: string; code: string; mode: string
