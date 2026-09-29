@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import type { CSSProperties, ReactNode } from 'react'
 import { usePatient } from '../data/patient-context'
 import { useReportDialog } from '../host/screen-windows'
-import { PBBand, PBButton, PBMessageBox, PBWindow, pbSlug } from '../pb'
+import { PBBand, PBButton, PBMessageBox, pbSlug } from '../pb'
+import { FACE, LAYER, ModalWindow, clampTo } from './dialogKit'
 
 /* ============================================================================
    The frame a folder's modal windows share.
@@ -14,22 +14,9 @@ import { PBBand, PBButton, PBMessageBox, PBWindow, pbSlug } from '../pb'
    (host/screen-state.tsx) and is anchored `host.mois.dialog.<id>`.
    ========================================================================= */
 
-/** Render `children` on the desktop the calling screen sits on. */
-export function DesktopLayer({ children }: { children: ReactNode }) {
-  const probe = useRef<HTMLSpanElement>(null)
-  const [layer, setLayer] = useState<HTMLElement | null>(null)
-  useLayoutEffect(() => {
-    setLayer((probe.current?.closest('.pb-desktop') as HTMLElement | null) ?? null)
-  }, [])
-  return (
-    <>
-      <span ref={probe} hidden />
-      {/* until the desktop is found (or with no desktop at all) the window
-          still renders, in place */}
-      {layer ? createPortal(children, layer) : children}
-    </>
-  )
-}
+/** Render `children` on the desktop the calling screen sits on (dialogKit). */
+export { DesktopLayer } from './dialogKit'
+import { DesktopLayer } from './dialogKit'
 
 export function StageWindow({
   id, title, width, height, onClose, children, footer, style, bodyStyle,
@@ -46,29 +33,14 @@ export function StageWindow({
   style?: CSSProperties
   bodyStyle?: CSSProperties
 }) {
-  useReportDialog(id)
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-        <PBWindow
-          tutorialId={`host.mois.dialog.${id}`}
-          child
-          controls={false}
-          title={title}
-          onClose={onClose}
-          style={{
-            width: `min(${width}px, calc(100% - 24px))`,
-            ...(height ? { height: `min(${height}px, calc(100% - 24px))` } : null),
-            ...style,
-          }}
-        >
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)', ...bodyStyle }}>
-            {children}
-          </div>
-          {footer && <div className="pb-footer">{footer}</div>}
-        </PBWindow>
+    <ModalWindow id={id} title={title} onClose={onClose} portal="inline" report zIndex={LAYER.stage}
+      windowStyle={{ ...clampTo(24, width, height), ...style }}>
+      <div style={{ ...FACE, ...bodyStyle }}>
+        {children}
       </div>
-    </DesktopLayer>
+      {footer && <div className="pb-footer">{footer}</div>}
+    </ModalWindow>
   )
 }
 

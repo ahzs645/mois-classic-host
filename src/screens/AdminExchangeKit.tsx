@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { MOIS_TODAY } from '../data/patients'
 import { useReportDialog } from '../host/screen-windows'
 import { PBButton, PBCheckbox, PBWindow, pbSlug } from '../pb'
-import { DesktopLayer } from './StageWindow'
+import { DesktopLayer, FACE, LAYER, ModalWindow, clampTo } from './dialogKit'
 
 /* ============================================================================
    Small shared pieces for the Administration ▸ Configuration, Data Exchange
@@ -64,7 +64,7 @@ export function SectionHead({ children, right }: { children: ReactNode; right?: 
 
 /** A detail or new-record window: title bar, optional navy heading, body, centred buttons. */
 export function DetailWindow({
-  id, title, heading, width, height, onClose, children, buttons, zIndex = 86, bodyStyle,
+  id, title, heading, width, height, onClose, children, buttons, zIndex = LAYER.detail, bodyStyle,
 }: {
   /** reported as `host.dialog`, anchored `host.mois.dialog.{id}` */
   id: string
@@ -79,33 +79,18 @@ export function DetailWindow({
   zIndex?: number
   bodyStyle?: CSSProperties
 }) {
-  useReportDialog(id)
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
-        <PBWindow
-          tutorialId={`host.mois.dialog.${id}`}
-          child
-          controls={false}
-          title={title}
-          onClose={onClose}
-          style={{
-            width: `min(${width}px, calc(100% - 24px))`,
-            ...(height ? { height: `min(${height}px, calc(100% - 24px))` } : null),
-          }}
-        >
-          {heading && <div className="pb-viewhead" style={{ flex: 'none' }}><span className="pb-viewhead__title">{heading}</span></div>}
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)', ...bodyStyle }}>
-            {children}
-          </div>
-          {buttons && (
-            <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '8px 0 10px', flex: 'none', borderTop: '1px solid #c8c8c8' }}>
-              {buttons}
-            </div>
-          )}
-        </PBWindow>
+    <ModalWindow id={id} title={title} onClose={onClose} portal="inline" report zIndex={zIndex} windowStyle={clampTo(24, width, height)}>
+      {heading && <div className="pb-viewhead" style={{ flex: 'none' }}><span className="pb-viewhead__title">{heading}</span></div>}
+      <div style={{ ...FACE, ...bodyStyle }}>
+        {children}
       </div>
-    </DesktopLayer>
+      {buttons && (
+        <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '8px 0 10px', flex: 'none', borderTop: '1px solid #c8c8c8' }}>
+          {buttons}
+        </div>
+      )}
+    </ModalWindow>
   )
 }
 

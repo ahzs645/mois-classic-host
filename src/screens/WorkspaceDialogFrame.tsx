@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { PBButton, PBWindow } from '../pb'
+import { PBButton } from '../pb'
+import { LAYER, ModalWindow } from './dialogKit'
 
 /* ============================================================================
    The frame the Workspace / Billing / Reports windows share: a modal layer
@@ -14,7 +15,7 @@ import { PBButton, PBWindow } from '../pb'
    ========================================================================= */
 
 export function WorkspaceDialogFrame({
-  id, title, width, height, onClose, children, style, controls = true, zIndex = 80,
+  id, title, width, height, onClose, children, style, controls = true, zIndex = LAYER.workspace,
 }: {
   /** the window's anchor slug — `host.mois.dialog.{id}` */
   id: string
@@ -29,25 +30,17 @@ export function WorkspaceDialogFrame({
   zIndex?: number
 }) {
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
-      <PBWindow
-        child
-        controls={controls}
-        title={title}
-        onClose={onClose}
-        tutorialId={`host.mois.dialog.${id}`}
-        style={{ width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}
+    <ModalWindow id={id} title={title} onClose={onClose} controls={controls} zIndex={zIndex}
+      windowStyle={{ width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
+      <div
+        style={{
+          display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
+          background: 'var(--pb-face)', ...style,
+        }}
       >
-        <div
-          style={{
-            display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
-            background: 'var(--pb-face)', ...style,
-          }}
-        >
-          {children}
-        </div>
-      </PBWindow>
-    </div>
+        {children}
+      </div>
+    </ModalWindow>
   )
 }
 

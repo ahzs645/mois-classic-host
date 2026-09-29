@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePatient, usePatientRoster } from '../data/patient-context'
 import { patientEdits, updatePatient } from '../data/patient-edits'
 import { type Patient, type ChartAddressEntry } from '../data/patients'
-import { PBButton, PBInput, PBTextArea, PBCheckbox, PBRadio, PBWindow, PBGroup, PBBand, PBDataWindow } from '../pb'
+import { PBButton, PBInput, PBTextArea, PBCheckbox, PBRadio, PBGroup, PBBand, PBDataWindow } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { AdvancedLookupDialog } from './AdvancedLookupDialog'
+import { DesktopLayer as BaseDesktopLayer, LAYER, ModalWindow } from './dialogKit'
 
 export const today = () => {
   const d = new Date()
@@ -20,30 +20,14 @@ export function DemographicModal({ title, onClose, children, width = 620, height
   dialog?: string
 }) {
   useScreenReport(dialogId ? { dialog: dialogId } : {})
-  const anchor = useRef<HTMLSpanElement>(null)
-  const dialog = useRef<HTMLDivElement>(null)
-  const [layer, setLayer] = useState<HTMLElement | null>(null)
-  useLayoutEffect(() => { setLayer(anchor.current?.closest<HTMLElement>('.pb-desktop') ?? anchor.current?.parentElement ?? null) }, [])
-  useEffect(() => {
-    if (!layer) return
-    const previous = document.activeElement as HTMLElement | null
-    dialog.current?.focus()
-    return () => previous?.focus()
-  }, [layer])
-  return <><span hidden ref={anchor} />{layer && createPortal(<div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-    <div ref={dialog} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
-      style={{ width: `min(${width}px, 96%)` }} onKeyDown={e => {
-        if (e.key === 'Escape') { e.stopPropagation(); onClose() }
-        if (e.key === 'Tab') {
-          const fields = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, [tabindex="0"]') ?? [])]
-          const first = fields[0], last = fields[fields.length - 1]
-          if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last?.focus() }
-          if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
-        }
-      }}>
-      <PBWindow child controls={false} title={title} onClose={onClose} tutorialId={dialogId ? `host.mois.dialog.${dialogId}` : undefined} style={{ width: '100%', height, maxHeight: '90vh' }}>{children}</PBWindow>
-    </div>
-  </div>, layer)}</>
+  return (
+    <ModalWindow title={title} onClose={onClose} portal="parent" zIndex={LAYER.demographic}
+      tutorialId={dialogId ? `host.mois.dialog.${dialogId}` : undefined}
+      trap={{ label: title, width: `min(${width}px, 96%)` }}
+      windowStyle={{ width: '100%', height, maxHeight: '90vh' }}>
+      {children}
+    </ModalWindow>
+  )
 }
 
 export { CmdButton } from './CmdButton'
@@ -194,12 +178,10 @@ export function addressOf(p: Patient): ChartAddressEntry {
 }
 
 /** Renders children on the desktop layer, above any open modal — for a list
-    a modal opens over itself (the wizard's Find / Add). */
+    a modal opens over itself (the wizard's Find / Add); nothing until the
+    desktop is found. */
 export function DesktopLayer({ children }: { children: ReactNode }) {
-  const anchor = useRef<HTMLSpanElement>(null)
-  const [layer, setLayer] = useState<HTMLElement | null>(null)
-  useLayoutEffect(() => { setLayer(anchor.current?.closest<HTMLElement>('.pb-desktop') ?? null) }, [])
-  return <><span hidden ref={anchor} />{layer && createPortal(children, layer)}</>
+  return <BaseDesktopLayer fallback="none">{children}</BaseDesktopLayer>
 }
 
 /* Change Address Wizard — art. 301556 `a136af6f…png` (v02.20.19): Current

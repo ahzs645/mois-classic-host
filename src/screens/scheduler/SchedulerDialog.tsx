@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { PBBand, PBButton, PBWindow } from '../../pb'
+import { PBBand, PBButton } from '../../pb'
+import { LAYER, ModalWindow } from '../dialogKit'
 
 /* ============================================================================
    The shape every Scheduler utility window shares in the captures: a grey
@@ -26,15 +27,8 @@ export function SchedulerDialog({
   bodyStyle?: CSSProperties
 }) {
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 85 }}>
-      <PBWindow
-        child
-        controls={false}
-        title={title}
-        tutorialId={`host.mois.dialog.${id}`}
-        onClose={onClose}
-        style={{ width, ...(height ? { height } : {}), maxWidth: '100%', maxHeight: '100%' }}
-      >
+    <ModalWindow id={id} title={title} onClose={onClose} zIndex={LAYER.stage}
+      windowStyle={{ width, ...(height ? { height } : {}), maxWidth: '100%', maxHeight: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 10, background: 'var(--pb-face)' }}>
           {band !== undefined ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-face)' }}>
@@ -51,7 +45,7 @@ export function SchedulerDialog({
                 className={b.primary ? 'pb-btn--default' : undefined}
                 style={{ minWidth: 90 }}
                 disabled={b.disabled}
-                data-tutorial-id={b.id ? `host.mois.command.${b.id}` : undefined}
+                command={b.id}
                 onClick={b.onClick ?? onClose}
               >
                 {b.label}
@@ -59,8 +53,7 @@ export function SchedulerDialog({
             ))}
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
