@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import type { MoisRecord } from '../data/charts'
 import { date } from '../data/charts/relations'
 import { ROW_MAPS } from '../data/charts/to-rows'
-import { PBBand, PBButton, PBDataWindow, PBWindow, type PBColumn } from '../pb'
+import { PBBand, PBButton, PBDataWindow, type PBColumn } from '../pb'
+import { ModalWindow } from './dialogKit'
 import './preferences-detail.css'
 
 const columns: PBColumn<Record<string, string>>[] = [
@@ -24,22 +24,10 @@ export function PreferenceEncounterDialog({ encounterId, encounters, onChange, o
   encounterId: string; encounters: MoisRecord[]; onChange: (id: string) => void; onClose: () => void; zIndex?: number
 }) {
   const [picking, setPicking] = useState(false)
-  const anchor = useRef<HTMLSpanElement>(null)
-  const [layer, setLayer] = useState<HTMLElement | null>(null)
   const [current, setCurrent] = useState(() => Math.max(0, encounters.findIndex(r => r.id_encounter === encounterId)))
-  const dialog = useRef<HTMLDivElement>(null)
   const encounter = encounters.find(r => r.id_encounter === encounterId)
   const rows = encounters.map(r => ROW_MAPS.encounters!.row(r))
   const choose = (id?: string) => { if (id) { onChange(id); onClose() } }
-  useLayoutEffect(() => {
-    setLayer((anchor.current?.closest('.pb-desktop') as HTMLElement | null) ?? anchor.current?.parentElement ?? null)
-  }, [])
-  useEffect(() => {
-    if (!layer) return
-    const previous = document.activeElement as HTMLElement | null
-    dialog.current?.focus()
-    return () => previous?.focus()
-  }, [layer])
   const e = (key: string) => encounter?.[key] ?? ''
   const codes = (prefix: string) => [1, 2, 3, 4].map(i => e(`${prefix}_${i}`)).filter(Boolean).join(', ')
   const details = [
@@ -52,21 +40,12 @@ export function PreferenceEncounterDialog({ encounterId, encounters, onChange, o
     ['Diag Code(s):', codes('str_diag_code')],
     ['Service Code(s):', codes('str_fee_code')],
   ]
-  const content = <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex }}>
-    <div role="dialog" aria-modal="true" aria-label={picking ? 'Encounter List' : `Encounter ID: ${encounterId || 'EMPTY'}`}
-      style={{ width: picking ? 'min(1000px, 96%)' : 'min(415px, 96%)', minWidth: 0 }}
-      ref={dialog} tabIndex={-1} onKeyDown={event => {
-        if (event.key === 'Escape') { event.stopPropagation(); onClose() }
-        if (event.key === 'Tab') {
-          const items = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"]') ?? [])]
-          const first = items[0], last = items[items.length - 1]
-          if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { event.preventDefault(); last?.focus() }
-          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
-        }
-      }}>
-      <PBWindow child controls={false} title={picking ? 'Encounter List' : `Encounter ID: ${encounterId || 'EMPTY'}`}
-        onClose={onClose} tutorialId={picking ? 'host.mois.dialog.preference-encounter-list' : 'host.mois.dialog.preference-encounter'}
-        style={{ width: '100%', height: picking ? 'min(650px, 85vh)' : 300, maxHeight: '90vh', ...(picking ? {} : { background: '#fff' }) }}>
+  const title = picking ? 'Encounter List' : `Encounter ID: ${encounterId || 'EMPTY'}`
+  return (
+    <ModalWindow title={title} onClose={onClose} portal="parent" zIndex={zIndex}
+      trap={{ label: title, width: picking ? 'min(1000px, 96%)' : 'min(415px, 96%)', style: { minWidth: 0 } }}
+      tutorialId={picking ? 'host.mois.dialog.preference-encounter-list' : 'host.mois.dialog.preference-encounter'}
+      windowStyle={{ width: '100%', height: picking ? 'min(650px, 85vh)' : 300, maxHeight: '90vh', ...(picking ? {} : { background: '#fff' }) }}>
         {picking ? <>
           <div style={{ margin: '18px 16px 0', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <PBBand>Select Encounter</PBBand>
@@ -94,8 +73,6 @@ export function PreferenceEncounterDialog({ encounterId, encounters, onChange, o
             <PBButton onClick={onClose}>Close (Esc)</PBButton>
           </div>
         </>}
-      </PBWindow>
-    </div>
-  </div>
-  return <><span ref={anchor} hidden />{layer && createPortal(content, layer)}</>
+    </ModalWindow>
+  )
 }

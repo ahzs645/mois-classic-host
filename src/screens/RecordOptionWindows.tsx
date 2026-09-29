@@ -1,14 +1,14 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { usePatient } from '../data/patient-context'
 import { stageStamp } from '../data/clock'
-import { MOIS_TODAY } from '../data/patients'
+import { MOIS_TODAY, type Patient } from '../data/patients'
 import { CURRENT_USER } from '../data/tasks'
 import { argStr } from '../data/text'
 import { userListSpecs } from '../data/userManagement'
 import { useWorkspaceStore } from '../data/workspaceStore'
 import { useSessionState } from '../host/screen-windows'
-import { useScreenReport } from '../host/screen-state'
-import { PBBand, PBCheckbox, PBDataWindow, PBTextArea } from '../pb'
+import { useScreenReport, type ScreenReport } from '../host/screen-state'
+import { PBBand, PBCheckbox, PBDataWindow, PBTextArea, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogFooter } from './formKit'
 import { useTickSet } from './listKit'
@@ -61,55 +61,97 @@ export const reviewKeyOf = (recordKey: string) => `record:${recordKey}`
    one for the desktop user, and 303741 says "an Acknowledgment History is
    created for the entry you've marked for review" — it is listed as
    `9a1ef52e…png` lists its own (NOT CHECKED, "MARKED FOR REVIEW", CREATED
-   By / For).
+   By / For). With no messages or tasks behind a chart record, this one
+   lists MESSAGES [0] and TASKS [0] (`showEmpty`); the basket's leaves out
+   an empty one. No capture shows an empty section either way.
    ------------------------------------------------------------------------ */
-const BAND_DARK: CSSProperties = { background: 'linear-gradient(var(--pb-banner-top-a), var(--pb-banner-top-b))', color: '#fff', padding: '4px 10px' }
-const BAND_LIGHT: CSSProperties = { background: 'var(--pb-banner-bottom)', color: '#fff', padding: '3px 10px', fontWeight: 700 }
+const BAND_DARK: CSSProperties = { background: 'linear-gradient(var(--pb-banner-top-a, #2f6fb4), var(--pb-banner-top-b, #1c4f8c))', color: '#fff', padding: '4px 10px', flex: 'none' }
+const BAND_LIGHT: CSSProperties = { background: 'var(--pb-banner-bottom, #3d86c6)', color: '#fff', padding: '3px 10px', fontWeight: 700, flex: 'none' }
 const SECTION: CSSProperties = { background: 'linear-gradient(#fff, #d8e6f8)', padding: '2px 8px', fontWeight: 700 }
 
-function WorkflowSummaryWindow({ args, close }: AreaWindowProps) {
-  const p = usePatient()
-  const ws = useWorkspaceStore()
-  const key = reviewKeyOf(argStr(args.recordKey))
-  const review = ws.reviews.includes(key)
-  const [stamp] = useState(() => stageStamp())
+export type WorkflowSection = 'messages' | 'tasks' | 'acks'
+/** One row of the Workflow Summary list, with what the Detail pane shows for it. */
+export type WorkflowLine = {
+  id: string; section: WorkflowSection; date: string; description: string; status: string; detail: string
+  /** the row's anchor, where it is not `host.mois.row.workflow-<section>-<description>` */
+  anchor?: string
+}
+
+/** The Workflow Summary window, whoever raised it: a chart record's Option
+    List and the rail's View Detail... (below), or a Workspace Basket record
+    (WorkspaceBasketWindows.tsx) — "This Workflow Summary window is
+    consistent with the same folders in the Patient Chart" (1802768). The
+    size, the field spacing of the patient band (220 / 200 / 220), the grey /
+    white row banding and the ten-line Detail pane are 1802768 `13dd06a5…`
+    and `9a1ef52e…`, whose window is about 1050 × 910 with its frame. */
+export function WorkflowSummary({ id, zIndex, patient: p, record, lines, showEmpty = false, report, onClose }: {
+  /** the window's anchor slug */
+  id: string
+  zIndex?: number
+  patient: Patient
+  /** the light band naming the record */
+  record: ReactNode
+  lines: WorkflowLine[]
+  /** list MESSAGES and TASKS with no rows under them (ACKNOWLEDGEMENTS always shows) */
+  showEmpty?: boolean
+  /** what the window reports, from its lines and the row picked */
+  report: (lines: WorkflowLine[], current: WorkflowLine | undefined) => ScreenReport
+  onClose: () => void
+}) {
   const [open, setOpen] = useState({ messages: true, tasks: true, acks: true })
-  const [picked, setPicked] = useState(review)
-  useScreenReport({ acknowledgements: review ? 1 : 0 })
-  const section = (id: keyof typeof open, title: string, count: number) => (
-    <div style={SECTION} className="pb-row">
-      <button
-        type="button" aria-expanded={open[id]} onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))}
-        style={{ width: 11, height: 11, padding: 0, border: '1px solid #808080', background: '#fff', font: 'inherit', fontSize: 9, lineHeight: '9px', cursor: 'pointer' }}
-      >
-        {open[id] ? '−' : '+'}
-      </button>
-      <span>{title}&nbsp;&nbsp;&nbsp;[{count}]</span>
-    </div>
+  const [picked, setPicked] = useState<string>(() => lines.find((l) => l.section === 'acks' && l.description === CURRENT_USER.name)?.id ?? lines[0]?.id ?? '')
+  const current = lines.find((l) => l.id === picked)
+  useScreenReport(report(lines, current))
+  const count = (s: WorkflowSection) => lines.filter((l) => l.section === s).length
+  const section = (id: WorkflowSection, title: string) => (
+    <>
+      <div style={SECTION} className="pb-row" data-tutorial-id={`host.mois.group.workflow-${id}`}>
+        <button
+          type="button" aria-expanded={open[id]} onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))}
+          style={{ width: 11, height: 11, padding: 0, border: '1px solid #808080', background: '#fff', font: 'inherit', fontSize: 9, lineHeight: '9px', cursor: 'pointer' }}
+        >
+          {open[id] ? '−' : '+'}
+        </button>
+        <span>{title}&nbsp;&nbsp;&nbsp;[{count(id)}]</span>
+      </div>
+      {open[id] && lines.filter((l) => l.section === id).map((l, i) => (
+        <div
+          key={l.id}
+          className="pb-row"
+          data-tutorial-id={l.anchor ?? `host.mois.row.workflow-${id}-${pbSlug(l.description).slice(0, 20)}`}
+          onMouseDown={() => setPicked(l.id)}
+          style={{ gap: 0, padding: '3px 8px', background: picked === l.id ? '#f3c3b8' : i % 2 ? '#fff' : '#ececec' }}
+        >
+          <span style={{ width: 90 }}>{l.date}</span><span style={{ width: 430 }}>{l.description}</span><span>{l.status}</span>
+        </div>
+      ))}
+    </>
   )
-  const detail = review && picked
-    ? `MARKED FOR REVIEW\n\nAcknowledgement History:\n\n${stamp}  CREATED    By: ${CURRENT_USER.name}    For: ${CURRENT_USER.name}`
-    : ''
   return (
-    <WorkspaceDialogFrame id="workflow-summary" title="Workflow Summary" width={860} height={680} onClose={close}>
+    <WorkspaceDialogFrame id={id} title="Workflow Summary" width={1000} height={700} onClose={onClose} zIndex={zIndex}>
       <div style={BAND_DARK}>
-        <PatientFieldRow layout="inline" fields={[
-          { label: 'FIRST:', value: p.first.toUpperCase(), w: 200 },
-          { label: 'MIDDLE:', value: p.middle.toUpperCase(), w: 180 },
-          { label: 'LAST:', value: p.last.toUpperCase(), w: 200 },
-          { label: 'DoB:', value: p.dob, w: 130 },
-          { label: 'Gender:', value: p.gender },
-        ]} />
-        <PatientFieldRow layout="inline" style={{ gap: 0, paddingTop: 2 }} fields={[
-          { label: 'PHN:', value: <>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</>, w: 200 },
-          { label: <u>Home:</u>, value: p.home ?? '', w: 180 },
-          { label: 'Work:', value: p.work ?? '', w: 200 },
-          { label: 'Cell:', value: p.cell ?? '' },
-        ]} />
+        <PatientFieldRow
+          layout="inline"
+          fields={[
+            { label: 'FIRST:', value: p.first.toUpperCase(), w: 220 },
+            { label: 'MIDDLE:', value: p.middle.toUpperCase(), w: 200 },
+            { label: 'LAST:', value: p.last.toUpperCase(), w: 220 },
+            { label: 'DoB:', value: p.dob, w: 130 },
+            { label: 'Gender:', value: p.gender },
+          ]}
+        />
+        <PatientFieldRow
+          layout="inline"
+          style={{ gap: 0, paddingTop: 2 }}
+          fields={[
+            { label: 'PHN:', value: <>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</>, w: 220 },
+            { label: <u>Home:</u>, value: p.home ?? '', w: 200 },
+            { label: 'Work:', value: p.work ?? '', w: 220 },
+            { label: 'Cell:', value: p.cell ?? '' },
+          ]}
+        />
       </div>
-      <div style={BAND_LIGHT} data-tutorial-id="host.mois.field.workflow-record">
-        {argStr(args.category)}&nbsp;&nbsp;&nbsp;[{argStr(args.date)}]&nbsp;&nbsp;&nbsp;{argStr(args.description)}{argStr(args.value) ? `   ${argStr(args.value)}` : ''}
-      </div>
+      <div style={BAND_LIGHT} data-tutorial-id="host.mois.field.workflow-record">{record}</div>
       <div className="pb-row" style={{ gap: 28, padding: '3px 10px', flex: 'none' }}>
         <button type="button" className="pb-link" onClick={() => setOpen({ messages: true, tasks: true, acks: true })}>Expand All</button>
         <button type="button" className="pb-link" onClick={() => setOpen({ messages: false, tasks: false, acks: false })}>Collapse All</button>
@@ -118,28 +160,42 @@ function WorkflowSummaryWindow({ args, close }: AreaWindowProps) {
         <div className="pb-row" style={{ gap: 0, padding: '3px 8px', fontWeight: 700, borderBottom: '1px solid var(--pb-border)' }}>
           <span style={{ width: 90 }}>Date</span><span style={{ width: 430 }}>Description</span><span>Status</span>
         </div>
-        {section('messages', 'MESSAGES', 0)}
-        {section('tasks', 'TASKS', 0)}
-        {section('acks', 'ACKNOWLEDGEMENTS', review ? 1 : 0)}
-        {open.acks && review && (
-          <div
-            className="pb-row"
-            data-tutorial-id="host.mois.row.workflow-review"
-            onMouseDown={() => setPicked(true)}
-            style={{ gap: 0, padding: '3px 8px', background: picked ? 'var(--pb-dw-current, #f3c3b8)' : undefined }}
-          >
-            <span style={{ width: 90 }}>{MOIS_TODAY}</span><span style={{ width: 430 }}>{CURRENT_USER.name}</span><span>NOT CHECKED</span>
-          </div>
-        )}
+        {(showEmpty || count('messages') > 0) && section('messages', 'MESSAGES')}
+        {(showEmpty || count('tasks') > 0) && section('tasks', 'TASKS')}
+        {section('acks', 'ACKNOWLEDGEMENTS')}
       </div>
       <div style={{ margin: '4px 6px 0', flex: 'none' }}>
         <PBBand>Detail</PBBand>
-        <PBTextArea rows={7} w="100%" readOnly value={detail} data-tutorial-id="host.mois.field.acknowledgement-history" />
+        <PBTextArea rows={10} w="100%" readOnly value={current?.detail ?? ''} data-tutorial-id="host.mois.field.acknowledgement-history" />
       </div>
       <DialogFooter padding="8px 0">
-        <DialogButton id="workflow-summary-close" onClick={close} isDefault>Close</DialogButton>
+        <DialogButton id="workflow-summary-close" onClick={onClose} isDefault>Close</DialogButton>
       </DialogFooter>
     </WorkspaceDialogFrame>
+  )
+}
+
+/** A chart record's Workflow Summary: the review Mark for Review filed, if any. */
+function WorkflowSummaryWindow({ args, close }: AreaWindowProps) {
+  const p = usePatient()
+  const ws = useWorkspaceStore()
+  const review = ws.reviews.includes(reviewKeyOf(argStr(args.recordKey)))
+  const [stamp] = useState(() => stageStamp())
+  const lines: WorkflowLine[] = review ? [{
+    id: 'review', section: 'acks', date: MOIS_TODAY, description: CURRENT_USER.name, status: 'NOT CHECKED',
+    detail: `MARKED FOR REVIEW\n\nAcknowledgement History:\n\n${stamp}  CREATED    By: ${CURRENT_USER.name}    For: ${CURRENT_USER.name}`,
+    anchor: 'host.mois.row.workflow-review',
+  }] : []
+  return (
+    <WorkflowSummary
+      id="workflow-summary"
+      patient={p}
+      record={<>{argStr(args.category)}&nbsp;&nbsp;&nbsp;[{argStr(args.date)}]&nbsp;&nbsp;&nbsp;{argStr(args.description)}{argStr(args.value) ? `   ${argStr(args.value)}` : ''}</>}
+      lines={lines}
+      showEmpty
+      report={() => ({ acknowledgements: review ? 1 : 0 })}
+      onClose={close}
+    />
   )
 }
 

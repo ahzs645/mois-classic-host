@@ -345,7 +345,7 @@ function WorkgroupEditor({ initial, onSave, onClose }: { initial: Workgroup; onS
         </div>
       </WorkspaceDialogFrame>
       {refused && (
-        <RaisedMessageBox title="Create/Edit Workgroup" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={() => setRefused(false)}>
+        <RaisedMessageBox title="Create/Edit Workgroup" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={() => setRefused(false)}>
           Name the workgroup and select at least one user.
         </RaisedMessageBox>
       )}
@@ -419,7 +419,7 @@ function TemporaryMembership({ choosing, onChoose, onChosen, onSave, onClose }: 
         </WorkspaceDialogFrame>
       )}
       {refused && (
-        <RaisedMessageBox title="Create Temporary Membership" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={() => setRefused(false)}>
+        <RaisedMessageBox title="Create Temporary Membership" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={() => setRefused(false)}>
           Select an organization / org role and a reason.
         </RaisedMessageBox>
       )}
@@ -450,7 +450,7 @@ function DefaultBlendingChanged({ args, close, open }: AreaWindowProps) {
     <RaisedMessageBox
       title="Default Blending Changed"
       icon="question"
-      buttons={[{ label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.msgbox-yes' }, { label: 'No', value: 'no', tutorialId: 'host.mois.command.msgbox-no' }]}
+      buttons={[{ label: 'Yes', value: 'yes', default: true, command: 'msgbox-yes' }, { label: 'No', value: 'no', command: 'msgbox-no' }]}
       onClose={(v) => decide(v === 'yes')}
     >
       <span data-tutorial-id="host.mois.dialog.default-blending-changed">

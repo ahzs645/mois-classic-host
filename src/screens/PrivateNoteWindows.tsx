@@ -168,7 +168,7 @@ function AccessListWindow({ args, close, open }: AreaWindowProps) {
     update(id, (n) => n && ({ ...n, access: n.access.map((r) => (r.id === row.id ? { ...r, stop: MOIS_TODAY, ended: true } : r)) }))
   }
   const btn = (key: string, label: string, onClick: () => void, disabled = !manage) => (
-    <PBButton style={{ minWidth: 100 }} disabled={disabled} data-tutorial-id={`host.mois.command.private-${key}`} onClick={onClick}>{label}</PBButton>
+    <PBButton style={{ minWidth: 100 }} disabled={disabled} command={`private-${key}`} onClick={onClick}>{label}</PBButton>
   )
   return (
     <StageWindow id={PRIVATE_WINDOWS.access} title="Access Control" width={940} height={380} onClose={close} bodyStyle={{ background: '#fff' }}>
@@ -331,7 +331,7 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
       <Group caption="Applies to">
         <div className="pb-row" style={{ gap: 12 }}>
           <PBInput w={440} readOnly value={mode === 'grant' ? argStr(args.grantee) || who : who} style={{ background: '#f0f0f0', color: '#666' }} data-tutorial-id="host.mois.field.private-applies-to" />
-          <PBButton disabled={ownerRecord || mode === 'edit'} data-tutorial-id="host.mois.command.private-select" onClick={() => setSearching('applies')}>Select...</PBButton>
+          <PBButton disabled={ownerRecord || mode === 'edit'} command="private-select" onClick={() => setSearching('applies')}>Select...</PBButton>
         </div>
       </Group>
       <Group caption="Duration">
@@ -352,7 +352,7 @@ export function AccessRecordWindow({ args, close, open }: AreaWindowProps) {
           <PBRadio name="private-breakglass" label="Authorized Users Only" checked={mode_ === 'authorized'} disabled={!ownerRecord} onChange={() => setBreakGlass('authorized')} tutorialId="host.mois.field.private-breakglass-authorized" />
           <span className="pb-row" style={{ gap: 30 }}>
             <PBRadio name="private-breakglass" label="Selected Users Only" checked={mode_ === 'selected'} disabled={!ownerRecord} onChange={() => setBreakGlass('selected')} tutorialId="host.mois.field.private-breakglass-selected" />
-            <PBButton disabled={!ownerRecord || mode_ !== 'selected'} data-tutorial-id="host.mois.command.private-select-users" onClick={() => setSearching('users')}>Select Users...</PBButton>
+            <PBButton disabled={!ownerRecord || mode_ !== 'selected'} command="private-select-users" onClick={() => setSearching('users')}>Select Users...</PBButton>
             {mode_ === 'selected' && users.length > 0 && <span style={{ color: '#555' }}>{users.join('; ')}</span>}
           </span>
           <PBRadio name="private-breakglass" label="Nobody" checked={mode_ === 'nobody'} disabled={!ownerRecord} onChange={() => setBreakGlass('nobody')} tutorialId="host.mois.field.private-breakglass-nobody" />

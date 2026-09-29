@@ -21,7 +21,7 @@ import {
 import { useOpenWindow } from './areaWindowRegistry'
 import { ChartIdentityStrip } from './patientKit'
 import {
-  FOLDER_OF, GOAL_PHASES, QuantitativeFields, deleteActionRow, goalCountOf, linkedRowAnchor, linkedToGoal,
+  FOLDER_OF, GOAL_PHASE_OPTIONS, QuantitativeFields, deleteActionRow, goalCountOf, linkedRowAnchor, linkedToGoal,
   unlinkRow, type LinkedRow,
 } from './GoalWindows'
 
@@ -195,7 +195,7 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
       {advanced && (
         <div className="pb-row" style={{ padding: '0 8px 2px' }} data-tutorial-id="host.mois.group.goal-advanced-search">
           <span className="pb-form__label">Phase:</span>
-          <PBSelect options={GOAL_PHASES} w={140} value={phase} data-tutorial-id="host.mois.field.goal-search-phase" onChange={(e) => { setPhase(e.target.value); setCur(0) }} />
+          <PBSelect options={GOAL_PHASE_OPTIONS} w={140} value={phase} data-tutorial-id="host.mois.field.goal-search-phase" onChange={(e) => { setPhase(e.target.value); setCur(0) }} />
         </div>
       )}
 

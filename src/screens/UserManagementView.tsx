@@ -11,6 +11,7 @@ import {
   type PolicyField, type UserColumn, type UserListSpec, type UserRow,
 } from '../data/userManagement'
 import { BandButtons, UMField, UM_CSS, umColumns } from './UserManagementKit'
+import { ModalWindow } from './dialogKit'
 import { DialogFooter, SectionCaption, footerButtons } from './formKit'
 import { useColumnFilters } from './listKit'
 import { NewUserDialog, UserAccountWindow, newUserDisplayName, type NewUserDraft } from './UserAccountWindow'
@@ -415,8 +416,7 @@ function PasswordPolicyDialog({ onClose }: { onClose: () => void }) {
   const head = (text: string) => <SectionCaption padding="6px 6px 4px" rule="#b0b0b0">{text}</SectionCaption>
   const tick = (label: string) => <div style={{ padding: '2px 0 2px 118px' }}><PBCheckbox label={label} /></div>
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 70 }}>
-      <PBWindow child controls={false} className="pb-um-dialog" title="Password Policy" onClose={onClose} tutorialId="host.mois.dialog.password-policy" style={{ width: 450 }}>
+    <ModalWindow id="password-policy" title="Password Policy" onClose={onClose} zIndex={70} windowClassName="pb-um-dialog" windowStyle={{ width: 450 }}>
         <div style={{ background: 'var(--pb-face)', padding: 6 }}>
           <div style={{ border: '1px solid #a0a0a0' }}>
             {head('Structure:')}
@@ -439,8 +439,7 @@ function PasswordPolicyDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <DialogFooter frame="pb" buttons={footerButtons(['Apply Changes', 'Cancel'], { wide: true, onPress: onClose })} />
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

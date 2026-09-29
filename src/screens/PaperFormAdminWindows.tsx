@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import type { DesignerRow } from '../data/designerSection'
 import { useScreenReport } from '../host/screen-state'
-import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBMessageBox, PBSelect, PBTextArea, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBMessageBox, PBSelect, PBTextArea, pbSlug, usePBInstrumentation } from '../pb'
 import { SelectAllPair, useTickSet } from './listKit'
-import { DesktopLayer } from './StageWindow'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Administration ▸ Designer Section ▸ Paper (PDF) Forms — the two windows
@@ -53,16 +53,17 @@ function Frame({ id, title, w, h, onClose, children, footer }: {
   const host = usePBInstrumentation()
   useScreenReport({ dialog: id })
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 82 }}>
-        <div data-tutorial-id={host?.anchor('dialog', id)}>
-          <PBWindow child controls={false} title={title} onClose={onClose} style={{ width: w, height: h, maxWidth: '100%', maxHeight: '100%' }}>
-            {children}
-            <div className="pb-footer">{footer}</div>
-          </PBWindow>
-        </div>
-      </div>
-    </DesktopLayer>
+    <ModalWindow
+      title={title}
+      onClose={onClose}
+      portal="inline"
+      zIndex={82}
+      wrap={{ tutorialId: host?.anchor('dialog', id) }}
+      windowStyle={{ width: w, height: h, maxWidth: '100%', maxHeight: '100%' }}
+    >
+      {children}
+      <div className="pb-footer">{footer}</div>
+    </ModalWindow>
   )
 }
 

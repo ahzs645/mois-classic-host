@@ -62,6 +62,10 @@ import {
 
    `admin` drops the chart from the caption and greys Select & Add Health
    Issue: Codes ▸ Find opens it from Administration, where there is no chart.
+   `systems`, `referenceSets` and `page` narrow it further: the Provider
+   window's Service tab offers SNOMED-CT alone, ticked, over its own page of
+   service concepts, with nothing under Reference Set(s) (AdminPickerWindows,
+   user capture #72).
 
    Anchors: host.mois.dialog.universal-search; fields usw-system-<slug>,
    usw-set-<slug>, usw-code-is, usw-category, usw-status-<active|inactive|
@@ -83,8 +87,9 @@ type Section = (typeof SECTIONS)[number]
 
 const HISTORY_KEY = 'usw:history'
 
-/** The encounter pickers' page of terms, with this session's Codes edits laid over it. */
-function useUswRows(): UswRow[] {
+/** A page of terms (the encounter pickers' by default), with this session's
+    Codes edits laid over it. */
+function useUswRows(page: UniversalSearchRow[]): UswRow[] {
   const [records] = useCodeRecords()
   return useMemo(() => {
     const byKey = new Map<string, CodeRecord>(records.map((r) => [codeKey(r.system, r.code), r]))
@@ -99,7 +104,7 @@ function useUswRows(): UswRow[] {
       sets: rec.sets.filter((s) => s.active).map((s) => s.set),
     })
     const seen = new Set<string>()
-    const out: UswRow[] = universalSearchRows.map((r) => {
+    const out: UswRow[] = page.map((r) => {
       const k = codeKey(r.system, r.code)
       seen.add(k)
       const rec = byKey.get(k)
@@ -107,7 +112,7 @@ function useUswRows(): UswRow[] {
     })
     for (const rec of records) if (!seen.has(codeKey(rec.system, rec.code))) out.push(fromRecord(rec))
     return out
-  }, [records])
+  }, [records, page])
 }
 
 /** The Alternate Terms lines for a row (`c62a9ff7…`). */
@@ -121,21 +126,29 @@ function alternateLines(row: UswRow | undefined): [string, string][] {
   return lines
 }
 
-export function UniversalSearchDialog({ onPick, onClose, admin }: {
+export function UniversalSearchDialog({ onPick, onClose, admin, systems: offered, referenceSets = universalReferenceSets, page = universalSearchRows }: {
   /** Select — hands the term back to the field that opened the window */
   onPick: (row: UniversalSearchRow, addHealthIssue?: boolean) => void
   onClose: () => void
   /** opened from Administration: no chart in the caption, no Add Health Issue */
   admin?: boolean
+  /** the only code systems offered, all ticked — the Provider's Service tab
+      offers SNOMED-CT alone (AdminPickerWindows, user capture #72) */
+  systems?: string[]
+  /** the Reference Set(s) pane's list; empty where there is nothing to
+      filter to (#72) */
+  referenceSets?: string[]
+  /** the page of terms the window opens on */
+  page?: UniversalSearchRow[]
 }) {
   const host = usePBInstrumentation()
   const patient = usePatient()
-  const all = useUswRows()
+  const all = useUswRows(page)
   /* Administration lists every code system the site holds; a chart lists the
      ones its lookup setting makes available */
-  const systemList = useMemo(() => (admin
+  const systemList = useMemo(() => offered ?? (admin
     ? [...new Set([...universalCodeSystems, ...CODE_SYSTEM_ROWS.filter((s) => all.some((r) => r.system === s.system)).map((s) => s.system)])]
-    : universalCodeSystems), [admin, all])
+    : universalCodeSystems), [offered, admin, all])
   const [systems, setSystems] = useState<string[]>(systemList)
   const [sets, setSets] = useState<string[]>([])
   const [scope, setScope] = useState('Code Systems')
@@ -250,10 +263,10 @@ export function UniversalSearchDialog({ onPick, onClose, admin }: {
                 scope="sets"
                 anchor="set"
                 w={280}
-                items={universalReferenceSets}
+                items={referenceSets}
                 checked={sets}
                 onToggle={(x) => toggle(sets, setSets, x)}
-                onAll={() => setSets(universalReferenceSets)}
+                onAll={() => setSets(referenceSets)}
                 onClear={() => setSets([])}
               />
             </div>

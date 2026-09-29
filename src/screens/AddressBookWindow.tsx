@@ -99,16 +99,10 @@ function Panel({ caption, right, style, children }: { caption: string; right?: R
 }
 
 function Link({ label, onClick }: { label: string; onClick: () => void }) {
-  const host = usePBInstrumentation()
   return (
-    <button
-      type="button"
-      className="pb-link"
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => { host?.report('command', { command: pbSlug(label) }); onClick() }}
-    >
+    <PBButton bare className="pb-link" command={pbSlug(label)} onClick={() => onClick()}>
       {label}
-    </button>
+    </PBButton>
   )
 }
 
@@ -350,16 +344,16 @@ export function AddressBookWindow({
                     key: 'fav', header: '', width: 18, align: 'center',
                     /* `46bb77ee…`: the heart puts the record on My Favourites */
                     render: (r) => (
-                      <button
-                        type="button"
+                      <PBButton
+                        bare
                         aria-label={isFavourite(r) ? 'Remove from favourites' : 'Add to favourites'}
-                        data-tutorial-id={host?.anchor('command', `favourite-${pbSlug(r.name)}`)}
+                        command={`favourite-${pbSlug(r.name)}`}
                         onMouseDown={(e) => e.stopPropagation()}
-                        onClick={() => { host?.report('command', { command: `favourite-${pbSlug(r.name)}` }); toggleFavourite(r) }}
+                        onClick={() => toggleFavourite(r)}
                         style={{ border: 0, background: 'transparent', padding: 0, color: isFavourite(r) ? '#e00000' : '#9a9a9a', cursor: 'default' }}
                       >
                         ♥
-                      </button>
+                      </PBButton>
                     ),
                   },
                   { key: 'name', header: 'Name', width: '33%' },

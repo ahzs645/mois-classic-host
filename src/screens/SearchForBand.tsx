@@ -218,18 +218,18 @@ export function SearchForBand({ context, fields, value, onChange, right, style }
             if (e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); setDropped((d) => !d) }
           }}
         />
-        <button
-          type="button"
+        <PBButton
+          bare
           className="pb-inputgroup__btn pb-inputgroup__btn--drop"
           aria-expanded={dropped}
           aria-controls={dropped ? listId : undefined}
-          data-tutorial-id={host?.anchor('command', 'search-for-history')}
+          command="search-for-history"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => { host?.report('command', { command: 'search-for-history' }); setDropped((d) => !d); input.current?.focus() }}
+          onClick={() => { setDropped((d) => !d); input.current?.focus() }}
           title="Search history"
         >
           ▾
-        </button>
+        </PBButton>
         <button
           type="button"
           className="pb-inputgroup__btn pb-inputgroup__btn--dots"

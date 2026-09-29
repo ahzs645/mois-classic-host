@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { directoryEntries, type DirectoryEntry, type DirectoryType } from '../data/providers'
-import { PBButton, PBCheckbox, PBDataWindow, PBInput, PBWindow, pbSlug } from '../pb'
-import { ModalLayer } from './dialogKit'
+import { PBButton, PBCheckbox, PBDataWindow, PBInput, pbSlug } from '../pb'
+import { ModalWindow } from './dialogKit'
 import './directory-search-window.css'
 
 /* ============================================================================
@@ -56,62 +56,59 @@ export function DirectorySearchWindow({ initial, onPick, onClose, zIndex = 99 }:
     grid.current?.querySelector(`[data-tutorial-id="host.mois.row.directory-${pbSlug(initial)}"]`)?.scrollIntoView({ block: 'center' })
   }, [initial])
   return (
-    <ModalLayer zIndex={zIndex}>
-      <PBWindow child controls={false} title="MOIS - Search Window" onClose={onClose}
-        tutorialId="host.mois.dialog.directory-search" className="pb-directory-search"
-        style={{ width: 'min(1080px, 100%)', height: 'min(770px, 100%)' }}>
-        <div className="pb-directory-search__filters">
-          <div className="pb-directory-search__group">
-            <div className="pb-directory-search__caption">Search for:</div>
-            <label>Name: <PBInput value={name} onChange={(event) => setName(event.target.value)} w={245} /></label>
-            <label>Group: <PBInput value={group} onChange={(event) => setGroup(event.target.value)} w={245} /></label>
-          </div>
-          <div className="pb-directory-search__group">
-            <div className="pb-directory-search__caption">Include Type(s):</div>
-            {TYPES.map(({ type, label }) => (
-              <PBCheckbox key={type} label={label} checked={types[type]}
-                onChange={(next) => setTypes((state) => ({ ...state, [type]: next }))} />
-            ))}
-          </div>
-          <div className="pb-directory-search__group">
-            <div className="pb-directory-search__caption">Record Status:</div>
-            <PBCheckbox label="Active" checked={active} onChange={setActive} />
-            <PBCheckbox label="Inactive" checked={inactive} onChange={setInactive} />
-          </div>
+    <ModalWindow id="directory-search" title="MOIS - Search Window" onClose={onClose} zIndex={zIndex}
+      windowClassName="pb-directory-search" windowStyle={{ width: 'min(1080px, 100%)', height: 'min(770px, 100%)' }}>
+      <div className="pb-directory-search__filters">
+        <div className="pb-directory-search__group">
+          <div className="pb-directory-search__caption">Search for:</div>
+          <label>Name: <PBInput value={name} onChange={(event) => setName(event.target.value)} w={245} /></label>
+          <label>Group: <PBInput value={group} onChange={(event) => setGroup(event.target.value)} w={245} /></label>
         </div>
-        <div className="pb-directory-search__grid" ref={grid}>
-          <PBDataWindow
-            columns={[
-              { key: 'name', header: 'Name', width: 250 },
-              {
-                key: 'associated', header: 'Associated User / Members', width: 196,
-                render: (entry) => entry.type === 'PROVIDER'
-                  ? entry.associated ?? ''
-                  : <span className="pb-directory-search__members">View Members</span>,
-              },
-              { key: 'group', header: 'Group', width: 182 },
-              { key: 'type', header: 'Type', width: 116 },
-              { key: 'active', header: 'Active', width: 62, align: 'center', render: (entry) => (entry.active === false ? 'N' : 'Y') },
-              { key: 'practitionerNo', header: 'Practition No.', width: 92 },
-              { key: 'payeeNo', header: 'Payee No.', width: 72 },
-              { key: 'paymentType', header: 'Payment Type' },
-            ]}
-            rows={rows}
-            current={current}
-            onCurrentChange={setCur}
-            onActivate={(entry) => onPick(entry)}
-            rowTutorialId={(entry) => `host.mois.row.directory-${pbSlug(String(entry.name))}`}
-            empty="No records match."
-          />
+        <div className="pb-directory-search__group">
+          <div className="pb-directory-search__caption">Include Type(s):</div>
+          {TYPES.map(({ type, label }) => (
+            <PBCheckbox key={type} label={label} checked={types[type]}
+              onChange={(next) => setTypes((state) => ({ ...state, [type]: next }))} />
+          ))}
         </div>
-        <div className="pb-directory-search__footer">
-          <PBCheckbox label="Save Filter as My Default" checked={saveFilter} onChange={setSaveFilter} />
-          <div className="pb-directory-search__buttons">
-            <PBButton disabled={!row} onClick={() => row && onPick(row)} command="directory-ok">Ok</PBButton>
-            <PBButton onClick={onClose}>Cancel</PBButton>
-          </div>
+        <div className="pb-directory-search__group">
+          <div className="pb-directory-search__caption">Record Status:</div>
+          <PBCheckbox label="Active" checked={active} onChange={setActive} />
+          <PBCheckbox label="Inactive" checked={inactive} onChange={setInactive} />
         </div>
-      </PBWindow>
-    </ModalLayer>
+      </div>
+      <div className="pb-directory-search__grid" ref={grid}>
+        <PBDataWindow
+          columns={[
+            { key: 'name', header: 'Name', width: 250 },
+            {
+              key: 'associated', header: 'Associated User / Members', width: 196,
+              render: (entry) => entry.type === 'PROVIDER'
+                ? entry.associated ?? ''
+                : <span className="pb-directory-search__members">View Members</span>,
+            },
+            { key: 'group', header: 'Group', width: 182 },
+            { key: 'type', header: 'Type', width: 116 },
+            { key: 'active', header: 'Active', width: 62, align: 'center', render: (entry) => (entry.active === false ? 'N' : 'Y') },
+            { key: 'practitionerNo', header: 'Practition No.', width: 92 },
+            { key: 'payeeNo', header: 'Payee No.', width: 72 },
+            { key: 'paymentType', header: 'Payment Type' },
+          ]}
+          rows={rows}
+          current={current}
+          onCurrentChange={setCur}
+          onActivate={(entry) => onPick(entry)}
+          rowTutorialId={(entry) => `host.mois.row.directory-${pbSlug(String(entry.name))}`}
+          empty="No records match."
+        />
+      </div>
+      <div className="pb-directory-search__footer">
+        <PBCheckbox label="Save Filter as My Default" checked={saveFilter} onChange={setSaveFilter} />
+        <div className="pb-directory-search__buttons">
+          <PBButton disabled={!row} onClick={() => row && onPick(row)} command="directory-ok">Ok</PBButton>
+          <PBButton onClick={onClose}>Cancel</PBButton>
+        </div>
+      </div>
+    </ModalWindow>
   )
 }

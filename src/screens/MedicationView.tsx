@@ -6,7 +6,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow } from '../host/screen-windows'
 import {
-  PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput,
+  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput,
   PBLookup, PBTabs, PBTextArea, PBViewHeader, pbSlug, type PBColumn, type PBMenuItem,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -344,7 +344,9 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
           rowTutorialId={(m) => `host.mois.row.${rowSlug(m)}`}
           empty={rx ? 'No prescriptions on file.' : 'No long term medications on file.'}
         />
-        {menuAt && <OptionMenu at={menuAt} items={contextItems} onClose={() => setMenuAt(null)} />}
+        {/* reported as `host.dialog = 'record-option-list'` while it is down,
+            the way the report folders' Option List is */}
+        {menuAt && <RowContextMenu at={menuAt} items={contextItems} onClose={() => setMenuAt(null)} reportDialog="record-option-list" />}
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 0' }}>
@@ -562,13 +564,6 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
   )
 }
 
-/** The row's right-click menu, reported as `host.dialog = 'record-option-list'`
-    while it is down, the way the report folders' Option List is. */
-function OptionMenu({ at, items, onClose }: { at: ContextMenuAt; items: PBMenuItem[]; onClose: () => void }) {
-  useScreenReport({ dialog: 'record-option-list' })
-  return <RowContextMenu at={at} items={items} onClose={onClose} />
-}
-
 function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp?: boolean; med?: Med; onPrintHistory: () => void }) {
   const flag = (key: string) => med?.record?.[key] === 'Y'
   return (
@@ -632,7 +627,7 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
               <span style={{ width: 70 }}>Last Printed:</span>
               <span style={{ width: 140 }}>{med?.lastPrinted}</span>
               {med?.lastPrinted && (
-                <button type="button" className="pb-link" data-tutorial-id="host.mois.command.view-print-history" onClick={onPrintHistory}>View Print History</button>
+                <PBButton bare className="pb-link" command="view-print-history" onClick={onPrintHistory}>View Print History</PBButton>
               )}
             </div>
           </>

@@ -228,9 +228,7 @@ export function QualityReviewTab({
                 return (
                   <PBButton
                     size="sm"
-                    data-tutorial-id={
-                      r.total ? 'host.mois.command.tear-off-all' : `host.mois.command.tear-off-${pbSlug(r.item)}`
-                    }
+                    command={r.total ? 'tear-off-all' : `tear-off-${pbSlug(r.item)}`}
                     onClick={() => { setTornOff(r.item); onTearOff?.(r.item) }}
                   >
                     {r.total ? 'Tear Off All' : 'Tear Off'}

@@ -3,7 +3,7 @@ import { universalSearchRows } from '../data/encounterPickers'
 import { usePatient } from '../data/patient-context'
 import type { WcbClaimEntry } from '../data/patients'
 import { WCB_AREA_OF_INJURY, type WcbCode, type WcbValidation } from '../data/wcbForm'
-import { PBBand, PBButton, PBDataWindow, PBWindow, pbSlug } from '../pb'
+import { PBBand, PBButton, PBDataWindow, pbSlug } from '../pb'
 import { ModalWindow } from './dialogKit'
 import { LookupBand, LookupPager, PickListWindow, SIZE, SearchForRow, usePagedCursor } from './lookupKit'
 import { PatientFieldRow } from './patientKit'
@@ -218,10 +218,9 @@ export function WcbMspValidationWindow({ rows, onPrint, onClose }: {
   onClose: () => void
 }) {
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={LAYER}>
-      <PBWindow child controls={false} icon={<WarnGlyph />} tutorialId="host.mois.dialog.wcb-msp-claim-validation"
-        title="WCB Form MSP Claim Validation Warnings / Errors" onClose={onClose}
-        style={{ width: 'min(868px, 100%)', height: 'min(625px, 100%)' }}>
+    <ModalWindow id="wcb-msp-claim-validation" icon={<WarnGlyph />} layerStyle={LAYER}
+      title="WCB Form MSP Claim Validation Warnings / Errors" onClose={onClose}
+      windowStyle={{ width: 'min(868px, 100%)', height: 'min(625px, 100%)' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px 0' }}>
           <div style={{ ...PANEL, flex: '1 1 auto', minHeight: 0 }}>
             <PBBand><b>Validation Warning and Error List for WCB Form MSP Claim submission</b></PBBand>
@@ -256,8 +255,7 @@ export function WcbMspValidationWindow({ rows, onPrint, onClose }: {
           <span style={{ flex: '1 1 auto' }} />
           <DialogButton id="wcb-validation-close" width={75} isDefault onClick={onClose}>Close</DialogButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

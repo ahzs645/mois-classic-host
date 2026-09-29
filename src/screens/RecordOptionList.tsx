@@ -67,11 +67,6 @@ import { tagRecordFor, TagToCarePlanDialog } from './TagToCarePlanDialog'
 /** The folders whose records carry this list (ClinicalReportView nodes). */
 export const OPTION_LIST_FOLDERS = new Set(['measures', 'imaging', 'consults', 'procedures', 'paper', 'admissions'])
 
-function OpenMenu({ at, items, onClose }: { at: ContextMenuAt; items: PBMenuItem[]; onClose: () => void }) {
-  useScreenReport({ dialog: 'record-option-list' })
-  return <RowContextMenu at={at} items={items} onClose={onClose} />
-}
-
 /** The tag window the frame opens for a folder's first row, here opened for
     the record right-clicked; it reports itself as the frame's would. */
 function TagWindow({ node, source, onClose }: { node: string; source?: MoisRecord; onClose: () => void }) {
@@ -159,7 +154,7 @@ export function useRecordOptionList({ node, record, commands, setCur }: {
     active,
     onContextMenu,
     rowTutorialId: active && node !== 'measures' ? (_row, index) => `host.mois.row.${node}-${index}` : undefined,
-    menu: at ? <OpenMenu at={at} items={items} onClose={() => setAt(null)} /> : null,
+    menu: at ? <RowContextMenu at={at} items={items} onClose={() => setAt(null)} reportDialog="record-option-list" /> : null,
     windows: tagging ? <TagWindow node={node} source={record} onClose={() => setTagging(false)} /> : null,
     openWorkflowSummary: () => { open(RECORD_OPTION_WINDOWS.workflowSummary, about) },
   }

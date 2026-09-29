@@ -4,11 +4,11 @@ import type { AddressBookEntry } from '../data/addressBook'
 import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBButton, PBDataWindow, PBMenuBar, PBMessageBox, PBTabs, PBWindow, pbSlug, usePBInstrumentation, type PBMenuItem,
+  PBButton, PBDataWindow, PBMenuBar, PBMessageBox, PBTabs, pbSlug, usePBInstrumentation, type PBMenuItem,
 } from '../pb'
 import { AddressBookWindow } from './AddressBookWindow'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
-import { ModalLayer, ModalWindow } from './dialogKit'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    The MOIS Viewer's own sub-windows and its bottom toolbar
@@ -76,8 +76,32 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
     />
   )
   return (
-    <ModalLayer zIndex={92}>
-      <PBWindow child controls={false} title="Send eFax" onClose={onClose} tutorialId="host.mois.dialog.send-efax" style={{ width: 650, height: 390, maxWidth: 'calc(100% - 16px)' }}>
+    <ModalWindow id="send-efax" title="Send eFax" onClose={onClose} zIndex={92}
+      windowStyle={{ width: 650, height: 390, maxWidth: 'calc(100% - 16px)' }}
+      after={<>
+        {book && (
+          <AddressBookWindow
+            mode="recipient"
+            onClose={() => setBook(false)}
+            onSelect={(e: AddressBookEntry) => {
+              /* "ensure to include the country code in front of the fax number" */
+              setRows((all) => all.map((r, j) => (j === cur ? { recipient: e.name, fax: e.fax ? (e.fax.startsWith('1') ? e.fax : `1${e.fax}`) : r.fax } : r)))
+              setBook(false)
+            }}
+          />
+        )}
+        {message === 'queued' && (
+          <PBMessageBox title="Success: Fax Queued" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'fax-queued-ok' }]} onClose={() => { setMessage(null); onClose() }}>
+            Successfully queued file to SRFax.<br />Please check your SRFax account for the faxing status.
+          </PBMessageBox>
+        )}
+        {message === 'missing' && (
+          <PBMessageBox title="Send eFax" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'efax-missing-ok' }]} onClose={() => setMessage(null)}>
+            You must enter a Recipient and a fax number.
+          </PBMessageBox>
+        )}
+      </>}
+    >
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 14px 0', background: 'var(--pb-face)' }}>
           <div style={{ border: '1px solid #a0a0a0', background: '#fff', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
             <div className="pb-band">eFax Account</div>
@@ -86,11 +110,11 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
               <span>{acct ? `${acct.alias}  (${acct.account})` : '(no eFax account)'}</span>
               <span>{acct?.fax.replace(/-/g, '.') ?? ''}</span>
               <span className="pb-row__spacer" />
-              <button type="button" className="pb-link" style={{ color: '#0000ff', textDecoration: 'underline' }}
-                data-tutorial-id={host?.anchor('command', 'efax-change')}
-                onClick={() => { host?.report('command', { command: 'efax-change' }); setAccount((a) => (accounts.length ? (a + 1) % accounts.length : 0)) }}>
+              <PBButton bare className="pb-link" style={{ color: '#0000ff', textDecoration: 'underline' }}
+                command="efax-change"
+                onClick={() => setAccount((a) => (accounts.length ? (a + 1) % accounts.length : 0))}>
                 Change...
-              </button>
+              </PBButton>
             </div>
             <div className="pb-band">
               <span>Recipient List</span><span className="pb-band__spacer" />
@@ -125,29 +149,7 @@ export function SendEfaxWindow({ title, onClose }: { title: string; onClose: () 
           <PBButton wide command="efax-cancel" onClick={onClose}>Cancel</PBButton>
           <span className="pb-footer__spacer" />
         </div>
-      </PBWindow>
-      {book && (
-        <AddressBookWindow
-          mode="recipient"
-          onClose={() => setBook(false)}
-          onSelect={(e: AddressBookEntry) => {
-            /* "ensure to include the country code in front of the fax number" */
-            setRows((all) => all.map((r, j) => (j === cur ? { recipient: e.name, fax: e.fax ? (e.fax.startsWith('1') ? e.fax : `1${e.fax}`) : r.fax } : r)))
-            setBook(false)
-          }}
-        />
-      )}
-      {message === 'queued' && (
-        <PBMessageBox title="Success: Fax Queued" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.fax-queued-ok' }]} onClose={() => { setMessage(null); onClose() }}>
-          Successfully queued file to SRFax.<br />Please check your SRFax account for the faxing status.
-        </PBMessageBox>
-      )}
-      {message === 'missing' && (
-        <PBMessageBox title="Send eFax" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.efax-missing-ok' }]} onClose={() => setMessage(null)}>
-          You must enter a Recipient and a fax number.
-        </PBMessageBox>
-      )}
-    </ModalLayer>
+    </ModalWindow>
   )
 }
 
@@ -252,16 +254,13 @@ export function CustomizeToolbarsDialog({ visible, onToggle, onReset, onClose }:
 }
 
 /* --- the bottom toolbar ----------------------------------------------------- */
-const Glyph = ({ children, title, onClick, pressed, id }: { children: ReactNode; title: string; onClick?: () => void; pressed?: boolean; id: string }) => {
-  const host = usePBInstrumentation()
-  return (
-    <button type="button" title={title} aria-pressed={pressed || undefined} data-tutorial-id={host?.anchor('command', `viewer-${id}`)}
-      onClick={() => { host?.report('command', { command: `viewer-${id}` }); onClick?.() }}
-      style={{ height: 22, minWidth: 22, padding: '0 3px', border: pressed ? '1px solid #c9a24a' : '1px solid transparent', background: pressed ? 'linear-gradient(#fdf3d0, #f6dc90)' : 'none', font: 'inherit', cursor: 'default' }}>
-      {children}
-    </button>
-  )
-}
+const Glyph = ({ children, title, onClick, pressed, id }: { children: ReactNode; title: string; onClick?: () => void; pressed?: boolean; id: string }) => (
+  <PBButton bare title={title} aria-pressed={pressed || undefined} command={`viewer-${id}`}
+    onClick={() => onClick?.()}
+    style={{ height: 22, minWidth: 22, padding: '0 3px', border: pressed ? '1px solid #c9a24a' : '1px solid transparent', background: pressed ? 'linear-gradient(#fdf3d0, #f6dc90)' : 'none', font: 'inherit', cursor: 'default' }}>
+    {children}
+  </PBButton>
+)
 
 export function ViewerBottomToolbar({ show, fieldsPane, onFieldsPane, onToggleToolbar, visible }: {
   /** which of the four bottom toolbars are on */
@@ -339,7 +338,7 @@ export function ViewerBottomToolbar({ show, fieldsPane, onFieldsPane, onToggleTo
 function FaxQueuedBox({ close }: AreaWindowProps) {
   useScreenReport({ dialog: 'fax-queued' })
   return (
-    <PBMessageBox title="Success: Fax Queued" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.fax-queued-ok' }]} onClose={close}>
+    <PBMessageBox title="Success: Fax Queued" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'fax-queued-ok' }]} onClose={close}>
       Successfully queued file to SRFax.<br />Please check your SRFax account for the faxing status.
     </PBMessageBox>
   )
@@ -355,7 +354,7 @@ function SendEfaxById({ args, close }: AreaWindowProps) {
   const srfax = useSrfaxEnabled()
   if (!srfax) {
     return (
-      <PBMessageBox title="Send eFax" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.efax-disabled-ok' }]} onClose={close}>
+      <PBMessageBox title="Send eFax" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'efax-disabled-ok' }]} onClose={close}>
         SRFax is not enabled. Set APP SETTING - SRFAX ▸ Enabled to Y in System Settings and restart MOIS.
       </PBMessageBox>
     )

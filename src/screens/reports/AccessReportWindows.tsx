@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useScreenReport } from '../../host/screen-state'
-import { pad2 } from '../../data/clock'
+import { DAY_NAMES, MONTH_NAMES, pad2 } from '../../data/clock'
 import { MOIS_TODAY } from '../../data/patients'
 import { RS_PROVIDERS } from '../../data/reportSpecs/types'
 import { daybookFor, RESOURCES, resourceDayFor, visitCodeRows, type Appointment } from '../../data/daybook'
@@ -98,9 +98,7 @@ const PROVIDERS = RS_PROVIDERS.filter(Boolean)
 const DAY = 86400000
 /** the day book's day 0 (data/daybook.ts) */
 const BOOK_ZERO = Date.UTC(2026, 7, 11)
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_TICKS: [number, string][] = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']]
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 function parseDate(s: string): number | null {
   const m = /^(\d{4})\.(\d{2})\.(\d{2})$/.exec(s.trim())
   if (!m || m[1] === '0000') return null
@@ -155,7 +153,7 @@ function search(c: Criteria): Hit[] {
     const date = `${d.getUTCFullYear()}.${pad2(d.getUTCMonth() + 1)}.${pad2(d.getUTCDate())}`
     for (const [s, e] of wins) {
       hits.push({
-        who: c.who, date, day: DAY_NAMES[d.getUTCDay()]!, month: `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`,
+        who: c.who, date, day: DAY_NAMES[d.getUTCDay()]!, month: `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}`,
         start: clock(s), end: clock(e), minutes: String(e - s),
       })
     }

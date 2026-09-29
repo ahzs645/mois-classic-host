@@ -13,7 +13,7 @@ import { practiceRecords } from '../data/practiceRecords'
 import { argStr } from '../data/text'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, usePBInstrumentation,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, usePBInstrumentation,
 } from '../pb'
 import { FormLabel } from './formKit'
 import { useRecordList } from './listKit'
@@ -102,15 +102,12 @@ export const blankAgent = (): EventAgent => ({
 /** A band of flat command buttons inside a tab or window (New Agent |
     Delete Agent …), each anchored and reported as `host.mois.command.{id}`. */
 function BandCommands({ commands }: { commands: { id: string; label: string; onClick?: () => void; disabled?: boolean }[] }) {
-  const host = usePBInstrumentation()
   return (
     <div className="pb-cmdrow" style={{ flex: 'none', background: 'var(--pb-face)' }}>
       {commands.map((c) => (
-        <button key={c.id} type="button" className="pb-cmdrow__btn" disabled={c.disabled}
-          data-tutorial-id={host?.anchor('command', c.id)}
-          onClick={() => { host?.report('command', { command: c.id }); c.onClick?.() }}>
+        <PBButton key={c.id} bare className="pb-cmdrow__btn" disabled={c.disabled} command={c.id} onClick={() => c.onClick?.()}>
           {c.label}
-        </button>
+        </PBButton>
       ))}
     </div>
   )

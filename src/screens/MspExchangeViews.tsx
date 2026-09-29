@@ -5,8 +5,9 @@ import {
 import { useScreenReport } from '../host/screen-state'
 import { billingPrograms } from '../data/billingPrograms'
 import {
-  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBTextArea, PBViewHeader, PBWindow, pbSlug,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBTextArea, PBViewHeader, pbSlug,
 } from '../pb'
+import { ModalWindow } from './dialogKit'
 import { Body, Heading, Lbl, Prompt, Radio, StatusList } from './ExchangeKit'
 
 /* ============================================================================
@@ -203,15 +204,19 @@ function UpdateDobcWindow({ onClose }: { onClose: () => void }) {
   const [create, setCreate] = useState(true)
   const [done, setDone] = useState(false)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, placeItems: 'start center', paddingTop: 30 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="Update DOBC Private Fees"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.update-dobc-private-fees"
-        style={{ width: 'min(760px, calc(100% - 16px))' }}
-      >
+    <ModalWindow
+      id="update-dobc-private-fees"
+      title="Update DOBC Private Fees"
+      onClose={onClose}
+      zIndex={60}
+      layerStyle={{ placeItems: 'start center', paddingTop: 30 }}
+      windowStyle={{ width: 'min(760px, calc(100% - 16px))' }}
+      after={done && (
+        <Prompt title="Update Completed" icon="info" buttons={['OK']} onClose={() => { setDone(false); onClose() }}>
+          Your private fee codes have been updated.
+        </Prompt>
+      )}
+    >
         <div style={{ background: '#c8dcfa', padding: '4px 8px', fontWeight: 700 }}>{DOBC_UPDATE.band}</div>
         <div className="pb-row" style={{ padding: '6px 8px', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: '1 1 auto' }}>
@@ -246,12 +251,6 @@ function UpdateDobcWindow({ onClose }: { onClose: () => void }) {
               (3134339; the capture is cropped above it) */}
           <PBButton command="update-fees" onClick={() => setDone(true)}>Update Fees</PBButton>
         </div>
-      </PBWindow>
-      {done && (
-        <Prompt title="Update Completed" icon="info" buttons={['OK']} onClose={() => { setDone(false); onClose() }}>
-          Your private fee codes have been updated.
-        </Prompt>
-      )}
-    </div>
+    </ModalWindow>
   )
 }

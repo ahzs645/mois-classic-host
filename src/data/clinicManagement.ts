@@ -1,3 +1,4 @@
+import { rosterProvider } from './clinicRoster'
 import { MSP_LOCATION_ROWS } from './mspLocations'
 /* ============================================================================
    Administration ▸ Clinic Management (and the two list screens that sit
@@ -225,8 +226,12 @@ const PROVIDER_LIST: ClinicListSpec = {
      "Provider" for tracking encounters, the record the Provider Type
      Conversion Utility exists for. */
   rows: [
-    { name: 'BEARDWOOD, WALTER', pract: '40881', payee: '40881', payment: 'MSP', ptype: 'MD', active: 'Y', serviceEnd: '' },
-    { name: 'SHEWCHUK, LEAH', pract: '33120', payee: '33120', payment: 'MSP', ptype: 'MD', active: 'Y', serviceEnd: '' },
+    /* the clinic roster's numbers are defined in data/clinicRoster, which
+       took them from this list */
+    ...['BEARDWOOD, WALTER', 'SHEWCHUK, LEAH'].map((name) => {
+      const p = rosterProvider(name)!
+      return { name, pract: p.pract, payee: p.payee, payment: 'MSP', ptype: p.type, active: 'Y', serviceEnd: '' }
+    }),
     { name: 'OKUDA, TIKA', pract: '21044', payee: '21044', payment: 'AP', ptype: 'MD', active: 'Y', serviceEnd: '' },
     { name: 'GRUBB, HELENA (LPN)', pract: '', payee: '', payment: '', ptype: 'LPN', active: 'Y', serviceEnd: '' },
     { name: 'DHALIWAL, RUPINDER (RN)', pract: '', payee: '', payment: '', ptype: 'RN', active: 'Y', serviceEnd: '' },
@@ -884,6 +889,17 @@ export const VISIT_MODES: string[] = [
     ? ['CLIENT ALONE', 'CLIENT AND THIRD PARTY', 'CLIENT IN GROUP', 'THIRD PARTY'].map((who) => `${mode.toUpperCase()} WITH ${who}`)
     : ['CLIENT ALONE', 'CLIENT AND THIRD PARTY', 'CLIENT IN GROUP', 'THIRD PARTY ALONE'].map((who) => `${mode.toUpperCase()} WITH ${who}`)
 ))
+
+/* Visit Mode is stored as its SNOMED CT concept (str_visit_mode); MOIS
+   prints the mode's name (301931 `a9bd769a…`: DIRECT ENCOUNTER WITH CLIENT
+   ALONE, one of VISIT_MODES above) and the Encounter list its short name.
+   Only the concept chart 87288's encounters use and whose name is evidenced
+   is mapped; another one prints as stored. Named apart from VISIT_MODES (the
+   name list) — the Encounter window used to export this map under the same
+   name. */
+export const VISIT_MODE_CONCEPTS: Record<string, { short: string; name: string }> = {
+  '140182721000087101': { short: 'DE', name: 'DIRECT ENCOUNTER WITH CLIENT ALONE' },
+}
 
 /** Alias ID ▸ Source, as `9889ab2692c4…` (303184) drops it. */
 export const ALIAS_SOURCES: { code: string; desc: string }[] = [

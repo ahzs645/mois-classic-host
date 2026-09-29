@@ -598,7 +598,6 @@ const SECTION_CODES = [...new Set([
 ])].sort()
 
 function ChartSummaryConfiguration() {
-  const host = usePBInstrumentation()
   const [summary, setSummary] = useState('patient')
   const [picking, setPicking] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -648,19 +647,18 @@ function ChartSummaryConfiguration() {
         {picking && (
           <div className="pb-menu" style={{ position: 'absolute', left: 405, top: 22, zIndex: 20, background: '#fff', border: '1px solid #808080', minWidth: 190 }} data-tutorial-id="host.mois.dialog.change-summary">
             {CHART_SUMMARIES.map((s) => (
-              <button
+              <PBButton
                 key={s.key}
-                type="button"
+                bare
                 className="pb-menu__item"
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '2px 8px', background: s.key === summary ? '#cce4f7' : 'transparent', border: 0 }}
-                data-tutorial-id={host?.anchor('command', `summary-${s.key}`)}
+                command={`summary-${s.key}`}
                 onClick={() => {
-                  host?.report('command', { command: `summary-${s.key}` })
                   setSummary(s.key); setSections(() => stored(s.key)); setCur(0); setPicking(false); setSaved(false)
                 }}
               >
                 {s.label}
-              </button>
+              </PBButton>
             ))}
           </div>
         )}

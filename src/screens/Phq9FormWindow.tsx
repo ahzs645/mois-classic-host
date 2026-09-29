@@ -6,7 +6,8 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBCheckbox, PBDropField, PBInput, PBPatientBand, PBRadio, PBWindow } from '../pb'
+import { PBButton, PBCheckbox, PBDropField, PBInput, PBPatientBand, PBRadio } from '../pb'
+import { ModalWindow } from './dialogKit'
 import { NAVY } from './formKit'
 import './legacy-dynamic-form.css'
 
@@ -153,16 +154,14 @@ export function Phq9FormWindow({ header, records, initial, modified, onSave, onC
   const name = [patient.first, patient.middle, patient.last].filter(Boolean).join(' ').toUpperCase()
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 97 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="PATIENT HEALTH QUESTIONNAIRE  (v1)"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.phq9-form"
-        className="pb-legacy-dform"
-        style={{ width: W, height: H, maxWidth: '100%', maxHeight: '100%', ['--pb-titlebar-h' as string]: '22px' }}
-      >
+    <ModalWindow
+      id="phq9-form"
+      title="PATIENT HEALTH QUESTIONNAIRE  (v1)"
+      onClose={onClose}
+      windowClassName="pb-legacy-dform"
+      layerStyle={{ position: 'fixed', padding: 8, zIndex: 97 }}
+      windowStyle={{ width: W, height: H, maxWidth: '100%', maxHeight: '100%', ['--pb-titlebar-h' as string]: '22px' }}
+    >
         {/* the blue patient band, 22–90 */}
         <PBPatientBand
           layout="placed"
@@ -288,14 +287,13 @@ export function Phq9FormWindow({ header, records, initial, modified, onSave, onC
         </div>
 
         <div className="pb-legacy-dform__footer" style={{ height: 38, flex: '0 0 auto', alignItems: 'center', gap: 5, padding: '0 6px', background: '#005594' }}>
-          <PBButton style={{ width: 93, height: 25, minWidth: 0 }} data-tutorial-id="host.mois.command.save-form" onClick={save}>
+          <PBButton style={{ width: 93, height: 25, minWidth: 0 }} command="save-form" onClick={save}>
             Save Form
           </PBButton>
-          <PBButton style={{ width: 93, height: 25, minWidth: 0 }} data-tutorial-id="host.mois.command.close-form" onClick={onClose}>
+          <PBButton style={{ width: 93, height: 25, minWidth: 0 }} command="close-form" onClick={onClose}>
             Close Form
           </PBButton>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }

@@ -9,7 +9,7 @@ import { CLINIC } from '../data/printPages'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBButton, PBCheckbox, PBTabs, PBWindow, pbSlug } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
-import { ModalLayer, ModalWindow } from './dialogKit'
+import { ModalWindow } from './dialogKit'
 import { DialogFooter } from './formKit'
 import './health-maintenance-review.css'
 
@@ -349,99 +349,99 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
   }
 
   return (
-    <ModalLayer zIndex={96} style={{ position: 'fixed', padding: 8 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.health-maintenance-review"
-        title={`Health Maintenance Review : As Of ${MOIS_TODAY} [read only]`}
-        onClose={onClose}
-        className="pb-hmr"
-        style={{ width: 'min(827px, 100%)', height: 'min(750px, 100%)' }}
-      >
-        <div className="pb-hmr__head">
-          <div className="pb-hmr__ident">
-            <span className="pb-hmr__lbl">Patient:</span><b>{`${patient.first} ${patient.last}`.toUpperCase()}</b>
-            <span className="pb-hmr__lbl">DoB:</span><b>{patient.dob}</b>
-            <span className="pb-hmr__lbl">BC Health No.:</span><b>{patient.bchn ?? ''}</b>
-            <span className="pb-hmr__lbl">Alias:</span><b>{(patient.alias ?? '').toUpperCase()}</b>
-            <span className="pb-hmr__lbl">Gender:</span><b>{patient.sex}</b>
-            <span className="pb-hmr__lbl">Chart:</span><b>{patient.chart}</b>
-          </div>
-          <div className="pb-hmr__buttons">
-            <PBButton command="hmr-flow-sheet" onClick={() => onFlowSheet()}><u>F</u>low Sheet</PBButton>
-            <PBButton command="hmr-print" onClick={print}><u>P</u>rint</PBButton>
-            <PBButton disabled={!careTab} command="hmr-tear-off" onClick={tearOff}><u>T</u>ear Off</PBButton>
-            <PBButton disabled={!careTab} command="hmr-clipboard" onClick={() => setClipOpen(true)}><u>C</u>lipboard</PBButton>
-            {copied && (
-              <span className="pb-hmr__note" data-tutorial-id="host.mois.field.hmr-copied">{`${copied} copied to the clipboard`}</span>
+    <ModalWindow
+      id="health-maintenance-review"
+      title={`Health Maintenance Review : As Of ${MOIS_TODAY} [read only]`}
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowClassName="pb-hmr"
+      windowStyle={{ width: 'min(827px, 100%)', height: 'min(750px, 100%)' }}
+      after={<>
+        {tornOff && <TearOffWindow tab={tornOff.tab} lines={tornOff.lines} identity={identity} onClose={() => setTornOff(null)} />}
+        {clipOpen && <ClipboardWindow tab={tab} onCopy={copy} onClose={() => setClipOpen(false)} />}
+      </>}
+    >
+      <div className="pb-hmr__head">
+        <div className="pb-hmr__ident">
+          <span className="pb-hmr__lbl">Patient:</span><b>{`${patient.first} ${patient.last}`.toUpperCase()}</b>
+          <span className="pb-hmr__lbl">DoB:</span><b>{patient.dob}</b>
+          <span className="pb-hmr__lbl">BC Health No.:</span><b>{patient.bchn ?? ''}</b>
+          <span className="pb-hmr__lbl">Alias:</span><b>{(patient.alias ?? '').toUpperCase()}</b>
+          <span className="pb-hmr__lbl">Gender:</span><b>{patient.sex}</b>
+          <span className="pb-hmr__lbl">Chart:</span><b>{patient.chart}</b>
+        </div>
+        <div className="pb-hmr__buttons">
+          <PBButton command="hmr-flow-sheet" onClick={() => onFlowSheet()}><u>F</u>low Sheet</PBButton>
+          <PBButton command="hmr-print" onClick={print}><u>P</u>rint</PBButton>
+          <PBButton disabled={!careTab} command="hmr-tear-off" onClick={tearOff}><u>T</u>ear Off</PBButton>
+          <PBButton disabled={!careTab} command="hmr-clipboard" onClick={() => setClipOpen(true)}><u>C</u>lipboard</PBButton>
+          {copied && (
+            <span className="pb-hmr__note" data-tutorial-id="host.mois.field.hmr-copied">{`${copied} copied to the clipboard`}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="pb-hmr__tabs">
+        <PBTabs tabs={['Health Maintenance', 'Care Plan', 'Patient Summary']} active={tab} onChange={setTab}>
+          <div className="pb-hmr__report" ref={report}>
+            {tab === 'Health Maintenance' && (
+              <>
+                <div className="pb-hmr__age">{`Age = ${age ?? ''}    SEX = ${sexWord}`}</div>
+                <Section title="GENERAL AND AGE/SEX SPECIFIC SCREENING">
+                  {general.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`general:${it.name}`} />)}
+                  {smokerLine && <div className="pb-hmr__found">{smokerLine}</div>}
+                  <ItemLine item={HIV} measures={measures} marks={marks} at={`general:${HIV.name}`} />
+                  {hivDeclined && (
+                    <div className="pb-hmr__found">{` NOT DESIRED FURTHER MEASURE as of ${date(hivDeclined.dtm_start)}`}</div>
+                  )}
+                </Section>
+                {conditions.map((c) => (
+                  <Section key={c.title} title={c.title}>
+                    {c.resolved
+                      ? <div className="pb-hmr__found" data-tutorial-id={`host.mois.row.hmr-${pbSlug(c.title)}-resolved`}>{`RESOLVED as of ${c.resolved}`}</div>
+                      : c.items.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`${c.title}:${it.name}`} />)}
+                  </Section>
+                ))}
+              </>
+            )}
+            {tab === 'Care Plan' && (
+              <>
+                <Section title="GOALS">
+                  {(data?.goal ?? []).map((g, i) => (
+                    <div key={i} className="pb-hmr__found">{`${(g.str_goal ?? '').toUpperCase().padEnd(DESC_W)} - ${date(g.dtm_start)}${g.dtm_end ? ` to ${date(g.dtm_end)}` : ''}`}</div>
+                  ))}
+                </Section>
+                <Section title="PREFERENCES">
+                  {(data?.chart_preference ?? []).map((p, i) => (
+                    <div key={i} className="pb-hmr__found">{`${(p.str_description ?? p.str_preference ?? '').toUpperCase().slice(0, DESC_W).padEnd(DESC_W)} - ${date(p.dtm_start)}${p.str_instruction_code ? ` - ${p.str_instruction_code}` : ''}`}</div>
+                  ))}
+                </Section>
+              </>
+            )}
+            {tab === 'Patient Summary' && (
+              <>
+                <Section title="HEALTH ISSUES">
+                  {issues.map((r, i) => (
+                    <div key={i} className="pb-hmr__found">{`${(r.str_problem_name ?? '').toUpperCase().slice(0, DESC_W).padEnd(DESC_W)} - ${date(r.dtm_start)}`}</div>
+                  ))}
+                </Section>
+                <Section title="ALLERGIES">
+                  {(data?.allergy ?? []).map((r, i) => (
+                    <div key={i} className="pb-hmr__found">{`${(r.str_substance ?? '').toUpperCase().padEnd(DESC_W)} - ${r.str_reactions ?? r.str_reaction ?? ''}`}</div>
+                  ))}
+                </Section>
+                <Section title="MEDICATIONS">
+                  {(data?.prescription ?? []).filter((r) => r.str_void !== 'Y').map((r, i) => (
+                    <div key={i} className="pb-hmr__found">{`${(r.str_medication ?? '').toUpperCase().slice(0, DESC_W).padEnd(DESC_W)} - ${date(r.dtm_order)} - ${r.str_dose_freq ?? ''}`}</div>
+                  ))}
+                </Section>
+              </>
             )}
           </div>
-        </div>
-
-        <div className="pb-hmr__tabs">
-          <PBTabs tabs={['Health Maintenance', 'Care Plan', 'Patient Summary']} active={tab} onChange={setTab}>
-            <div className="pb-hmr__report" ref={report}>
-              {tab === 'Health Maintenance' && (
-                <>
-                  <div className="pb-hmr__age">{`Age = ${age ?? ''}    SEX = ${sexWord}`}</div>
-                  <Section title="GENERAL AND AGE/SEX SPECIFIC SCREENING">
-                    {general.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`general:${it.name}`} />)}
-                    {smokerLine && <div className="pb-hmr__found">{smokerLine}</div>}
-                    <ItemLine item={HIV} measures={measures} marks={marks} at={`general:${HIV.name}`} />
-                    {hivDeclined && (
-                      <div className="pb-hmr__found">{` NOT DESIRED FURTHER MEASURE as of ${date(hivDeclined.dtm_start)}`}</div>
-                    )}
-                  </Section>
-                  {conditions.map((c) => (
-                    <Section key={c.title} title={c.title}>
-                      {c.resolved
-                        ? <div className="pb-hmr__found" data-tutorial-id={`host.mois.row.hmr-${pbSlug(c.title)}-resolved`}>{`RESOLVED as of ${c.resolved}`}</div>
-                        : c.items.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`${c.title}:${it.name}`} />)}
-                    </Section>
-                  ))}
-                </>
-              )}
-              {tab === 'Care Plan' && (
-                <>
-                  <Section title="GOALS">
-                    {(data?.goal ?? []).map((g, i) => (
-                      <div key={i} className="pb-hmr__found">{`${(g.str_goal ?? '').toUpperCase().padEnd(DESC_W)} - ${date(g.dtm_start)}${g.dtm_end ? ` to ${date(g.dtm_end)}` : ''}`}</div>
-                    ))}
-                  </Section>
-                  <Section title="PREFERENCES">
-                    {(data?.chart_preference ?? []).map((p, i) => (
-                      <div key={i} className="pb-hmr__found">{`${(p.str_description ?? p.str_preference ?? '').toUpperCase().slice(0, DESC_W).padEnd(DESC_W)} - ${date(p.dtm_start)}${p.str_instruction_code ? ` - ${p.str_instruction_code}` : ''}`}</div>
-                    ))}
-                  </Section>
-                </>
-              )}
-              {tab === 'Patient Summary' && (
-                <>
-                  <Section title="HEALTH ISSUES">
-                    {issues.map((r, i) => (
-                      <div key={i} className="pb-hmr__found">{`${(r.str_problem_name ?? '').toUpperCase().slice(0, DESC_W).padEnd(DESC_W)} - ${date(r.dtm_start)}`}</div>
-                    ))}
-                  </Section>
-                  <Section title="ALLERGIES">
-                    {(data?.allergy ?? []).map((r, i) => (
-                      <div key={i} className="pb-hmr__found">{`${(r.str_substance ?? '').toUpperCase().padEnd(DESC_W)} - ${r.str_reactions ?? r.str_reaction ?? ''}`}</div>
-                    ))}
-                  </Section>
-                  <Section title="MEDICATIONS">
-                    {(data?.prescription ?? []).filter((r) => r.str_void !== 'Y').map((r, i) => (
-                      <div key={i} className="pb-hmr__found">{`${(r.str_medication ?? '').toUpperCase().slice(0, DESC_W).padEnd(DESC_W)} - ${date(r.dtm_order)} - ${r.str_dose_freq ?? ''}`}</div>
-                    ))}
-                  </Section>
-                </>
-              )}
-            </div>
-          </PBTabs>
-        </div>
-      </PBWindow>
-      {tornOff && <TearOffWindow tab={tornOff.tab} lines={tornOff.lines} identity={identity} onClose={() => setTornOff(null)} />}
-      {clipOpen && <ClipboardWindow tab={tab} onCopy={copy} onClose={() => setClipOpen(false)} />}
-    </ModalLayer>
+        </PBTabs>
+      </div>
+    </ModalWindow>
   )
 }
 

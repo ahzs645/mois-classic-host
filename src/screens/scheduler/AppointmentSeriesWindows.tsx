@@ -506,7 +506,7 @@ function CreateAppointmentSeries({ args, close }: AreaWindowProps) {
       )}
 
       {stage === 'required' && (
-        <RaisedMessageBox title="Create Appointment Series" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={() => setStage('')}>
+        <RaisedMessageBox title="Create Appointment Series" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={() => setStage('')}>
           <span data-tutorial-id="host.mois.dialog.series-required">
             {dates.length || missing ? 'Please fill in the highlighted fields before continuing.' : 'The recurrence pattern does not produce any appointments.'}
           </span>
@@ -734,7 +734,7 @@ function AppointmentSeriesDelete({ close }: AreaWindowProps) {
         <RaisedMessageBox
           title="Delete Selected Appointments"
           icon="question"
-          buttons={[{ label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.msgbox-yes' }, { label: 'No', value: 'no', tutorialId: 'host.mois.command.msgbox-no' }]}
+          buttons={[{ label: 'Yes', value: 'yes', default: true, command: 'msgbox-yes' }, { label: 'No', value: 'no', command: 'msgbox-no' }]}
           onClose={(v) => { if (v === 'yes') remove(); else setAsking(false) }}
         >
           <span data-tutorial-id="host.mois.dialog.delete-selected-appointments">Would you like to delete the selected appointments?</span>

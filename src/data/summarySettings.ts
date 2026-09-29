@@ -30,6 +30,7 @@
    default section list, the concept→record matching and the "missing
    record" row text are INFERRED.
    ========================================================================= */
+import { CARE_PLAN_CATEGORIES, CARE_PLAN_RULES } from './carePlanVocab'
 import { createSignal } from './sessionStore'
 import type { MoisChartExport, MoisRecord } from './charts'
 import { CARE_PLAN_SECTIONS, carePlanRows, type CarePlanRow } from './carePlanRows'
@@ -38,13 +39,11 @@ import { toDots } from './clock'
 
 export type SummarySection = { label: string; order: string; type: 'SYSTEM' | 'USER' }
 
-/** Rules a relative element can use (art. 303514); `THIS RECORD` is the
+/** Rules a relative element can use and its Category list — data/carePlanVocab's,
+    shared with the admin Care Plan Tag Templates; `THIS RECORD` is the
     absolute kind — This Record Only */
-export const ELEMENT_RULES = ['RECENT', 'INITIAL', 'HIGHEST', 'LOWEST'] as const
-
-/** "Dynamic/Rule based records are limited to these 6 categories" (303514),
-    plus MAR, which 303115's DIABETES template uses (a1d8149d2b6e) */
-export const ELEMENT_CATEGORIES = ['MEASURE', 'IMAGE', 'CONSULT', 'INTERVENTION', 'PROCEDURE', 'FACILITY ADMISSION', 'MAR'] as const
+export const ELEMENT_RULES = CARE_PLAN_RULES
+export const ELEMENT_CATEGORIES = CARE_PLAN_CATEGORIES
 
 export type CarePlanElement = {
   id: string

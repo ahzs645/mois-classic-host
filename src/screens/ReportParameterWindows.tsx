@@ -4,6 +4,7 @@ import { MOIS_TODAY, patients } from '../data/patients'
 import {
   diagnosisReportPage, loadReportNavigator, recallNavigatorRows, RECALL_NAVIGATOR_CHARTS, unsentClaimsPages, yearsOld,
 } from '../data/reportParams'
+import { RS_PROVIDERS } from '../data/reportSpecs/types'
 import { PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { CmdCheck, CmdRadio, Hint, ParamFrame, ParamLine, ParamSection } from './reportKit'
@@ -67,7 +68,8 @@ import { CmdCheck, CmdRadio, Hint, ParamFrame, ParamLine, ParamSection } from '.
 const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback)
 
-const PROVIDERS = ['', 'BEARDWOOD, WALTER', 'DUCHARME, AMARILYS', 'FAIRCHILD, NESRIN L', 'HOWSER, DOOGIE', 'SHEWCHUK, LEAH']
+/** the report Provider drop-down — data/reportSpecs/types' (blank, then the clinic roster A–Z) */
+const PROVIDERS = RS_PROVIDERS
 
 /* ===========================================================================
    Clinical - Main ▸ Patient by Diagnosis / Fee

@@ -230,7 +230,7 @@ function CardiacRiskCalculator({ onSave, onClose }: Props) {
       width={592}
       height={540}
       band="FRAMINGHAM RISK SCORE (FRS)"
-      bandRight={<button type="button" className="pb-link" data-tutorial-id="host.mois.command.frs-reference">Reference...</button>}
+      bandRight={<PBButton bare className="pb-link" command="frs-reference">Reference...</PBButton>}
       onClose={onClose}
       onKey={keys({ populate, save, clear })}
       footer={<StandardFooter onPopulate={populate} onSave={save} canSave={!!score} onClose={onClose} onClear={clear} />}

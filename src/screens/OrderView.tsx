@@ -13,8 +13,9 @@ import { useScreenReport } from '../host/screen-state'
 import { useChartSession } from '../data/chartSession'
 import { DESKTOP_PROVIDER, setCurrentOrder } from '../data/letterFlow'
 import { SEED_DISTRIBUTIONS } from '../data/letterDocs'
+import { VISIT_MODE_CONCEPTS } from '../data/clinicManagement'
+import { ORDER_STATUS_ROWS, ORDER_TYPES, orderStatusWord } from '../data/orderVocab'
 import { useRespondToOrder, useResponseLinks } from './LetterResponseWindows'
-import { VISIT_MODES } from './EncounterWindow'
 import { useOpenWindow } from './areaWindowRegistry'
 import { ChartIdentityStrip } from './patientKit'
 import type { QuickEntryApplied } from './quickEntryApply'
@@ -66,28 +67,10 @@ const columns: PBColumn<OrderRow>[] = [
   { key: 'attach', header: '\u{1F4CE}', width: 35, align: 'center' },
 ]
 
-/* 303588 `48e7423c…`: New Record's Order Type drop-down, a DDDW of type and
-   description */
-const ORDER_TYPES = [
-  { type: 'CONSULTATION', description: 'Medical Consultation Request' },
-  { type: 'IMAGE', description: 'Medical Imaging Requisition' },
-  { type: 'INTERVENTION', description: 'Medical Intervention Request' },
-  { type: 'LAB', description: 'Medical Laboratory Requisition' },
-  { type: 'PROCEDURE', description: 'Medical Procedure Request' },
-  { type: 'MISC', description: 'Miscellaneous' },
-]
-
-/* 2961349 `2d067ff2…`: Order Management's Status DDDW, Status and
-   Description. The ST column carries the HL7 order-status code behind each. */
-export const ORDER_STATUS_ROWS = [
-  { code: 'IP', status: 'IN PROCESS', description: 'In process, unspecified' },
-  { code: 'SC', status: 'SCHEDULED', description: 'In process, scheduled' },
-  { code: 'A', status: 'RESULTS AVAILABLE', description: 'Some, but not all, results available' },
-  { code: 'CA', status: 'CANCELLED', description: 'Order was cancelled' },
-  { code: 'CM', status: 'COMPLETED', description: 'Order is completed' },
-  { code: 'ER', status: 'ERROR', description: 'Error, order not found' },
-]
-const statusWord = (code?: string) => ORDER_STATUS_ROWS.find((s) => s.code === code)?.status ?? code ?? ''
+/* the Order Type (303588) and Status (2961349) DDDWs live in data/orderVocab;
+   ORDER_STATUS_ROWS stays exported from here for the windows that import it */
+export { ORDER_STATUS_ROWS }
+const statusWord = orderStatusWord
 
 const TABS = ['Report', 'Distribution', 'Links', 'Office Notes', 'History'] as const
 type Tab = typeof TABS[number]
@@ -621,7 +604,7 @@ export function EncounterListView({ onOpen, draft = false, onDraft }: {
   const listed = [...session.saved, ...exported].map((r) => ({
     ...r,
     /* Mode is stored as a SNOMED CT concept; the list prints its short name */
-    mode: VISIT_MODES[r.mode ?? '']?.short ?? r.mode ?? '',
+    mode: VISIT_MODE_CONCEPTS[r.mode ?? '']?.short ?? r.mode ?? '',
     attach: session.attachments[`encounter:${r.id}`]
       ? String((Number((r as { attach?: string }).attach) || 0) + session.attachments[`encounter:${r.id}`]!)
       : (r as { attach?: string }).attach,

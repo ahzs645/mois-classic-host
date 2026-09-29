@@ -28,19 +28,13 @@
    An admin-module demonstration dataset (not chart data), so it is global
    rather than per chart; edits last for the session.
    ========================================================================= */
+import { CARE_PLAN_CATEGORIES, CARE_PLAN_RULES, MEASURE_CONCEPTS } from './carePlanVocab'
 import { createSignal } from './sessionStore'
 
-/** the Item Category drop-down: the capture's three plus the article 303514
-    categories a rule can pull (Measure, Image, Consult, Intervention,
-    Procedure, Facility Admission) */
-export const TEMPLATE_CATEGORIES = [
-  'CONSULT', 'FACILITY ADMISSION', 'IMAGE', 'INTERVENTION', 'MAR', 'MEASURE', 'PROCEDURE',
-] as const
-
-/** the capture shows RECENT only; art. 303514 names the four rules
-    ("most recent, initial/first, highest value (measures only) and lowest
-    value (measures only)") */
-export const TEMPLATE_RULES = ['RECENT', 'INITIAL', 'HIGHEST', 'LOWEST'] as const
+/** the Item Category drop-down and the Rule list — data/carePlanVocab's,
+    the lists Summary Settings' Care Plan Elements use */
+export const TEMPLATE_CATEGORIES = CARE_PLAN_CATEGORIES
+export const TEMPLATE_RULES = CARE_PLAN_RULES
 
 /** the Care Plan Section column's values as a1d8149d2b6e prints them */
 export const TEMPLATE_SECTIONS = ['CONSULTS', 'MAR', 'MEASUREMENTS', 'IMAGING', 'INTERVENTIONS', 'PROCEDURES', 'GENERAL'] as const
@@ -59,11 +53,7 @@ export const SECTION_FOR_CATEGORY: Record<string, string> = {
 export const TEMPLATE_CONCEPTS: Record<string, string[]> = {
   CONSULT: ['DIABETES EDUCATION ASSESSMENT', 'OPHTHALMOLOGY ASSESSMENT', 'HOME CARE NURSING', 'RESPIRATORY THERAPY'],
   MAR: ['INFLUENZA VACCINE', 'PNEUMOCOCCAL VACCINE'],
-  MEASURE: [
-    'BMI', 'BP', 'CHOLESTEROL/HDL RATIO', 'CIGARETTES SMOKED PACKS PER DAY', 'GFR', 'HGBA1C',
-    'LDL', 'TRIGLYCERIDES', 'UALB/CR', 'WAIST CIRCUMFERENCE', 'WEIGHT', 'HEIGHT', 'TEMPERATURE',
-    'PHQ-9 TOTAL SCORE', 'FEV1/FVC', 'INR', 'DIABETIC FOOT CARE',
-  ],
+  MEASURE: MEASURE_CONCEPTS,
   IMAGE: ['CHEST X-RAY', 'ECHOCARDIOGRAM', 'MAMMOGRAM'],
   INTERVENTION: ['SMOKING CESSATION COUNSELLING', 'DIABETIC FOOT EXAM'],
   PROCEDURE: ['SPIROMETRY', 'ECG'],

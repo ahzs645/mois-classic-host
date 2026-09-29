@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useScreenReport } from '../host/screen-state'
 import { PBPopup, pbInPopup, pbSlug, usePBInstrumentation, usePBPopupOwner, type PBMenuItem } from '../pb'
 
 /* ============================================================================
@@ -25,11 +26,21 @@ export function contextPoint(event: ReactMouseEvent<HTMLElement>): ContextMenuAt
   return { x: event.clientX - box.left, y: event.clientY - box.top }
 }
 
-export function RowContextMenu({ at, items, onClose }: {
+/** Reports `host.dialog` while the menu it is drawn in is down. */
+function ReportDialog({ id }: { id: string }) {
+  useScreenReport({ dialog: id })
+  return null
+}
+
+export function RowContextMenu({ at, items, onClose, reportDialog }: {
   /** the pointer, relative to the positioned element this is rendered in */
   at: ContextMenuAt
   items: PBMenuItem[]
   onClose: () => void
+  /** report `host.dialog` as this while the menu is down — the chart
+      folders' Option List and the Medication rows' menu report
+      `record-option-list`, so a lesson can grade "the menu is open" */
+  reportDialog?: string
 }) {
   const anchor = useRef<HTMLSpanElement>(null)
   const owner = usePBPopupOwner()
@@ -46,6 +57,7 @@ export function RowContextMenu({ at, items, onClose }: {
   if (!at) return null
   return (
     <>
+      {reportDialog && <ReportDialog id={reportDialog} />}
       {/* the menu's "launcher" is the point it dropped at, always expanded:
           `host.mois.menu {menu: 'context', item}` then presses the item
           without trying to drop the menu first, as it does for a menu-bar

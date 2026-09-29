@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { PBDataWindow, PBInput, PBWindow, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBDataWindow, PBInput, pbSlug } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
-import { ModalLayer } from './dialogKit'
+import { ModalWindow } from './dialogKit'
 import { DialogFooter } from './formKit'
 import { LookupBand, LookupPager, usePagedCursor } from './lookupKit'
 import { matchesSearch, parseSearch, type SearchField } from './SearchForBand'
@@ -88,7 +88,6 @@ const FIELDS: SearchField[] = [
 ]
 
 export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: Agent) => void; onClose: () => void }) {
-  const host = usePBInstrumentation()
   const [synonyms, setSynonyms] = useSessionState<Record<string, string[]>>(REACTION_SYNONYMS_KEY, SEED_SYNONYMS)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<{ key: keyof Agent; desc: boolean } | null>(null)
@@ -111,87 +110,85 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
   const pick = () => { if (row) { onPick?.(row); onClose() } }
 
   return (
-    <ModalLayer zIndex={95}>
-      <PBWindow child controls={false} title="Advanced Lookup Service" onClose={onClose} tutorialId="host.mois.dialog.master-reaction-agent-list"
-        style={{ width: 'min(688px, 100%)', height: 'min(668px, 100%)' }}>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #9a9a9a', background: '#fff' }}>
-            <div className="pb-row" style={{ gap: 0, background: 'linear-gradient(#ecebe8, #d8d5d0)', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-              <b style={{ flex: '1 1 auto', padding: '3px 6px' }}>Master Reaction Agent List</b>
-              <span data-tutorial-id="host.mois.field.row-count" style={{ background: '#ffff00', padding: '3px 8px', minWidth: 130, borderLeft: '1px solid #9a9a9a' }}>Row Count = {rows.length}</span>
-            </div>
-            <div className="pb-row" style={{ gap: 4, padding: '2px 4px', flex: 'none', background: state === 'valid' ? '#a4d86e' : state === 'invalid' ? '#ff1a1a' : undefined }}>
-              <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-              <span className="pb-inputgroup" style={{ flex: '1 1 auto' }}>
-                <input
-                  type="text"
-                  className="pb-field"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setCur(0) }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape' && search) { e.preventDefault(); e.stopPropagation(); setSearch('') }
-                    if (e.key === 'Enter') { e.preventDefault(); pick() }
-                  }}
-                  data-tutorial-id="host.mois.field.reaction-agent-search"
-                />
-                <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--dots">…</button>
-              </span>
-            </div>
-            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-              <PBDataWindow<Agent>
-                flush
-                rules="white"
-                rows={rows}
-                current={at}
-                onCurrentChange={setCur}
-                onActivate={() => pick()}
-                onSort={(key) => setSort((s) => (s && s.key === key ? { key: key as keyof Agent, desc: !s.desc } : { key: key as keyof Agent, desc: false }))}
-                rowTutorialId={(r) => `host.mois.row.reaction-agent-${pbSlug(r.code)}`}
-                empty="No reaction agent matches."
-                columns={[
-                  { key: 'code', header: 'Code', width: 120, headAlign: 'center' },
-                  { key: 'description', header: 'Description', width: 322, headAlign: 'center' },
-                  { key: 'category', header: 'Category', headAlign: 'center' },
-                ]}
-              />
-            </div>
-            <div className="pb-row" style={{ gap: 8, padding: '2px 4px', borderTop: '1px solid #9a9a9a', flex: 'none', minHeight: 30, alignItems: 'flex-start' }}>
-              <button
-                type="button"
-                className="pb-link"
-                style={{ textDecoration: 'underline', fontWeight: 700 }}
-                disabled={!row}
-                data-tutorial-id={host?.anchor('command', 'synonyms')}
-                onClick={() => { host?.report('command', { command: 'synonyms' }); if (row) setEditing(true) }}
-              >
-                Synonyms:
-              </button>
-              <span data-tutorial-id="host.mois.field.synonyms">{row ? (synonyms[row.code] ?? []).join(', ') : ''}</span>
-            </div>
-            <div style={{ borderTop: '1px solid #9a9a9a', height: 64, padding: '2px 4px', flex: 'none' }}>
-              This is the master reaction agent (unfiltered) selection list
-            </div>
-          </div>
-        </div>
-        <LookupPager
-          cursor={cursor}
-          className="pb-row"
-          style={{ gap: 0, padding: '10px 8px', flex: 'none' }}
-          navSize={{ width: 77, minWidth: 0 }}
-          pickSize={{ width: 74 }}
-          pickGap={22}
-          ok={{ command: 'reaction-agent-ok', disabled: !row, onClick: pick }}
-          cancel={{ command: 'reaction-agent-cancel', onClick: onClose }}
-        />
-      </PBWindow>
-      {editing && row && (
+    <ModalWindow id="master-reaction-agent-list" title="Advanced Lookup Service" onClose={onClose} zIndex={95}
+      windowStyle={{ width: 'min(688px, 100%)', height: 'min(668px, 100%)' }}
+      after={editing && row && (
         <SynonymEntry
           initial={synonyms[row.code] ?? []}
           onOk={(list) => { setSynonyms((s) => ({ ...s, [row.code]: list })); setEditing(false) }}
           onClose={() => setEditing(false)}
         />
-      )}
-    </ModalLayer>
+      )}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #9a9a9a', background: '#fff' }}>
+          <div className="pb-row" style={{ gap: 0, background: 'linear-gradient(#ecebe8, #d8d5d0)', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
+            <b style={{ flex: '1 1 auto', padding: '3px 6px' }}>Master Reaction Agent List</b>
+            <span data-tutorial-id="host.mois.field.row-count" style={{ background: '#ffff00', padding: '3px 8px', minWidth: 130, borderLeft: '1px solid #9a9a9a' }}>Row Count = {rows.length}</span>
+          </div>
+          <div className="pb-row" style={{ gap: 4, padding: '2px 4px', flex: 'none', background: state === 'valid' ? '#a4d86e' : state === 'invalid' ? '#ff1a1a' : undefined }}>
+            <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
+            <span className="pb-inputgroup" style={{ flex: '1 1 auto' }}>
+              <input
+                type="text"
+                className="pb-field"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCur(0) }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape' && search) { e.preventDefault(); e.stopPropagation(); setSearch('') }
+                  if (e.key === 'Enter') { e.preventDefault(); pick() }
+                }}
+                data-tutorial-id="host.mois.field.reaction-agent-search"
+              />
+              <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--dots">…</button>
+            </span>
+          </div>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            <PBDataWindow<Agent>
+              flush
+              rules="white"
+              rows={rows}
+              current={at}
+              onCurrentChange={setCur}
+              onActivate={() => pick()}
+              onSort={(key) => setSort((s) => (s && s.key === key ? { key: key as keyof Agent, desc: !s.desc } : { key: key as keyof Agent, desc: false }))}
+              rowTutorialId={(r) => `host.mois.row.reaction-agent-${pbSlug(r.code)}`}
+              empty="No reaction agent matches."
+              columns={[
+                { key: 'code', header: 'Code', width: 120, headAlign: 'center' },
+                { key: 'description', header: 'Description', width: 322, headAlign: 'center' },
+                { key: 'category', header: 'Category', headAlign: 'center' },
+              ]}
+            />
+          </div>
+          <div className="pb-row" style={{ gap: 8, padding: '2px 4px', borderTop: '1px solid #9a9a9a', flex: 'none', minHeight: 30, alignItems: 'flex-start' }}>
+            <PBButton
+              bare
+              command="synonyms"
+              className="pb-link"
+              style={{ textDecoration: 'underline', fontWeight: 700 }}
+              disabled={!row}
+              onClick={() => { if (row) setEditing(true) }}
+            >
+              Synonyms:
+            </PBButton>
+            <span data-tutorial-id="host.mois.field.synonyms">{row ? (synonyms[row.code] ?? []).join(', ') : ''}</span>
+          </div>
+          <div style={{ borderTop: '1px solid #9a9a9a', height: 64, padding: '2px 4px', flex: 'none' }}>
+            This is the master reaction agent (unfiltered) selection list
+          </div>
+        </div>
+      </div>
+      <LookupPager
+        cursor={cursor}
+        className="pb-row"
+        style={{ gap: 0, padding: '10px 8px', flex: 'none' }}
+        navSize={{ width: 77, minWidth: 0 }}
+        pickSize={{ width: 74 }}
+        pickGap={22}
+        ok={{ command: 'reaction-agent-ok', disabled: !row, onClick: pick }}
+        cancel={{ command: 'reaction-agent-cancel', onClick: onClose }}
+      />
+    </ModalWindow>
   )
 }
 

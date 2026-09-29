@@ -1,7 +1,7 @@
 import { usePatientRoster } from '../../data/patient-context'
 import type { DayRow } from '../../data/schedulerStore'
 import { schedulerExtras, useSchedulerExtras } from '../../data/schedulerExtras'
-import { PBInput, PBRadio, usePBInstrumentation } from '../../pb'
+import { PBButton, PBInput, PBRadio } from '../../pb'
 import { useOpenWindow } from '../areaWindowRegistry'
 
 /* ============================================================================
@@ -36,20 +36,14 @@ export function PatientDetailSlide({ row }: { row: DayRow | undefined }) {
   const extras = useSchedulerExtras()
   const roster = usePatientRoster()
   const openWindow = useOpenWindow()
-  const host = usePBInstrumentation()
   const { summary, mode } = extras.slide
   const p = row?.chart ? roster.find((x) => x.chart === row.chart) : undefined
   const expanded = mode === 'detail'
 
   const link = (id: string, label: string, onClick: () => void) => (
-    <button
-      type="button"
-      className="pb-link"
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick() }}
-    >
+    <PBButton bare className="pb-link" command={id} onClick={() => onClick()}>
       {label}
-    </button>
+    </PBButton>
   )
   const box = (w: number, v = '') => <PBInput w={w} readOnly value={v} style={{ background: '#e4e8ee' }} />
   const age = p?.dob ? String(2026 - Number(p.dob.slice(0, 4))) : ''

@@ -494,8 +494,8 @@ export function MarView() {
         </div>
       </div>
       <div className="pb-mar-viewband" data-tutorial-id="host.mois.group.mar-view">
-        <button type="button" className="pb-link" onClick={expandAll} data-tutorial-id="host.mois.command.expand-all">Expand All</button>
-        <button type="button" className="pb-link" onClick={collapseAll} data-tutorial-id="host.mois.command.collapse-all">Collapse All</button>
+        <PBButton bare className="pb-link" onClick={expandAll} command="expand-all">Expand All</PBButton>
+        <PBButton bare className="pb-link" onClick={collapseAll} command="collapse-all">Collapse All</PBButton>
         <span className="pb-row__spacer" style={{ flex: '1 1 auto' }} />
         <span>View:</span>
         <PBSelect w={140} value={view} options={views} onChange={(e) => { setView(e.target.value); setGridPage(0) }} data-tutorial-id="host.mois.field.mar-view" />

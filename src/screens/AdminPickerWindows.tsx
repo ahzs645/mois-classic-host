@@ -1,18 +1,15 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import {
-  PBButton, PBCheckbox, PBDataWindow, PBDropGlyph, PBInput, PBRadio, PBTextArea,
-  pbSlug, usePBInstrumentation,
-} from '../pb'
+import { PBDataWindow, PBDropGlyph, PBInput, PBTextArea, pbSlug } from '../pb'
 import { clinicListSpec, type ClinicRow } from '../data/clinicManagement'
-import type { ServiceCodeRow } from '../data/encounterPickers'
+import type { ServiceCodeRow, UniversalSearchRow } from '../data/encounterPickers'
 import { S } from '../data/text'
 import { userListSpec } from '../data/userManagement'
 import { useScreenReport } from '../host/screen-state'
 import { CmdButton } from './CmdButton'
-import { ServiceCodeLookupDialog } from './CodeLookupDialogs'
+import { ServiceCodeLookupDialog, UniversalSearchDialog } from './CodeLookupDialogs'
 import { DemographicModal } from './DemographicDialogs'
 import { DialogFooter, FormLine, SectionCaption } from './formKit'
-import { GRID_BOX, MOIS_SEARCH_TITLE, MoisSearchWindow, PickButtons, SearchForRow } from './lookupKit'
+import { GRID_BOX, MOIS_SEARCH_TITLE, MoisSearchWindow, PickButtons } from './lookupKit'
 import { DesktopLayer } from './StageWindow'
 
 /* ============================================================================
@@ -21,7 +18,8 @@ import { DesktopLayer } from './StageWindow'
      change-associated-user   Alias ID / Workspace ▸ Change...   user capture
                               2026-09-25 #69, #71 (v02.31.23)
      user-search              New Associated User's drop-down    #70
-     service-concept-search   Service tab ▸ Service cell "…"     #72
+     universal-search         Service tab ▸ Service cell "…"     #72 (the
+                              shared Universal Search Window)
      service-code-lookup      Billing tab ▸ a Service Code "…"   #74, #75
 
    Each is a top-level window floating over the MOIS frame and over the
@@ -35,35 +33,6 @@ import { DesktopLayer } from './StageWindow'
    the Master Service Code List the encounter window already uses. Nothing
    from the captures' own rosters is reproduced.
    ========================================================================= */
-
-/** The salmon "Search For:" box with its "…" (#72, #74). */
-const SEARCH_FILL = '#f7c6a2'
-
-export function SearchForBox({ value, onChange, name, style }: {
-  value: string; onChange: (v: string) => void; name: string; style?: CSSProperties
-}) {
-  const host = usePBInstrumentation()
-  return (
-    <span className="pb-inputgroup" style={{ flex: '1 1 auto', minWidth: 0, ...style }}>
-      <input
-        type="text"
-        className="pb-field"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ background: SEARCH_FILL }}
-        data-tutorial-id={`host.mois.field.${name}`}
-      />
-      <button
-        type="button"
-        className="pb-inputgroup__btn pb-inputgroup__btn--dots"
-        data-tutorial-id={host?.anchor('lookup', name)}
-        onClick={() => host?.report('lookup', { field: name })}
-      >
-        …
-      </button>
-    </span>
-  )
-}
 
 /** A caption over a light-blue strip, the way #69 and #70 head a block. */
 const BlueStrip = ({ children, style }: { children: ReactNode; style?: CSSProperties }) => (
@@ -278,22 +247,21 @@ export function UserSearchWindow({ initial, onPick, onClose }: {
 /* ===========================================================================
    MOIS - Universal Search Window, from the Service tab (#72).
 
-   The same window the encounter's Health Issues "…" opens, with two
-   differences the capture shows: the caption carries no chart ("MOIS -
-   Universal Search Window" — there is no patient in Administration), and
-   the only code system offered is SNOMED-CT, ticked, with nothing to filter
-   to under Reference Set(s). It looks up the service concept a provider
-   offers. About 1150 x 850 in the capture.
-
-   Select hands the term back to the Service cell. Select & Add Health Issue
-   is drawn, as captured, but disabled: there is no chart to add one to.
+   The same window the encounter's Health Issues "…" opens
+   (CodeLookupDialogs.tsx UniversalSearchDialog), in its Administration form:
+   the caption carries no chart ("MOIS - Universal Search Window" — there is
+   no patient in Administration) and Select & Add Health Issue is greyed,
+   there being no chart to add one to. The capture also shows the only code
+   system offered is SNOMED-CT, ticked, with nothing to filter to under
+   Reference Set(s); those are the dialog's `systems` / `referenceSets`. It
+   looks up the service concept a provider offers, over a first page of
+   service concepts of its own. Portalled onto the desktop like the other
+   pickers here. Select hands the term back to the Service cell.
    ======================================================================== */
-
-export type ConceptRow = { term: string; category: string; code: string; system: string }
 
 /* a first page of SNOMED CT concepts, alphabetical, as the window opens on
    one — public terminology, uppercase the way MOIS prints it */
-const SNOMED_PAGE: ConceptRow[] = [
+const SNOMED_PAGE: UniversalSearchRow[] = [
   ['ABDOMINAL PAIN', 'CLINICAL FINDING', '21522001'],
   ['ADDICTION MEDICINE SERVICE', 'QUALIFIER VALUE', '408468001'],
   ['ADULT MENTAL ILLNESS SERVICE', 'QUALIFIER VALUE', '310094009'],
@@ -314,115 +282,19 @@ const SNOMED_PAGE: ConceptRow[] = [
   ['PRIMARY CARE SERVICE', 'QUALIFIER VALUE', '708175003'],
   ['SMOKING CESSATION THERAPY', 'REGIME/THERAPY', '225323000'],
   ['WOUND CARE', 'REGIME/THERAPY', '225358003'],
-].map(([term, category, code]) => ({ term: term!, category: category!, code: code!, system: 'SNOMED-CT' }))
+].map(([term, category, code]) => ({ term: term!, category: category!, code: code!, system: 'SNOMED-CT', alternates: [] }))
+
+const SNOMED_ONLY = ['SNOMED-CT']
+const NO_SETS: string[] = []
 
 export function ServiceConceptSearchWindow({ onPick, onClose }: {
-  onPick: (row: ConceptRow) => void
+  onPick: (row: UniversalSearchRow) => void
   onClose: () => void
 }) {
-  const [systems, setSystems] = useState(true)
-  const [scope, setScope] = useState('Code Systems')
-  const [code, setCode] = useState('')
-  const [category, setCategory] = useState('')
-  const [status, setStatus] = useState('Active')
-  const [limit, setLimit] = useState('200')
-  const [search, setSearch] = useState('')
-  const [cur, setCur] = useState(0)
-  const rows = SNOMED_PAGE.filter((r) => (
-    systems
-    && r.term.includes(search.trim().toUpperCase())
-    && r.code.includes(code.trim())
-    && r.category.includes(category.trim().toUpperCase())
-  )).slice(0, Math.max(0, Number(limit) || 0))
-  const row = rows[Math.min(cur, Math.max(0, rows.length - 1))]
-  const paneHead = (title: string, links: boolean) => (
-    <div className="pb-row" style={{ gap: 10, padding: '2px 5px', color: '#808080', background: 'linear-gradient(#e6effb, #d2e1f5)' }}>
-      <span style={{ flex: '1 1 auto' }}>{title}</span>
-      {links && <><button type="button" className="pb-link" onClick={() => setSystems(true)}>All</button><button type="button" className="pb-link" onClick={() => setSystems(false)}>Clear</button></>}
-    </div>
-  )
   return (
-    <DemographicModal title="MOIS - Universal Search Window" width={1000} height={740} onClose={onClose} dialog="service-concept-search">
-      <div style={{ display: 'flex', flex: 'none', margin: '4px 4px 0', border: '1px solid #8a8a8a', background: '#fff', height: 112 }}>
-        <div style={{ width: 266, borderRight: '1px solid #8a8a8a' }}>
-          {paneHead('Select from Code System(s)', true)}
-          <div style={{ padding: '3px 6px' }}><PBCheckbox label="SNOMED-CT" checked={systems} onChange={setSystems} tutorialId="host.mois.field.code-system-snomed-ct" /></div>
-        </div>
-        <div style={{ width: 266, borderRight: '1px solid #8a8a8a' }}>
-          {paneHead('Filter to Reference Set(s)', true)}
-        </div>
-        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <div className="pb-row" style={{ gap: 8, padding: '2px 5px', background: 'linear-gradient(#e6effb, #d2e1f5)' }}>
-            <span style={{ color: '#808080' }}>Parameters:</span>
-            <span style={{ color: '#808080' }}>Select from</span>
-            {['Code Systems', 'Health Issues', 'Encounter History'].map((v) => (
-              <PBRadio key={v} name="service-concept-scope" label={v} checked={scope === v} onChange={() => setScope(v)} />
-            ))}
-          </div>
-          <div style={{ padding: '4px 6px', display: 'grid', gridTemplateColumns: '84px 1fr', rowGap: 3, alignItems: 'center' }}>
-            <span className="pb-form__label" style={{ textAlign: 'right', paddingRight: 6 }}>Code is</span>
-            <PBInput w={92} value={code} onChange={(e) => setCode(e.target.value)} />
-            <span className="pb-form__label" style={{ textAlign: 'right', paddingRight: 6 }}>Category is like</span>
-            <PBInput w={256} value={category} onChange={(e) => setCategory(e.target.value)} />
-            <span className="pb-form__label" style={{ textAlign: 'right', paddingRight: 6 }}>Status is</span>
-            <span className="pb-row" style={{ gap: 8 }}>
-              {['Active', 'Inactive', 'Either'].map((v) => (
-                <PBRadio key={v} name="service-concept-status" label={v} checked={status === v} onChange={() => setStatus(v)} />
-              ))}
-            </span>
-            <span className="pb-form__label" style={{ textAlign: 'right', paddingRight: 6 }}>Limit list to</span>
-            <span className="pb-row" style={{ gap: 6 }}><PBInput w={64} value={limit} onChange={(e) => setLimit(e.target.value)} />records</span>
-          </div>
-        </div>
-      </div>
-
-      <SearchForRow
-        style={{ gap: 4, padding: '3px 4px', flex: 'none' }}
-        input={<SearchForBox value={search} onChange={(v) => { setSearch(v); setCur(0) }} name="service-concept-search" />}
-        after={<PBButton style={{ minWidth: 76 }} command="service-concept-search-run">Search</PBButton>}
-      />
-
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', margin: '0 4px', border: '1px solid #8a8a8a', background: '#fff' }}>
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-          <PBDataWindow<ConceptRow>
-            rows={rows}
-            current={Math.min(cur, Math.max(0, rows.length - 1))}
-            onCurrentChange={setCur}
-            onActivate={(r) => onPick(r)}
-            rowTutorialId={(r) => `host.mois.row.concept-${r.code}`}
-            empty="No term matches those parameters."
-            columns={[
-              { key: 'term', header: <span style={{ color: '#808080' }}>Term</span>, width: 490, headAlign: 'left' },
-              { key: 'category', header: <span style={{ color: '#808080' }}>Category</span>, width: 214, headAlign: 'left' },
-              { key: 'code', header: <span style={{ color: '#808080' }}>Code</span>, width: 82, headAlign: 'left' },
-              { key: 'system', header: <span style={{ color: '#808080' }}>Code System</span>, width: 120, headAlign: 'left' },
-            ]}
-          />
-        </div>
-        {/* the count is the limit asked for, whatever is painted (#72) */}
-        <div style={{ padding: '2px 16px', color: '#808080', flex: 'none' }}>Rows: {limit}</div>
-      </div>
-      <div style={{ flex: 'none', margin: '0 4px', border: '1px solid #8a8a8a', borderTop: 0, background: '#fff' }}>
-        <div style={{ padding: '2px 16px', color: '#808080', background: 'linear-gradient(#e6effb, #d2e1f5)' }}>
-          Alternate Terms&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[{row ? 1 : 0}]
-        </div>
-        <div style={{ height: 56, padding: '3px 16px' }}>{row ? `${row.term} (${row.category})` : ''}</div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', padding: '8px 4px', flex: 'none' }}>
-        <span className="pb-row" style={{ gap: 8 }}>
-          <PBButton style={{ minWidth: 132 }}>Save My Default Settings</PBButton>
-          <PBButton style={{ minWidth: 132 }}>Restore System Settings</PBButton>
-        </span>
-        <span className="pb-row" style={{ gap: 6 }}>
-          <CmdButton command="service-concept-select" style={{ width: 74 }} disabled={!row} onClick={() => row && onPick(row)}>Select</CmdButton>
-          <CmdButton command="service-concept-cancel" style={{ width: 74 }} onClick={onClose}>Cancel</CmdButton>
-        </span>
-        <span className="pb-row" style={{ justifyContent: 'flex-end' }}>
-          <PBButton style={{ minWidth: 132 }} disabled>Select &amp; Add Health Issue</PBButton>
-        </span>
-      </div>
-    </DemographicModal>
+    <DesktopLayer>
+      <UniversalSearchDialog admin systems={SNOMED_ONLY} referenceSets={NO_SETS} page={SNOMED_PAGE} onPick={(r) => onPick(r)} onClose={onClose} />
+    </DesktopLayer>
   )
 }
 

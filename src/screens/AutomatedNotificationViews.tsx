@@ -11,6 +11,7 @@ import {
 } from '../pb'
 import { Btn, DetailWindow, FieldLabel, FilterBand, TopMessage } from './AdminExchangeKit'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
+import { ReadOnlyField } from './formKit'
 
 /* ============================================================================
    Data Exchange ▸ Automated Notifications — Setup / Registration, Call Lists
@@ -324,7 +325,7 @@ function CallListDetail({ list, onClose, onSave, onOpenChart, onCreateTask }: {
   const items = l.items.filter((i) => showExcluded || !i.excluded)
   const item = items[cur]
   useScreenReport({ acknowledged: l.items.filter((i) => i.ack).length, response: item ? pbSlug(item.response || 'none') : null })
-  const ro = (value: string, w: number | string) => <PBInput w={w} readOnly value={value} style={{ background: '#e8e8e8' }} />
+  const ro = (value: string, w: number | string) => <ReadOnlyField w={w} value={value} />
   const ack = (chart: string, on: boolean) => setL((x) => ({ ...x, items: x.items.map((i) => (i.chart === chart ? { ...i, ack: on } : i)) }))
   return (
     <DetailWindow id="call-list-detail" title="Call List" width={900} height={600} onClose={onClose}

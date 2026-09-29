@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useChartExport } from '../data/chart-records'
 import { addLetterDistribution } from '../data/chartSession'
 import {
@@ -7,6 +7,7 @@ import {
 import {
   nowStamp, useAttachedLetters, useFaxLog, useOrderResponses, useSessionDocDistributions, useStandardReferralMode,
 } from '../data/letterDocs'
+import { ORDER_STATUS_ROWS } from '../data/orderVocab'
 import { MOIS_TODAY } from '../data/patients'
 import { LW } from '../data/letterWriter'
 import { usePatient } from '../data/patient-context'
@@ -14,6 +15,7 @@ import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBMessag
 import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { DialogFooter } from './formKit'
 import { PatientFieldRow, patientPhn } from './patientKit'
 
 /* ============================================================================
@@ -116,11 +118,11 @@ function SelectConsultationOrderWindow({ close, open }: AreaWindowProps) {
           empty="No consultation orders on file."
         />
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 10, padding: '0 0 12px', flex: 'none' }}>
+      <DialogFooter gap={10} padding="0 0 12px">
         <DialogButton id="create-new-order" width={168} onClick={() => go(null)}>Create New Order</DialogButton>
         <DialogButton id="open-selected-order" width={168} isDefault onClick={() => rows[cur] && go(rows[cur]!.id)}>Open Selected Order</DialogButton>
         <DialogButton id="consultation-order-cancel" width={168} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -129,8 +131,21 @@ function SelectConsultationOrderWindow({ close, open }: AreaWindowProps) {
    Modal: you cannot go back to another MOIS window until it is complete.
    The Referral Text box is the Order's Record Report / Comment — the blue
    field the Letter Writer reads back into. */
-const ORDER_STATUSES = ['IN PROCESS', 'SCHEDULED', 'RESULTS AVAILABLE', 'CANCELLED', 'COMPLETED', 'ERROR']
-const STATUS_WORD: Record<string, string> = { IP: 'IN PROCESS', SC: 'SCHEDULED', RA: 'RESULTS AVAILABLE', CA: 'CANCELLED', CM: 'COMPLETED', CT: 'COMPLETED', ER: 'ERROR' }
+const ORDER_STATUSES = ORDER_STATUS_ROWS.map((s) => s.status)
+/* The Status drop-down is Order Management's (2961349 `2d067ff2…`, one table
+   in data/orderVocab.ts), keyed by the HL7 codes the Order window's ST column
+   shows. Two more codes were decoded here, for exports that write the older
+   spellings: RA for results available (HL7 A) and CT for completed (CM).
+   In the bundled chart export (chart-87288, 28 orders) CT occurs once, on
+   order 522660, which has no Order Type and so never reaches this window;
+   RA does not occur at all. That export's consultation orders also carry SP
+   (4) and RO (2), which neither table decodes, so they open on IN PROCESS
+   like any other unknown code. */
+const STATUS_ALIASES: Record<string, string> = { RA: 'A', CT: 'CM' }
+const STATUS_WORD: Record<string, string> = Object.fromEntries([
+  ...ORDER_STATUS_ROWS.map((s) => [s.code, s.status]),
+  ...Object.entries(STATUS_ALIASES).map(([alias, code]) => [alias, ORDER_STATUS_ROWS.find((s) => s.code === code)!.status]),
+])
 
 function OrderDetailWindow({ args, close, open }: AreaWindowProps) {
   const data = useChartExport()
@@ -268,11 +283,109 @@ function OrderDetailWindow({ args, close, open }: AreaWindowProps) {
   )
 }
 
+/* --- Send ------------------------------------------------------------------
+   One window, 2961349 `b6c1e819…` / `dbab69f9…`: the strip of Text and
+   Labels / Paste Care Plan, the band naming what is sent, the patient row,
+   Document Type, Author, Primary Recipient and ENC# EMPTY, Send As (Use a
+   Letter Template with its template, Use Plain Text Report), the Report and
+   Next... / Cancel. Two ids open it: `send-information-request` (Create
+   Information Request, below) and `send-document` (a response, a
+   notification, a Documents record — LetterResponseWindows.tsx), which
+   differ in the Document Type cell, the Report pane and what Paste Care
+   Plan does. Their anchors differ by prefix and are kept:
+   `host.mois.field.{prefix}-author|-recipient`, `host.mois.group.{prefix}-as`,
+   the radios' `{prefix}-as` group and `{prefix}-template` lookup, and the
+   commands `{prefix}-next|-cancel` and `{tools}text-and-labels|paste-care-plan`
+   (Information Request: prefix `send`, no tool prefix; Send Document:
+   `send-document`, tools `send-`). */
+export function SendWindow({
+  id, anchorPrefix, toolPrefix = '', onPasteCarePlan, band, docType, author, setAuthor, recipient, setRecipient,
+  useTemplate, templateRadio, template, setTemplate, onTemplate, onPlain, radioAnchors, report, onNext, onClose, after,
+}: {
+  /** the window's anchor slug — `host.mois.dialog.{id}` */
+  id: string
+  /** `send` / `send-document` */
+  anchorPrefix: string
+  /** before the two strip buttons' command ids */
+  toolPrefix?: string
+  onPasteCarePlan?: () => void
+  /** the band over the patient row */
+  band: ReactNode
+  /** the Document Type cell */
+  docType: ReactNode
+  author: string
+  setAuthor: (v: string) => void
+  recipient: string
+  setRecipient: (v: string) => void
+  /** Use a Letter Template is the choice (and its template field shows) */
+  useTemplate: boolean
+  /** false: in its place, what shows when the type has no template */
+  templateRadio: true | ReactNode
+  template: string
+  setTemplate: (v: string) => void
+  onTemplate: () => void
+  onPlain: () => void
+  /** anchor the radios `host.mois.field.{prefix}-as-template|plain` */
+  radioAnchors?: boolean
+  /** the Report pane */
+  report: ReactNode
+  onNext: () => void
+  onClose: () => void
+  /** a window raised over this one (Paste Care Plan's Report Letterhead) */
+  after?: ReactNode
+}) {
+  const p = usePatient()
+  const radioId = (which: string) => (radioAnchors ? `host.mois.field.${anchorPrefix}-as-${which}` : undefined)
+  return (
+    <WorkspaceDialogFrame id={id} title="Send" width={940} height={690} onClose={onClose}>
+      <div className="pb-row" style={{ gap: 0, padding: '2px 4px', background: LW.band, borderBottom: '1px solid #646464', flex: 'none' }}>
+        <DialogButton id={`${toolPrefix}text-and-labels`} width={112}>Text and Labels</DialogButton>
+        <DialogButton id={`${toolPrefix}paste-care-plan`} width={112} onClick={onPasteCarePlan}>Paste Care Plan</DialogButton>
+      </div>
+      <div style={{ margin: '12px 16px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
+        <PBBand>{band}</PBBand>
+        <PatientFieldRow style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }} fields={[
+          { label: 'FIRST:', value: p.first, w: 160 }, { label: 'MIDDLE:', value: p.middle, w: 150 },
+          { label: 'LAST:', value: p.last, w: 180 }, { label: 'DoB:', value: p.dob, w: 110 }, { label: 'SEX:', value: p.sex },
+        ]} />
+        <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr 110px', rowGap: 4, padding: '8px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
+          <span className="pb-form__label">Document Type:</span>
+          {docType}
+          <span />
+          <span className="pb-form__label">Author:</span>
+          <span data-tutorial-id={`host.mois.field.${anchorPrefix}-author`}><PBLookup w={580} value={author} onChange={setAuthor} name={`${anchorPrefix}-author`} /></span><span />
+          <span className="pb-form__label">Primary Recipient:</span>
+          <span data-tutorial-id={`host.mois.field.${anchorPrefix}-recipient`}><PBLookup w={580} value={recipient} onChange={setRecipient} name={`${anchorPrefix}-recipient`} /></span>
+          <span className="pb-link" style={{ color: LW.link, textDecoration: 'underline' }}>ENC# EMPTY</span>
+        </div>
+        <div data-tutorial-id={`host.mois.group.${anchorPrefix}-as`} style={{ display: 'grid', gridTemplateColumns: '118px auto 1fr', rowGap: 4, padding: '6px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
+          <span className="pb-form__label">Send As:</span>
+          {templateRadio === true
+            ? <PBRadio name={`${anchorPrefix}-as`} label="Use a Letter Template" checked={useTemplate} onChange={onTemplate} tutorialId={radioId('template')} />
+            : templateRadio}
+          <span style={{ paddingLeft: 12 }}>{useTemplate && <PBLookup w={340} value={template} onChange={setTemplate} name={`${anchorPrefix}-template`} />}</span>
+          <span />
+          <PBRadio name={`${anchorPrefix}-as`} label="Use Plain Text Report" checked={!useTemplate} onChange={onPlain} tutorialId={radioId('plain')} />
+          <span />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr', padding: '8px 12px', flex: '1 1 auto', minHeight: 0 }}>
+          <span className="pb-form__label">Report:</span>
+          {report}
+        </div>
+      </div>
+      <DialogFooter gap={14} padding="12px 0">
+        <DialogButton id={`${anchorPrefix}-next`} width={93} isDefault onClick={onNext}>Next...</DialogButton>
+        <DialogButton id={`${anchorPrefix}-cancel`} width={93} onClick={onClose}>Cancel</DialogButton>
+      </DialogFooter>
+      {after}
+    </WorkspaceDialogFrame>
+  )
+}
+
 /* --- Send (New Information Request) ------------------------------------- */
 const TEMPLATE_TEXT = 'To Whom It May Concern,\n\n This is an information request. Please respond.\n\nSincerely yours,'
 
 function SendInformationRequestWindow({ close, open }: AreaWindowProps) {
-  const p = usePatient()
   const data = useChartExport()
   /* the recipient the address book returns for this chart's CDX clinic */
   const cdx = consultOrders(data).find((r) => r.str_recipient_id_system === 'CDXCLINICID')
@@ -283,67 +396,36 @@ function SendInformationRequestWindow({ close, open }: AreaWindowProps) {
      Writer opens on, so a changed choice has to travel with the letter */
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE['information-request'])
   return (
-    <WorkspaceDialogFrame id="send-information-request" title="Send" width={940} height={690} onClose={close}>
-      <div className="pb-row" style={{ gap: 0, padding: '2px 4px', background: LW.band, borderBottom: '1px solid #646464', flex: 'none' }}>
-        <DialogButton id="text-and-labels" width={112}>Text and Labels</DialogButton>
-        <DialogButton id="paste-care-plan" width={112}>Paste Care Plan</DialogButton>
-      </div>
-      <div style={{ margin: '12px 16px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
-        <PBBand>Send New Information Request</PBBand>
-        <PatientFieldRow style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }} fields={[
-          { label: 'FIRST:', value: p.first, w: 160 }, { label: 'MIDDLE:', value: p.middle, w: 150 },
-          { label: 'LAST:', value: p.last, w: 180 }, { label: 'DoB:', value: p.dob, w: 110 }, { label: 'SEX:', value: p.sex },
-        ]} />
-        <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr 110px', rowGap: 4, padding: '8px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
-          <span className="pb-form__label">Document Type:</span>
-          <span><b style={{ border: '1px solid #9a9a9a', padding: '1px 8px', background: 'var(--pb-face)' }}>INFORMATION REQUEST</b></span><span />
-          <span className="pb-form__label">Author:</span>
-          <span data-tutorial-id="host.mois.field.send-author"><PBLookup w={580} value={author} onChange={setAuthor} name="send-author" /></span><span />
-          <span className="pb-form__label">Primary Recipient:</span>
-          <span data-tutorial-id="host.mois.field.send-recipient"><PBLookup w={580} value={recipient} onChange={setRecipient} name="send-recipient" /></span>
-          <span className="pb-link" style={{ color: LW.link, textDecoration: 'underline' }}>ENC# EMPTY</span>
+    <SendWindow
+      id="send-information-request"
+      anchorPrefix="send"
+      band="Send New Information Request"
+      docType={<span><b style={{ border: '1px solid #9a9a9a', padding: '1px 8px', background: 'var(--pb-face)' }}>INFORMATION REQUEST</b></span>}
+      author={author} setAuthor={setAuthor} recipient={recipient} setRecipient={setRecipient}
+      useTemplate={sendAs === 'template'} templateRadio template={template} setTemplate={setTemplate}
+      onTemplate={() => setSendAs('template')} onPlain={() => setSendAs('plain')}
+      report={(
+        <div style={{ border: '1px solid #9a9a9a', background: sendAs === 'template' ? '#d8d8d8' : '#fff', overflow: 'auto', padding: sendAs === 'template' ? 14 : 6 }}>
+          {sendAs === 'template' ? (
+            <div style={{ background: '#fff', padding: '14px 18px', minHeight: '100%' }}>
+              <div style={{ background: LW.yellow, display: 'inline-block', fontSize: 18 }}>[Author Letterhead 1]</div>
+              {[2, 3, 4, 5].map((n) => <div key={n}><span style={{ background: LW.yellow, color: '#8a8a3a' }}>[Author Letterhead {n}]</span></div>)}
+              <div style={{ marginTop: 18 }}><b>Name: </b><span style={{ background: LW.yellow }}>[Patient Full Name]</span>   <b>Gender: </b><span style={{ background: LW.yellow }}>[Patient Gender]</span></div>
+            </div>
+          ) : (
+            <div style={{ fontFamily: '"Lucida Console", monospace', whiteSpace: 'pre-wrap' }}>{TEMPLATE_TEXT}</div>
+          )}
         </div>
-        <div data-tutorial-id="host.mois.group.send-as" style={{ display: 'grid', gridTemplateColumns: '118px auto 1fr', rowGap: 4, padding: '6px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
-          <span className="pb-form__label">Send As:</span>
-          <PBRadio name="send-as" label="Use a Letter Template" checked={sendAs === 'template'} onChange={() => setSendAs('template')} />
-          <span style={{ paddingLeft: 12 }}>{sendAs === 'template' && <PBLookup w={340} value={template} onChange={setTemplate} name="send-template" />}</span>
-          <span />
-          <PBRadio name="send-as" label="Use Plain Text Report" checked={sendAs === 'plain'} onChange={() => setSendAs('plain')} />
-          <span />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr', padding: '8px 12px', flex: '1 1 auto', minHeight: 0 }}>
-          <span className="pb-form__label">Report:</span>
-          <div style={{ border: '1px solid #9a9a9a', background: sendAs === 'template' ? '#d8d8d8' : '#fff', overflow: 'auto', padding: sendAs === 'template' ? 14 : 6 }}>
-            {sendAs === 'template' ? (
-              <div style={{ background: '#fff', padding: '14px 18px', minHeight: '100%' }}>
-                <div style={{ background: LW.yellow, display: 'inline-block', fontSize: 18 }}>[Author Letterhead 1]</div>
-                {[2, 3, 4, 5].map((n) => <div key={n}><span style={{ background: LW.yellow, color: '#8a8a3a' }}>[Author Letterhead {n}]</span></div>)}
-                <div style={{ marginTop: 18 }}><b>Name: </b><span style={{ background: LW.yellow }}>[Patient Full Name]</span>   <b>Gender: </b><span style={{ background: LW.yellow }}>[Patient Gender]</span></div>
-              </div>
-            ) : (
-              <div style={{ fontFamily: '"Lucida Console", monospace', whiteSpace: 'pre-wrap' }}>{TEMPLATE_TEXT}</div>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '12px 0', flex: 'none' }}>
-        <DialogButton
-          id="send-next"
-          width={93}
-          isDefault
-          onClick={() => {
-            setLetterFlow({ doc: 'information-request', author, recipient, template: sendAs === 'template' ? template : '' })
-            close()
-            /* a letter template goes on to the Letter Writer; a plain-text
-               report straight to Create Distribution */
-            open(sendAs === 'template' ? 'letter-writer' : 'create-distribution', { doc: 'information-request' })
-          }}
-        >
-          Next...
-        </DialogButton>
-        <DialogButton id="send-cancel" width={93} onClick={close}>Cancel</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+      )}
+      onNext={() => {
+        setLetterFlow({ doc: 'information-request', author, recipient, template: sendAs === 'template' ? template : '' })
+        close()
+        /* a letter template goes on to the Letter Writer; a plain-text
+           report straight to Create Distribution */
+        open(sendAs === 'template' ? 'letter-writer' : 'create-distribution', { doc: 'information-request' })
+      }}
+      onClose={close}
+    />
   )
 }
 
@@ -502,7 +584,7 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
           </>
         )}
       </div>
-      <div className="pb-row" style={{ justifyContent: 'center', gap: 6, padding: '10px 0', flex: 'none' }}>
+      <DialogFooter gap={6} padding="10px 0">
         <DialogButton
           id="distribute-f2"
           width={92}
@@ -515,7 +597,7 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
           Distribute (F2)
         </DialogButton>
         <DialogButton id="distribution-cancel" width={78} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
       {queued && (
         /* 2616562 `c85ea0f7…` */
         <PBMessageBox title="Success: Fax Queued" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'fax-queued-ok' }]} onClose={() => { setQueued(false); finish() }}>

@@ -5,6 +5,7 @@
    a DropDownDataWindow or a modal in MOIS, not a plain HTML select: they carry
    their own column headers, and the list is painted wider than the field.
    ========================================================================= */
+import { APPOINTMENT_STATUSES } from './daybook'
 
 /** `Ser. Loc.` drops a single-column list captioned `Service Location`. */
 export const serviceLocations = [
@@ -26,16 +27,12 @@ export const serviceLocations = [
   'COMMUNITY',
 ].map((name) => ({ name }))
 
-/** `Appt Status` drops a two-column `Code | Description` list. */
-export const apptStatusCodes = [
-  { code: 'A', description: 'Arrived' },
-  { code: 'I', description: 'In Room' },
-  { code: 'S', description: 'Seen' },
-  { code: 'D', description: 'Discharged' },
-  { code: 'N', description: 'No Show' },
-  { code: 'R', description: 'Rebooked' },
-  { code: 'C', description: 'Cancelled' },
-]
+/** `Appt Status` drops a two-column `Code | Description` list: the same
+    seven codes and words, in the same order, as the Day Book's AS drop-down
+    (data/daybook `APPOINTMENT_STATUSES`, ID303827 `qu/8876/image.png`), so
+    it is derived from that one list. */
+export const apptStatusCodes: { code: string; description: string }[] =
+  APPOINTMENT_STATUSES.map(({ code, label }) => ({ code, description: label }))
 
 /** A row of the `MOIS - Search Window` the `Attending` ellipsis opens. */
 export type ProviderSearchRow = {

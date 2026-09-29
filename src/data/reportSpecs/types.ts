@@ -1,5 +1,6 @@
 import { patients, MOIS_TODAY, type Patient } from '../patients'
 import { addDays, daysFromToday } from '../clock'
+import { CLINIC_PROVIDER_NAMES_AZ } from '../clinicRoster'
 
 /* ============================================================================
    Report specs — one declarative entry per Reports-module report.
@@ -30,8 +31,9 @@ import { addDays, daysFromToday } from '../clock'
 
 /* --- the lists the drop-downs and "…" pickers offer ----------------------- */
 
-/** Provider drop-downs: blank first (= all providers), then the clinic's */
-export const RS_PROVIDERS = ['', 'BEARDWOOD, WALTER', 'DUCHARME, AMARILYS', 'FAIRCHILD, NESRIN L', 'HOWSER, DOOGIE', 'SHEWCHUK, LEAH']
+/** Provider drop-downs: blank first (= all providers), then the clinic's,
+    A–Z (data/clinicRoster) */
+export const RS_PROVIDERS = ['', ...CLINIC_PROVIDER_NAMES_AZ]
 export const RS_FACILITIES = ['', 'MOIS TEST CLINIC', 'DAWSON CREEK HEALTH UNIT', 'PRINCE GEORGE HEALTH UNIT']
 export const RS_SERVICE_CENTERS = ['', 'NURSING', 'MENTAL HEALTH', 'PUBLIC HEALTH', 'PRIMARY CARE']
 export const RS_USERS = ['', 'ADMIN, MOIS', 'ALICE, DR', 'BEARDWOOD, WALTER', 'DUCHARME, AMARILYS', 'FRONT DESK, MOA', 'HOWSER, DOOGIE', 'SHEWCHUK, LEAH']

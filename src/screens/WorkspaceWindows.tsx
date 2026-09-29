@@ -7,13 +7,16 @@ import { taskListRows } from '../data/workspaceLists'
 import { basketKey, useWorkspaceStore, workspaceStore } from '../data/workspaceStore'
 import { workspaceExtras } from '../data/workspaceExtras'
 import {
-  PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug, usePBInstrumentation,
+  PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug,
 } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { SelectAllPair, useTickSet } from './listKit'
 import { MOIS_SEARCH_TITLE, MoisSearchWindow, PickButtons, SIZE } from './lookupKit'
 import { DialogButton, FormBand, FormRule, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { AttachmentToolbar, DocumentAttachmentFrame } from './AttachmentListWindow'
+import { LAYER } from './dialogKit'
+import { DialogFooter } from './formKit'
 
 /* ============================================================================
    The Workspace's own windows (the Create New Task / Message windows live in
@@ -51,9 +54,9 @@ function Confirm({ id, title, children, buttons, onClose }: {
         </svg>
         <span style={{ paddingTop: 8 }}>{children}</span>
       </div>
-      <div className="pb-row" style={{ gap: 8, padding: '10px 12px', justifyContent: 'flex-end' }}>
+      <DialogFooter justify="flex-end" gap={8} padding="10px 12px" fixed={false}>
         {buttons.map((b) => <DialogButton key={b.id} id={b.id} width={75} onClick={b.onClick} isDefault={b.isDefault}>{b.label}</DialogButton>)}
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -91,10 +94,10 @@ function MarkForReviewDialog({ args, close }: AreaWindowProps) {
           style={{ marginTop: 12, height: 66, resize: 'none' }}
         />
       </div>
-      <div className="pb-row" style={{ gap: 12, padding: '14px 0', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={12} padding="14px 0">
         <DialogButton id="review-continue" onClick={proceed} isDefault>Continue</DialogButton>
         <DialogButton id="review-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -185,10 +188,10 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
           </span>
           <PBTextArea value={note} onChange={(e) => setNote(e.target.value)} style={{ flex: '1 1 auto', height: 34, resize: 'none' }} data-tutorial-id="host.mois.field.forward-note" />
         </div>
-        <div className="pb-row" style={{ gap: 6, padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
+        <DialogFooter gap={6} padding="10px 0">
           <DialogButton id={`forward-${mode}`} width={84} disabled={!picked.size} onClick={() => setStage('users')} isDefault>{Mode} Items</DialogButton>
           <DialogButton id="forward-cancel" width={84} onClick={close}>Cancel</DialogButton>
-        </div>
+        </DialogFooter>
       </WorkspaceDialogFrame>
 
       {stage === 'users' && (
@@ -268,7 +271,9 @@ function ForwardItemsDialog({ args, close }: AreaWindowProps) {
 }
 
 /* ---------------------------------------------------------------------------
-   Document / Attachment List (303765 images `30cd15ce`, `cc577eb0`)
+   Document / Attachment List (303765 images `30cd15ce`, `cc577eb0`), in the
+   shared frame and flat toolbar (AttachmentListWindow.tsx) with this
+   build's columns
    ------------------------------------------------------------------------ */
 type AttachmentRow = { date: string; author: string; docType: string; venue: string; authorType: string; authorRole: string; note: string; s: string; m: string; clip: string }
 
@@ -278,18 +283,6 @@ function BasketAttachmentsDialog({ args, close, open }: AreaWindowProps) {
     authorType: 'SPECIALIST', authorRole: 'PRIMARY PROVIDER', note: '', s: '', m: '', clip: '1',
   }])
   const [cur, setCur] = useState(0)
-  const host = usePBInstrumentation()
-  const tool = (id: string, label: string, onClick?: () => void) => (
-    <button
-      type="button"
-      className="pb-cmdrow__btn"
-      style={{ width: 'auto', padding: '0 8px', border: 0, background: 'transparent' }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
-    >
-      {label}
-    </button>
-  )
   const newRecord = () => {
     setRows((r) => [...r, { date: MOIS_TODAY, author: '', docType: '', venue: '', authorType: '', authorRole: '', note: '', s: '', m: '', clip: '-' }])
     setCur(rows.length)
@@ -312,17 +305,10 @@ function BasketAttachmentsDialog({ args, close, open }: AreaWindowProps) {
   const r = rows[cur]
   if (none) return null
   return (
-    <WorkspaceDialogFrame id="basket-attachments" title="Document / Attachment List" width={1000} height={700} onClose={close}>
-      <div className="pb-row" style={{ gap: 0, height: 30, flex: 'none', borderBottom: '1px solid #a0a0a0', background: '#f0f0f0' }}>
-        {tool('attach-new-record', 'New Record', newRecord)}
-        {tool('attach-delete-record', 'Delete Record')}
-        {tool('attach-save', 'Save')}
-        {tool('attach-add-attachment', 'Add Attachment', addAttachment)}
-        {tool('attach-open-attachment', 'Open Attachment')}
-        {tool('attach-unlink-attachment', 'Unlink Attachment')}
-        <span style={{ flex: '1 1 auto' }} />
-        {tool('attach-close', 'Close', close)}
-      </div>
+    <DocumentAttachmentFrame id="basket-attachments" onClose={close} controls zIndex={LAYER.workspace}
+      windowStyle={{ width: 1000, height: 700, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}
+      face="var(--pb-face)"
+      toolbar={<AttachmentToolbar prefix="attach-" height={30} on={{ 'new-record': newRecord, 'add-attachment': addAttachment, close }} />}>
       <div style={{ height: 260, flex: 'none', display: 'flex', background: '#fff' }}>
         <PBDataWindow
           rows={rows}
@@ -352,7 +338,7 @@ function BasketAttachmentsDialog({ args, close, open }: AreaWindowProps) {
         <span>Diag. Desc:</span><PBInput w={370} readOnly value="" /><span /><span /><span />
         <span>Comment:</span><PBTextArea readOnly value="" style={{ gridColumn: 'span 4', height: 90, resize: 'none' }} />
       </div>
-    </WorkspaceDialogFrame>
+    </DocumentAttachmentFrame>
   )
 }
 
@@ -437,10 +423,10 @@ function ReportTaskListDialog({ args, close, open }: AreaWindowProps) {
           <span>Chart No.:</span><PBInput w={114} />
         </div>
       </div>
-      <div className="pb-row" style={{ gap: 16, padding: '14px 0', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={16} padding="14px 0">
         <DialogButton id="task-report-ok" onClick={ok} isDefault>Ok</DialogButton>
         <DialogButton id="task-report-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

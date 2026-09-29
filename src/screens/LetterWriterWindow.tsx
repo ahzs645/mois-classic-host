@@ -26,7 +26,7 @@ import {
 import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBButton, PBCheckbox, PBGroup, PBInput, PBLookup, PBMenuBar, PBMessageBox, PBRadio, PBSelect, PBStatusBar, PBWindow,
+  PBButton, PBCheckbox, PBGroup, PBInput, PBLookup, PBMenuBar, PBMessageBox, PBRadio, PBSelect, PBStatusBar,
   pbSlug, usePBInstrumentation, type PBMenuBarEntry, type PBMenuItem,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -128,20 +128,17 @@ function LetterCommandRow({
            the existing lessons press. */
         const slug = c.label === 'Distribute...' ? 'letter-distribute' : pbSlug(c.label)
         return (
-        <button
+        <PBButton
           key={c.label}
-          type="button"
+          bare
           className="pb-cmdrow__btn"
           style={{ width: c.width, height: LW_BANDS.commandRow }}
           title={c.hint}
-          data-tutorial-id={host?.anchor('command', slug)}
-          onClick={() => {
-            host?.report('command', { command: slug })
-            onCommand?.(c.label)
-          }}
+          command={slug}
+          onClick={() => onCommand?.(c.label)}
         >
           {c.label}
-        </button>
+        </PBButton>
         )
       })}
       <span className="pb-cmdrow__spacer" />
@@ -1104,20 +1101,88 @@ export function LetterWriterWindow({
   const zoomFactor = (parseInt(zoom, 10) || 90) / 90
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <style href="mois-classic/letter-writer" precedence="medium">{LETTER_CAPTION}</style>
-      <PBWindow
-        title="MOIS - Letter Writer"
-        className="pb-window--mois-letter"
-        onClose={onClose}
-        style={{
-          /* 1009 outer = 1007 client inside the frame's 1px borders, which
-             leaves the left column at exactly the measured 856 once the
-             rail's 1 + 5 + 145 is taken off. Height from the 766px capture. */
-          width: 'min(1009px, calc(100vw - 30px))',
-          height: 'min(768px, calc(100vh - 50px))',
-        }}
-      >
+    <ModalWindow
+      title="MOIS - Letter Writer"
+      windowClassName="pb-window--mois-letter"
+      child={false}
+      controls
+      onClose={() => onClose?.()}
+      zIndex={80}
+      windowStyle={{
+        /* 1009 outer = 1007 client inside the frame's 1px borders, which
+           leaves the left column at exactly the measured 856 once the
+           rail's 1 + 5 + 145 is taken off. Height from the 766px capture. */
+        width: 'min(1009px, calc(100vw - 30px))',
+        height: 'min(768px, calc(100vh - 50px))',
+      }}
+      after={<>
+        {/* hoisted into the document head: its place here draws nothing */}
+        <style href="mois-classic/letter-writer" precedence="medium">{LETTER_CAPTION}</style>
+        {selection && (
+          <SelectionWindow
+            list={selection.list}
+            onContinue={(rows) => {
+              if (selection.insert) {
+                const kind = selection.insert
+                const selected = rows.filter(row => row[kind])
+                if (selected.length) setInserts([...inserts, { kind, list: { ...selection.list, rows: selected } }])
+              }
+              setSelection(null)
+            }}
+            onClose={() => setSelection(null)}
+          />
+        )}
+
+        {dialog === 'new-letter' && (
+          <NewLetterDialog
+            onClose={() => setDialog(null)}
+            onContinue={(choice) => {
+              setDialog(null)
+              if (template) {
+                if (choice.option === 'file') design.load(IMPORTED_DOCX_BODY)
+                if (choice.option === 'template' && choice.template) design.loadTemplate(choice.template)
+                if (choice.option === 'blank') design.load({ lines: [{ region: 'body', tokens: [] }] })
+                return
+              }
+              if (choice.option === 'template' && choice.template) setLetterFlow({ template: choice.template })
+              if (choice.option === 'file') pasteText('file', IMPORTED_DOCX_BODY.lines.map((l) => l.tokens.map((t) => t.s).join('')))
+            }}
+          />
+        )}
+        {dialog && dialog !== 'new-letter' && (
+          <LetterEditorDialog
+            id={dialog}
+            onClose={() => setDialog(null)}
+            onOk={() => {
+              if (dialog === 'insert-table') setInserts([...inserts, { kind: 'grid', rows: 2, cols: 3 }])
+              if (dialog === 'print') setPrinted(true)
+            }}
+          />
+        )}
+        {picking === 'provider' && (
+          <MasterProviderListDialog
+            onClose={() => setPicking(null)}
+            onPick={(name, row) => {
+              setPicking(null)
+              pasteText('provider-data', [name, String(row.address ?? row.city ?? ''), [row.primary && `Ph ${row.primary}`, row.fax && `Fax ${row.fax}`].filter(Boolean).join('  ')].filter(Boolean) as string[])
+            }}
+          />
+        )}
+        {picking === 'link-order' && (
+          <OrderLinkingServiceDialog onClose={() => setPicking(null)} onLink={() => setPicking(null)} />
+        )}
+        {design.prompt && (
+          <PBMessageBox title="Field Properties" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'field-prompt-ok' }]} onClose={() => design.setPrompt(null)}>
+            [{design.prompt}] — MOIS fills this field when the letter is created. If the value cannot be found, you will be prompted with a selection list.
+          </PBMessageBox>
+        )}
+        {message && (
+          <PBMessageBox title={message.title} buttons={[{ label: 'OK', value: 'ok', default: true, command: 'letter-message-ok' }]} onClose={() => setMessage(null)}>
+            {message.text}
+          </PBMessageBox>
+        )}
+      </>}
+    >
         <div
           data-tutorial-id={template ? 'host.mois.dialog.letter-template' : 'host.mois.dialog.letter-writer'}
           style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
@@ -1271,71 +1336,6 @@ export function LetterWriterWindow({
 
         <PBStatusBar cells={status} />
         </div>
-      </PBWindow>
-
-      {selection && (
-        <SelectionWindow
-          list={selection.list}
-          onContinue={(rows) => {
-            if (selection.insert) {
-              const kind = selection.insert
-              const selected = rows.filter(row => row[kind])
-              if (selected.length) setInserts([...inserts, { kind, list: { ...selection.list, rows: selected } }])
-            }
-            setSelection(null)
-          }}
-          onClose={() => setSelection(null)}
-        />
-      )}
-
-      {dialog === 'new-letter' && (
-        <NewLetterDialog
-          onClose={() => setDialog(null)}
-          onContinue={(choice) => {
-            setDialog(null)
-            if (template) {
-              if (choice.option === 'file') design.load(IMPORTED_DOCX_BODY)
-              if (choice.option === 'template' && choice.template) design.loadTemplate(choice.template)
-              if (choice.option === 'blank') design.load({ lines: [{ region: 'body', tokens: [] }] })
-              return
-            }
-            if (choice.option === 'template' && choice.template) setLetterFlow({ template: choice.template })
-            if (choice.option === 'file') pasteText('file', IMPORTED_DOCX_BODY.lines.map((l) => l.tokens.map((t) => t.s).join('')))
-          }}
-        />
-      )}
-      {dialog && dialog !== 'new-letter' && (
-        <LetterEditorDialog
-          id={dialog}
-          onClose={() => setDialog(null)}
-          onOk={() => {
-            if (dialog === 'insert-table') setInserts([...inserts, { kind: 'grid', rows: 2, cols: 3 }])
-            if (dialog === 'print') setPrinted(true)
-          }}
-        />
-      )}
-      {picking === 'provider' && (
-        <MasterProviderListDialog
-          onClose={() => setPicking(null)}
-          onPick={(name, row) => {
-            setPicking(null)
-            pasteText('provider-data', [name, String(row.address ?? row.city ?? ''), [row.primary && `Ph ${row.primary}`, row.fax && `Fax ${row.fax}`].filter(Boolean).join('  ')].filter(Boolean) as string[])
-          }}
-        />
-      )}
-      {picking === 'link-order' && (
-        <OrderLinkingServiceDialog onClose={() => setPicking(null)} onLink={() => setPicking(null)} />
-      )}
-      {design.prompt && (
-        <PBMessageBox title="Field Properties" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'field-prompt-ok' }]} onClose={() => design.setPrompt(null)}>
-          [{design.prompt}] — MOIS fills this field when the letter is created. If the value cannot be found, you will be prompted with a selection list.
-        </PBMessageBox>
-      )}
-      {message && (
-        <PBMessageBox title={message.title} buttons={[{ label: 'OK', value: 'ok', default: true, command: 'letter-message-ok' }]} onClose={() => setMessage(null)}>
-          {message.text}
-        </PBMessageBox>
-      )}
-    </div>
+    </ModalWindow>
   )
 }

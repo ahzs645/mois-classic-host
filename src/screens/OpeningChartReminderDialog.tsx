@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { ageOf, type Patient } from '../data/patients'
 import type { OpeningReminder } from '../data/opening-reminders'
-import { PBButton, PBCheckbox, PBDataWindow, PBWindow, type PBColumn } from '../pb'
+import { PBButton, PBCheckbox, PBDataWindow, type PBColumn } from '../pb'
+import { ModalWindow } from './dialogKit'
 import { PatientFieldRow } from './patientKit'
 import './opening-chart-reminder.css'
 
@@ -37,16 +38,14 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
   ]
 
   return (
-    <div
-      className="pb-modal-layer pb-modal-layer--plain pb-opening-reminder-layer"
-      role="dialog" aria-modal="true" aria-label="Automated Notification Service"
+    <ModalWindow
+      id="opening-chart-reminder"
+      title="Automated Notification Service"
+      onClose={onClose}
+      windowClassName="pb-opening-reminder"
+      layerClassName="pb-modal-layer pb-modal-layer--plain pb-opening-reminder-layer"
+      layerAttrs={{ role: 'dialog', 'aria-modal': true, 'aria-label': 'Automated Notification Service' }}
     >
-      <PBWindow
-        child controls={false} title="Automated Notification Service"
-        tutorialId="host.mois.dialog.opening-chart-reminder"
-        onClose={onClose}
-        className="pb-opening-reminder"
-      >
         <div className="pb-opening-reminder__red">
           <div className="pb-opening-reminder__content">
             <div className="pb-opening-reminder__heading">
@@ -79,8 +78,7 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
             <PBButton wide onClick={onClose} data-tutorial-id="host.mois.reminder.close">Close</PBButton>
           </div>
         </div>
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 

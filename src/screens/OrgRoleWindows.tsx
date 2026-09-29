@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
+  PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug,
 } from '../pb'
 import { clinicListSpec, clinicRowsKey, type ClinicRow } from '../data/clinicManagement'
 import { MOIS_TODAY } from '../data/patients'
@@ -460,7 +460,6 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
   kind: Kind; members: Member[]; setMembers: (next: Member[] | ((p: Member[]) => Member[])) => void
   draft: Draft; set: (patch: Draft) => void
 }) {
-  const host = usePBInstrumentation()
   const [show, setShow] = useState<'Active' | 'Inactive' | 'All'>('Active')
   const collapsed = useTickSet<string>()
   const [cur, setCur] = useState(0)
@@ -482,8 +481,8 @@ function MemberTab({ kind, members, setMembers, draft, set }: {
   const at = Math.min(cur, Math.max(0, rows.length - 1))
   const row = rows[at]
   const link = (id: string, label: string, act: () => void) => (
-    <button type="button" className="pb-link" style={{ textDecoration: 'underline', marginRight: 36 }}
-      data-tutorial-id={host?.anchor('command', id)} onClick={() => { host?.report('command', { command: id }); act() }}>{label}</button>
+    <PBButton bare className="pb-link" style={{ textDecoration: 'underline', marginRight: 36 }}
+      command={id} onClick={() => act()}>{label}</PBButton>
   )
   return (
     <>

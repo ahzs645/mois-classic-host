@@ -14,7 +14,7 @@ import {
 } from './WcbLookupWindows'
 import {
   PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroup, PBInput, PBLookup, PBMessageBox, PBRadio,
-  PBTextArea, PBWindow, pbSlug, usePBInstrumentation,
+  PBTextArea, pbSlug,
 } from '../pb'
 import { ModalWindow } from './dialogKit'
 import { FormLine, SectionCaption } from './formKit'
@@ -188,15 +188,66 @@ export function WcbFormWindow({
   const createMspClaim = () => { if (validation.length) setPrompt({ id: 'wcb-msp-claim-validation' }) }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 92 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.wcb-form"
-        title="WCB Form"
-        onClose={onClose}
-        style={{ width: 'min(875px, 100%)', height: 'min(645px, 100%)' }}
-      >
+    <ModalWindow
+      id="wcb-form"
+      title="WCB Form"
+      onClose={onClose}
+      layerStyle={{ position: 'fixed', padding: 8, zIndex: 92 }}
+      windowStyle={{ width: 'min(875px, 100%)', height: 'min(645px, 100%)' }}
+      after={<>
+        {printing && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 94 }}>
+            <PrintPreviewWindow args={printing} close={() => setPrinting(null)} open={() => false} />
+          </div>
+        )}
+        {prompt?.id === 'assign-progress-note' && (
+          <AssignProgressNoteDialog
+            notes={notes}
+            onOk={(note) => { if (note) set('note', note); setPrompt(null) }}
+            onClose={() => setPrompt(null)}
+          />
+        )}
+        {prompt?.id === 'wcb-claim-list' && (
+          <WcbClaimLookupDialog
+            onPick={(i) => { const c = i == null ? undefined : claims[i]; if (c) { setForm((f) => withClaim(f, c)); setSaved(false) } setPrompt(null) }}
+            onClose={() => setPrompt(null)}
+          />
+        )}
+        {prompt?.id === 'lookup' && (
+          <WcbCodeLookupDialog
+            kind={prompt.kind}
+            initial={form[prompt.kind]}
+            onPick={(r) => { set(prompt.kind, r.code); setPrompt(null) }}
+            onClose={() => setPrompt(null)}
+          />
+        )}
+        {prompt?.id === 'wcb-msp-claim-validation' && (
+          <WcbMspValidationWindow
+            rows={validation}
+            onPrint={() => setPrinting({
+              title: 'WCB Form MSP Claim Validation Warnings / Errors',
+              columns: [{ key: 'code', header: 'Code', width: 80 }, { key: 'type', header: 'Type', width: 160 }, { key: 'description', header: 'Description', width: 460 }],
+              rows: validation,
+            })}
+            onClose={() => setPrompt(null)}
+          />
+        )}
+        {prompt?.id === 'update-wcb-claim-list' && (
+          <UpdateClaimListPrompt
+            onClose={(answer, isDefault) => {
+              setPrompt(null)
+              if (answer !== 'yes' || !patient.chart) return
+              /* the chart's claim list is written straight away, as MOIS's
+                 database is; only committed when Demographics holds no other
+                 unsaved edit of its own */
+              const clean = isPatientSaved(patient.chart)
+              updatePatient(patient.chart, { wcbClaims: mergeClaim(claims, claimFromForm(form, isDefault)) })
+              if (clean) savePatient(patient.chart)
+            }}
+          />
+        )}
+      </>}
+    >
         <div
           style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#f2f2f2' }}
           onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); save() } }}
@@ -284,76 +335,22 @@ export function WcbFormWindow({
             </Section>
           </div>
         </div>
-      </PBWindow>
-
-      {printing && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 94 }}>
-          <PrintPreviewWindow args={printing} close={() => setPrinting(null)} open={() => false} />
-        </div>
-      )}
-      {prompt?.id === 'assign-progress-note' && (
-        <AssignProgressNoteDialog
-          notes={notes}
-          onOk={(note) => { if (note) set('note', note); setPrompt(null) }}
-          onClose={() => setPrompt(null)}
-        />
-      )}
-      {prompt?.id === 'wcb-claim-list' && (
-        <WcbClaimLookupDialog
-          onPick={(i) => { const c = i == null ? undefined : claims[i]; if (c) { setForm((f) => withClaim(f, c)); setSaved(false) } setPrompt(null) }}
-          onClose={() => setPrompt(null)}
-        />
-      )}
-      {prompt?.id === 'lookup' && (
-        <WcbCodeLookupDialog
-          kind={prompt.kind}
-          initial={form[prompt.kind]}
-          onPick={(r) => { set(prompt.kind, r.code); setPrompt(null) }}
-          onClose={() => setPrompt(null)}
-        />
-      )}
-      {prompt?.id === 'wcb-msp-claim-validation' && (
-        <WcbMspValidationWindow
-          rows={validation}
-          onPrint={() => setPrinting({
-            title: 'WCB Form MSP Claim Validation Warnings / Errors',
-            columns: [{ key: 'code', header: 'Code', width: 80 }, { key: 'type', header: 'Type', width: 160 }, { key: 'description', header: 'Description', width: 460 }],
-            rows: validation,
-          })}
-          onClose={() => setPrompt(null)}
-        />
-      )}
-      {prompt?.id === 'update-wcb-claim-list' && (
-        <UpdateClaimListPrompt
-          onClose={(answer, isDefault) => {
-            setPrompt(null)
-            if (answer !== 'yes' || !patient.chart) return
-            /* the chart's claim list is written straight away, as MOIS's
-               database is; only committed when Demographics holds no other
-               unsaved edit of its own */
-            const clean = isPatientSaved(patient.chart)
-            updatePatient(patient.chart, { wcbClaims: mergeClaim(claims, claimFromForm(form, isDefault)) })
-            if (clean) savePatient(patient.chart)
-          }}
-        />
-      )}
-    </div>
+    </ModalWindow>
   )
 }
 
 /* --- pieces --------------------------------------------------------------- */
 
 function ToolButton({ id, onClick, children }: { id: string; onClick?: () => void; children: ReactNode }) {
-  const host = usePBInstrumentation()
   return (
-    <button
-      type="button"
+    <PBButton
+      bare
       style={{ border: 'none', borderRight: '1px solid #b9b9b9', background: 'transparent', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 4, font: 'inherit', cursor: 'default' }}
-      data-tutorial-id={host?.anchor('command', id)}
-      onClick={() => { host?.report('command', { command: id }); onClick?.() }}
+      command={id}
+      onClick={() => onClick?.()}
     >
       {children}
-    </button>
+    </PBButton>
   )
 }
 

@@ -7,7 +7,7 @@ import { hhmm } from '../data/clock'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow } from '../host/screen-windows'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBTabs, PBViewHeader, pbSlug,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBTabs, PBViewHeader, pbSlug,
   usePBInstrumentation,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -147,15 +147,15 @@ export function PbfDashboardView({ onOpenNode }: PbfViewProps) {
           <div key={x.node} data-tutorial-id={host?.anchor('group', `pbf-dashboard-${pbSlug(x.title)}`)}>
             <div style={{ background: '#dcd7d2', fontWeight: 700, padding: '4px 8px', borderBottom: '1px solid #b0b0b0' }}>{x.title}</div>
             {x.lines.map((l) => (
-              <button
+              <PBButton
                 key={l.label}
-                type="button"
-                data-tutorial-id={host?.anchor('command', `pbf-dashboard-${pbSlug(l.label)}`)}
-                onClick={() => { host?.report('command', { command: `pbf-dashboard-${pbSlug(l.label)}` }); onOpenNode?.(x.node) }}
+                bare
+                command={`pbf-dashboard-${pbSlug(l.label)}`}
+                onClick={() => onOpenNode?.(x.node)}
                 style={{ display: 'flex', width: '100%', border: 0, background: 'none', padding: '4px 8px 4px 24px', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
               >
                 <span style={{ flex: '1 1 auto' }}>{l.label}</span><span style={{ width: 200 }}>{l.n}</span>
-              </button>
+              </PBButton>
             ))}
           </div>
         ))}

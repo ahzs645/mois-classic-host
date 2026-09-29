@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CLINIC_PROVIDER_NAMES_AZ, rosterProvider } from '../data/clinicRoster'
 import { argStr } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, pbSlug, usePBInstrumentation } from '../pb'
@@ -200,12 +201,10 @@ function MergeTemplateWindow({ args, open }: AreaWindowProps) {
 /* ===========================================================================
    Primary Provider List
    ======================================================================== */
+/** the clinic's providers A–Z with their numbers (data/clinicRoster), then
+    the TECHNICAL SUPPORT account, which carries none */
 const MERGE_PROVIDERS = [
-  { provider: 'BEARDWOOD, WALTER', pract: '12345', payee: '00001' },
-  { provider: 'DUCHARME, AMARILYS', pract: '', payee: '' },
-  { provider: 'FAIRCHILD, NESRIN L', pract: '41903', payee: '00001' },
-  { provider: 'HOWSER, DOOGIE', pract: '30117', payee: '00001' },
-  { provider: 'SHEWCHUK, LEAH', pract: '22781', payee: '00001' },
+  ...CLINIC_PROVIDER_NAMES_AZ.map((provider) => ({ provider, pract: rosterProvider(provider)!.pract, payee: rosterProvider(provider)!.payee })),
   { provider: 'TECHNICAL SUPPORT', pract: '', payee: '' },
 ]
 

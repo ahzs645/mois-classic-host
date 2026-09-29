@@ -12,7 +12,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput, PBLookup,
-  PBSelect, PBTabs, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation, type PBColumn,
+  PBSelect, PBTabs, PBTextArea, PBViewHeader, pbSlug, type PBColumn,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { useColumnFilters } from './listKit'
@@ -61,15 +61,6 @@ type StatusRow = { collected: string; name: string; value: string; units: string
 const dash = (mois: string) => mois.replace(/[./]/g, '-')
 const stampNow = () => `${MOIS_TODAY}  ${clockNow()}  ${SESSION_USER}`
 
-/** a hand-rolled link or button that anchors and reports like the kit's */
-function useCommand() {
-  const host = usePBInstrumentation()
-  return (id: string, onClick: () => void) => ({
-    'data-tutorial-id': host?.anchor('command', id),
-    onClick: () => { host?.report('command', { command: id }); onClick() },
-  })
-}
-
 export function DeterminantsView() {
   const patient = usePatient()
   const chart = patient.chart
@@ -77,7 +68,6 @@ export function DeterminantsView() {
   const measures = useChartRecords('measure', 'dtm_collect_date')
   const occupants = useChartRecords('chart_occupant')
   const open = useOpenWindow()
-  const command = useCommand()
   const [tab, setTab] = useState<DeterminantTab>('Employment')
   const [less, setLess] = useState(false)
   const [cur, setCur] = useState<Record<HistoryList, number>>({ employment: 0, education: 0, occupants: 0 })
@@ -166,10 +156,10 @@ export function DeterminantsView() {
                 <PBButton size="sm" style={{ minWidth: 64 }} command="determinants-update" onClick={() => open('determinant-panel', { tab })}>Update</PBButton>
                 <b>{cfg.band}</b>
                 <span className="pb-row__spacer" />
-                <button type="button" className="pb-link" {...command('determinants-trend', () => open('determinant-trend', { tab }))}>Trend</button>
-                <button type="button" className="pb-link" style={{ marginLeft: 12 }} {...command(less ? 'determinants-more' : 'determinants-less', () => setLess((v) => !v))}>
+                <PBButton bare className="pb-link" command="determinants-trend" onClick={() => open('determinant-trend', { tab })}>Trend</PBButton>
+                <PBButton bare className="pb-link" style={{ marginLeft: 12 }} command={less ? 'determinants-more' : 'determinants-less'} onClick={() => setLess((v) => !v)}>
                   {less ? 'More...' : 'Less...'}
-                </button>
+                </PBButton>
               </div>
               {!less && (
                 <div data-tutorial-id="host.mois.group.determinants-status">
@@ -202,7 +192,6 @@ export function DeterminantsView() {
                 edit={(key, patch) => edit('employment', key, patch)}
                 onNew={() => addRow('employment')} onDelete={() => deleteRow('employment')}
                 onPick={(key, field, name) => pick('employment', key, field, name)}
-                command={command}
               />
             )}
             {tab === 'Education' && (
@@ -212,7 +201,6 @@ export function DeterminantsView() {
                 edit={(key, patch) => edit('education', key, patch)}
                 onNew={() => addRow('education')} onDelete={() => deleteRow('education')}
                 onPick={(key, field, name) => pick('education', key, field, name)}
-                command={command}
               />
             )}
             {tab === 'Housing' && (
@@ -220,7 +208,6 @@ export function DeterminantsView() {
                 rows={rowsOf('occupants')} cur={cur.occupants} setCur={(i) => setCur((c) => ({ ...c, occupants: i }))}
                 edit={(key, patch) => edit('occupants', key, patch)}
                 onNew={() => addRow('occupants')} onDelete={() => deleteRow('occupants')}
-                command={command}
               />
             )}
           </div>
@@ -232,7 +219,6 @@ export function DeterminantsView() {
 
 /* --- shared pieces --------------------------------------------------------- */
 
-type Command = ReturnType<typeof useCommand>
 type TabProps = {
   rows: HistoryRow[]
   cur: number
@@ -240,7 +226,6 @@ type TabProps = {
   edit: (key: string, patch: Record<string, string>) => void
   onNew: () => void
   onDelete: () => void
-  command: Command
 }
 
 function HistoryBand({ title, onNew, onDelete, id }: { title: string; onNew: () => void; onDelete: () => void; id: string }) {
@@ -270,7 +255,7 @@ const label = (text: string, style?: CSSProperties) => <span className="pb-form_
 
 /* --- Employment ------------------------------------------------------------ */
 
-function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, command, filters, setFilter, onPick }: TabProps & {
+function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, filters, setFilter, onPick }: TabProps & {
   filters: Record<string, string>; setFilter: (k: string, v: string) => void
   onPick: (key: string, field: string, list: string) => void
 }) {
@@ -291,7 +276,7 @@ function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, command, filt
     { key: 'start', header: 'Start', width: 84, align: 'center', render: (r) => (isCur(r) ? cellInput(r.start ?? '', (v) => edit(r.key, { start: v }), 'host.mois.field.employment-start', 'center') : r.start) },
     { key: 'end', header: 'End', width: 84, align: 'center', render: (r) => (isCur(r) ? cellInput(r.end ?? '', (v) => edit(r.key, { end: v }), 'host.mois.field.employment-end', 'center') : r.end) },
     { key: 'occupation', header: 'Occupation' },
-    { key: 'd', header: '', dots: true, render: (r) => <button type="button" className="pb-link" {...command('employment-occupation-lookup', () => onPick(r.key, 'occupation', 'occupation'))}>…</button> },
+    { key: 'd', header: '', dots: true, render: (r) => <PBButton bare className="pb-link" command="employment-occupation-lookup" onClick={() => onPick(r.key, 'occupation', 'occupation')}>…</PBButton> },
     { key: 'hrs', header: 'Hrs/Wk', width: 70, align: 'right', render: (r) => (isCur(r) ? cellInput(r.hrs ?? '', (v) => edit(r.key, { hrs: v }), 'host.mois.field.employment-hours', 'right') : r.hrs) },
     { key: 'company', header: 'Company', width: 150 },
     { key: 'phoneMain', header: 'Phone (M)', width: 100 },
@@ -340,7 +325,7 @@ function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, command, filt
 
 /* --- Education ------------------------------------------------------------- */
 
-function EducationTab({ rows, cur, setCur, edit, onNew, onDelete, command, filters, setFilter, onPick }: TabProps & {
+function EducationTab({ rows, cur, setCur, edit, onNew, onDelete, filters, setFilter, onPick }: TabProps & {
   filters: Record<string, string>; setFilter: (k: string, v: string) => void
   onPick: (key: string, field: string, list: string) => void
 }) {
@@ -356,7 +341,7 @@ function EducationTab({ rows, cur, setCur, edit, onNew, onDelete, command, filte
     onChange: (e: { target: { value: string } }) => { if (row) edit(row.key, { [field]: e.target.value }) },
   })
   const dots = (field: string, list: string) => (r: HistoryRow) => (
-    <button type="button" className="pb-link" {...command(`education-${field}-lookup`, () => onPick(r.key, field, list))}>…</button>
+    <PBButton bare className="pb-link" command={`education-${field}-lookup`} onClick={() => onPick(r.key, field, list)}>…</PBButton>
   )
   const columns: PBColumn<HistoryRow>[] = [
     { key: 'start', header: 'Start', width: 72, align: 'center' },

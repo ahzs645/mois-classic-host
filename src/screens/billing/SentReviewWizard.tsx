@@ -218,7 +218,7 @@ export function MspReviewWizard({ close, open }: AreaWindowProps) {
         <DialogButton id="review-wizard-cancel" width={110} onClick={close}>Cancel</DialogButton>
       </div>
       {none && (
-        <PBMessageBox title="MSP - Review Wizard" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.review-none-ok' }]} onClose={() => setNone(false)}>
+        <PBMessageBox title="MSP - Review Wizard" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'review-none-ok' }]} onClose={() => setNone(false)}>
           No claims match these parameters.
         </PBMessageBox>
       )}
@@ -338,7 +338,7 @@ export function ClaimReviewWindow({ args, close, open }: AreaWindowProps) {
         </>
       )}
       {done && (
-        <PBMessageBox title="Claim Review Window" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.claim-review-ok' }]} onClose={() => setDone(null)}>
+        <PBMessageBox title="Claim Review Window" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-review-ok' }]} onClose={() => setDone(null)}>
           {done}
         </PBMessageBox>
       )}
@@ -434,7 +434,7 @@ export function ResubmissionWizard({ args, close }: AreaWindowProps) {
       {done !== null && (
         <PBMessageBox
           title="Resubmission Wizard"
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.resubmit-ok' }]}
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'resubmit-ok' }]}
           onClose={() => { setDone(null); close() }}
         >
           {`${done} claim(s) created in Unsent Claims, ready for resubmission.`}

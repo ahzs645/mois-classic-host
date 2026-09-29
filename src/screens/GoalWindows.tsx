@@ -7,6 +7,7 @@ import {
 } from '../data/carePlanRecords'
 import { SESSION_USER } from '../data/chartSession'
 import { addGoal, quantitativeDescription, type GoalFields } from '../data/goalRecords'
+import { GOAL_CODES, GOAL_CONCEPTS, GOAL_OPERATORS, GOAL_PHASES, GOAL_SUBJECTS, GOAL_UNITS } from '../data/goalVocab'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
@@ -64,29 +65,11 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    action-detail-cancel}.
    ========================================================================= */
 
-/* --- vocabularies (INFERRED beyond what the export and the article show) --- */
-/** the export writes TERMINATION and INITIATION; the article says
-    "initiation, completion, etc." */
-export const GOAL_PHASES = ['', 'INITIATION', 'IN PROGRESS', 'MAINTENANCE', 'COMPLETION', 'TERMINATION']
-/** Subject — the article's "Category … allows MOIS to use the proper coding
-    list"; the export's quantitative goal is a MEASURE */
-export const GOAL_SUBJECTS = ['', 'MEASURE', 'MAR', 'CONSULT', 'IMAGE', 'PROCEDURE', 'INTERVENTION']
-export const GOAL_CONCEPTS: Record<string, string[]> = {
-  MEASURE: ['BMI', 'BP', 'CIGARETTES SMOKED PACKS PER DAY', 'GFR', 'HGBA1C', 'LDL', 'PHQ-9 TOTAL SCORE', 'TRIGLYCERIDES', 'UALB/CR', 'WAIST CIRCUMFERENCE', 'WEIGHT'],
-  MAR: ['INFLUENZA VACCINE', 'PNEUMOCOCCAL VACCINE'],
-  CONSULT: ['DIABETES EDUCATION ASSESSMENT', 'OPHTHALMOLOGY ASSESSMENT'],
-  IMAGE: ['MAMMOGRAM', 'CHEST X-RAY'],
-  PROCEDURE: ['PAP TEST', 'SPIROMETRY'],
-  INTERVENTION: ['SMOKING CESSATION COUNSELLING'],
-}
-/** codes, for Identified By: Code */
-export const GOAL_CODES: Record<string, string[]> = {
-  MEASURE: ['951', '1950', '22732', '27540', '43894', 'HBA1C'],
-}
-/** "less than, greater than, etc."; Between opens a second value box */
-export const GOAL_OPERATORS = ['', '=', '<', '<=', '>', '>=', 'BETWEEN']
-/** Require Every's units — "(day, week, etc.)" */
-export const GOAL_UNITS = ['', 'DAYS', 'WEEKS', 'MONTHS', 'YEARS']
+/* --- vocabularies: data/goalVocab (Phase, Subject, Concept / Code, Target
+   Value operators, Require Every units), shared with the Quick Entry goal
+   windows ---------------------------------------------------------------- */
+/** the Phase drop-down: a blank, then data/goalVocab's phases */
+export const GOAL_PHASE_OPTIONS = ['', ...GOAL_PHASES]
 
 export const conceptOptions = (subject: string, by: 'Code' | 'Concept', current: string) => {
   const list = (by === 'Code' ? GOAL_CODES[subject] : GOAL_CONCEPTS[subject]) ?? []
@@ -106,7 +89,7 @@ export function QuantitativeFields({ value, onChange, labelWidth = 100 }: {
     <div className="pb-form" style={grid}>
       <span className="pb-form__label">Subject:</span>
       <PBSelect
-        options={GOAL_SUBJECTS} w={150} value={value.subject}
+        options={['', ...GOAL_SUBJECTS]} w={150} value={value.subject}
         data-tutorial-id="host.mois.field.goal-subject"
         onChange={(e) => onChange({ subject: e.target.value, concept: '' })}
       />
@@ -127,7 +110,7 @@ export function QuantitativeFields({ value, onChange, labelWidth = 100 }: {
       <span className="pb-form__label">Target Value:</span>
       <div className="pb-row">
         <PBSelect
-          options={GOAL_OPERATORS.map((o) => ({ value: o, label: o === 'BETWEEN' ? 'Between' : o }))} w={84} value={value.operator}
+          options={['', ...GOAL_OPERATORS].map((o) => ({ value: o, label: o === 'BETWEEN' ? 'Between' : o }))} w={84} value={value.operator}
           data-tutorial-id="host.mois.field.goal-target-operator"
           onChange={(e) => onChange({ operator: e.target.value })}
         />
@@ -141,7 +124,7 @@ export function QuantitativeFields({ value, onChange, labelWidth = 100 }: {
       <span className="pb-form__label">Require Every:</span>
       <div className="pb-row">
         <PBInput w={56} align="center" value={value.every} data-tutorial-id="host.mois.field.goal-require-every" onChange={(e) => onChange({ every: e.target.value })} />
-        <PBSelect options={GOAL_UNITS} w={110} value={value.units} data-tutorial-id="host.mois.field.goal-require-every-units" onChange={(e) => onChange({ units: e.target.value })} />
+        <PBSelect options={['', ...GOAL_UNITS]} w={110} value={value.units} data-tutorial-id="host.mois.field.goal-require-every-units" onChange={(e) => onChange({ units: e.target.value })} />
       </div>
     </div>
   )
@@ -179,7 +162,7 @@ export function NewGoalWindow({ close }: AreaWindowProps) {
             <span className="pb-form__label">Goal Type:</span>
             <PBCheckbox label="Quantitative Goal" checked={f.quantitative} tutorialId="host.mois.field.goal-quantitative" onChange={(v) => set({ quantitative: v })} />
             <span className="pb-form__label pb-form__label--right">Phase:</span>
-            <PBSelect options={GOAL_PHASES} w={112} value={f.phase} data-tutorial-id="host.mois.field.goal-phase" onChange={(e) => set({ phase: e.target.value })} />
+            <PBSelect options={GOAL_PHASE_OPTIONS} w={112} value={f.phase} data-tutorial-id="host.mois.field.goal-phase" onChange={(e) => set({ phase: e.target.value })} />
 
             <span className="pb-form__label">Start Date:</span>
             <PBInput w={80} align="center" value={f.start} data-tutorial-id="host.mois.field.goal-start-date" onChange={(e) => set({ start: e.target.value })} />

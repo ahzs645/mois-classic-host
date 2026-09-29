@@ -350,7 +350,7 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
           onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); advanced() } }}
           data-tutorial-id="host.mois.field.task-search"
         />
-        <button className="pb-inputgroup__btn pb-inputgroup__btn--dots" type="button" title="Advanced search…" data-tutorial-id="host.mois.command.task-advanced-search" onClick={advanced}>…</button>
+        <PBButton bare className="pb-inputgroup__btn pb-inputgroup__btn--dots" title="Advanced search…" command="task-advanced-search" onClick={advanced}>…</PBButton>
         {screen.filters && (
           <>
             <span className="pb-form__label" style={{ marginLeft: 12 }}>Acknowledged:</span>

@@ -345,7 +345,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
       {ask === 'duplicated' && (
         <PBMessageBox
           title="Duplicate Claim"
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.duplicate-ok' }]}
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'duplicate-ok' }]}
           onClose={() => setAsk(null)}
         >
           The claim has been duplicated to Unsent Claims for the Desktop Provider and marked Hold.

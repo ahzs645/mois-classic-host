@@ -13,7 +13,7 @@ import { PatientFieldRow } from './patientKit'
 import { MEASURE_FORMS, type Phq9Answers } from '../data/measureEntry'
 import { usePatient } from '../data/patient-context'
 import {
-  PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, PBWindow, pbSlug,
+  PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBSelect, PBTextArea, pbSlug,
 } from '../pb'
 
 /* ============================================================================
@@ -87,15 +87,31 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
   useScreenReport(bpForm ? { dialog: 'blood-pressure-form' } : phq9Form ? { dialog: 'phq9-form' } : {})
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.measurement-detail"
-        title="Measurement Detail"
-        onClose={onClose}
-        style={{ width: 'min(620px, 100%)', height: 'min(438px, 100%)' }}
-      >
+    <ModalWindow
+      id="measurement-detail"
+      title="Measurement Detail"
+      onClose={onClose}
+      zIndex={96}
+      windowStyle={{ width: 'min(620px, 100%)', height: 'min(438px, 100%)' }}
+      after={<>
+        {bpForm && (
+          <BloodPressureFormWindow
+            initial={draft.value.includes('/') ? { systolic: draft.value.split('/')[0], diastolic: draft.value.split('/')[1] } : undefined}
+            onSave={(r) => set({ value: `${r.systolic}/${r.diastolic}` })}
+            onClose={() => setBpForm(false)}
+          />
+        )}
+        {phq9Form && (
+          <Phq9FormWindow
+            initial={phq9?.answers}
+            modified={phq9?.modified}
+            /* Save Form: "The patient's PHQ9 score is now in the value field" */
+            onSave={(r) => { setPhq9({ answers: r.answers, modified: r.modified }); set({ value: r.total, flag: r.flag, report: r.report, marker: '.*.' }) }}
+            onClose={() => setOpenForm(false)}
+          />
+        )}
+      </>}
+    >
         {/* the yellow identity strip: which record this measure belongs to */}
         <PatientFieldRow
           layout="strong"
@@ -162,15 +178,15 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
               data-tutorial-id="host.mois.field.measurement-value"
             />
             {/* the "…" right of Value (302837 `17afb92b…`, v02.30.22) */}
-            <button
-              type="button"
+            <PBButton
+              bare
               className="pb-inputgroup__btn pb-inputgroup__btn--dots"
               disabled={!hasForm}
-              data-tutorial-id="host.mois.command.measurement-value-form"
+              command="measurement-value-form"
               onClick={() => setBpForm(true)}
             >
               …
-            </button>
+            </PBButton>
             <span style={{ marginLeft: 12 }}>Flag:</span>
             <PBSelect
               w={62}
@@ -209,24 +225,7 @@ export function MeasurementDetailDialog({ row, encounter, onOk, onClose }: {
             Ok
           </PBButton>
         </div>
-      </PBWindow>
-      {bpForm && (
-        <BloodPressureFormWindow
-          initial={draft.value.includes('/') ? { systolic: draft.value.split('/')[0], diastolic: draft.value.split('/')[1] } : undefined}
-          onSave={(r) => set({ value: `${r.systolic}/${r.diastolic}` })}
-          onClose={() => setBpForm(false)}
-        />
-      )}
-      {phq9Form && (
-        <Phq9FormWindow
-          initial={phq9?.answers}
-          modified={phq9?.modified}
-          /* Save Form: "The patient's PHQ9 score is now in the value field" */
-          onSave={(r) => { setPhq9({ answers: r.answers, modified: r.modified }); set({ value: r.total, flag: r.flag, report: r.report, marker: '.*.' }) }}
-          onClose={() => setOpenForm(false)}
-        />
-      )}
-    </div>
+    </ModalWindow>
   )
 }
 

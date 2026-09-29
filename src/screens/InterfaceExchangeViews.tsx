@@ -243,8 +243,8 @@ function PatientLabDetailWindow({ onClose, onMatch, resultKey }: { onClose: () =
               <b className="pb-link" style={{ textDecoration: 'underline' }}>Actions:</b>
               {LAB_DETAIL.actions.map((a) => (
                 <div key={a.label}>
-                  <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.${a.anchor}`} style={{ textAlign: 'left', whiteSpace: 'normal' }}
-                    onClick={() => add({ kind: a.anchor.startsWith('print') ? 'Print' : a.anchor.startsWith('fax') ? 'Fax' : 'Ignore', text: a.label })}>{a.label}</button>
+                  <PBButton bare className="pb-link" command={a.anchor} style={{ textAlign: 'left', whiteSpace: 'normal' }}
+                    onClick={() => add({ kind: a.anchor.startsWith('print') ? 'Print' : a.anchor.startsWith('fax') ? 'Fax' : 'Ignore', text: a.label })}>{a.label}</PBButton>
                   {a.key && <div>{a.key}</div>}
                 </div>
               ))}
@@ -362,7 +362,7 @@ export function SetupRegistrationView() {
       <div className="pb-row" data-tutorial-id="host.mois.group.default-user-inbox" style={{ gap: 8, padding: '6px 10px', background: 'var(--pb-face)', borderBottom: '1px solid #888', flex: 'none' }}>
         <Lbl>Default User Inbox:</Lbl>
         <ReadOnlyField w={170} value={inbox} />
-        <button type="button" className="pb-link" data-tutorial-id="host.mois.command.change-default" onClick={() => setChanging(true)}>Change Default</button>
+        <PBButton bare className="pb-link" command="change-default" onClick={() => setChanging(true)}>Change Default</PBButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3, position: 'relative' }}>
         <PBDataWindow

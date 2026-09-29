@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { DAY_NAMES } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { argStr } from '../data/text'
-import { CURRENT_USER, WORKSPACE_USERS, type TaskRow } from '../data/tasks'
+import { CURRENT_USER, TASK_PRIORITIES, WORKSPACE_USERS, type TaskRow } from '../data/tasks'
 import { taskListRows } from '../data/workspaceLists'
 import { useWorkspaceStore, workspaceStore } from '../data/workspaceStore'
 import { PBCheckbox, PBDataWindow, PBRadio, PBSelect, PBTextArea, type PBColumn } from '../pb'
@@ -61,18 +62,12 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    `host.screen.acked` how many are ticked Ack.
    ========================================================================= */
 
-const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 /** `2016.06.24 - Friday`, the way both captures print the created date. */
 function withWeekday(date: string) {
   const [y, m, d] = date.split('.').map(Number)
   if (!y || !m || !d) return date
-  return `${date} - ${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}`
+  return `${date} - ${DAY_NAMES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}`
 }
-
-const PRIORITIES: { code: string; label: string }[] = [
-  { code: 'L', label: 'Low' }, { code: 'M', label: 'Medium' }, { code: 'H', label: 'High' }, { code: 'V', label: 'V. High' },
-]
 
 /** The dark header both windows open on, with the signed-in user at its right. */
 function NotificationHeader({ title, navy }: { title: string; navy?: boolean }) {
@@ -154,7 +149,7 @@ export function TaskReminderWindow({ close, open }: AreaWindowProps) {
         </div>
         <div className="pb-row" style={{ gap: 14 }}>
           <span className="pb-form__label" style={{ width: 54 }}>Priority:</span>
-          {PRIORITIES.map((p) => (
+          {TASK_PRIORITIES.map((p) => (
             <PBRadio key={p.code} name="task-reminder-priority" label={p.label} checked={r?.p === p.code} />
           ))}
         </div>

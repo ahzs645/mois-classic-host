@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { DAY_NAMES, MONTH_NAMES } from '../../data/clock'
 import { PBBand, PBButton } from '../../pb'
 import { LAYER, ModalWindow } from '../dialogKit'
 import { NAVY_BOLD } from '../formKit'
@@ -13,9 +14,10 @@ import { NAVY_BOLD } from '../formKit'
 /** bold navy caption text — formKit's NAVY_BOLD */
 export const NAVY: CSSProperties = NAVY_BOLD
 
-/** the weekday and month names the Scheduler's windows spell dates with */
-export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+/** the weekday and month names the Scheduler's windows spell dates with —
+    data/clock's */
+export const DAYS = DAY_NAMES
+export const MONTHS = MONTH_NAMES
 
 export function SchedulerDialog({
   id, title, width, height, band, buttons, onClose, children, bodyStyle,

@@ -376,7 +376,7 @@ function CohortSelectionWindow({ close, open }: AreaWindowProps) {
         <DialogButton id="cohort-cancel" width={74} onClick={close}>Cancel</DialogButton>
       </div>
       {message && (
-        <PBMessageBox title="Cohort Selection Tool" icon={message.icon} buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.cohort-message-ok' }]} onClose={() => setMessage(null)}>
+        <PBMessageBox title="Cohort Selection Tool" icon={message.icon} buttons={[{ label: 'OK', value: 'ok', default: true, command: 'cohort-message-ok' }]} onClose={() => setMessage(null)}>
           {message.text}
         </PBMessageBox>
       )}
@@ -597,7 +597,7 @@ function MedicalReportBuilderWindow({ close, open }: AreaWindowProps) {
         </div>
       </div>
       {message && (
-        <PBMessageBox title="Report Builder" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.mrb-message-ok' }]} onClose={() => setMessage(null)}>{message}</PBMessageBox>
+        <PBMessageBox title="Report Builder" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'mrb-message-ok' }]} onClose={() => setMessage(null)}>{message}</PBMessageBox>
       )}
     </WorkspaceDialogFrame>
   )

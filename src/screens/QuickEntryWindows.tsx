@@ -6,6 +6,8 @@ import {
 } from '../data/quickEntryTemplates'
 import { buildQuickEntryExport, exportHeader, readQuickEntryFile, saveBlob } from '../data/quickEntryArchive'
 import type { QuickEntryFileHeader } from '../data/quickEntryXml'
+import { GOAL_PHASES, GOAL_SINGLE_OPERATORS, GOAL_UNITS } from '../data/goalVocab'
+import { PREFERENCE_BY, PREFERENCE_FORMS, PREFERENCE_REASONS, preferenceInstructions } from '../data/preferenceVocab'
 import { SESSION_USER } from '../data/chartSession'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
@@ -444,8 +446,10 @@ const INITIAL: Record<ChartGroup, (t?: QuickEntryTemplate) => QuickEntryChartVal
   'Reaction Risk': (t) => ({ firstOccurrence: '', age: '', stopped: '', severity: t?.reaction?.severity ?? '', comments: '' }),
 }
 
-const REASONS = ['', 'ALREADY IMMUNE', 'INELIGIBLE FOR VACCINE', 'NO VALID CONSENT', 'OTHER', 'PARENT DIRECTED SCHEDULING', 'SELF CHOICE']
-const PHASES = ['', 'INITIATION', 'MOTIVATION', 'MAINTENANCE', 'TERMINATION']
+/** a drop list: blank, the vocabulary, then the value in hand when the
+    vocabulary lacks it (a template may carry its own) */
+const dropList = (vocab: readonly string[], ...own: (string | undefined)[]) =>
+  ['', ...new Set([...vocab, ...own.filter((x): x is string => !!x)])]
 
 function ChartFields({ group, t, v, set }: {
   group: ChartGroup
@@ -460,8 +464,11 @@ function ChartFields({ group, t, v, set }: {
     <PBSelect w={w} options={options} value={v[k] ?? ''} data-tutorial-id={f(k)} onChange={(e) => set(k, e.target.value)} />
   )
   if (group === 'Chart Preference') {
-    const instructions = t?.preference ? ['', ...new Set([t.preference.instruction, ...['ALLOW', 'NOT ALLOW', 'DESIRED', 'NOT DESIRED']].filter(Boolean))] : ['']
-    const reasons = [...new Set([...REASONS, v.reason ?? ''])]
+    /* the lists are data/preferenceVocab's, the ones the folder's New
+       Preference dialog and the template editor drop */
+    const p = t?.preference
+    const instructions = p ? dropList(preferenceInstructions(p.type, p.concept), p.instruction, v.instruction) : ['']
+    const reasons = dropList(PREFERENCE_REASONS, v.reason)
     return (
       <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div className="pb-row" style={{ gap: 8 }}>
@@ -475,8 +482,8 @@ function ChartFields({ group, t, v, set }: {
           <span style={{ width: 290 }}>Form:</span><span>By:</span>
         </div>
         <div className="pb-row" style={{ gap: 68 }}>
-          {select('form', ['', 'IN PERSON', 'PAPER', 'PHONE', 'VERBAL'], 222)}
-          {select('by', ['', 'CLIENT', 'GUARDIAN', 'MATURE MINOR', 'PARENT', 'OTHER'], 222)}
+          {select('form', dropList(PREFERENCE_FORMS, v.form), 222)}
+          {select('by', dropList(PREFERENCE_BY, v.by), 222)}
         </div>
       </div>
     )
@@ -486,11 +493,11 @@ function ChartFields({ group, t, v, set }: {
       <div style={{ padding: '6px 10px', display: 'grid', gridTemplateColumns: '128px auto', rowGap: 5, alignItems: 'center', justifyContent: 'start' }}>
         <span>Start:</span>
         <div className="pb-row">{input('start')}<span style={{ marginLeft: 20 }}>End:</span>{input('end')}</div>
-        <span>Phase:</span>{select('phase', PHASES, 172)}
+        <span>Phase:</span>{select('phase', dropList(GOAL_PHASES, v.phase), 172)}
         <span>Target Value:</span>
-        <div className="pb-row" style={{ gap: 4 }}>{select('operator', ['', '<', '<=', '=', '>=', '>'], 138)}{input('target', 150)}</div>
+        <div className="pb-row" style={{ gap: 4 }}>{select('operator', dropList(GOAL_SINGLE_OPERATORS, v.operator), 138)}{input('target', 150)}</div>
         <span>Perform Every:</span>
-        <div className="pb-row" style={{ gap: 4 }}>{input('every', 138)}{select('units', ['', 'HOURS', 'DAYS', 'WEEKS', 'MONTHS', 'YEARS'], 150)}</div>
+        <div className="pb-row" style={{ gap: 4 }}>{input('every', 138)}{select('units', dropList(GOAL_UNITS, v.units), 150)}</div>
         <span style={{ gridColumn: 'span 2', color: '#000080', fontWeight: 700 }}>Additional Information:</span>
         <span style={{ gridColumn: 'span 2' }}>Detail:</span>
         <div style={{ gridColumn: 'span 2' }}>{area('detail')}</div>

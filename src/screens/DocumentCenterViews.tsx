@@ -252,8 +252,8 @@ function OutboundDocumentsView({ close, openNode, open }: FolderViewProps) {
             {
               key: 'type', header: 'Record Type', width: 110, align: 'center',
               render: (r) => (
-                <button type="button" className="pb-link" style={{ textDecoration: 'underline' }}
-                  data-tutorial-id={`host.mois.command.record-type-${pbSlug(r.type)}`} onClick={() => openNode(r.node)}>{r.type}</button>
+                <PBButton bare className="pb-link" style={{ textDecoration: 'underline' }}
+                  command={`record-type-${pbSlug(r.type)}`} onClick={() => openNode(r.node)}>{r.type}</PBButton>
               ),
             },
             { key: 'status', header: 'Status', width: 80 },

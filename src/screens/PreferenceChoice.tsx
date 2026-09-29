@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { PBDropGlyph, PBInput } from '../pb'
+import { PBButton, PBDropGlyph, PBInput } from '../pb'
 import { PBPopup, pbInPopup, usePBPopupOwner } from '../pb/popup'
 
 /** Headerless PowerBuilder choice list, including its empty dropped state.
@@ -43,12 +43,12 @@ export function PreferenceChoice({ label, value, options, onChange, disabled, re
     <PBInput aria-label={label} role="combobox" aria-autocomplete="none" aria-expanded={open}
       aria-controls={open ? id : undefined} aria-activedescendant={open && active >= 0 ? `${id}-${active}` : undefined}
       value={value} disabled={disabled} readOnly={readOnly} onChange={e => onChange(e.target.value)} />
-    <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--drop" aria-label={`Open ${label.toLowerCase()} choices`}
+    <PBButton bare className="pb-inputgroup__btn pb-inputgroup__btn--drop" aria-label={`Open ${label.toLowerCase()} choices`}
       disabled={disabled || readOnly} aria-expanded={open} aria-controls={open ? id : undefined}
-      data-tutorial-id={tutorialId ? `host.mois.command.${tutorialId}-list` : undefined}
+      command={tutorialId ? `${tutorialId}-list` : undefined}
       onClick={() => { setActive(choices.indexOf(value)); setOpen(v => !v) }}>
       <PBDropGlyph />
-    </button>
+    </PBButton>
     {open && <PBPopup anchorRef={anchor} owner={owner} minWidth="anchor" className="pb-preference-choice__popup">
       <div role="listbox" id={id} aria-label={`${label} choices`} className={choices.length ? undefined : 'is-empty'}>
         {choices.map((item, i) => <div role="option" id={`${id}-${i}`} key={item} aria-selected={item === value}

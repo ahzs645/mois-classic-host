@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { deleteQuickEntryTemplate, quickEntryRow, useQuickEntryTemplates } from '../data/quickEntryTemplates'
 import { useScreenReport } from '../host/screen-state'
-import { PBCommandRow, PBDataWindow, PBMessageBox, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBCommandRow, PBDataWindow, PBMessageBox, PBViewHeader, pbSlug } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { useColumnFilters } from './listKit'
 
@@ -25,7 +25,6 @@ import { useColumnFilters } from './listKit'
    ========================================================================= */
 
 export function QuickEntryListView({ onClose }: { onClose?: () => void }) {
-  const host = usePBInstrumentation()
   const open = useOpenWindow()
   const templates = useQuickEntryTemplates()
   const [cur, setCur] = useState(0)
@@ -56,16 +55,16 @@ export function QuickEntryListView({ onClose }: { onClose?: () => void }) {
         right={(
           <span className="pb-row" style={{ gap: 0, marginRight: 17 }}>
             {right.map((b) => (
-              <button
+              <PBButton
                 key={b.label}
-                type="button"
+                bare
                 className="pb-cmdrow__btn"
                 style={{ width: b.width }}
-                data-tutorial-id={host?.anchor('command', pbSlug(b.label))}
-                onClick={() => { host?.report('command', { command: pbSlug(b.label) }); b.onClick() }}
+                command={pbSlug(b.label)}
+                onClick={() => b.onClick()}
               >
                 {b.label}
-              </button>
+              </PBButton>
             ))}
           </span>
         )}
@@ -91,8 +90,8 @@ export function QuickEntryListView({ onClose }: { onClose?: () => void }) {
           title="Delete Record"
           icon="question"
           buttons={[
-            { label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.qe-delete-yes' },
-            { label: 'No', value: 'no', tutorialId: 'host.mois.command.qe-delete-no' },
+            { label: 'Yes', value: 'yes', default: true, command: 'qe-delete-yes' },
+            { label: 'No', value: 'no', command: 'qe-delete-no' },
           ]}
           onClose={(v) => {
             setConfirm(false)

@@ -8,7 +8,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput, PBRadio, PBSelect, PBTextArea, PBViewHeader, pbSlug,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput, PBRadio, PBSelect, PBTextArea, PBViewHeader, pbSlug,
 } from '../pb'
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
 import { GreenBand, Lbl } from './ExchangeKit'
@@ -373,7 +373,7 @@ export function RoutingPanes() {
             <div>System Default Inbox:</div>
             <div className="pb-row" style={{ gap: 8 }}>
               <PBInput w={300} readOnly value={routing.systemDefault} style={{ background: '#e8e8e8' }} />
-              <button type="button" className="pb-link" data-tutorial-id="host.mois.command.change-system-default" onClick={() => { setPick(routing.systemDefault); setPicking('default') }}>Change Default</button>
+              <PBButton bare className="pb-link" command="change-system-default" onClick={() => { setPick(routing.systemDefault); setPicking('default') }}>Change Default</PBButton>
             </div>
           </div>
         </div>
@@ -385,8 +385,8 @@ export function RoutingPanes() {
             <div>Default Unmatched Inbox:</div>
             <div className="pb-row" style={{ gap: 8 }}>
               <PBInput w={300} readOnly value={routing.handlingEnabled ? routing.unmatchedInbox : ''} style={{ background: '#e8e8e8' }} />
-              <button type="button" className="pb-link" disabled={!routing.handlingEnabled} data-tutorial-id="host.mois.command.change-unmatched-inbox"
-                onClick={() => { setPick(routing.unmatchedInbox); setPicking('unmatched') }}>Change Inbox</button>
+              <PBButton bare className="pb-link" disabled={!routing.handlingEnabled} command="change-unmatched-inbox"
+                onClick={() => { setPick(routing.unmatchedInbox); setPicking('unmatched') }}>Change Inbox</PBButton>
             </div>
           </div>
         </div>

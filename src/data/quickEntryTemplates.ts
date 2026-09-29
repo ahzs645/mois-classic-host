@@ -47,6 +47,7 @@
    capture's Name / Description columns cut off, and every TRAINING Goal,
    MSP and Reaction Risk template (none captured, so the manual's stay).
    ========================================================================= */
+import { ORDER_TYPES } from './orderVocab'
 import { createSignal } from './sessionStore'
 import type { PreferenceIdentifiedBy, PreferenceType } from './preferenceVocab'
 import { TRAINING_QUICK_ENTRY_XML } from './quickEntryTrainingExport.generated'
@@ -173,22 +174,12 @@ function orderForOf(name: string, description: string): string {
 }
 
 /* --- vocabularies the editors drop ---------------------------------------- */
-/** art. 3071982, "Quick Entry Template - Goal" */
-export const GOAL_SUBJECTS = ['CONSULT', 'IMAGE', 'INTERVENTION', 'MEASURE', 'PROCEDURE']
-/** Target Value Operator — INFERRED beyond the captured `<` */
-export const GOAL_OPERATORS = ['<', '<=', '=', '>=', '>']
-/** "a recurrent time period (e.g. days, hours, weeks, months, years)" */
-export const GOAL_UNITS = ['HOURS', 'DAYS', 'WEEKS', 'MONTHS', 'YEARS']
+/* the Goal template's Subject / operator / unit lists are data/goalVocab's
+   (QE_GOAL_SUBJECTS, GOAL_SINGLE_OPERATORS, GOAL_UNITS) */
 /** art. 3071982 "Quick Entry Template - Order": the types as OrderView's
-    Order Type DDDW prints them (303588 `48e7423c…`) */
-export const QE_ORDER_TYPES = [
-  { type: 'CONSULTATION', description: 'Medical Consultation Request' },
-  { type: 'IMAGE', description: 'Medical Imaging Request' },
-  { type: 'INTERVENTION', description: 'Medical Intervention Request' },
-  { type: 'LAB', description: 'Medical Laboratory Requisition' },
-  { type: 'PROCEDURE', description: 'Medical Procedure Request' },
-  { type: 'MISC', description: 'Miscellaneous' },
-]
+    Order Type DDDW prints them (303588 `48e7423c…`) — one list, in
+    data/orderVocab */
+export const QE_ORDER_TYPES = ORDER_TYPES
 /** what the Order For "…" offers per type — INFERRED (no capture opens it) */
 export const QE_ORDER_FOR: Record<string, string[]> = {
   CONSULTATION: [...new Set(['CARDIOLOGY', 'DERMATOLOGY', 'INTERNAL MEDICINE', 'PSYCHIATRY', ...TRAINING_ORDER_ROWS.map(([name, d]) => orderForOf(name, d))])],

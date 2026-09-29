@@ -385,7 +385,7 @@ export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => voi
         />
       )}
       {message && (
-        <PBMessageBox title="Invoice" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.invoice-ok' }]} onClose={() => setMessage(null)}>
+        <PBMessageBox title="Invoice" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'invoice-ok' }]} onClose={() => setMessage(null)}>
           {message}
         </PBMessageBox>
       )}

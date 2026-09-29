@@ -8,7 +8,6 @@ import {
 } from '../data/letterDocs'
 import { DESKTOP_PROVIDER, beginLetter, docOfType, setLetterFlow, type LetterDocId } from '../data/letterFlow'
 import { LETTER_TEMPLATES } from '../data/letterSetup'
-import { LW } from '../data/letterWriter'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
@@ -17,7 +16,7 @@ import {
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogFooter } from './formKit'
-import { PatientFieldRow } from './patientKit'
+import { SendWindow } from './LetterWindows'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
@@ -36,7 +35,8 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
                         Response, the same five columns, Ok / Cancel. The
                         Orders folder's Respond button opens it; with no
                         response on the Order yet it goes straight to Send.
-     send-document      2961349 `0480d274…` (Responding With Patient
+     send-document      the shared Send window (LetterWindows.tsx SendWindow).
+                        2961349 `0480d274…` (Responding With Patient
                         Summary: Document Type DDDW MISC / NOTE /
                         NOTIFICATION / PATIENT SUMMARY with their
                         descriptions, "In Response to Order #:" and its "…")
@@ -216,126 +216,96 @@ function SendDocumentWindow({ args, close, open }: AreaWindowProps) {
   useScreenReport({ dialog: letterhead ? 'report-letterhead' : 'send-document', sendDocType: pbSlug(docType), sendAs, sendMode: mode })
   const useTemplate = sendAs === 'template' && templates.length > 0
 
-  return (
-    <WorkspaceDialogFrame id="send-document" title="Send" width={940} height={690} onClose={close}>
-      <div className="pb-row" style={{ gap: 0, padding: '2px 4px', background: LW.band, borderBottom: '1px solid #646464', flex: 'none' }}>
-        <DialogButton id="send-text-and-labels" width={112}>Text and Labels</DialogButton>
-        <DialogButton id="send-paste-care-plan" width={112} onClick={() => setLetterhead(true)}>Paste Care Plan</DialogButton>
-      </div>
-      <div style={{ margin: '12px 16px 0', border: '1px solid #646464', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
-        <PBBand>{band}</PBBand>
-        <PatientFieldRow style={{ gap: 0, padding: '3px 12px', borderBottom: '1px solid #9a9a9a', background: '#fff' }} fields={[
-          { label: 'FIRST:', value: p.first, w: 160 },
-          { label: 'MIDDLE:', value: p.middle, w: 150 },
-          { label: 'LAST:', value: p.last, w: 180 },
-          { label: 'DoB:', value: p.dob, w: 110 },
-          { label: 'SEX:', value: p.sex },
-        ]} />
-        <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr 110px', rowGap: 4, padding: '8px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
-          <span className="pb-form__label">Document Type:</span>
-          <span className="pb-row" style={{ gap: 12 }}>
-            <PBDropDownDataWindow
-              w={170}
-              listW={450}
-              value={docType}
-              tutorialId="host.mois.field.send-document-type"
-              columns={[{ key: 'type', header: 'Document Type', width: 190 }, { key: 'description', header: 'Description' }]}
-              rows={RESPONSE_DOC_TYPES}
-              onSelect={(r) => { setDocType(r.type); setTemplate('') }}
-            />
-            {mode === 'response' && (
-              <>
-                <span className="pb-form__label">In Response to Order #:</span>
-                <span data-tutorial-id="host.mois.field.in-response-to"><PBLookup w={110} value={orderId} readOnly name="in-response-to" /></span>
-              </>
-            )}
-          </span>
-          <span />
-          <span className="pb-form__label">Author:</span>
-          <span data-tutorial-id="host.mois.field.send-document-author"><PBLookup w={580} value={author} onChange={setAuthor} name="send-document-author" /></span><span />
-          <span className="pb-form__label">Primary Recipient:</span>
-          <span data-tutorial-id="host.mois.field.send-document-recipient"><PBLookup w={580} value={recipient} onChange={setRecipient} name="send-document-recipient" /></span>
-          <span className="pb-link" style={{ color: LW.link, textDecoration: 'underline' }}>ENC# EMPTY</span>
-        </div>
-        <div data-tutorial-id="host.mois.group.send-document-as" style={{ display: 'grid', gridTemplateColumns: '118px auto 1fr', rowGap: 4, padding: '6px 12px', alignItems: 'center', borderBottom: '1px solid #9a9a9a' }}>
-          <span className="pb-form__label">Send As:</span>
-          {/* "a letter template will not show as an option if you have not
-              previously created a letter template for the document type" */}
-          {templates.length > 0
-            ? <PBRadio name="send-document-as" label="Use a Letter Template" checked={sendAs === 'template'} onChange={() => { setSendAs('template'); setTemplate(templates[0]!) }} tutorialId="host.mois.field.send-document-as-template" />
-            : <span style={{ color: '#8a8a8a' }}>(no {docType} letter template)</span>}
-          <span style={{ paddingLeft: 12 }}>{useTemplate && <PBLookup w={340} value={template} onChange={setTemplate} name="send-document-template" />}</span>
-          <span />
-          <PBRadio name="send-document-as" label="Use Plain Text Report" checked={!useTemplate} onChange={() => setSendAs('plain')} tutorialId="host.mois.field.send-document-as-plain" />
-          <span />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '118px 1fr', padding: '8px 12px', flex: '1 1 auto', minHeight: 0 }}>
-          <span className="pb-form__label">Report:</span>
-          <PBTextArea
-            value={useTemplate ? '' : report}
-            readOnly={useTemplate}
-            onChange={(e) => setReport(e.target.value)}
-            data-tutorial-id="host.mois.field.send-document-report"
-            style={{ height: '100%', resize: 'none', fontFamily: '"Lucida Console", monospace', background: useTemplate ? '#d8d8d8' : '#fff' }}
-          />
-        </div>
-      </div>
-      <DialogFooter gap={14} padding="12px 0">
-        <DialogButton
-          id="send-document-next"
-          width={93}
-          isDefault
-          onClick={() => {
-            const doc = docOfType(docType)
-            beginLetter(doc)
-            setLetterFlow({
-              author, recipient, template: useTemplate ? template : '', plainText: useTemplate ? '' : report,
-              responseTo: mode === 'response' ? orderId : null, documentId: documentId || null,
-            })
-            close()
-            open(useTemplate ? 'letter-writer' : 'create-distribution', { doc })
-          }}
-        >
-          Next...
-        </DialogButton>
-        <DialogButton id="send-document-cancel" width={93} onClick={close}>Cancel</DialogButton>
-      </DialogFooter>
+  const pasteCarePlan = () => {
+    const head = source === 'None' ? [] : source === 'Clinic' ? CLINIC_LINES : [DESKTOP_PROVIDER, ...CLINIC_LINES.slice(1)]
+    setReport(carePlanSnapshotText(carePlanRows(data, session.tags), p, MOIS_TODAY, head))
+    setSendAs('plain')
+    setLetterhead(false)
+  }
 
-      {letterhead && (
-          <WorkspaceDialogFrame id="report-letterhead" title="Report Letterhead" width={648} height={310} onClose={() => setLetterhead(false)} controls={false} zIndex={97}>
-            <div style={{ margin: '10px 20px 0', border: '1px solid #9a9a9a', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 10, flex: '1 1 auto' }}>
-              <div className="pb-row" style={{ gap: 14, alignItems: 'stretch' }}>
-                <div style={{ width: 150 }} data-tutorial-id="host.mois.group.choose-source">
-                  <PBGroup title="Choose Source">
-                    {LETTERHEAD_SOURCES.map((s) => (
-                      <div key={s} style={{ padding: '4px 0' }}><PBRadio name="send-letterhead-source" label={s} checked={source === s} onChange={() => setSource(s)} tutorialId={`host.mois.field.letterhead-${pbSlug(s)}`} /></div>
-                    ))}
-                  </PBGroup>
-                </div>
-                <div style={{ flex: '1 1 auto' }} data-tutorial-id="host.mois.group.letterhead">
-                  <PBGroup title="Letterhead">
-                    {(source === 'None' ? ['', '', '', '', ''] : source === 'Clinic' ? CLINIC_LINES : [DESKTOP_PROVIDER, ...CLINIC_LINES.slice(1)]).map((l, i) => (
-                      <div key={i} style={{ padding: '1px 0' }}><PBInput w="100%" value={l} readOnly /></div>
-                    ))}
-                  </PBGroup>
-                </div>
-              </div>
-              <PBCheckbox label="Save as default source" checked={false} />
-            </div>
-            <DialogFooter gap={10} padding="12px 0">
-              <DialogButton id="letterhead-continue" width={75} isDefault onClick={() => {
-                const head = source === 'None' ? [] : source === 'Clinic' ? CLINIC_LINES : [DESKTOP_PROVIDER, ...CLINIC_LINES.slice(1)]
-                setReport(carePlanSnapshotText(carePlanRows(data, session.tags), p, MOIS_TODAY, head))
-                setSendAs('plain')
-                setLetterhead(false)
-              }}>
-                Continue (F2)
-              </DialogButton>
-              <DialogButton id="letterhead-cancel" width={75} onClick={() => setLetterhead(false)}>Cancel</DialogButton>
-            </DialogFooter>
-          </WorkspaceDialogFrame>
+  return (
+    <SendWindow
+      id="send-document"
+      anchorPrefix="send-document"
+      toolPrefix="send-"
+      onPasteCarePlan={() => setLetterhead(true)}
+      band={band}
+      docType={(
+        <span className="pb-row" style={{ gap: 12 }}>
+          <PBDropDownDataWindow
+            w={170}
+            listW={450}
+            value={docType}
+            tutorialId="host.mois.field.send-document-type"
+            columns={[{ key: 'type', header: 'Document Type', width: 190 }, { key: 'description', header: 'Description' }]}
+            rows={RESPONSE_DOC_TYPES}
+            onSelect={(r) => { setDocType(r.type); setTemplate('') }}
+          />
+          {mode === 'response' && (
+            <>
+              <span className="pb-form__label">In Response to Order #:</span>
+              <span data-tutorial-id="host.mois.field.in-response-to"><PBLookup w={110} value={orderId} readOnly name="in-response-to" /></span>
+            </>
+          )}
+        </span>
       )}
-    </WorkspaceDialogFrame>
+      author={author} setAuthor={setAuthor} recipient={recipient} setRecipient={setRecipient}
+      useTemplate={useTemplate}
+      /* "a letter template will not show as an option if you have not
+         previously created a letter template for the document type" */
+      templateRadio={templates.length > 0 || <span style={{ color: '#8a8a8a' }}>(no {docType} letter template)</span>}
+      template={template} setTemplate={setTemplate}
+      onTemplate={() => { setSendAs('template'); setTemplate(templates[0]!) }}
+      onPlain={() => setSendAs('plain')}
+      radioAnchors
+      report={(
+        <PBTextArea
+          value={useTemplate ? '' : report}
+          readOnly={useTemplate}
+          onChange={(e) => setReport(e.target.value)}
+          data-tutorial-id="host.mois.field.send-document-report"
+          style={{ height: '100%', resize: 'none', fontFamily: '"Lucida Console", monospace', background: useTemplate ? '#d8d8d8' : '#fff' }}
+        />
+      )}
+      onNext={() => {
+        const doc = docOfType(docType)
+        beginLetter(doc)
+        setLetterFlow({
+          author, recipient, template: useTemplate ? template : '', plainText: useTemplate ? '' : report,
+          responseTo: mode === 'response' ? orderId : null, documentId: documentId || null,
+        })
+        close()
+        open(useTemplate ? 'letter-writer' : 'create-distribution', { doc })
+      }}
+      onClose={close}
+      after={letterhead && (
+        <WorkspaceDialogFrame id="report-letterhead" title="Report Letterhead" width={648} height={310} onClose={() => setLetterhead(false)} controls={false} zIndex={97}>
+          <div style={{ margin: '10px 20px 0', border: '1px solid #9a9a9a', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 10, flex: '1 1 auto' }}>
+            <div className="pb-row" style={{ gap: 14, alignItems: 'stretch' }}>
+              <div style={{ width: 150 }} data-tutorial-id="host.mois.group.choose-source">
+                <PBGroup title="Choose Source">
+                  {LETTERHEAD_SOURCES.map((s) => (
+                    <div key={s} style={{ padding: '4px 0' }}><PBRadio name="send-letterhead-source" label={s} checked={source === s} onChange={() => setSource(s)} tutorialId={`host.mois.field.letterhead-${pbSlug(s)}`} /></div>
+                  ))}
+                </PBGroup>
+              </div>
+              <div style={{ flex: '1 1 auto' }} data-tutorial-id="host.mois.group.letterhead">
+                <PBGroup title="Letterhead">
+                  {(source === 'None' ? ['', '', '', '', ''] : source === 'Clinic' ? CLINIC_LINES : [DESKTOP_PROVIDER, ...CLINIC_LINES.slice(1)]).map((l, i) => (
+                    <div key={i} style={{ padding: '1px 0' }}><PBInput w="100%" value={l} readOnly /></div>
+                  ))}
+                </PBGroup>
+              </div>
+            </div>
+            <PBCheckbox label="Save as default source" checked={false} />
+          </div>
+          <DialogFooter gap={10} padding="12px 0">
+            <DialogButton id="letterhead-continue" width={75} isDefault onClick={pasteCarePlan}>Continue (F2)</DialogButton>
+            <DialogButton id="letterhead-cancel" width={75} onClick={() => setLetterhead(false)}>Cancel</DialogButton>
+          </DialogFooter>
+        </WorkspaceDialogFrame>
+      )}
+    />
   )
 }
 

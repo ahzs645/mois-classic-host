@@ -5,7 +5,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
-import { pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { ModalWindow } from './dialogKit'
 
@@ -133,16 +133,15 @@ function Field({ id, label, required, value, onChange, width, after }: {
 }
 
 function Panel({ id, title, open, onToggle, children }: { id: string; title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
-  const host = usePBInstrumentation()
   return (
     <div style={{ flex: '1 1 0', minWidth: 0, border: '1px solid #ddd', borderRadius: 4, background: '#fff', alignSelf: 'flex-start' }}>
-      <button type="button" aria-expanded={open} aria-controls={`eform-${id}-body`}
-        data-tutorial-id={host?.anchor('command', `eform-${id}-panel`)}
-        onClick={() => { host?.report('command', { command: `eform-${id}-panel` }); onToggle() }}
+      <PBButton bare aria-expanded={open} aria-controls={`eform-${id}-body`}
+        command={`eform-${id}-panel`}
+        onClick={() => onToggle()}
         style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 12px', border: 0, borderBottom: open ? '1px solid #ddd' : 0, background: '#f5f5f5', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
         <span style={{ display: 'inline-grid', placeItems: 'center', width: 12, height: 12, border: '1px solid #777', fontSize: 10, lineHeight: 1 }}>{open ? '−' : '+'}</span>
         {title}
-      </button>
+      </PBButton>
       {open && <div id={`eform-${id}-body`} style={{ padding: '0 12px 12px' }}>{children}</div>}
     </div>
   )
@@ -154,7 +153,6 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
   const p = usePatient()
   const area = useEncounterSession()
   const [, setFiled] = useFiledEforms()
-  const host = usePBInstrumentation()
 
   /* "It may take up to 5 seconds for this information to pre-fill" */
   const [filled, setFilled] = useState(false)
@@ -199,13 +197,12 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
   const file = (state: FiledEform['status']) => {
     setFiled((all) => [{ date: MOIS_TODAY, author: DESKTOP_USER, type: 'PHSA EFORM', note: form === 'paxlovid' ? 'PAXLOVID PRESCRIPTION' : `SPECIAL AUTHORITY REQUEST${med ? ` - ${med.split(' (')[0]!.toUpperCase()}` : ''}`, status: state }, ...all])
   }
-  const command = (id: string, fn: () => void) => () => { host?.report('command', { command: `eform-${id}` }); fn() }
-  const submit = command('submit', () => {
+  const submit = () => {
     if (!complete) { setMissing(true); return }
     file('SUBMITTED')
     if (target) area.update((s) => ({ ...s, attachments: { ...s.attachments, [target]: (s.attachments[target] ?? 0) + 1 } }))
     setStatus('submitted')
-  })
+  }
 
   const patientPanel = (
     <Panel id="patient" title="Patient Information" open={patientOpen} onToggle={() => setPatientOpen((o) => !o)}>
@@ -323,9 +320,9 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
           {signature
             ? <span>&#128206; {signature} <button type="button" style={{ border: 0, background: 'none', color: '#337ab7', cursor: 'pointer' }} onClick={() => setSignature('')}>remove</button></span>
             : <>&#9729; Drop files to attach, <span style={{ color: '#337ab7' }}>&#128247; Use Camera</span>, or{' '}
-              <button type="button" data-tutorial-id="host.mois.command.eform-browse"
-                onClick={command('browse', () => setSignature('signature.png'))}
-                style={{ border: 0, background: 'none', padding: 0, color: '#337ab7', font: 'inherit', cursor: 'pointer' }}>browse</button></>}
+              <PBButton bare command="eform-browse"
+                onClick={() => setSignature('signature.png')}
+                style={{ border: 0, background: 'none', padding: 0, color: '#337ab7', font: 'inherit', cursor: 'pointer' }}>browse</PBButton></>}
         </div>
       </div>
     </div>
@@ -343,7 +340,7 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
           <div data-tutorial-id="host.mois.group.eform-submitted" style={{ padding: '40px 0', textAlign: 'center' }}>
             <h2 style={{ fontWeight: 400 }}>Thank you. Your {form === 'paxlovid' ? 'prescription' : 'request'} has been submitted.</h2>
             <p>A copy has been saved to the patient&apos;s chart (Documents).</p>
-            <button type="button" style={{ ...BTN, background: '#337ab7' }} data-tutorial-id="host.mois.command.eform-close" onClick={close}>Close</button>
+            <PBButton bare style={{ ...BTN, background: '#337ab7' }} command="eform-close" onClick={() => close()}>Close</PBButton>
           </div>
         ) : (
           <>
@@ -356,12 +353,11 @@ function PhsaEformWindow({ args, close }: AreaWindowProps) {
             {missing && !complete && <p style={{ color: '#d9534f', marginTop: 14 }}>Please complete all mandatory fields.</p>}
             {status === 'draft' && <p style={{ color: '#3c763d', marginTop: 14 }}>Draft saved.</p>}
             <div style={{ textAlign: 'center', marginTop: 24 }}>
-              <button type="button" style={{ ...BTN, background: '#0d6efd', padding: '8px 26px' }} data-tutorial-id="host.mois.command.eform-submit" onClick={submit}>Submit</button>
+              <PBButton bare style={{ ...BTN, background: '#0d6efd', padding: '8px 26px' }} command="eform-submit" onClick={() => submit()}>Submit</PBButton>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 10 }}>
-                <button type="button" style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} data-tutorial-id="host.mois.command.eform-save-draft"
-                  onClick={command('save-draft', () => { file('DRAFT'); setStatus('draft') })}>Save Draft</button>
-                <button type="button" style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} data-tutorial-id="host.mois.command.eform-download-draft-pdf"
-                  onClick={command('download-draft-pdf', () => undefined)}>Download Draft PDF</button>
+                <PBButton bare style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} command="eform-save-draft"
+                  onClick={() => { file('DRAFT'); setStatus('draft') }}>Save Draft</PBButton>
+                <PBButton bare style={{ ...BTN, background: '#6c757d', fontWeight: 400 }} command="eform-download-draft-pdf">Download Draft PDF</PBButton>
               </div>
             </div>
           </>

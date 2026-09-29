@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ACK_HISTORY_SEED, BASKET_ORDERS, IR_CODES, MEASURE_GOALS, MEASURE_HISTORY, ORDER_STATUSES,
   basketFolderById, basketFolders, rowOwners, type BasketRow,
@@ -22,9 +22,10 @@ import { RichtextReportWindow } from './PrintFlow'
 import { taskRowSlug } from './TaskListView'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { ContextMenu } from './scheduler/DaybookMenus'
-import { PatientFieldRow } from './patientKit'
 import { DialogButton, FormBand, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { DialogFooter } from './formKit'
 import { RaisedMessageBox } from './RaisedMessageBox'
+import { WorkflowSummary, type WorkflowLine } from './RecordOptionWindows'
 
 /* ============================================================================
    The Workspace Basket's own windows, and the Workspace-wide utilities.
@@ -66,7 +67,9 @@ import { RaisedMessageBox } from './RaisedMessageBox'
    · basket-measure-graph       the Graph: the chart's gnuplot window
                                 (MeasurementGraphWindow) over the basket
                                 patient.
-   · basket-workflow-summary    Workflow Summary on a basket record — 1802768
+   · basket-workflow-summary    Workflow Summary on a basket record, drawn by
+                                the chart's WorkflowSummary (RecordOptionWindows)
+                                with the basket's lines — 1802768
                                 `13dd06a5…`, `efa3344d…` (MESSAGES),
                                 `0d5d1376…` (TASKS, with FOLLOW UP NOTES),
                                 `e95f848f…` (ACKNOWLEDGEMENTS, CHECKED (by),
@@ -140,7 +143,7 @@ function ZoomText({ args, close }: AreaWindowProps) {
           style={{ flex: '1 1 auto', resize: 'none', fontSize: 17, lineHeight: 1.35, padding: 10, fontFamily: 'Segoe UI, Tahoma, sans-serif', border: '1px solid #b8b8b8' }}
         />
       </div>
-      <div className="pb-row" style={{ gap: 0, padding: '10px', flex: 'none' }}>
+      <DialogFooter justify={false} gap={0} padding="10px">
         <DialogButton id="zoom-remove-line-breaks" width={150} onClick={() => setText((t) => t.replace(/\s*\n\s*/g, ' '))}>Remove Line Breaks...</DialogButton>
         <span className="pb-row__spacer" />
         <DialogButton id="zoom-save" width={100} disabled>Save (F2)</DialogButton>
@@ -148,7 +151,7 @@ function ZoomText({ args, close }: AreaWindowProps) {
         <DialogButton id="zoom-cancel" width={100} onClick={close} isDefault>Cancel</DialogButton>
         <span className="pb-row__spacer" />
         <DialogButton id="zoom-spelling" width={100} disabled>Spelling...</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -211,10 +214,10 @@ function BasketPrint({ args, close }: AreaWindowProps) {
             {ORDER_TYPES.map((t) => <PBRadio key={t} name="print-order-type" label={t} checked={type === t} onChange={() => setType(t)} tutorialId={`host.mois.field.order-type-${pbSlug(t)}`} />)}
           </div>
         </div>
-        <div className="pb-row" style={{ gap: 10, padding: '0 0 12px', justifyContent: 'center', flex: 'none' }}>
+        <DialogFooter gap={10} padding="0 0 12px">
           <DialogButton id="print-order-ok" onClick={() => { workspaceExtras.setOrderType(key, type); setStage(hasAttachment ? 'choose' : 'report') }} isDefault>Ok</DialogButton>
           <DialogButton id="print-order-cancel" onClick={close}>Cancel</DialogButton>
-        </div>
+        </DialogFooter>
       </WorkspaceDialogFrame>
     )
   }
@@ -224,17 +227,17 @@ function BasketPrint({ args, close }: AreaWindowProps) {
         <div style={{ padding: '20px 20px 0', flex: '1 1 auto', background: '#fff' }}>
           This record has an attachment. What would you like to print?
         </div>
-        <div className="pb-row" style={{ gap: 8, padding: '12px', justifyContent: 'flex-end', flex: 'none', background: '#fff' }}>
+        <DialogFooter justify="flex-end" gap={8} padding="12px" background="#fff">
           <DialogButton id="print-mois-report" width={110} onClick={() => setStage('report')} isDefault>MOIS Report</DialogButton>
           <DialogButton id="print-attachment" width={110} onClick={() => setStage('attachment')}>Attachment</DialogButton>
           <DialogButton id="print-choice-cancel" width={80} onClick={close}>Cancel</DialogButton>
-        </div>
+        </DialogFooter>
       </WorkspaceDialogFrame>
     )
   }
   if (stage === 'attachment') {
     return (
-      <RaisedMessageBox title="MOIS" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+      <RaisedMessageBox title="MOIS" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
         <span data-tutorial-id="host.mois.dialog.attachment-sent">The attachment was sent to the printer.</span>
       </RaisedMessageBox>
     )
@@ -309,10 +312,10 @@ function BasketOrderLink({ args, close }: AreaWindowProps) {
         <span>Comment</span>
         <PBTextArea readOnly rows={9} w="100%" value={rows[cur]?.comment ?? ''} />
       </div>
-      <div className="pb-row" style={{ gap: 12, padding: '12px', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={12} padding="12px">
         <DialogButton id="order-link" width={90} disabled={!rows.length} onClick={link} isDefault>Link</DialogButton>
         <DialogButton id="order-link-cancel" width={90} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -400,14 +403,14 @@ function BasketMeasureHistory({ args, close, open }: AreaWindowProps) {
           />
         </div>
       </div>
-      <div className="pb-row" style={{ padding: '8px 6px 8px', flex: 'none' }}>
+      <DialogFooter justify={false} padding="8px 6px 8px">
         <DialogButton id="basket-history-graph" width={75} onClick={graph}>Graph</DialogButton>
         <span className="pb-row__spacer" />
         <DialogButton id="basket-history-save" width={75} onClick={() => { workspaceExtras.setComment(key, comment); close() }} isDefault>Save (F2)</DialogButton>
         <DialogButton id="basket-history-cancel" width={75} onClick={close}>Cancel</DialogButton>
         <span className="pb-row__spacer" />
         <span style={{ width: 75 }} />
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -419,7 +422,7 @@ function BasketMeasureGraph({ args, close }: AreaWindowProps) {
   useScreenReport({ points: points.length })
   if (!points.length) {
     return (
-      <RaisedMessageBox title="MOIS" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+      <RaisedMessageBox title="MOIS" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
         <span data-tutorial-id="host.mois.dialog.graph-refused">This measurement has no numeric values to graph.</span>
       </RaisedMessageBox>
     )
@@ -441,13 +444,8 @@ function BasketMeasureGraph({ args, close }: AreaWindowProps) {
 /* ---------------------------------------------------------------------------
    Workflow Summary on a basket record
    ------------------------------------------------------------------------ */
-const BAND_DARK: CSSProperties = { background: 'linear-gradient(var(--pb-banner-top-a, #2f6fb4), var(--pb-banner-top-b, #1c4f8c))', color: '#fff', padding: '4px 10px', flex: 'none' }
-const BAND_LIGHT: CSSProperties = { background: 'var(--pb-banner-bottom, #3d86c6)', color: '#fff', padding: '3px 10px', fontWeight: 700, flex: 'none' }
-const SECTION: CSSProperties = { background: 'linear-gradient(#fff, #d8e6f8)', padding: '2px 8px', fontWeight: 700 }
 const IR_NAME = Object.fromEntries(IR_CODES.map((c) => [c.code, c.meaning]))
 const priorityWord = (p: unknown) => (TASK_PRIORITIES.find((x) => x.code === p)?.label ?? 'Medium').toUpperCase().replace('V. HIGH', 'VERY HIGH')
-
-type WfLine = { id: string; section: 'messages' | 'tasks' | 'acks'; date: string; description: string; status: string; detail: string }
 
 function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
   const roster = usePatientRoster()
@@ -460,13 +458,11 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
   const key = basketKey(folderId, patient)
   const p = patientOf(patient, roster, argStr(args.chart))
   const checked = args.checked === true
-  const [open, setOpen] = useState({ messages: true, tasks: true, acks: true })
-
-  const lines = useMemo((): WfLine[] => {
+  const lines = useMemo((): WorkflowLine[] => {
     const recordText = argStr(args.detail)
     const inbox = taskScreenByNode('ws-msg-inbox')?.rows ?? []
     const taskRows = [...(taskScreenByNode('ws-task-inbox')?.rows ?? []), ...ws.tasks]
-    const messages: WfLine[] = [...inbox, ...ws.messages]
+    const messages: WorkflowLine[] = [...inbox, ...ws.messages]
       .filter((m) => m.patient === patient)
       .map((m, i) => {
         const to = argStr(m.sentTo).split(';').map((s) => s.trim()).filter(Boolean)
@@ -482,7 +478,7 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
           ].join('\n'),
         }
       })
-    const tasks: WfLine[] = taskRows
+    const tasks: WorkflowLine[] = taskRows
       .filter((t: TaskRow) => t.patient === patient)
       .map((t, i) => {
         const notes = extras.followUps[taskRowSlug(t)] ?? []
@@ -510,7 +506,7 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
       if (h.action === 'COPIED') h.to.forEach((t) => people.set(t, 'CP'))
       if (h.action === 'REASSIGNED') h.to.forEach((t) => people.set(t, 'RS'))
     }
-    const acks: WfLine[] = [...people.entries()].map(([name, ir], i) => {
+    const acks: WorkflowLine[] = [...people.entries()].map(([name, ir], i) => {
       const mine = name === CURRENT_USER.name
       const isChecked = mine && checked
       const theirs = history.filter((h) => h.to.includes(name) || h.by === name)
@@ -541,87 +537,24 @@ function BasketWorkflowSummary({ args, close }: AreaWindowProps) {
     return [...messages, ...tasks, ...acks]
   }, [args.detail, ws.messages, ws.tasks, extras.followUps, extras.history, patient, key, row, checked])
 
-  const [picked, setPicked] = useState<string>(() => lines.find((l) => l.section === 'acks' && l.description === CURRENT_USER.name)?.id ?? lines[0]?.id ?? '')
-  const current = lines.find((l) => l.id === picked)
-  useScreenReport({
-    messages: lines.filter((l) => l.section === 'messages').length,
-    tasks: lines.filter((l) => l.section === 'tasks').length,
-    acknowledgements: lines.filter((l) => l.section === 'acks').length,
-    selected: current ? `${current.section}-${pbSlug(current.description).slice(0, 20)}` : '',
-  })
-  const count = (s: WfLine['section']) => lines.filter((l) => l.section === s).length
-  const section = (id: WfLine['section'], title: string) => (
-    <>
-      <div style={SECTION} className="pb-row" data-tutorial-id={`host.mois.group.workflow-${id}`}>
-        <button
-          type="button" aria-expanded={open[id]} onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))}
-          style={{ width: 11, height: 11, padding: 0, border: '1px solid #808080', background: '#fff', font: 'inherit', fontSize: 9, lineHeight: '9px', cursor: 'pointer' }}
-        >
-          {open[id] ? '−' : '+'}
-        </button>
-        <span>{title}&nbsp;&nbsp;&nbsp;[{count(id)}]</span>
-      </div>
-      {open[id] && lines.filter((l) => l.section === id).map((l, i) => (
-        <div
-          key={l.id}
-          className="pb-row"
-          data-tutorial-id={`host.mois.row.workflow-${id}-${pbSlug(l.description).slice(0, 20)}`}
-          onMouseDown={() => setPicked(l.id)}
-          style={{ gap: 0, padding: '3px 8px', background: picked === l.id ? '#f3c3b8' : i % 2 ? '#fff' : '#ececec' }}
-        >
-          <span style={{ width: 90 }}>{l.date}</span><span style={{ width: 430 }}>{l.description}</span><span>{l.status}</span>
-        </div>
-      ))}
-    </>
-  )
   const recordBand = folder && row
     ? `${folder.recordType.toUpperCase()}   [${argStr(args.recordDate) || String(row.collected ?? row.seen ?? row.date ?? row.discharge ?? row.apptDate ?? row.ordDate ?? '')}]   ${String(row.test ?? row.reason ?? row.description ?? row.note ?? '')}${row.value ? `   Value: ${row.value} ${row.units ?? ''}` : ''}${row.flag ? `   Flag: ${row.flag}` : ''}`
     : ''
   return (
-    <WorkspaceDialogFrame id="basket-workflow-summary" title="Workflow Summary" width={1000} height={700} onClose={close} zIndex={88}>
-      <div style={BAND_DARK}>
-        <PatientFieldRow
-          layout="inline"
-          fields={[
-            { label: 'FIRST:', value: p.first.toUpperCase(), w: 220 },
-            { label: 'MIDDLE:', value: p.middle.toUpperCase(), w: 200 },
-            { label: 'LAST:', value: p.last.toUpperCase(), w: 220 },
-            { label: 'DoB:', value: p.dob, w: 130 },
-            { label: 'Gender:', value: p.gender },
-          ]}
-        />
-        <PatientFieldRow
-          layout="inline"
-          style={{ gap: 0, paddingTop: 2 }}
-          fields={[
-            { label: 'PHN:', value: <>{p.insuranceBy ?? 'BC'}&nbsp;&nbsp;{p.bchn ?? p.insurance ?? ''}</>, w: 220 },
-            { label: <u>Home:</u>, value: p.home ?? '', w: 200 },
-            { label: 'Work:', value: p.work ?? '', w: 220 },
-            { label: 'Cell:', value: p.cell ?? '' },
-          ]}
-        />
-      </div>
-      <div style={BAND_LIGHT} data-tutorial-id="host.mois.field.workflow-record">{recordBand}</div>
-      <div className="pb-row" style={{ gap: 28, padding: '3px 10px', flex: 'none' }}>
-        <button type="button" className="pb-link" onClick={() => setOpen({ messages: true, tasks: true, acks: true })}>Expand All</button>
-        <button type="button" className="pb-link" onClick={() => setOpen({ messages: false, tasks: false, acks: false })}>Collapse All</button>
-      </div>
-      <div data-tutorial-id="host.mois.group.workflow-summary" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', margin: '0 6px', background: '#fff', border: '1px solid var(--pb-border)' }}>
-        <div className="pb-row" style={{ gap: 0, padding: '3px 8px', fontWeight: 700, borderBottom: '1px solid var(--pb-border)' }}>
-          <span style={{ width: 90 }}>Date</span><span style={{ width: 430 }}>Description</span><span>Status</span>
-        </div>
-        {count('messages') > 0 && section('messages', 'MESSAGES')}
-        {count('tasks') > 0 && section('tasks', 'TASKS')}
-        {section('acks', 'ACKNOWLEDGEMENTS')}
-      </div>
-      <div style={{ margin: '4px 6px 0', flex: 'none' }}>
-        <PBBand>Detail</PBBand>
-        <PBTextArea rows={10} w="100%" readOnly value={current?.detail ?? ''} data-tutorial-id="host.mois.field.acknowledgement-history" />
-      </div>
-      <div className="pb-row" style={{ justifyContent: 'center', padding: '8px 0', flex: 'none' }}>
-        <DialogButton id="workflow-summary-close" onClick={close} isDefault>Close</DialogButton>
-      </div>
-    </WorkspaceDialogFrame>
+    <WorkflowSummary
+      id="basket-workflow-summary"
+      zIndex={88}
+      patient={p}
+      record={recordBand}
+      lines={lines}
+      report={(all, current) => ({
+        messages: all.filter((l) => l.section === 'messages').length,
+        tasks: all.filter((l) => l.section === 'tasks').length,
+        acknowledgements: all.filter((l) => l.section === 'acks').length,
+        selected: current ? `${current.section}-${pbSlug(current.description).slice(0, 20)}` : '',
+      })}
+      onClose={close}
+    />
   )
 }
 
@@ -651,10 +584,10 @@ function AdvancedSearch({ args, close }: AreaWindowProps) {
           <span style={{ whiteSpace: 'normal' }}>Indicates that the field is default search criteria.  If you don't explicitly state which column you're searching, this will be searched by default.</span>
         </div>
       </div>
-      <div className="pb-row" style={{ gap: 10, padding: '0 0 12px', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={10} padding="0 0 12px">
         <DialogButton id="advanced-search-ok" onClick={() => { apply?.(values); close() }} isDefault>Ok</DialogButton>
         <DialogButton id="advanced-search-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -667,7 +600,7 @@ function CleanList({ close }: AreaWindowProps) {
     <RaisedMessageBox
       title="Clean List"
       icon="question"
-      buttons={[{ label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.msgbox-yes' }, { label: 'No', value: 'no', tutorialId: 'host.mois.command.msgbox-no' }]}
+      buttons={[{ label: 'Yes', value: 'yes', default: true, command: 'msgbox-yes' }, { label: 'No', value: 'no', command: 'msgbox-no' }]}
       onClose={(v) => { if (v === 'yes') workspaceExtras.clean(); close() }}
     >
       <span data-tutorial-id="host.mois.dialog.clean-list">
@@ -738,10 +671,10 @@ function BasketStatistics({ args, close, open }: AreaWindowProps) {
           <PBCheckbox label="Send to Excel" checked={excel} onChange={setExcel} tutorialId={`host.mois.check.${id}-excel`} />
         </div>
       </div>
-      <div className="pb-row" style={{ gap: 10, padding: '0 0 12px', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={10} padding="0 0 12px">
         <DialogButton id={`${id}-ok`} onClick={ok} isDefault>Ok</DialogButton>
         <DialogButton id={`${id}-cancel`} onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }
@@ -777,10 +710,10 @@ function FollowUpNoteWindow({ args, close }: AreaWindowProps) {
         <span>Created: {existing ? `${existing.date}  ${existing.author}` : ''}</span>
         <span>Modified By: {existing?.modifiedBy ? `${existing.modifiedBy}  ${existing.modified ?? ''}` : ''}</span>
       </div>
-      <div className="pb-row" style={{ gap: 10, padding: '0 0 12px', justifyContent: 'center', flex: 'none' }}>
+      <DialogFooter gap={10} padding="0 0 12px">
         <DialogButton id="follow-up-save" onClick={save} isDefault>Save (F2)</DialogButton>
         <DialogButton id="follow-up-cancel" onClick={close}>Cancel</DialogButton>
-      </div>
+      </DialogFooter>
     </WorkspaceDialogFrame>
   )
 }

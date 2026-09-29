@@ -5,8 +5,8 @@ import { pad2 } from '../data/clock'
 import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
-import { PBButton, PBDropDownDataWindow, PBInput, PBWindow } from '../pb'
-import { ModalLayer } from './dialogKit'
+import { PBButton, PBDropDownDataWindow, PBInput } from '../pb'
+import { ModalWindow } from './dialogKit'
 import './flow-sheet.css'
 
 /* ============================================================================
@@ -91,53 +91,51 @@ export function FlowSheetParametersDialog({ defaultType = 'DIABETES', onOk, onCl
   })
 
   return (
-    <ModalLayer zIndex={96} style={{ position: 'fixed', padding: 8 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.flow-sheet-parameters"
-        title="Flow Sheet Parameters"
-        onClose={onClose}
-        className="pb-fsparams"
-        style={{ width: 'min(333px, 100%)' }}
-      >
-        <div className="pb-fsparams__body">
-          <div className="pb-fsparams__group">
-            <div className="pb-fsparams__band">Please Enter Date Range (inclusive)</div>
-            <div className="pb-fsparams__inner">
-              <div className="pb-fsparams__caption">Date Range (Inclusive):</div>
-              <div className="pb-fsparams__row">
-                <label className="pb-fsparams__lbl" htmlFor="fs-from">From:</label>
-                <PBInput id="fs-from" w={90} value={from} onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.flow-sheet-from" />
-                <label className="pb-fsparams__lbl pb-fsparams__lbl--to" htmlFor="fs-to">To:</label>
-                <PBInput id="fs-to" w={90} value={to} onChange={(e) => setTo(e.target.value)} data-tutorial-id="host.mois.field.flow-sheet-to" />
-              </div>
-              <div className="pb-fsparams__caption">Flow Sheet:</div>
-              <div className="pb-fsparams__row">
-                <span className="pb-fsparams__lbl">Type:</span>
-                <PBDropDownDataWindow
-                  w={176}
-                  listW={255}
-                  tutorialId="host.mois.field.flow-sheet-type"
-                  value={type}
-                  display="flowsheet"
-                  rows={FLOWSHEET_TYPES}
-                  columns={[
-                    { key: 'flowsheet', header: 'Flowsheet', width: 125 },
-                    { key: 'description', header: 'Description', width: 130 },
-                  ]}
-                  onSelect={(r) => setType(r.flowsheet)}
-                />
-              </div>
+    <ModalWindow
+      id="flow-sheet-parameters"
+      title="Flow Sheet Parameters"
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowClassName="pb-fsparams"
+      windowStyle={{ width: 'min(333px, 100%)' }}
+    >
+      <div className="pb-fsparams__body">
+        <div className="pb-fsparams__group">
+          <div className="pb-fsparams__band">Please Enter Date Range (inclusive)</div>
+          <div className="pb-fsparams__inner">
+            <div className="pb-fsparams__caption">Date Range (Inclusive):</div>
+            <div className="pb-fsparams__row">
+              <label className="pb-fsparams__lbl" htmlFor="fs-from">From:</label>
+              <PBInput id="fs-from" w={90} value={from} onChange={(e) => setFrom(e.target.value)} data-tutorial-id="host.mois.field.flow-sheet-from" />
+              <label className="pb-fsparams__lbl pb-fsparams__lbl--to" htmlFor="fs-to">To:</label>
+              <PBInput id="fs-to" w={90} value={to} onChange={(e) => setTo(e.target.value)} data-tutorial-id="host.mois.field.flow-sheet-to" />
+            </div>
+            <div className="pb-fsparams__caption">Flow Sheet:</div>
+            <div className="pb-fsparams__row">
+              <span className="pb-fsparams__lbl">Type:</span>
+              <PBDropDownDataWindow
+                w={176}
+                listW={255}
+                tutorialId="host.mois.field.flow-sheet-type"
+                value={type}
+                display="flowsheet"
+                rows={FLOWSHEET_TYPES}
+                columns={[
+                  { key: 'flowsheet', header: 'Flowsheet', width: 125 },
+                  { key: 'description', header: 'Description', width: 130 },
+                ]}
+                onSelect={(r) => setType(r.flowsheet)}
+              />
             </div>
           </div>
-          <div className="pb-fsparams__buttons">
-            <PBButton style={{ minWidth: 85 }} command="flow-sheet-ok" disabled={!type} onClick={ok}>Ok (F2)</PBButton>
-            <PBButton style={{ minWidth: 85 }} onClick={onClose}>Cancel</PBButton>
-          </div>
         </div>
-      </PBWindow>
-    </ModalLayer>
+        <div className="pb-fsparams__buttons">
+          <PBButton style={{ minWidth: 85 }} command="flow-sheet-ok" disabled={!type} onClick={ok}>Ok (F2)</PBButton>
+          <PBButton style={{ minWidth: 85 }} onClick={onClose}>Cancel</PBButton>
+        </div>
+      </div>
+    </ModalWindow>
   )
 }
 
@@ -360,99 +358,97 @@ export function FlowSheetWindow({ params, onClose }: { params: FlowSheetParams; 
   const insurance = [patient.insuranceBy, patient.bchn].filter(Boolean).join('   ')
 
   return (
-    <ModalLayer zIndex={96} style={{ position: 'fixed', padding: 8 }}>
-      <PBWindow
-        child
-        controls={false}
-        tutorialId="host.mois.dialog.flow-sheet"
-        title={`${params.type} Flowsheet`}
-        onClose={onClose}
-        className="pb-flowsheet"
-        style={{ width: 'min(1000px, 100%)', height: 'min(720px, 100%)' }}
-      >
-        <div className="pb-flowsheet__toolbar">
-          <button type="button" className="pb-flowsheet__tool" data-tutorial-id="host.mois.command.flow-sheet-print">
-            <PrinterGlyph />Print
-          </button>
-          <span className="pb-flowsheet__toolsep" />
-          <button type="button" className="pb-flowsheet__tool" data-tutorial-id="host.mois.command.flow-sheet-close" onClick={onClose}>
-            Close/Exit
-          </button>
-          <span className="pb-flowsheet__toolsep" />
-        </div>
+    <ModalWindow
+      id="flow-sheet"
+      title={`${params.type} Flowsheet`}
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowClassName="pb-flowsheet"
+      windowStyle={{ width: 'min(1000px, 100%)', height: 'min(720px, 100%)' }}
+    >
+      <div className="pb-flowsheet__toolbar">
+        <PBButton bare className="pb-flowsheet__tool" command="flow-sheet-print">
+          <PrinterGlyph />Print
+        </PBButton>
+        <span className="pb-flowsheet__toolsep" />
+        <PBButton bare className="pb-flowsheet__tool" command="flow-sheet-close" onClick={onClose}>
+          Close/Exit
+        </PBButton>
+        <span className="pb-flowsheet__toolsep" />
+      </div>
 
-        <div className="pb-flowsheet__ident">
-          <span>Chart:<b>{patient.chart}</b></span>
-          <span>Patient:<b>{`${patient.first} ${patient.last}`.toUpperCase()}</b></span>
-          <span>DoB:<b>{patient.dob}</b></span>
-          <span>Sex:<b>{patient.sex}</b></span>
-          <span>Insurance:<b>{insurance}</b></span>
-        </div>
-        <div className="pb-flowsheet__asof">
-          <span>FLOW SHEET AS OF <b>{params.to}</b></span>
-          <span>DATE RANGE: <b>{params.from}</b>&nbsp;&nbsp; TO &nbsp;&nbsp;<b>{params.to}</b></span>
-        </div>
+      <div className="pb-flowsheet__ident">
+        <span>Chart:<b>{patient.chart}</b></span>
+        <span>Patient:<b>{`${patient.first} ${patient.last}`.toUpperCase()}</b></span>
+        <span>DoB:<b>{patient.dob}</b></span>
+        <span>Sex:<b>{patient.sex}</b></span>
+        <span>Insurance:<b>{insurance}</b></span>
+      </div>
+      <div className="pb-flowsheet__asof">
+        <span>FLOW SHEET AS OF <b>{params.to}</b></span>
+        <span>DATE RANGE: <b>{params.from}</b>&nbsp;&nbsp; TO &nbsp;&nbsp;<b>{params.to}</b></span>
+      </div>
 
-        <div className="pb-flowsheet__scroll">
-          <table className="pb-flowsheet__grid">
-            <colgroup>
-              <col style={{ width: 230 }} />
-              {dates.map((day) => <col key={day} style={{ width: 88 }} />)}
-              <col />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="pb-flowsheet__el">Element / Date</th>
-                {dates.map((day, i) => (
-                  <th key={day} className={yearStart(i) ? 'is-year' : undefined}>{day}</th>
-                ))}
-                <th className="pb-flowsheet__rest" />
-              </tr>
-            </thead>
-            <tbody>
-              {elements.map((el, r) => (
-                <tr
-                  key={r}
-                  className={r === current ? 'is-current' : undefined}
-                  onClick={() => setCurrent(r)}
-                  data-tutorial-id={`host.mois.row.flow-sheet-${r}`}
-                >
-                  <td className="pb-flowsheet__el">{el.label}</td>
-                  {dates.map((day, i) => (
-                    <td key={day} className={yearStart(i) ? 'is-year' : undefined}>{cells.get(`${r}|${day}`) ?? ''}</td>
-                  ))}
-                  <td className="pb-flowsheet__rest" />
-                </tr>
+      <div className="pb-flowsheet__scroll">
+        <table className="pb-flowsheet__grid">
+          <colgroup>
+            <col style={{ width: 230 }} />
+            {dates.map((day) => <col key={day} style={{ width: 88 }} />)}
+            <col />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="pb-flowsheet__el">Element / Date</th>
+              {dates.map((day, i) => (
+                <th key={day} className={yearStart(i) ? 'is-year' : undefined}>{day}</th>
               ))}
-              {elements.length === 0 && (
-                <tr><td className="pb-flowsheet__el" colSpan={dates.length + 2}>No elements are defined for this flow sheet.</td></tr>
-              )}
-              {/* the column rules carry on down the empty body */}
-              <tr className="pb-flowsheet__filler">
-                <td className="pb-flowsheet__el" />
-                {dates.map((day, i) => <td key={day} className={yearStart(i) ? 'is-year' : undefined} />)}
+              <th className="pb-flowsheet__rest" />
+            </tr>
+          </thead>
+          <tbody>
+            {elements.map((el, r) => (
+              <tr
+                key={r}
+                className={r === current ? 'is-current' : undefined}
+                onClick={() => setCurrent(r)}
+                data-tutorial-id={`host.mois.row.flow-sheet-${r}`}
+              >
+                <td className="pb-flowsheet__el">{el.label}</td>
+                {dates.map((day, i) => (
+                  <td key={day} className={yearStart(i) ? 'is-year' : undefined}>{cells.get(`${r}|${day}`) ?? ''}</td>
+                ))}
                 <td className="pb-flowsheet__rest" />
               </tr>
-            </tbody>
-          </table>
-
-          <div className="pb-flowsheet__ltm">
-            <div className="pb-flowsheet__ltm-head">LONG TERM MEDICATIONS</div>
-            {meds.length === 0 && <div className="pb-flowsheet__ltm-row">&nbsp;</div>}
-            {meds.map((r, i) => (
-              <div
-                key={r.id_prescription ?? i}
-                className="pb-flowsheet__ltm-row"
-                /* "Hover your mouse over the medication to view the dosage" */
-                title={r.str_dose_freq ?? ''}
-              >
-                {r.str_medication ?? r.str_generic_name ?? ''}
-              </div>
             ))}
-          </div>
+            {elements.length === 0 && (
+              <tr><td className="pb-flowsheet__el" colSpan={dates.length + 2}>No elements are defined for this flow sheet.</td></tr>
+            )}
+            {/* the column rules carry on down the empty body */}
+            <tr className="pb-flowsheet__filler">
+              <td className="pb-flowsheet__el" />
+              {dates.map((day, i) => <td key={day} className={yearStart(i) ? 'is-year' : undefined} />)}
+              <td className="pb-flowsheet__rest" />
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="pb-flowsheet__ltm">
+          <div className="pb-flowsheet__ltm-head">LONG TERM MEDICATIONS</div>
+          {meds.length === 0 && <div className="pb-flowsheet__ltm-row">&nbsp;</div>}
+          {meds.map((r, i) => (
+            <div
+              key={r.id_prescription ?? i}
+              className="pb-flowsheet__ltm-row"
+              /* "Hover your mouse over the medication to view the dosage" */
+              title={r.str_dose_freq ?? ''}
+            >
+              {r.str_medication ?? r.str_generic_name ?? ''}
+            </div>
+          ))}
         </div>
-      </PBWindow>
-    </ModalLayer>
+      </div>
+    </ModalWindow>
   )
 }
 

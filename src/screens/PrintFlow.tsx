@@ -234,7 +234,7 @@ export function SelectMarRecordsWindow({ onPrint, onClose }: { onPrint: (ids: st
         />
       </div>
       <DialogFooter plain gap={10} padding="10px 0">
-        <PBButton style={{ width: 78 }} data-tutorial-id="host.mois.command.print-selected-mar" onClick={() => onPrint([...picked.ticked])}>Print</PBButton>
+        <PBButton style={{ width: 78 }} command="print-selected-mar" onClick={() => onPrint([...picked.ticked])}>Print</PBButton>
         {/* anchored and reported, so a lesson can send the learner back to the
             parameter window through it */}
         <PBButton style={{ width: 78 }} command="select-mar-cancel" onClick={onClose}>Cancel</PBButton>

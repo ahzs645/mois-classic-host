@@ -1,5 +1,6 @@
 import { MOIS_TODAY, rsFromDay as fromDay, rsMoney, rsSample, rsToDay as toDay, type ReportSpec, type RSContext, type RSField, type RSRow } from './types'
 import type { Patient } from '../patients'
+import { rosterName } from '../clinicRoster'
 
 /* ============================================================================
    Report specs transcribed from manual article 304043 (Reports ▸ Accounts -
@@ -26,9 +27,10 @@ type Claim = {
   services: number; unexpected?: number; walkIn?: boolean
 }
 
-const H = 'HOWSER, DOOGIE'
-const S = 'SHEWCHUK, LEAH'
-const B = 'BEARDWOOD, WALTER'
+/* three of the clinic's providers (data/clinicRoster) */
+const H = rosterName('HOWSER')
+const S = rosterName('SHEWCHUK')
+const B = rosterName('BEARDWOOD')
 
 const c = (
   seq: number, pi: number, prov: string, fee: string, billed: number, paid: number, state: ClaimState,

@@ -1,3 +1,4 @@
+import { MONTH_NAMES } from '../clock'
 import { MOIS_TODAY, rsAge, rsDaysAgo, rsName, type ReportSpec, type RSContext, type RSField } from './types'
 
 /* ============================================================================
@@ -90,7 +91,6 @@ const reportedSub = (ctx: RSContext) => {
 }
 
 /* --- births --------------------------------------------------------------- */
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 type Birth = { facility: string; mother: string; delivered: string; motherAge: number }
 function births(ctx: RSContext): Birth[] {
   const mothers = ctx.patients.filter((p) => p.gender === 'F' && p.dob && Number(rsAge(p.dob)) >= 18 && Number(rsAge(p.dob)) <= 44)
@@ -250,7 +250,7 @@ export const specs: ReportSpec[] = [
       for (const fac of [...new Set(list.map((b) => b.facility))].sort()) {
         const months = new Map<string, number>()
         for (const b of list.filter((x) => x.facility === fac)) months.set(b.delivered.slice(0, 7), (months.get(b.delivered.slice(0, 7)) ?? 0) + 1)
-        for (const [ym, n] of [...months].sort()) body.push(`%TR%${fac}|${ym.slice(0, 4)}|${MONTHS[Number(ym.slice(5, 7)) - 1]}|${n}|`)
+        for (const [ym, n] of [...months].sort()) body.push(`%TR%${fac}|${ym.slice(0, 4)}|${MONTH_NAMES[Number(ym.slice(5, 7)) - 1]}|${n}|`)
         body.push(`%TR%||**${fac} Total:**|**${[...months.values()].reduce((s, n) => s + n, 0)}**|`, cols)
       }
       return page(`BIRTH EVENTS BY MONTH AS OF ${MOIS_TODAY}`, periodSub(ctx), cols, ['FACILITY|YEAR|MONTH|COUNT|'], body, ['%RULE%'])

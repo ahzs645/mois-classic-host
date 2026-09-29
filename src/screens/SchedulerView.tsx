@@ -637,7 +637,7 @@ export function SchedulerView({
       {/* ---- the scroll strip: < Scroll < pans left, > Scroll > right, and
            the two jump boxes sit over First Name and Last Name ---- */}
       <div className="pb-scrollrow" style={{ position: 'relative' }}>
-        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(-320)} data-tutorial-id="host.mois.command.scroll-left">&lt; Scroll &lt;</PBButton>}
+        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(-320)} command="scroll-left">&lt; Scroll &lt;</PBButton>}
         <span className="pb-scrollrow__spacer" />
         <span style={{ position: 'absolute', left: NAME_LEFT, top: 2, display: 'flex' }}>
           <PBInput
@@ -655,7 +655,7 @@ export function SchedulerView({
             data-tutorial-id="host.mois.field.daybook-filter-last"
           />
         </span>
-        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(320)} data-tutorial-id="host.mois.command.scroll-right">&gt; Scroll &gt;</PBButton>}
+        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(320)} command="scroll-right">&gt; Scroll &gt;</PBButton>}
       </div>
 
       <div

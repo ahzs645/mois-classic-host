@@ -1,7 +1,7 @@
 import type { Patient } from '../patients'
 import type { ReportSpec, RSContext, RSField, RSRow } from './types'
 import { MOIS_TODAY, rsDaysAgo, rsMoney, rsName, rsSample } from './types'
-import { toSlashes } from '../clock'
+import { MONTH_NAMES, toSlashes } from '../clock'
 
 /* ============================================================================
    Report specs transcribed from manual article 304044 (Accounts - Private
@@ -124,10 +124,9 @@ export function pvDateRow(label: string, from = '0000.00.00', to = '0000.00.00')
 /** January 1 of MOIS_TODAY's year — the Invoice Detail / Written Off default */
 export const PV_JAN1 = `${MOIS_TODAY.slice(0, 4)}.01.01`
 
-const MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
 const [ty, tm, td] = MOIS_TODAY.split('.').map(Number)
 /** `JULY 10, 2012` — the A/R Sorted title's long date */
-const TODAY_LONG = `${MONTHS[tm! - 1]} ${td}, ${ty}`
+const TODAY_LONG = `${MONTH_NAMES[tm! - 1]!.toUpperCase()} ${td}, ${ty}`
 
 /** A/R Sorted and Overpayment share one page layout */
 const sortedHead = ['PATIENT', 'CHART', '1st BILLED DATE', '# BILLS', 'BILLED', 'PAID', 'ADJUST', 'WRITE OFF', 'NET', 'PAYOR']

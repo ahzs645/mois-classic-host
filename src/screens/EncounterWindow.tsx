@@ -14,6 +14,7 @@ import {
 import { measureCalculators, type MeasureTemplate } from '../data/measures'
 import { NEW_WCB_FORM, wcbFormFromExport, withDefaultClaim, type WcbFormState } from '../data/wcbForm'
 import { stageStamp } from '../data/clock'
+import { VISIT_MODE_CONCEPTS } from '../data/clinicManagement'
 import { MOIS_TODAY } from '../data/patients'
 import { usePatient } from '../data/patient-context'
 import { DESKTOP_USER, useEncounterSession, type SessionNote } from '../host/encounterArea'
@@ -1405,16 +1406,10 @@ function ProviderSearchDialog({ onPick, onClose }: {
   )
 }
 
-/* Visit Mode is stored as its SNOMED CT concept; MOIS prints the mode's name
-   (301931 `a9bd769a…`: DIRECT ENCOUNTER WITH CLIENT ALONE; the list is art.
-   303360). Only the concept chart 87288's encounters use and whose name is
-   evidenced is mapped; another one prints as stored. */
-export const VISIT_MODES: Record<string, { short: string; name: string }> = {
-  '140182721000087101': { short: 'DE', name: 'DIRECT ENCOUNTER WITH CLIENT ALONE' },
-}
-
+/* Visit Mode prints the name behind its stored SNOMED CT concept —
+   data/clinicManagement `VISIT_MODE_CONCEPTS` (301931 `a9bd769a…`) */
 function CodingPage({ record, docuStatus }: { record?: MoisRecord; docuStatus?: string }) {
-  const mode = record?.str_visit_mode ? VISIT_MODES[record.str_visit_mode]?.name ?? record.str_visit_mode : ''
+  const mode = record?.str_visit_mode ? VISIT_MODE_CONCEPTS[record.str_visit_mode]?.name ?? record.str_visit_mode : ''
   const location = record?.str_service_location ?? ''
   const CODE_SLOTS: [string, number][] = [
     ['Procedure:', 2],

@@ -11,6 +11,8 @@ import { AddressBookWindow } from './AddressBookWindow'
 import { useSessionState } from '../host/screen-windows'
 import { useTickSet } from './listKit'
 import { CurrentPatientBlock, FooterButton, StageWindow } from './StageWindow'
+import { clampTo, FACE, LAYER, ModalWindow } from './dialogKit'
+import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
    Printing a prescription, window by window, in the order the current build
@@ -315,7 +317,15 @@ export function DrugInteractionWindow({ found, onPrint, onClose }: { found: Inte
    Medications to Print when a Printer or Fax "Change..." is pressed. One
    "Printer Name" column, the first row current; "Set as default" bottom
    left, Select Printer · Cancel bottom right. The workstation's own queues
-   in the capture are replaced by generic Windows ones. */
+   in the capture are replaced by generic Windows ones.
+
+   Maintenance ▸ Computer Settings' printer "…" opens the same window
+   (3076723: "a list of all printers available. Select the desired printer
+   and click Set as default, if applicable. Then press Select Printer" —
+   its images are missing, so it is drawn from #41). There it lists the
+   workstation's printers on the one it holds, adds a Status column flagging
+   the Windows default, sits over the Computer Settings window, and a ticked
+   Set as default makes the printer selected the Windows default. */
 const PRINTERS = [
   'Client/MOIS-STAGE#/OneNote (Desktop)',
   'Client/MOIS-STAGE#/Prescription Printer',
@@ -323,30 +333,61 @@ const PRINTERS = [
   'Microsoft XPS Document Writer',
   'OneNote (Desktop)',
   'XM Fax',
-].map((name) => ({ name }))
+]
 
-function SelectPrinterWindow({ onPick, onClose }: { onPick: (printer: string) => void; onClose: () => void }) {
-  const [cur, setCur] = useState(0)
+function ReportPrinter({ name }: { name: string }) {
+  useScreenReport({ printer: pbSlug(name) })
+  return null
+}
+
+export function SelectPrinterWindow({ printers = PRINTERS, current, status, onSetDefault, reportPrinter, zIndex = LAYER.stage, onPick, onClose }: {
+  printers?: string[]
+  /** the row it opens on (the first when omitted) */
+  current?: string
+  /** a Status column beside Printer Name */
+  status?: (name: string) => string
+  /** Set as default takes effect: called with the printer Select Printer picks while it is ticked */
+  onSetDefault?: (name: string) => void
+  /** report the current row as `host.screen.printer` */
+  reportPrinter?: boolean
+  zIndex?: number
+  onPick: (printer: string) => void
+  onClose: () => void
+}) {
+  const [cur, setCur] = useState(() => Math.max(0, printers.indexOf(current ?? '')))
+  const [asDefault, setAsDefault] = useState(false)
+  const rows = printers.map((name) => (status ? { name, status: status(name) } : { name }))
+  const pick = (name: string) => {
+    if (asDefault) onSetDefault?.(name)
+    onPick(name)
+  }
+  /* StageWindow's frame, with a layer that can rise over the window below */
   return (
-    <StageWindow id="select-printer" title="Select Printer" width={620} height={660} onClose={onClose} bodyStyle={{ padding: '10px 10px 6px' }}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', border: '1px solid var(--pb-border)', background: '#fff' }}>
-        <PBDataWindow
-          flush style={{ flex: '1 1 auto', minHeight: 0 }}
-          rows={PRINTERS}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(r) => onPick(r.name)}
-          rowTutorialId={(r) => `host.mois.row.printer-${pbSlug(r.name).slice(0, 40)}`}
-          columns={[{ key: 'name', header: 'Printer Name', width: 560 }]}
-        />
+    <ModalWindow id="select-printer" title="Select Printer" onClose={onClose} portal="inline" report zIndex={zIndex} windowStyle={clampTo(24, 620, 660)}>
+      <div style={{ ...FACE, padding: '10px 10px 6px' }}>
+        {reportPrinter && <ReportPrinter name={printers[cur] ?? ''} />}
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', border: '1px solid var(--pb-border)', background: '#fff' }}>
+          <PBDataWindow
+            flush style={{ flex: '1 1 auto', minHeight: 0 }}
+            rows={rows}
+            current={cur}
+            onCurrentChange={setCur}
+            onActivate={(r) => pick(r.name)}
+            rowTutorialId={(r) => `host.mois.row.printer-${pbSlug(r.name).slice(0, 40)}`}
+            columns={status
+              ? [{ key: 'name', header: 'Printer Name', width: 470 }, { key: 'status', header: 'Status', width: 90, align: 'center' }]
+              : [{ key: 'name', header: 'Printer Name', width: 560 }]}
+          />
+        </div>
+        <div className="pb-row" style={{ flex: 'none', paddingTop: 12 }}>
+          <PBCheckbox label="Set as default" checked={asDefault} onChange={onSetDefault ? setAsDefault : undefined}
+            tutorialId={onSetDefault ? 'host.mois.field.set-as-default' : undefined} />
+          <span style={{ flex: '1 1 auto' }} />
+          <FooterButton primary onClick={() => pick(printers[cur]!)} tutorialId="host.mois.command.select-printer">Select Printer</FooterButton>
+          <FooterButton onClick={onClose} tutorialId="host.mois.command.select-printer-cancel">Cancel</FooterButton>
+        </div>
       </div>
-      <div className="pb-row" style={{ flex: 'none', paddingTop: 12 }}>
-        <PBCheckbox label="Set as default" />
-        <span style={{ flex: '1 1 auto' }} />
-        <FooterButton primary onClick={() => onPick(PRINTERS[cur]!.name)} tutorialId="host.mois.command.select-printer">Select Printer</FooterButton>
-        <FooterButton onClick={onClose} tutorialId="host.mois.command.select-printer-cancel">Cancel</FooterButton>
-      </div>
-    </StageWindow>
+    </ModalWindow>
   )
 }
 
@@ -442,7 +483,7 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
           <span style={{ flex: '1 1 auto' }} />
           {/* user capture 2026-09-25 #40: "Add One" opens the MOIS - Address
               Book for Pharmacy List (screens/AddressBookWindow.tsx) */}
-          <button type="button" className="pb-link" data-tutorial-id="host.mois.command.add-one" style={{ marginRight: 60 }} onClick={() => setPicking('pharmacy')}>Add One</button>
+          <PBButton bare className="pb-link" command="add-one" style={{ marginRight: 60 }} onClick={() => setPicking('pharmacy')}>Add One</PBButton>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, margin: '0 6px', border: '1px solid var(--pb-border)', borderTop: 0, ['--pb-dw-select' as string]: '#fdffc9' }}>
@@ -502,7 +543,7 @@ export function SelectMedsToPrintWindow({ include: preset = [], onPrint, onClose
           {([['Printer:', printer, 'printer'], ['Fax:', fax, 'fax']] as const).map(([k, v, which]) => (
             <div key={k} className="pb-row" style={{ padding: '6px 8px', height: 37, borderBottom: which === 'printer' ? '1px solid var(--pb-border)' : 0 }}>
               <span style={{ width: 46 }}>{k}</span><span style={{ flex: '1 1 auto' }}>{v}</span>
-              <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.change-${which}`} onClick={() => setPicking(which)}>Change...</button>
+              <PBButton bare className="pb-link" command={`change-${which}`} onClick={() => setPicking(which)}>Change...</PBButton>
             </div>
           ))}
         </div>
@@ -622,10 +663,10 @@ export function PleaseSignWindow({ job, onAccept, onClose }: { job: PrintJob; on
         <div style={{ color: '#a0a0a0', paddingBottom: 4 }}>Sign Here...</div>
         <SignaturePad strokes={strokes} setStrokes={setStrokes} />
         <div className="pb-row" style={{ padding: '6px 0 6px', gap: 6 }}>
-          <PBButton wide data-tutorial-id="host.mois.command.sign-more">More...</PBButton>
+          <PBButton wide command="sign-more">More...</PBButton>
           <span style={{ flex: '1 1 auto' }} />
-          <PBButton wide data-tutorial-id="host.mois.command.sign-clear" onClick={() => setStrokes(() => [])}>Clear</PBButton>
-          <PBButton wide className="pb-btn--default" data-tutorial-id="host.mois.command.sign-accept" onClick={onAccept}>Accept</PBButton>
+          <PBButton wide command="sign-clear" onClick={() => setStrokes(() => [])}>Clear</PBButton>
+          <PBButton wide className="pb-btn--default" command="sign-accept" onClick={onAccept}>Accept</PBButton>
         </div>
       </div>
     </StageWindow>

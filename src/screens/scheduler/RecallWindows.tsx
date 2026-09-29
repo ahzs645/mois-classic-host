@@ -106,7 +106,7 @@ function PatientRecallList({ close }: AreaWindowProps) {
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 10, background: 'var(--pb-face)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: '#fff' }}>
             <div className="pb-cmdrow" data-tutorial-id="host.mois.field.recall-commands">
-              <button type="button" className="pb-cmdrow__btn" data-tutorial-id="host.mois.command.recall-create" onClick={() => schedulerStore.done('recall-row-added')}>Create</button>
+              <PBButton bare className="pb-cmdrow__btn" command="recall-create" onClick={() => schedulerStore.done('recall-row-added')}>Create</PBButton>
               <button type="button" className="pb-cmdrow__btn">Delete</button>
             </div>
             <div className="pb-row" style={{ gap: 0, padding: '4px 6px', justifyContent: 'space-between' }}>

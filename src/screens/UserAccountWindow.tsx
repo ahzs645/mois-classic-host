@@ -27,6 +27,7 @@ import { ModuleWindowAccessTab } from './UserAccessTabs'
 import { ReportAccessPane } from './ReportAccessPane'
 import { SecurityProfilePickerDialog } from './SecurityProfileWindow'
 import { useScreenReport } from '../host/screen-state'
+import { ModalWindow } from './dialogKit'
 import { DialogFooter, footerButtons } from './formKit'
 import { useTickSet } from './listKit'
 import { useStoredList } from './adminSession'
@@ -637,8 +638,7 @@ function AcknowledgeBacklogDialog({ who, onClose }: { who: string; onClose: () =
   useScreenReport({ dialog: 'acknowledge-backlog' })
   const total = BACKLOG_ITEMS.reduce((sum, [, n], i) => sum + (include[i] ? n : 0), 0)
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-      <PBWindow child controls={false} className="pb-um-dialog" title="Acknowledge Backlog" onClose={onClose} tutorialId="host.mois.dialog.acknowledge-backlog" style={{ width: 690 }}>
+    <ModalWindow id="acknowledge-backlog" title="Acknowledge Backlog" onClose={onClose} zIndex={90} windowClassName="pb-um-dialog" windowStyle={{ width: 690 }}>
         <div style={{ background: 'var(--pb-face)', padding: '8px 18px' }}>
           <div style={{ border: '1px solid #a0a0a0', background: '#fff' }}>
             <div style={{ padding: '8px 10px' }}>
@@ -674,8 +674,7 @@ function AcknowledgeBacklogDialog({ who, onClose }: { who: string; onClose: () =
           </div>
         </div>
         <DialogFooter frame="pb" buttons={footerButtons(['Ok', 'Cancel'], { prefix: 'backlog-', wide: true, onPress: onClose })} />
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -688,8 +687,7 @@ function SelectUsersDialog({ onClose }: { onClose: () => void }) {
   const picked = useTickSet<string>()
   useScreenReport({ dialog: 'select-users', rows: picked.size })
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-      <PBWindow child controls={false} className="pb-um-dialog" title="Select Users" onClose={onClose} tutorialId="host.mois.dialog.select-users" style={{ width: 430 }}>
+    <ModalWindow id="select-users" title="Select Users" onClose={onClose} zIndex={90} windowClassName="pb-um-dialog" windowStyle={{ width: 430 }}>
         <div style={{ background: 'var(--pb-face)', padding: '8px 20px' }}>
           <div className="pb-band" style={{ background: '#dcd7d2', fontWeight: 700 }}>User Accounts</div>
           <div style={{ height: 300, display: 'flex', background: '#fff' }}>
@@ -715,8 +713,7 @@ function SelectUsersDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <DialogFooter frame="pb" buttons={footerButtons(['Ok', 'Cancel'], { prefix: 'select-users-', wide: true, onPress: onClose })} />
-      </PBWindow>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -846,9 +843,8 @@ function EventSubjectSelectionDialog({ onClose }: { onClose: () => void }) {
   useScreenReport({ dialog: pbSlug(d.title) })
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-      <div data-tutorial-id={host?.anchor('dialog', pbSlug(d.title))}>
-        <PBWindow child controls={false} className="pb-um-dialog" title={d.title} onClose={onClose} style={{ width: 520 }}>
+    <ModalWindow title={d.title} onClose={onClose} zIndex={90} wrap={{ tutorialId: host?.anchor('dialog', pbSlug(d.title)) }}
+      windowClassName="pb-um-dialog" windowStyle={{ width: 520 }}>
           <div style={{ flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)', padding: '6px 8px' }}>
             <PBGroup title={d.group}>
               <div style={{ height: 130, display: 'flex' }}>
@@ -871,9 +867,7 @@ function EventSubjectSelectionDialog({ onClose }: { onClose: () => void }) {
             </PBGroup>
           </div>
           <DialogFooter frame="pb" buttons={footerButtons(d.buttons, { wide: true, onPress: onClose })} />
-        </PBWindow>
-      </div>
-    </div>
+    </ModalWindow>
   )
 }
 
@@ -954,16 +948,14 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const host = usePBInstrumentation()
   useScreenReport({ dialog: pbSlug(CHANGE_PASSWORD.title) })
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 90 }}>
-      <div data-tutorial-id={host?.anchor('dialog', pbSlug(CHANGE_PASSWORD.title))}>
-        <PBWindow
-          child
-          controls={false}
-          className="pb-um-dialog"
-          title={CHANGE_PASSWORD.title}
-          onClose={onClose}
-          style={{ width: 420 }}
-        >
+    <ModalWindow
+      title={CHANGE_PASSWORD.title}
+      onClose={onClose}
+      zIndex={90}
+      wrap={{ tutorialId: host?.anchor('dialog', pbSlug(CHANGE_PASSWORD.title)) }}
+      windowClassName="pb-um-dialog"
+      windowStyle={{ width: 420 }}
+    >
           <div style={{ flex: '1 1 auto', background: 'var(--pb-face)', padding: '8px 10px' }}>
             <Field label="Current User:"><PBInput w={180} readOnly /></Field>
             <Field label="New Password:">
@@ -979,8 +971,6 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <DialogFooter frame="pb" buttons={footerButtons(CHANGE_PASSWORD.buttons, { wide: true, onPress: onClose })} />
-        </PBWindow>
-      </div>
-    </div>
+    </ModalWindow>
   )
 }

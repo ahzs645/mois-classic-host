@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs, PBTextArea, pbSlug,
 } from '../../pb'
 import { UNSENT_ADDED_KEY, type UnsentClaim } from '../../data/claims'
 import { daybookProviders } from '../../data/mois'
@@ -150,7 +150,7 @@ function PrepareForMeeting({ close, open }: AreaWindowProps) {
   useScreenReport({ window: stage === 'template' ? 'text-template-list' : stage === 'diag' ? 'universal-search' : '', nameTags: pbSlug(tags), noteMode: pbSlug(mode) })
   if (!v) {
     return (
-      <RaisedMessageBox title="Prepare for Meeting" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+      <RaisedMessageBox title="Prepare for Meeting" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
         Select a group visit first.
       </RaisedMessageBox>
     )
@@ -417,7 +417,7 @@ function GroupVisitBillMsp({ close }: AreaWindowProps) {
         <UniversalSearchDialog onPick={(r) => { setIssues(issues.map((f, j) => (j === lookup ? r.code : f))); setLookup(null) }} onClose={() => setLookup(null)} />
       )}
       {done !== null && (
-        <RaisedMessageBox title="Group Visit - Bill MSP" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+        <RaisedMessageBox title="Group Visit - Bill MSP" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
           <span data-tutorial-id="host.mois.dialog.group-claims-created">{done} MSP claim(s) created. They are in Billing ▸ Unsent MSP.</span>
         </RaisedMessageBox>
       )}
@@ -498,7 +498,7 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
               <span>Topic</span>
               <div className="pb-row" style={{ gap: 4 }}>
                 <PBInput w={60} value={topic} readOnly style={topicOk ? undefined : { background: '#ffff99' }} />
-                <button className="pb-inputgroup__btn pb-inputgroup__btn--dots" type="button" data-tutorial-id="host.mois.command.clone-topic" onClick={() => setStage('topic')}>…</button>
+                <PBButton bare className="pb-inputgroup__btn pb-inputgroup__btn--dots" command="clone-topic" onClick={() => setStage('topic')}>…</PBButton>
                 <PBInput w={300} value={desc} readOnly />
               </div>
               <div className="pb-row" style={{ justifyContent: 'flex-end' }}>
@@ -551,7 +551,7 @@ function CloneGroupBooking({ close }: AreaWindowProps) {
         />
       )}
       {stage === 'refused' && (
-        <RaisedMessageBox title="Clone Group Booking" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={() => setStage('')}>
+        <RaisedMessageBox title="Clone Group Booking" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={() => setStage('')}>
           <span data-tutorial-id="host.mois.dialog.reselect-topic">Please reselect the Topic by clicking the ellipsis (…) and confirming the selection.</span>
         </RaisedMessageBox>
       )}

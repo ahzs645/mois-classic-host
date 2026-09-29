@@ -1,10 +1,11 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  GOAL_OPERATORS, GOAL_SUBJECTS, GOAL_UNITS, QE_AGENT_TYPES, QE_AGENTS, QE_MSP_FEES, QE_ORDER_ATTACHMENTS,
+  QE_AGENT_TYPES, QE_AGENTS, QE_MSP_FEES, QE_ORDER_ATTACHMENTS,
   QE_ORDER_FOR, QE_ORDER_TYPES, QE_REACTIONS,
   type QuickEntryCodeTerm, type QuickEntryGoal, type QuickEntryMsp, type QuickEntryOrder,
   type QuickEntryPreference, type QuickEntryReaction,
 } from '../data/quickEntryTemplates'
+import { GOAL_SINGLE_OPERATORS, GOAL_UNITS, QE_GOAL_SUBJECTS } from '../data/goalVocab'
 import {
   PREFERENCE_IDENTIFIED_BY, PREFERENCE_INSTRUCTIONS, PREFERENCE_SUBJECTS, PREFERENCE_TYPES,
   preferenceInstructions, preferenceTerms, type PreferenceType,
@@ -249,7 +250,7 @@ export function GoalEditor({ value, onChange, readOnly }: {
       <PBCheckbox label="Is a Quantitive Goal" checked={value.quantitative} disabled={ro}
         onChange={(v) => set({ quantitative: v })} tutorialId={ro ? undefined : fieldId('quantitative')} />
       <span>Subject:</span>
-      <PBSelect w={136} options={['', ...GOAL_SUBJECTS]} value={value.subject} disabled={ro}
+      <PBSelect w={136} options={['', ...QE_GOAL_SUBJECTS]} value={value.subject} disabled={ro}
         data-tutorial-id={ro ? undefined : fieldId('goal-subject')} onChange={(e) => set({ subject: e.target.value, concept: '' })} />
       <span>Identified By:</span>
       <div className="pb-row" style={{ gap: 24 }}>
@@ -263,7 +264,7 @@ export function GoalEditor({ value, onChange, readOnly }: {
         fieldId={ro ? undefined : fieldId('goal-concept')} onChange={(v) => set({ concept: v.toUpperCase() })} onDots={() => setPrompt(true)} />
       <span>Target Value:</span>
       <div className="pb-row" style={{ gap: 4 }}>
-        <PBSelect w={80} options={['', ...GOAL_OPERATORS]} value={value.operator} disabled={ro || !value.quantitative}
+        <PBSelect w={80} options={['', ...GOAL_SINGLE_OPERATORS]} value={value.operator} disabled={ro || !value.quantitative}
           data-tutorial-id={ro ? undefined : fieldId('target-operator')} onChange={(e) => set({ operator: e.target.value })} />
         <PBInput w={104} value={value.target} readOnly={ro} disabled={!value.quantitative}
           data-tutorial-id={ro ? undefined : fieldId('target-value')} onChange={(e) => set({ target: e.target.value })} />

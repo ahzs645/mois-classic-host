@@ -3,7 +3,7 @@ import { recordsForNode, useChartExport } from '../data/chart-records'
 import {
   LETTER_SETUP_COLUMNS, LETTER_SETUP_GLOSSARY,
   LETTER_SETUP_ROWS,
-  LETTER_TEMPLATES, TEMPLATE_PICKER, TEMPLATE_PREVIEW, TEMPLATE_SEARCH_HELP,
+  LETTER_TEMPLATES, TEMPLATE_PICKER, TEMPLATE_SEARCH_HELP,
   type LetterSetupRow, type LetterTemplate
 } from '../data/letterSetup'
 import {
@@ -15,13 +15,14 @@ import { useTemplateMeta } from '../data/letterDocs'
 import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBWindow,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio,
   pbSlug,
 } from '../pb'
 import { LetterWriterWindow } from './LetterWriterWindow'
+import { TemplatePreviewLines } from './LetterTemplateCanvas'
 import { MasterProviderListDialog } from './MasterProviderListDialog'
 import { OrderLinkingServiceDialog } from './OrderLinkingServiceDialog'
-import { ModalLayer, ModalWindow } from './dialogKit'
+import { ModalWindow } from './dialogKit'
 import { DialogFooter } from './formKit'
 import { PatientFieldRow } from './patientKit'
 
@@ -73,6 +74,8 @@ export function startLetter(
 const SETUP_CAPTION = `
 .pb-window--mois-lettersetup > .pb-titlebar { height: 30px; background: ${LW.titleBar}; }
 `
+
+const noop = () => {}
 
 /** the document type a template was authored with, as a letter kind */
 function docForTemplate(t: LetterTemplate): LetterDocId | undefined {
@@ -133,17 +136,23 @@ export function SelectLetterTemplateDialog({
   useScreenReport({ letterDoc: flow.doc, letterTemplate: pbSlug(picked?.name ?? '') })
 
   return (
-    <ModalLayer zIndex={80}>
-      <PBWindow
-        child
-        controls={false}
-        title="Select Letter Template"
-        onClose={onClose}
-        style={{
-          width: `min(${TEMPLATE_PICKER.width}px, calc(100vw - 40px))`,
-          height: `min(${TEMPLATE_PICKER.height}px, calc(100vh - 60px))`,
-        }}
-      >
+    <ModalWindow
+      title="Select Letter Template"
+      onClose={onClose ?? noop}
+      zIndex={80}
+      windowStyle={{
+        width: `min(${TEMPLATE_PICKER.width}px, calc(100vw - 40px))`,
+        height: `min(${TEMPLATE_PICKER.height}px, calc(100vh - 60px))`,
+      }}
+      after={prompt && picked && (
+        <LinkToOrderPrompt
+          stage={prompt}
+          onAnswer={(yes) => (yes ? setPrompt('link') : onSelect?.(picked))}
+          onLinked={(orderId) => { setLetterFlow({ orderId }); onSelect?.(picked) }}
+          onCancel={() => setPrompt(null)}
+        />
+      )}
+    >
         <div
           data-tutorial-id="host.mois.dialog.select-letter-template"
           style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
@@ -212,24 +221,7 @@ export function SelectLetterTemplateDialog({
               }}
             >
               {picked && <div style={{ fontWeight: 700, marginBottom: 10 }}>{picked.name}</div>}
-              {TEMPLATE_PREVIEW.map((p, i) => (
-                <div key={i} style={{ marginBottom: p.gap ?? 0, minHeight: '1.4em' }}>
-                  {p.tokens.map((t, j) => (
-                    <span
-                      key={j}
-                      style={
-                        t.t === 'field'
-                          ? { background: LW.yellow }
-                          : t.t === 'tag'
-                            ? { background: LW.yellow, color: '#6b6b00', fontWeight: 700 }
-                            : undefined
-                      }
-                    >
-                      {t.s}
-                    </span>
-                  ))}
-                </div>
-              ))}
+              <TemplatePreviewLines />
             </div>
           </div>
         </div>
@@ -248,16 +240,7 @@ export function SelectLetterTemplateDialog({
           </PBButton>
         </DialogFooter>
         </div>
-      </PBWindow>
-      {prompt && picked && (
-        <LinkToOrderPrompt
-          stage={prompt}
-          onAnswer={(yes) => (yes ? setPrompt('link') : onSelect?.(picked))}
-          onLinked={(orderId) => { setLetterFlow({ orderId }); onSelect?.(picked) }}
-          onCancel={() => setPrompt(null)}
-        />
-      )}
-    </ModalLayer>
+    </ModalWindow>
   )
 }
 
@@ -312,19 +295,31 @@ export function LetterSetupWindow({
   const C = LETTER_SETUP_COLUMNS
 
   return (
-    <ModalLayer zIndex={80}>
-      <style href="mois-classic/letter-setup" precedence="medium">{SETUP_CAPTION}</style>
-      <PBWindow
-        child
-        controls={false}
-        title="Letter Setup"
-        className="pb-window--mois-lettersetup"
-        onClose={onClose}
-        style={{
-          width: `min(${C.width}px, calc(100vw - 40px))`,
-          height: `min(${C.height}px, calc(100vh - 60px))`,
-        }}
-      >
+    <ModalWindow
+      title="Letter Setup"
+      windowClassName="pb-window--mois-lettersetup"
+      onClose={onClose ?? noop}
+      zIndex={80}
+      windowStyle={{
+        width: `min(${C.width}px, calc(100vw - 40px))`,
+        height: `min(${C.height}px, calc(100vh - 60px))`,
+      }}
+      after={(
+        <>
+          <style href="mois-classic/letter-setup" precedence="medium">{SETUP_CAPTION}</style>
+          {lookup && (
+            <MasterProviderListDialog
+              onClose={() => setLookup(null)}
+              onPick={(name) => {
+                if (lookup === 'author') setAuthor(name)
+                else setRecipient(name)
+                setLookup(null)
+              }}
+            />
+          )}
+        </>
+      )}
+    >
         <div
           data-tutorial-id="host.mois.dialog.letter-setup"
           style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
@@ -451,12 +446,9 @@ export function LetterSetupWindow({
                               onChange={() => setAction(r.section, 'choose')}
                             />
                             {r.action === 'choose' && (
-                              <button
-                                className="pb-link"
-                                data-tutorial-id={`host.mois.command.choose-records-${pbSlug(r.section)}`}
-                              >
+                              <PBButton bare className="pb-link" command={`choose-records-${pbSlug(r.section)}`}>
                                 Choose Records
-                              </button>
+                              </PBButton>
                             )}
                             {r.action === 'all' && r.stoppedRecords && (
                               /* only HEALTH ISSUES and LT MEDS offer this,
@@ -496,18 +488,7 @@ export function LetterSetupWindow({
           </PBButton>
         </DialogFooter>
         </div>
-      </PBWindow>
-      {lookup && (
-        <MasterProviderListDialog
-          onClose={() => setLookup(null)}
-          onPick={(name) => {
-            if (lookup === 'author') setAuthor(name)
-            else setRecipient(name)
-            setLookup(null)
-          }}
-        />
-      )}
-    </ModalLayer>
+    </ModalWindow>
   )
 }
 

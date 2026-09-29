@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { MoisRecord } from '../data/charts'
 import { useScreenReport } from '../host/screen-state'
-import { usePBInstrumentation, type PBCommand } from '../pb'
+import { PBButton, type PBCommand } from '../pb'
 import { RecordHistoryDialog, useRecordSignature } from './ChartBasicsWindows'
 import { useDraftRecords } from './listKit'
 
@@ -62,18 +62,12 @@ export function recordKeyOf(chart: string, node: string, record: MoisRecord | un
 export function SignatureLink({ recordKey, source, hidden }: { recordKey: string; source?: string; hidden?: boolean }) {
   const signed = useRecordSignature(recordKey, source)
   const [open, setOpen] = useState(false)
-  const host = usePBInstrumentation()
   if (hidden) return null
   return (
     <>
-      <button
-        type="button"
-        className="pb-link"
-        data-tutorial-id={host?.anchor('command', 'signature')}
-        onClick={() => { host?.report('command', { command: 'signature' }); setOpen(true) }}
-      >
+      <PBButton bare className="pb-link" command="signature" onClick={() => setOpen(true)}>
         {signed ? 'SIGNED' : 'UNSIGNED'}
-      </button>
+      </PBButton>
       {open && <RecordHistoryDialog recordKey={recordKey} signed={signed} onClose={() => setOpen(false)} />}
     </>
   )

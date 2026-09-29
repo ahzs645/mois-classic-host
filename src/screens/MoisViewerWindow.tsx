@@ -1,10 +1,11 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { PBMenuBar, PBWindow, pbSlug, usePBInstrumentation, type PBMenuBarEntry, type PBMenuItem } from '../pb'
+import { PBButton, PBMenuBar, pbSlug, usePBInstrumentation, type PBMenuBarEntry, type PBMenuItem } from '../pb'
 import type { DesignerRow } from '../data/designerSection'
 import type { AddressBookEntry, AddressBookMode } from '../data/addressBook'
 import { usePatient } from '../data/patient-context'
 import { useScreenReport } from '../host/screen-state'
 import { AddressBookWindow } from './AddressBookWindow'
+import { ModalWindow } from './dialogKit'
 import { HealthIssuesPicker, type HealthIssuePick } from './HealthIssuesPicker'
 import { useSrfaxEnabled } from '../data/letterDocs'
 import {
@@ -384,16 +385,15 @@ const CHECKED: CSSProperties = { borderColor: '#9fb0c8', background: '#fbfcfe' }
 function ToolButton({
   def, pressed, checked, onClick,
 }: { def: ToolDef; pressed?: boolean; checked?: boolean; onClick?: () => void }) {
-  const host = usePBInstrumentation()
   const glyph = typeof def.glyph === 'string' && def.glyph in G ? G[def.glyph] : def.glyph
   return (
-    <button
-      type="button"
+    <PBButton
+      bare
       title={def.title}
       disabled={def.disabled}
       aria-pressed={pressed || checked || undefined}
-      data-tutorial-id={host?.anchor('command', `viewer-${def.slug}`)}
-      onClick={() => { host?.report('command', { command: `viewer-${def.slug}` }); onClick?.() }}
+      command={`viewer-${def.slug}`}
+      onClick={() => onClick?.()}
       style={{
         position: 'relative', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
         height: 23, padding: def.label ? '0 5px 0 3px' : '0 3px', margin: 0,
@@ -408,7 +408,7 @@ function ToolButton({
       {def.corner && (
         <span aria-hidden="true" style={{ position: 'absolute', right: 1, bottom: 1, width: 0, height: 0, borderLeft: '3px solid transparent', borderBottom: '3px solid #222' }} />
       )}
-    </button>
+    </PBButton>
   )
 }
 
@@ -594,17 +594,17 @@ export function MoisViewerWindow({
     if (focused) setValues((v) => ({ ...v, [focused]: v[focused] ? `${v[focused]}\n${text}` : text }))
   }
   const findButton = (label: string, open: () => void) => (
-    <button
-      type="button"
-      data-tutorial-id={host?.anchor('command', pbSlug(label))}
-      onClick={() => { host?.report('command', { command: pbSlug(label) }); open() }}
+    <PBButton
+      bare
+      command={pbSlug(label)}
+      onClick={() => open()}
       style={{
         flex: 'none', height: 26, padding: '0 11px', margin: '0 0 0 3px', font: 'inherit', color: '#111',
         border: '1px solid #c3cbd6', background: '#e2e5e6', cursor: 'default',
       }}
     >
       {label}
-    </button>
+    </PBButton>
   )
 
   const row1: (ToolDef | 'rule' | 'grip' | 'overflow' | 'zoombox' | 'slider')[] = [
@@ -654,31 +654,61 @@ export function MoisViewerWindow({
 
   return (
     /* one work-area-sized track, so the maxima below clamp to the stage */
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80, gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}>
-      <PBWindow
-        child
-        icon={embedded ? undefined : VIEWER_ICON}
-        title={embedded ? 'MOIS Viewer (Embedded)' : 'MOIS Viewer'}
-        onClose={onClose}
-        maximized={maximized}
-        onMaximize={() => setMaximized((m) => !m)}
-        tutorialId="host.mois.dialog.mois-viewer"
-        style={maximized
-          ? { width: '100%', height: '100%' }
-          : { width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}
-      >
+    <ModalWindow
+      id="mois-viewer"
+      controls
+      icon={embedded ? undefined : VIEWER_ICON}
+      title={embedded ? 'MOIS Viewer (Embedded)' : 'MOIS Viewer'}
+      onClose={onClose}
+      maximized={maximized}
+      onMaximize={() => setMaximized((m) => !m)}
+      zIndex={80}
+      layerStyle={{ gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}
+      windowStyle={maximized
+        ? { width: '100%', height: '100%' }
+        : { width, height, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}
+      after={<>
+        {(picker === 'provider-msp' || picker === 'provider-address') && (
+          <AddressBookWindow
+            mode={picker}
+            onClose={() => setPicker(null)}
+            onSelect={(e: AddressBookEntry) => {
+              fill(picker === 'provider-msp'
+                ? [e.name, e.practNo].filter(Boolean).join('  ')
+                : [e.name, e.location, e.city, e.phone && `Ph ${e.phone}`, e.fax && `Fax ${e.fax}`].filter(Boolean).join(', '))
+              setPicker(null)
+            }}
+          />
+        )}
+        {efax && <SendEfaxWindow title={form} onClose={() => setEfax(false)} />}
+        {customize && (
+          <CustomizeToolbarsDialog
+            visible={toolbars}
+            onToggle={toggleToolbar}
+            onReset={() => { setToolbars(Object.fromEntries(TOOLBAR_NAMES.map((n) => [n, shownByDefault.includes(n)]))); setExtraTools([]) }}
+            onClose={() => setCustomize(false)}
+          />
+        )}
+        {picker === 'health-issues' && (
+          <HealthIssuesPicker
+            onClose={() => setPicker(null)}
+            onSelect={(issue: HealthIssuePick) => { fill(issue.problem); setPicker(null) }}
+          />
+        )}
+      </>}
+    >
         {/* 2616562 `a38e5ffb…`: with SRFax on, the embedded viewer's Fax
             button sits top left, above the menu */}
         {embedded && srfax && (
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', height: 26, padding: '0 2px', background: '#e8e8e8', borderBottom: '1px solid #cfcfcf' }}>
-            <button
-              type="button"
-              data-tutorial-id={host?.anchor('command', 'viewer-fax')}
-              onClick={() => { host?.report('command', { command: 'viewer-fax' }); setEfax(true) }}
+            <PBButton
+              bare
+              command="viewer-fax"
+              onClick={() => setEfax(true)}
               style={{ height: 22, width: 104, font: 'inherit', border: '1px solid #bcbcbc', background: '#f4f4f4', cursor: 'default' }}
             >
               Fax
-            </button>
+            </PBButton>
           </div>
         )}
 
@@ -844,35 +874,6 @@ export function MoisViewerWindow({
           <span data-tutorial-id={host?.anchor('field', 'viewer-page-size')} style={{ width: 92, flex: 'none' }}>{pageSize ?? (fields ? '8.27 x 11.69 in' : paperFormPageSize(form))}</span>
           <span style={{ flex: '1 1 auto', height: 12, background: '#f7f7f7', border: '1px solid #e2e2e2' }} />
         </div>
-      </PBWindow>
-
-      {(picker === 'provider-msp' || picker === 'provider-address') && (
-        <AddressBookWindow
-          mode={picker}
-          onClose={() => setPicker(null)}
-          onSelect={(e: AddressBookEntry) => {
-            fill(picker === 'provider-msp'
-              ? [e.name, e.practNo].filter(Boolean).join('  ')
-              : [e.name, e.location, e.city, e.phone && `Ph ${e.phone}`, e.fax && `Fax ${e.fax}`].filter(Boolean).join(', '))
-            setPicker(null)
-          }}
-        />
-      )}
-      {efax && <SendEfaxWindow title={form} onClose={() => setEfax(false)} />}
-      {customize && (
-        <CustomizeToolbarsDialog
-          visible={toolbars}
-          onToggle={toggleToolbar}
-          onReset={() => { setToolbars(Object.fromEntries(TOOLBAR_NAMES.map((n) => [n, shownByDefault.includes(n)]))); setExtraTools([]) }}
-          onClose={() => setCustomize(false)}
-        />
-      )}
-      {picker === 'health-issues' && (
-        <HealthIssuesPicker
-          onClose={() => setPicker(null)}
-          onSelect={(issue: HealthIssuePick) => { fill(issue.problem); setPicker(null) }}
-        />
-      )}
-    </div>
+    </ModalWindow>
   )
 }

@@ -4,7 +4,8 @@ import type { MoisRecord } from '../data/charts/types'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY, stageStamp } from '../data/clock'
 import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
-import { PBButton, PBCheckbox, PBDropField, PBInput, PBPatientBand, PBTextArea, PBWindow } from '../pb'
+import { PBButton, PBCheckbox, PBDropField, PBInput, PBPatientBand, PBTextArea } from '../pb'
+import { ModalWindow } from './dialogKit'
 import { NAVY } from './formKit'
 import './legacy-dynamic-form.css'
 
@@ -139,151 +140,149 @@ export function BloodPressureFormWindow({ header, records, initial, onSave, onCl
   const name = [patient.first, patient.middle, patient.last].filter(Boolean).join(' ').toUpperCase()
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ position: 'fixed', padding: 8, zIndex: 96 }}>
-      <PBWindow
-        child
-        controls={false}
-        title="BLOOD PRESSURE MEASUREMENT  (v1)"
-        onClose={onClose}
-        tutorialId="host.mois.dialog.blood-pressure-form"
-        className="pb-legacy-dform"
+    <ModalWindow
+      id="blood-pressure-form"
+      title="BLOOD PRESSURE MEASUREMENT  (v1)"
+      onClose={onClose}
+      zIndex={96}
+      layerStyle={{ position: 'fixed', padding: 8 }}
+      windowClassName="pb-legacy-dform"
+      windowStyle={{
+        width: W, height: H, maxWidth: '100%', maxHeight: '100%',
+        ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px`,
+      }}
+    >
+      {/* the blue patient band, 22–90 */}
+      <PBPatientBand
+        layout="placed"
+        className="pb-legacy-dform__patient"
         style={{
-          width: W, height: H, maxWidth: '100%', maxHeight: '100%',
-          ['--pb-titlebar-h' as string]: `${TITLEBAR_H}px`,
+          position: 'relative', display: 'block', height: 68, flex: '0 0 auto', padding: 0,
+          background: 'linear-gradient(#1871b5, #4ab2e7)',
         }}
-      >
-        {/* the blue patient band, 22–90 */}
-        <PBPatientBand
-          layout="placed"
-          className="pb-legacy-dform__patient"
-          style={{
-            position: 'relative', display: 'block', height: 68, flex: '0 0 auto', padding: 0,
-            background: 'linear-gradient(#1871b5, #4ab2e7)',
-          }}
-          cells={[
-            { label: 'CHART NO.', left: 8, top: 5, value: patient.chart },
-            { label: 'PATIENT (F/M/L)', left: 93, top: 5, value: name },
-            { label: 'DATE OF BIRTH', left: 310, top: 5, value: <>{patient.dob}&nbsp;&nbsp;{patient.age}</> },
-            { label: 'GENDER', left: 93, top: 37, value: patient.sex },
-            {
-              label: 'PERSONAL HEALTH NO.', left: 169, top: 37,
-              value: patient.bchn ? <>{patient.insuranceBy ?? 'BC'}&nbsp;&nbsp;{patient.bchn}</> : '',
-            },
-            {
-              label: 'PREFERRED PHONE NUMBER', left: 310, top: 37,
-              value: <>
-                {phone ?? ''}
-                {/* inline: the band's css makes every span in it a flex column */}
-                {phone && <span style={{ display: 'inline', minWidth: 0, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>{phoneKind} Phone</span>}
-              </>,
-            },
-          ]}
+        cells={[
+          { label: 'CHART NO.', left: 8, top: 5, value: patient.chart },
+          { label: 'PATIENT (F/M/L)', left: 93, top: 5, value: name },
+          { label: 'DATE OF BIRTH', left: 310, top: 5, value: <>{patient.dob}&nbsp;&nbsp;{patient.age}</> },
+          { label: 'GENDER', left: 93, top: 37, value: patient.sex },
+          {
+            label: 'PERSONAL HEALTH NO.', left: 169, top: 37,
+            value: patient.bchn ? <>{patient.insuranceBy ?? 'BC'}&nbsp;&nbsp;{patient.bchn}</> : '',
+          },
+          {
+            label: 'PREFERRED PHONE NUMBER', left: 310, top: 37,
+            value: <>
+              {phone ?? ''}
+              {/* inline: the band's css makes every span in it a flex column */}
+              {phone && <span style={{ display: 'inline', minWidth: 0, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>{phoneKind} Phone</span>}
+            </>,
+          },
+        ]}
+      />
+
+      {/* metadata strip, 90–137, then Last Modified 137–162 */}
+      <div style={{ position: 'relative', height: 47, flex: '0 0 auto', background: '#fff', borderBottom: '1px solid #4ab2e7' }}>
+        <Label style={{ position: 'absolute', left: 15, top: 9 }}>Form Date:</Label>
+        <PBInput
+          value={formDate}
+          onChange={(e) => setFormDate(e.target.value)}
+          align="center"
+          w={77}
+          style={{ position: 'absolute', left: 85, top: 5 }}
         />
+        <Label style={{ position: 'absolute', left: 206, top: 9 }}>This form was created by:</Label>
+        <span style={{ position: 'absolute', left: 337, top: 5 }}>
+          <PBDropField value={createdBy} onChange={setCreatedBy} w={175} />
+        </span>
+        <Label style={{ position: 'absolute', left: 15, top: 29 }}>Provider:</Label>
+        <span style={{ position: 'absolute', left: 85, top: 25 }}>
+          <PBDropField value={provider} onChange={setProvider} w={175} />
+        </span>
+        <span style={{ position: 'absolute', left: 337, top: 26 }}>
+          <PBCheckbox label="Allow other users to edit form" checked={allowOthers} onChange={setAllowOthers} />
+        </span>
+      </div>
+      <div style={{ height: 25, flex: '0 0 auto', display: 'flex', alignItems: 'center', padding: '0 14px', background: '#fff', borderBottom: '1px solid #000' }}>
+        Last Modified:{savedAt ? <span style={{ marginLeft: 6 }}>{savedAt}</span> : header?.stp_date_modify ? <span style={{ marginLeft: 6 }}>{stamp(header.stp_date_modify)}</span> : null}
+      </div>
 
-        {/* metadata strip, 90–137, then Last Modified 137–162 */}
-        <div style={{ position: 'relative', height: 47, flex: '0 0 auto', background: '#fff', borderBottom: '1px solid #4ab2e7' }}>
-          <Label style={{ position: 'absolute', left: 15, top: 9 }}>Form Date:</Label>
+      {/* the form, 162–657, scrolling */}
+      <div className="pb-legacy-dform__body" style={{ padding: 0, overflowY: 'scroll', overflowX: 'hidden' }}>
+        <div style={{ position: 'relative', margin: '0 0 0 6px', width: 760, height: 391, border: '1px solid #000', borderTop: 0 }}>
+          <Caption style={{ ...at(15, 170) }}>BLOOD PRESSURE MEASUREMENT</Caption>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 188 - 163, borderTop: `1px solid ${NAVY.dform}` }} />
+
+          <Caption style={at(15, 194)}>Clinical Data:</Caption>
+          <Label style={at(28, 216)}>Systolic</Label>
           <PBInput
-            value={formDate}
-            onChange={(e) => setFormDate(e.target.value)}
-            align="center"
-            w={77}
-            style={{ position: 'absolute', left: 85, top: 5 }}
+            value={form.systolic}
+            onChange={(e) => set('systolic')(e.target.value)}
+            w={52}
+            data-tutorial-id="host.mois.field.bp-systolic"
+            style={at(121, 213)}
           />
-          <Label style={{ position: 'absolute', left: 206, top: 9 }}>This form was created by:</Label>
-          <span style={{ position: 'absolute', left: 337, top: 5 }}>
-            <PBDropField value={createdBy} onChange={setCreatedBy} w={175} />
-          </span>
-          <Label style={{ position: 'absolute', left: 15, top: 29 }}>Provider:</Label>
-          <span style={{ position: 'absolute', left: 85, top: 25 }}>
-            <PBDropField value={provider} onChange={setProvider} w={175} />
-          </span>
-          <span style={{ position: 'absolute', left: 337, top: 26 }}>
-            <PBCheckbox label="Allow other users to edit form" checked={allowOthers} onChange={setAllowOthers} />
-          </span>
+          <Label style={at(181, 216)}>mm[Hg]</Label>
+          <Label style={at(28, 238)}>Diastolic</Label>
+          <PBInput
+            value={form.diastolic}
+            onChange={(e) => set('diastolic')(e.target.value)}
+            w={52}
+            data-tutorial-id="host.mois.field.bp-diastolic"
+            style={at(121, 235)}
+          />
+          <Label style={at(181, 238)}>mm[Hg]</Label>
+          <Label style={at(28, 260)}>Comment</Label>
+          <PBTextArea
+            value={form.comment}
+            onChange={(e) => set('comment')(e.target.value)}
+            w={219}
+            style={{ ...at(121, 257), height: 40, resize: 'none' }}
+          />
+
+          <Caption style={at(15, 312)}>Patient State Information</Caption>
+          <Label style={at(28, 337)}>Position</Label>
+          <span style={at(121, 334)}><PBDropField value={form.position} onChange={set('position')} w={166} /></span>
+          <Label style={at(28, 358)}>Extension Level</Label>
+          <PBInput value={form.extension} onChange={(e) => set('extension')(e.target.value)} w={80} style={at(121, 356)} />
+          <Label style={at(291, 358)}>(J/min)</Label>
+          <Label style={at(28, 381)}>Exercise</Label>
+          <span style={at(121, 378)}><PBDropField value={form.exercise} onChange={set('exercise')} w={166} /></span>
+
+          <Caption style={at(15, 421)}>Protocol Information</Caption>
+          <Label style={at(28, 446)}>Instrument</Label>
+          <PBInput value={form.instrument} onChange={(e) => set('instrument')(e.target.value)} w={166} style={at(121, 443)} />
+          <Label style={at(294, 446)}>
+            instrument type: any valid instrument<br />for the measurement of blood pressue.
+          </Label>
+          <Label style={at(28, 484)}>Cuff size</Label>
+          <span style={at(121, 481)}><PBDropField value={form.cuff} onChange={set('cuff')} w={166} /></span>
+          <Label style={at(28, 506)}>Location of<br />measurement</Label>
+          <span style={at(121, 503)}><PBDropField value={form.location} onChange={set('location')} w={166} /></span>
         </div>
-        <div style={{ height: 25, flex: '0 0 auto', display: 'flex', alignItems: 'center', padding: '0 14px', background: '#fff', borderBottom: '1px solid #000' }}>
-          Last Modified:{savedAt ? <span style={{ marginLeft: 6 }}>{savedAt}</span> : header?.stp_date_modify ? <span style={{ marginLeft: 6 }}>{stamp(header.stp_date_modify)}</span> : null}
-        </div>
+      </div>
 
-        {/* the form, 162–657, scrolling */}
-        <div className="pb-legacy-dform__body" style={{ padding: 0, overflowY: 'scroll', overflowX: 'hidden' }}>
-          <div style={{ position: 'relative', margin: '0 0 0 6px', width: 760, height: 391, border: '1px solid #000', borderTop: 0 }}>
-            <Caption style={{ ...at(15, 170) }}>BLOOD PRESSURE MEASUREMENT</Caption>
-            <div style={{ position: 'absolute', left: 0, right: 0, top: 188 - 163, borderTop: `1px solid ${NAVY.dform}` }} />
-
-            <Caption style={at(15, 194)}>Clinical Data:</Caption>
-            <Label style={at(28, 216)}>Systolic</Label>
-            <PBInput
-              value={form.systolic}
-              onChange={(e) => set('systolic')(e.target.value)}
-              w={52}
-              data-tutorial-id="host.mois.field.bp-systolic"
-              style={at(121, 213)}
-            />
-            <Label style={at(181, 216)}>mm[Hg]</Label>
-            <Label style={at(28, 238)}>Diastolic</Label>
-            <PBInput
-              value={form.diastolic}
-              onChange={(e) => set('diastolic')(e.target.value)}
-              w={52}
-              data-tutorial-id="host.mois.field.bp-diastolic"
-              style={at(121, 235)}
-            />
-            <Label style={at(181, 238)}>mm[Hg]</Label>
-            <Label style={at(28, 260)}>Comment</Label>
-            <PBTextArea
-              value={form.comment}
-              onChange={(e) => set('comment')(e.target.value)}
-              w={219}
-              style={{ ...at(121, 257), height: 40, resize: 'none' }}
-            />
-
-            <Caption style={at(15, 312)}>Patient State Information</Caption>
-            <Label style={at(28, 337)}>Position</Label>
-            <span style={at(121, 334)}><PBDropField value={form.position} onChange={set('position')} w={166} /></span>
-            <Label style={at(28, 358)}>Extension Level</Label>
-            <PBInput value={form.extension} onChange={(e) => set('extension')(e.target.value)} w={80} style={at(121, 356)} />
-            <Label style={at(291, 358)}>(J/min)</Label>
-            <Label style={at(28, 381)}>Exercise</Label>
-            <span style={at(121, 378)}><PBDropField value={form.exercise} onChange={set('exercise')} w={166} /></span>
-
-            <Caption style={at(15, 421)}>Protocol Information</Caption>
-            <Label style={at(28, 446)}>Instrument</Label>
-            <PBInput value={form.instrument} onChange={(e) => set('instrument')(e.target.value)} w={166} style={at(121, 443)} />
-            <Label style={at(294, 446)}>
-              instrument type: any valid instrument<br />for the measurement of blood pressue.
-            </Label>
-            <Label style={at(28, 484)}>Cuff size</Label>
-            <span style={at(121, 481)}><PBDropField value={form.cuff} onChange={set('cuff')} w={166} /></span>
-            <Label style={at(28, 506)}>Location of<br />measurement</Label>
-            <span style={at(121, 503)}><PBDropField value={form.location} onChange={set('location')} w={166} /></span>
-          </div>
-        </div>
-
-        <div
-          className="pb-legacy-dform__footer"
-          style={{ height: 38, flex: '0 0 auto', alignItems: 'center', gap: 5, padding: '0 6px', background: '#005594' }}
+      <div
+        className="pb-legacy-dform__footer"
+        style={{ height: 38, flex: '0 0 auto', alignItems: 'center', gap: 5, padding: '0 6px', background: '#005594' }}
+      >
+        <PBButton
+          style={{ width: 93, height: 25, minWidth: 0 }}
+          command="save-form"
+          onClick={() => {
+            setSavedAt(`${stageStamp()}  ${createdBy}`)
+            onSave({ systolic: form.systolic, diastolic: form.diastolic })
+          }}
         >
-          <PBButton
-            style={{ width: 93, height: 25, minWidth: 0 }}
-            command="save-form"
-            onClick={() => {
-              setSavedAt(`${stageStamp()}  ${createdBy}`)
-              onSave({ systolic: form.systolic, diastolic: form.diastolic })
-            }}
-          >
-            Save Form
-          </PBButton>
-          <PBButton
-            style={{ width: 93, height: 25, minWidth: 0 }}
-            command="close-form"
-            onClick={onClose}
-          >
-            Close Form
-          </PBButton>
-        </div>
-      </PBWindow>
-    </div>
+          Save Form
+        </PBButton>
+        <PBButton
+          style={{ width: 93, height: 25, minWidth: 0 }}
+          command="close-form"
+          onClick={onClose}
+        >
+          Close Form
+        </PBButton>
+      </div>
+    </ModalWindow>
   )
 }

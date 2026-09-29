@@ -6,7 +6,7 @@ import {
 } from '../pb'
 import { ModalWindow } from './dialogKit'
 import { Body, Heading, Lbl, PrintPreviewWindow, Prompt, Radio } from './ExchangeKit'
-import { DialogFooter, FormLine } from './formKit'
+import { DialogFooter, FormLine, SectionCaption } from './formKit'
 
 /* ============================================================================
    Data Exchange ▸ Chart Exchange — MOIS-to-MOIS chart transfer.
@@ -187,8 +187,8 @@ function ChartImportWindow({ onContinue, onCancel }: { onContinue: () => void; o
       windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, gap: 4, padding: 4 }}>
         <div className="pb-row" style={{ gap: 30, alignItems: 'flex-start', border: '1px solid #888', padding: '2px 8px 6px', flex: 'none' }}>
-          <div><div style={{ color: '#000080', fontWeight: 700 }}>Data Provider:</div>{pairs(CHART_IMPORT.provider)}</div>
-          <div><div style={{ color: '#000080', fontWeight: 700 }}>Software Provider:</div>{pairs(CHART_IMPORT.software)}</div>
+          <div><SectionCaption padding={false} rule={false}>Data Provider:</SectionCaption>{pairs(CHART_IMPORT.provider)}</div>
+          <div><SectionCaption padding={false} rule={false}>Software Provider:</SectionCaption>{pairs(CHART_IMPORT.software)}</div>
           <div style={{ paddingTop: 34 }}>{pairs(CHART_IMPORT.build)}</div>
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 4 }}>

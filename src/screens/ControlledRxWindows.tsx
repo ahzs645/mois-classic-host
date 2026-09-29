@@ -6,7 +6,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { useEncounterSession } from '../host/encounterArea'
 import { registerScreenWindows, useSessionState } from '../host/screen-windows'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug, usePBInstrumentation } from '../pb'
+import { PBButton, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { STAGE_USER, useMedRows, type Med } from './medication-model'
 import { ModalWindow, clampTo } from './dialogKit'
 import { FooterButton, StageWindow } from './StageWindow'
@@ -154,10 +154,8 @@ const LBL: CSSProperties = { display: 'block', margin: '8px 0 3px' }
 const INPUT: CSSProperties = { height: 28, border: '1px solid #bbb', borderRadius: 2, padding: '2px 8px', font: 'inherit', boxSizing: 'border-box' }
 
 function WebButton({ id, style, onClick, children }: { id: string; style: CSSProperties; onClick: () => void; children: ReactNode }) {
-  const host = usePBInstrumentation()
   return (
-    <button type="button" style={style} data-tutorial-id={host?.anchor('command', `cpp-${id}`)}
-      onClick={() => { host?.report('command', { command: `cpp-${id}` }); onClick() }}>{children}</button>
+    <PBButton bare style={style} command={`cpp-${id}`} onClick={() => onClick()}>{children}</PBButton>
   )
 }
 
@@ -363,7 +361,6 @@ export function CppPrintWindow({ med, c, onPrint, onClose }: {
     const r = pad.current!.getBoundingClientRect()
     return `${Math.round(((e.clientX - r.left) / r.width) * 520)},${Math.round(((e.clientY - r.top) / r.height) * 90)}`
   }
-  const host = usePBInstrumentation()
   return (
     <MoisWebWindow id={CPP_WINDOWS.print} width={1160} height={860} onClose={onClose}>
       <div style={{ display: 'flex', gap: 10, padding: '10px 14px', alignItems: 'center', flex: 'none' }}>
@@ -385,8 +382,8 @@ export function CppPrintWindow({ med, c, onPrint, onClose }: {
         <div style={{ width: 96, padding: 6, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <b>Signature</b>
           <span style={{ color: '#e8403c', fontSize: 26, lineHeight: 1 }}>&#9654;</span>
-          <button type="button" data-tutorial-id={host?.anchor('command', 'cpp-clear-signature')} onClick={() => setStrokes([])}
-            style={{ border: 0, background: 'none', padding: 0, color: '#0645ad', textDecoration: 'underline', font: 'inherit', fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>Clear Signature</button>
+          <PBButton bare command="cpp-clear-signature" onClick={() => setStrokes([])}
+            style={{ border: 0, background: 'none', padding: 0, color: '#0645ad', textDecoration: 'underline', font: 'inherit', fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}>Clear Signature</PBButton>
         </div>
         <svg ref={pad} data-tutorial-id="host.mois.field.cpp-signature-pad" viewBox="0 0 520 90" preserveAspectRatio="none"
           style={{ flex: '1 1 auto', background: 'repeating-conic-gradient(#f1f1f1 0% 25%, #fff 0% 50%) 50% / 16px 16px', touchAction: 'none' }}

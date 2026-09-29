@@ -66,7 +66,8 @@ export function ClinicLockoutWindow({ close }: AreaWindowProps) {
 
   const answer = (value: string) => {
     const yes = value === 'yes'
-    host?.report('command', { command: yes ? 'lock-release-yes' : 'lock-release-no' })
+    /* Yes and No report their own press; the title bar's × answers No */
+    if (value !== 'yes' && value !== 'no') host?.report('command', { command: 'lock-release-no' })
     setConfirming(false)
     if (!yes) return
     /* "release the lock for all workstations": the setting itself is cleared */
@@ -116,8 +117,8 @@ export function ClinicLockoutWindow({ close }: AreaWindowProps) {
             title="Confirm Lock Release"
             icon="error"
             buttons={[
-              { label: 'Yes', value: 'yes', tutorialId: 'host.mois.command.lock-release-yes' },
-              { label: 'No', value: 'no', default: true, tutorialId: 'host.mois.command.lock-release-no' },
+              { label: 'Yes', value: 'yes', command: 'lock-release-yes' },
+              { label: 'No', value: 'no', default: true, command: 'lock-release-no' },
             ]}
             onClose={answer}
           >

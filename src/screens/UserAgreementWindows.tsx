@@ -7,7 +7,7 @@ import {
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
-import { PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBViewHeader, pbSlug } from '../pb'
+import { PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBViewHeader, pbSlug } from '../pb'
 import { Btn, DetailWindow, FieldLabel, TopMessage } from './AdminExchangeKit'
 import { NAVY } from './formKit'
 import { useRecordCursor } from './listKit'
@@ -407,7 +407,7 @@ export function UserAgreementResponses() {
                 { key: 'version', header: name, width: 200, headAlign: 'left' },
                 { key: 'date', header: '', width: 90, align: 'center' },
                 { key: 'action', header: '', width: 90, render: (r) => <span style={{ color: r.action === 'Declined' ? '#a0a0a0' : undefined }}>{r.action}</span> },
-                { key: 'view', header: '', width: 50, render: (r) => <button type="button" className="pb-link" data-tutorial-id="host.mois.command.view-agreement" onClick={() => setViewing(r)}>View</button> },
+                { key: 'view', header: '', width: 50, render: (r) => <PBButton bare className="pb-link" command="view-agreement" onClick={() => setViewing(r)}>View</PBButton> },
               ]}
             />
           </div>

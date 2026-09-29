@@ -412,8 +412,8 @@ function BuilderListWindow({ close, open }: AreaWindowProps) {
           title="Advanced Medical Report Builder"
           icon="question"
           buttons={[
-            { label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.arb-confirm-yes' },
-            { label: 'No', value: 'no', tutorialId: 'host.mois.command.arb-confirm-no' },
+            { label: 'Yes', value: 'yes', default: true, command: 'arb-confirm-yes' },
+            { label: 'No', value: 'no', command: 'arb-confirm-no' },
           ]}
           onClose={answer}
         >
@@ -924,7 +924,7 @@ function BuilderEditorWindow({ args, close, open }: AreaWindowProps) {
       </div>
 
       {message && (
-        <PBMessageBox title={message.title} icon={message.icon} buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.arb-message-ok' }]} onClose={() => setMessage(null)}>
+        <PBMessageBox title={message.title} icon={message.icon} buttons={[{ label: 'OK', value: 'ok', default: true, command: 'arb-message-ok' }]} onClose={() => setMessage(null)}>
           {message.text}
         </PBMessageBox>
       )}

@@ -158,14 +158,14 @@ export function TagToCarePlanDialog({ node, source, record, onOk, onClose }: {
         <DialogFooter plain fixed={false} gap={14} style={{ position: 'absolute', left: 0, right: 0, top: y(635) }}>
           <PBButton
             style={{ width: 75, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.tag-to-care-plan-ok"
+            command="tag-to-care-plan-ok"
             onClick={ok}
           >
             Ok
           </PBButton>
           <PBButton
             style={{ width: 75, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.tag-to-care-plan-cancel"
+            command="tag-to-care-plan-cancel"
             onClick={onClose}
           >
             Cancel

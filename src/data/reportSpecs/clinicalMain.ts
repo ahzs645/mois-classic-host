@@ -1,4 +1,5 @@
 import type { Patient } from '../patients'
+import { CLINIC_PROVIDER_NAMES_AZ, rosterName } from '../clinicRoster'
 import {
   MOIS_TODAY, rsAge, rsDaysAgo, rsMatchOf, rsName, rsPatients,
   type ReportSpec, type RSContext, type RSField, type RSMatch, type RSPick, type RSRow,
@@ -112,13 +113,16 @@ const BENEFIT_SOURCES = ['', 'PCPC ENROLMENT', 'NIHB', 'WORKSAFEBC', 'VETERANS A
 const BENEFIT_SERVICES = ['', 'ATTACHED PATIENT', 'COMPLEX CARE', 'DENTAL', 'MEDICAL TRANSPORTATION', 'VISION CARE']
 const CONN_ROLES = ['', 'REFERRING', 'PRIMARY', 'CONSULTANT', 'PHARMACY', 'HOME CARE']
 const CONN_RESOURCES = ['', 'PROVIDER (INT)', 'PROVIDER (EXT)', 'CLINIC', 'ORGANIZATION']
-const CONNECTIONS = ['BEARDWOOD, WALTER', 'DUCHARME, AMARILYS', 'FAIRCHILD, NESRIN L', 'HOWSER, DOOGIE', 'SHEWCHUK, LEAH', 'NORTHSIDE PHARMACY', 'PRINCE GEORGE HEALTH UNIT']
+const CONNECTIONS = [...CLINIC_PROVIDER_NAMES_AZ, 'NORTHSIDE PHARMACY', 'PRINCE GEORGE HEALTH UNIT']
 const SERVICE_EPISODES = ['MHSU - MENTAL HEALTH & SUBSTANCE USE', 'HC - HOME CARE NURSING', 'MAT - MATERNITY', 'CDM - CHRONIC DISEASE MANAGEMENT', 'PALL - PALLIATIVE CARE']
-const PROVIDED_BY = ['BEARDWOOD, WALTER', 'DUCHARME, AMARILYS', 'HOWSER, DOOGIE', 'SHEWCHUK, LEAH', 'NURSING TEAM (ORG ROLE)', 'MENTAL HEALTH TEAM (ORG ROLE)', 'PRINCE GEORGE HEALTH UNIT (ORG)']
+const PROVIDED_BY = [...CLINIC_PROVIDER_NAMES_AZ, 'NURSING TEAM (ORG ROLE)', 'MENTAL HEALTH TEAM (ORG ROLE)', 'PRINCE GEORGE HEALTH UNIT (ORG)']
 const VACCINE_CONCEPTS = ['INFLUENZA VACCINE', 'PNEUMOCOCCAL VACCINE', 'COVID-19 VACCINE', 'TETANUS/DIPHTHERIA VACCINE']
 
-/** the clinic's providers (RS_PROVIDERS) by first name */
-const P = { walter: 'BEARDWOOD, WALTER', amarilys: 'DUCHARME, AMARILYS', nesrin: 'FAIRCHILD, NESRIN L', doogie: 'HOWSER, DOOGIE', leah: 'SHEWCHUK, LEAH' }
+/** the clinic's providers (data/clinicRoster) by first name */
+const P = {
+  walter: rosterName('BEARDWOOD'), amarilys: rosterName('DUCHARME'), nesrin: rosterName('FAIRCHILD'),
+  doogie: rosterName('HOWSER'), leah: rosterName('SHEWCHUK'),
+}
 
 /* --- field builders shared by the windows ----------------------------------- */
 const dots = (title: string, options: RSPick['options'], multi?: boolean): RSPick => ({ title, options, ...(multi ? { multi } : {}) })

@@ -51,6 +51,7 @@
    ========================================================================= */
 
 import { MOIS_TODAY } from './patients'
+import { rosterProvider } from './clinicRoster'
 
 /* --- colours this family adds to the ordinary DataWindow palette ---------- */
 
@@ -691,7 +692,8 @@ export const ASSOCIATED_PROVIDER_COLUMNS: UserColumn[] = [
   { key: 'payee', header: 'Payee No.', width: 86, align: 'center' },
 ]
 export const ASSOCIATED_PROVIDER_ROWS: UserRow[] = [
-  { provider: 'BEARDWOOD, WALTER', pract: 'J40881', payee: '40881' },
+  /* the numbers are data/clinicRoster's (the Provider List's) */
+  { provider: 'BEARDWOOD, WALTER', pract: rosterProvider('BEARDWOOD, WALTER')!.pract, payee: rosterProvider('BEARDWOOD, WALTER')!.payee },
 ]
 
 export const MEMBERSHIP_COLUMNS: UserColumn[] = [

@@ -6,7 +6,7 @@ import { hhmm, toDashes } from '../data/clock'
 import { MOIS_TODAY, type Patient } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
-import { PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBViewHeader, pbSlug } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBViewHeader, pbSlug } from '../pb'
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { registerFolderView, type FolderViewProps } from './folderViewRegistry'
@@ -385,7 +385,7 @@ export function MhkMessageNotes({ notes, picked, onPick }: { notes: string[]; pi
               /* 2280708: a MOIS letter is converted and must be approved first */
               if (v && /letter/i.test(n)) setPreviewing(n)
             }} />
-          <button type="button" className="pb-link" style={{ fontWeight: 700, textDecoration: 'underline' }} data-tutorial-id={`host.mois.command.view-note-${pbSlug(n)}`}>View</button>
+          <PBButton bare className="pb-link" style={{ fontWeight: 700, textDecoration: 'underline' }} command={`view-note-${pbSlug(n)}`}>View</PBButton>
         </div>
       ))}
       {previewing && (

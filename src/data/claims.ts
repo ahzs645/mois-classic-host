@@ -25,6 +25,7 @@
    The claims themselves are synthetic training data, like the rest of this
    emulator.
    ========================================================================= */
+import { CLINIC_PROVIDER_NAMES, rosterProvider } from './clinicRoster'
 
 export type UnsentClaim = {
   chart: string
@@ -70,16 +71,20 @@ export type SentClaim = {
 
    E1–E3 carry only codes whose meaning the manual prints (MSP_EXPLANATORY_
    CODES below), so the Sent Claim Detail window (Ctrl+E) never shows a code
-   with an invented description. */
-export const sentClaims: SentClaim[] = [
-  { id: 's1', service: '2026.02.11', diag: '780', fee: '13060', ins: 'BC', billed: '71.50', paid: '71.50', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'BROWN', first: 'FARMER', m: '', payee: '00001' },
-  { id: 's2', service: '2026.02.11', diag: '401', fee: '00100', ins: 'BC', billed: '33.05', paid: '37.22', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'ADAM', first: 'GEORGE', m: '', payee: '00001' },
-  { id: 's3', service: '2026.02.04', diag: '250', fee: '14050', ins: 'BC', billed: '98.60', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.02.05', r1: '', r2: 'R', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'X', pract: '22781', last: 'HALE', first: 'MARGARET', m: '', payee: '00001' },
-  { id: 's4', service: '2026.01.28', diag: '300', fee: '00120', ins: 'BC', billed: '46.20', paid: '41.58', doctor: 'HOWSER, DOOGIE', sent: '2026.01.29', r1: 'A', r2: 'X', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'T', pract: '30117', last: 'RAO', first: 'PRIYA', m: '', payee: '00001' },
-  { id: 's5', service: '2026.01.21', diag: '724', fee: '00101', ins: 'BC', billed: '52.80', paid: '-', doctor: 'BEARDWOOD, WALTER', sent: '2026.01.22', r1: '', r2: 'U', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '12345', last: 'OKONKWO', first: 'SAM', m: '', payee: '00001' },
-  { id: 's6', service: '2026.01.14', diag: '466', fee: '00110', ins: 'BC', billed: '39.95', paid: '39.95', doctor: 'FAIRCHILD, NESRIN L', sent: '2026.01.15', r1: 'R', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', pract: '41903', last: 'FONTAINE', first: 'DALE', m: '', payee: '00001' },
-  { id: 's7', service: '2026.01.07', diag: '780', fee: '00100', ins: 'BC', billed: '33.05', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.01.08', r1: 'R', r2: 'F', wo: 'N', e1: 'P9', e2: '', e3: '', ref: 'X', pract: '22781', last: 'CASTILLO', first: 'JUNE', m: '', payee: '00001' },
+   with an invented description. Pract. No and Payee are the doctor's, from
+   data/clinicRoster. */
+const SENT_ROWS: Omit<SentClaim, 'pract' | 'payee'>[] = [
+  { id: 's1', service: '2026.02.11', diag: '780', fee: '13060', ins: 'BC', billed: '71.50', paid: '71.50', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', last: 'BROWN', first: 'FARMER', m: '' },
+  { id: 's2', service: '2026.02.11', diag: '401', fee: '00100', ins: 'BC', billed: '33.05', paid: '37.22', doctor: 'BEARDWOOD, WALTER', sent: '2026.02.12', r1: '', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', last: 'ADAM', first: 'GEORGE', m: '' },
+  { id: 's3', service: '2026.02.04', diag: '250', fee: '14050', ins: 'BC', billed: '98.60', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.02.05', r1: '', r2: 'R', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'X', last: 'HALE', first: 'MARGARET', m: '' },
+  { id: 's4', service: '2026.01.28', diag: '300', fee: '00120', ins: 'BC', billed: '46.20', paid: '41.58', doctor: 'HOWSER, DOOGIE', sent: '2026.01.29', r1: 'A', r2: 'X', wo: 'N', e1: 'K4', e2: '', e3: '', ref: 'T', last: 'RAO', first: 'PRIYA', m: '' },
+  { id: 's5', service: '2026.01.21', diag: '724', fee: '00101', ins: 'BC', billed: '52.80', paid: '-', doctor: 'BEARDWOOD, WALTER', sent: '2026.01.22', r1: '', r2: 'U', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', last: 'OKONKWO', first: 'SAM', m: '' },
+  { id: 's6', service: '2026.01.14', diag: '466', fee: '00110', ins: 'BC', billed: '39.95', paid: '39.95', doctor: 'FAIRCHILD, NESRIN L', sent: '2026.01.15', r1: 'R', r2: 'P', wo: 'N', e1: '', e2: '', e3: '', ref: 'X', last: 'FONTAINE', first: 'DALE', m: '' },
+  { id: 's7', service: '2026.01.07', diag: '780', fee: '00100', ins: 'BC', billed: '33.05', paid: '-', doctor: 'SHEWCHUK, LEAH', sent: '2026.01.08', r1: 'R', r2: 'F', wo: 'N', e1: 'P9', e2: '', e3: '', ref: 'X', last: 'CASTILLO', first: 'JUNE', m: '' },
 ]
+export const sentClaims: SentClaim[] = SENT_ROWS.map((c) => ({
+  ...c, pract: rosterProvider(c.doctor)?.pract ?? '', payee: rosterProvider(c.doctor)?.payee ?? '',
+}))
 
 /* ============================================================================
    The claim on the Unsent MSP window.
@@ -149,7 +154,8 @@ export type ClaimForm = {
   created: string
 }
 
-export const DOCTORS = ['BEARDWOOD, WALTER', 'SHEWCHUK, LEAH', 'HOWSER, DOOGIE', 'FAIRCHILD, NESRIN L', 'DUCHARME, AMARILYS']
+/** the clinic's doctors, in billing order — data/clinicRoster */
+export const DOCTORS = CLINIC_PROVIDER_NAMES
 
 /** Fields Save needs before it will mark a claim Complete (303601: "MOIS will
     indicate the reason by showing the field name in red"). */

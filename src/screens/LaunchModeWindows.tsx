@@ -724,7 +724,7 @@ function TemplateList({ onClose, onSelect }: { onClose: () => void; onSelect: (t
         rows, current: cur, onCurrentChange: setCur, onActivate: (t) => onSelect(t.text),
         rowTutorialId: (t) => `host.mois.row.template-${pbSlug(t.name)}`,
         columns: [
-          { key: 'fav', header: '', width: 24, align: 'center', render: (t) => <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.favourite-${pbSlug(t.name)}`} onClick={() => setFavs((f) => (f.includes(t.name) ? f.filter((x) => x !== t.name) : [...f, t.name]))}>{heart(favs.includes(t.name))}</button> },
+          { key: 'fav', header: '', width: 24, align: 'center', render: (t) => <PBButton bare className="pb-link" command={`favourite-${pbSlug(t.name)}`} onClick={() => setFavs((f) => (f.includes(t.name) ? f.filter((x) => x !== t.name) : [...f, t.name]))}>{heart(favs.includes(t.name))}</PBButton> },
           { key: 'author', header: 'Author', width: 130 }, { key: 'name', header: 'Name', width: 150 }, { key: 'description', header: 'Description', width: 230 },
         ],
       }}

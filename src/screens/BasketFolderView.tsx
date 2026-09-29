@@ -148,7 +148,6 @@ function ReportForm({ folder, r, tab, orderNo, comment, onOrderLink, onZoom, rep
   onZoom?: () => void
   reportRef?: { current: HTMLTextAreaElement | null }
 }) {
-  const host = usePBInstrumentation()
   const value = (key: string): string => {
     if (!r) return ''
     if (key === 'valueUnits') return [r.value, r.units].filter(Boolean).join('  ')
@@ -165,15 +164,15 @@ function ReportForm({ folder, r, tab, orderNo, comment, onOrderLink, onZoom, rep
       <span className="pb-form__label pb-form__label--dim" style={{ width: 92, flex: 'none' }}>{label}</span>
       <PBInput w="100%" readOnly value={value(key)} style={{ background: key === 'range' ? '#ffffcc' : undefined }} />
       {key === 'orderNo' && layout.orderLink && tab === 'Report' && (
-        <button
-          type="button"
+        <PBButton
+          bare
           className="pb-inputgroup__btn pb-inputgroup__btn--dots"
           title="Order Linking Service"
-          data-tutorial-id={host?.anchor('command', 'order-link-lookup')}
-          onClick={() => { host?.report('command', { command: 'order-link-lookup' }); onOrderLink?.() }}
+          command="order-link-lookup"
+          onClick={() => onOrderLink?.()}
         >
           …
-        </button>
+        </PBButton>
       )}
     </div>
   )
@@ -271,7 +270,6 @@ function SidePanels({ r, checked, review, tasks, messages, people, fill, onDetai
   people: string[]; fill?: string
   onDetail: () => void
 }) {
-  const host = usePBInstrumentation()
   const owners = r ? rowOwners(r).filter((o) => o !== CURRENT_USER.name) : []
   const others = r ? [...new Set([...owners, ...[r.orderedBy, r.referredBy, r.recipient, r.attending].filter(Boolean).map(String)])] : []
   const head = (text: string) => (
@@ -307,15 +305,15 @@ function SidePanels({ r, checked, review, tasks, messages, people, fill, onDetai
         <span>Tasks:</span><span>{tasks}</span>
         <span>Acknowledgements:</span><span>{r ? 1 + others.length : 0}</span>
         <span style={{ gridColumn: 'span 2', textAlign: 'center' }}>
-          <button
-            type="button"
+          <PBButton
+            bare
             className="pb-link"
             disabled={!r}
-            data-tutorial-id={host?.anchor('command', 'view-detail')}
-            onClick={() => { host?.report('command', { command: 'view-detail' }); onDetail() }}
+            command="view-detail"
+            onClick={() => onDetail()}
           >
             View Detail...
-          </button>
+          </PBButton>
         </span>
       </div>
     </div>
@@ -535,18 +533,17 @@ export function BasketFolderView({
           }}
           data-tutorial-id="host.mois.field.basket-search"
         />
-        <button
+        <PBButton
+          bare
           className="pb-inputgroup__btn pb-inputgroup__btn--dots"
-          type="button"
           title="Advanced search…"
-          data-tutorial-id={host?.anchor('command', 'basket-advanced-search')}
+          command="basket-advanced-search"
           onClick={() => {
-            host?.report('command', { command: 'basket-advanced-search' })
             openWindow('advanced-search', { fields: SEARCH_FIELDS[folder.id] ?? [], initial: criteria, onApply: (v: Record<string, string>) => { setCriteria(v); setCur(0) } })
           }}
         >
           …
-        </button>
+        </PBButton>
         <span style={{ width: 1, alignSelf: 'stretch', background: '#646464', margin: '0 8px' }} />
         <span className="pb-form__label">Showing Records:</span>
         <PBSelect

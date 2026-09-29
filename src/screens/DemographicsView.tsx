@@ -1189,7 +1189,7 @@ function DemographicsPage({ onLookup }: { onLookup?: () => void }) {
                 <PBButton
                   style={{ width: 19, padding: 0 }}
                   title="Advanced Gender Designations"
-                  data-tutorial-id="host.mois.command.gender-designations"
+                  command="gender-designations"
                   onClick={() => setGenderOpen(true)}
                 >
                   {designated ? '.*.' : '...'}

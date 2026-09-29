@@ -6,9 +6,10 @@ import {
 } from '../data/adminConfig'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
-import { PBCheckbox, PBDataWindow, PBInput, PBLookup, PBSelect, pbSlug } from '../pb'
+import { PBCheckbox, PBInput, PBLookup, PBSelect, pbSlug } from '../pb'
 import { Btn, DetailWindow, FieldLabel, SectionHead } from './AdminExchangeKit'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { SelectPrinterWindow } from './PrescriptionPrintWindows'
 import { ReadOnlyField } from './formKit'
 
 /* ============================================================================
@@ -36,10 +37,13 @@ import { ReadOnlyField } from './formKit'
      under PRINTER will give you a list of all printers available. Select
      the desired printer and click Set as default, if applicable. Then press
      Select Printer. You will be returned to the previous screen, choose
-     'Apply Changes'." Every image in 3076723 is `missing-image`, so the
-     window is INFERRED from that text: title "Select Printer", a list of
-     Printer Name with the Windows default flagged, and Set as default /
-     Select Printer / Cancel.
+     'Apply Changes'." Every image in 3076723 is `missing-image`; the window
+     is the Select Printer window captured from Rx (user capture 2026-09-25
+     #41, PrescriptionPrintWindows.tsx): Printer Name, "Set as default" a
+     tick at the bottom left, Select Printer / Cancel at the right. Here it
+     adds a Status column flagging the Windows default (INFERRED from "click
+     Set as default"), and the tick sets that default when Select Printer
+     is pressed.
    · Maintenance ▸ Printer Diagnostics sits under Default Value Setting in
      `02ecfd3f…`; it is not part of these articles and is not built.
 
@@ -51,7 +55,9 @@ import { ReadOnlyField } from './formKit'
    (the highlighted printer's slug in the list), `host.screen.saved`.
    ========================================================================= */
 
-/** The printer list a "…" opens (INFERRED — see the header). */
+/** The printer list a "…" opens: the captured Select Printer window
+    (PrescriptionPrintWindows.tsx, user capture #41) on the workstation's
+    printers, with the Windows default flagged and set. */
 export function PrinterPickerWindow({ current, printers, onSelect, onClose }: {
   current: string
   printers: string[]
@@ -59,28 +65,17 @@ export function PrinterPickerWindow({ current, printers, onSelect, onClose }: {
   onClose: () => void
 }) {
   const [settings, setSettings] = useSessionState<ComputerSettings>(COMPUTER_SETTINGS_KEY, DEFAULT_COMPUTER_SETTINGS)
-  const [cur, setCur] = useState(() => Math.max(0, printers.indexOf(current)))
-  const picked = printers[cur] ?? ''
-  useScreenReport({ printer: pbSlug(picked) })
-  const rows = printers.map((name) => ({ name, status: name === settings.windowsDefault ? 'Default' : '' }))
   return (
-    <DetailWindow id="select-printer" title="Select Printer" width={460} height={360} zIndex={92} onClose={onClose}
-      buttons={<>
-        <Btn id="set-as-default" width={100} onClick={() => setSettings((s) => ({ ...s, windowsDefault: picked }))}>Set as default</Btn>
-        <Btn id="select-printer" isDefault width={100} onClick={() => onSelect(picked)}>Select Printer</Btn>
-        <Btn id="select-printer-cancel" width={80} onClick={onClose}>Cancel</Btn>
-      </>}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 6 }}>
-        <PBDataWindow
-          rows={rows}
-          current={cur}
-          onCurrentChange={setCur}
-          onActivate={(r) => onSelect(r.name)}
-          rowTutorialId={(r) => `host.mois.row.printer-${pbSlug(r.name)}`}
-          columns={[{ key: 'name', header: 'Printer Name', width: 300 }, { key: 'status', header: 'Status', width: 90, align: 'center' }]}
-        />
-      </div>
-    </DetailWindow>
+    <SelectPrinterWindow
+      printers={printers}
+      current={current}
+      status={(name) => (name === settings.windowsDefault ? 'Default' : '')}
+      onSetDefault={(name) => setSettings((s) => ({ ...s, windowsDefault: name }))}
+      reportPrinter
+      zIndex={92}
+      onPick={onSelect}
+      onClose={onClose}
+    />
   )
 }
 

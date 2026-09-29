@@ -59,3 +59,10 @@ export const hhmmss = (d: Date = new Date()) => `${hhmm(d)}:${pad2(d.getSeconds(
 
 /** a stamp on the stage's day: `2026.09.18 14:05` (`sep` between them) */
 export const stageStamp = (sep = ' ', d: Date = new Date()) => `${MOIS_TODAY}${sep}${hhmm(d)}`
+
+/** the calendar's names, Sunday first — Date#getDay() / getUTCDay() index
+    DAY_NAMES, getMonth() / getUTCMonth() index MONTH_NAMES */
+export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+export const DAY_NAMES_SHORT = DAY_NAMES.map((d) => d.slice(0, 3))
+export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+export const MONTH_NAMES_SHORT = MONTH_NAMES.map((m) => m.slice(0, 3))

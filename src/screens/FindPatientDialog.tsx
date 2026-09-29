@@ -1,9 +1,9 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { PBBand, PBButton, PBDataWindow, PBInput, PBLookup, PBWindow, type PBColumn } from '../pb'
+import { PBBand, PBButton, PBDataWindow, PBInput, PBLookup, type PBColumn } from '../pb'
 import {
   superfindForNode, type SuperfindRow, type SuperfindScreen,
 } from '../data/chartUtilities'
-import { ModalLayer } from './dialogKit'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Find Patient — the Superfind window.
@@ -185,128 +185,125 @@ export function FindPatientDialog({
   const setTerm = (i: number, v: string) => setTerms((t) => t.map((old, j) => (j === i ? v : old)))
 
   return (
-    <ModalLayer zIndex={80}>
-      <style href="mois-classic/find-patient" precedence="medium">{TEAL_CAPTION}</style>
-      <PBWindow
-        child
-        controls={false}
-        className="pb-window--mois-teal"
-        title="Find Patient"
-        onClose={onClose}
-        style={{ width: W, height: H }}
+    <ModalWindow
+      title="Find Patient"
+      onClose={onClose}
+      zIndex={80}
+      windowClassName="pb-window--mois-teal"
+      windowStyle={{ width: W, height: H }}
+      after={<style href="mois-classic/find-patient" precedence="medium">{TEAL_CAPTION}</style>}
+    >
+      <div
+        data-tutorial-id="host.mois.dialog.find-patient"
+        style={{
+          position: 'relative', flex: '1 1 auto', minHeight: 0,
+          background: '#f0f0f0',
+          /* the capture's fields are 15px tall, not the kit's 19 */
+          ['--pb-row-h' as string]: '15px',
+        }}
       >
-        <div
-          data-tutorial-id="host.mois.dialog.find-patient"
-          style={{
-            position: 'relative', flex: '1 1 auto', minHeight: 0,
-            background: '#f0f0f0',
-            /* the capture's fields are 15px tall, not the kit's 19 */
-            ['--pb-row-h' as string]: '15px',
-          }}
-        >
-          <Band top={y(25)} height={15}>Search Parameters</Band>
+        <Band top={y(25)} height={15}>Search Parameters</Band>
 
-          {/* `Find Patient with the following Condition:` — the last word
-              swaps per folder (`… Prescription:` in the Rx capture) */}
-          <span style={{ position: 'absolute', left: GRID_LEFT, top: y(45) }}>
-            {`Find Patient with the following ${screen.noun}:`}
-          </span>
+        {/* `Find Patient with the following Condition:` — the last word
+            swaps per folder (`… Prescription:` in the Rx capture) */}
+        <span style={{ position: 'absolute', left: GRID_LEFT, top: y(45) }}>
+          {`Find Patient with the following ${screen.noun}:`}
+        </span>
 
-          {/* Both variants start their two fields on the same two stops: the
-              Health-Conditions capture measures Code at 66 and Description at
-              209, and the Prescriptions capture's Medication is 442 wide,
-              which puts its right edge on 651 — two pixels short of the Print
-              List button, exactly where the other variant's Statuses run
-              ends. */}
-          {screen.fields.map((f, i) => (
-            <Painted key={f.label} left={i === 0 ? 66 : 209} top={y(61)} width={f.width} label={f.label}>
-              <PBInput
-                w={f.width}
-                value={terms[i] ?? ''}
-                data-tutorial-id={`host.mois.field.superfind-${f.key}`}
-                onChange={(e) => setTerm(i, e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') search() }}
-              />
-            </Painted>
-          ))}
-
-          {/* Statuses is a read-only display with its own "..."; the picker
-              behind that button is never shown anywhere in the corpus, so it
-              opens nothing (spec §13.11). Field 85 + button 13 = 98. */}
-          {screen.statuses !== undefined && (
-            <Painted left={518} top={y(61)} width={98} label="Statuses:">
-              <PBLookup w={98} readOnly value={screen.statuses} name="superfind-statuses" />
-            </Painted>
-          )}
-
-          <Painted left={653} top={y(60)} width={72}>
-            <PBButton
-              style={{ width: 72, height: 16, minWidth: 0 }}
-              command="superfind-print-list"
-              onClick={onPrintList}
-            >
-              Print List
-            </PBButton>
+        {/* Both variants start their two fields on the same two stops: the
+            Health-Conditions capture measures Code at 66 and Description at
+            209, and the Prescriptions capture's Medication is 442 wide,
+            which puts its right edge on 651 — two pixels short of the Print
+            List button, exactly where the other variant's Statuses run
+            ends. */}
+        {screen.fields.map((f, i) => (
+          <Painted key={f.label} left={i === 0 ? 66 : 209} top={y(61)} width={f.width} label={f.label}>
+            <PBInput
+              w={f.width}
+              value={terms[i] ?? ''}
+              data-tutorial-id={`host.mois.field.superfind-${f.key}`}
+              onChange={(e) => setTerm(i, e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') search() }}
+            />
           </Painted>
-          <Painted left={728} top={y(60)} width={69}>
-            <PBButton
-              style={{ width: 69, height: 16, minWidth: 0 }}
-              command="chart-navigator"
-              /* the navigator holds the patients this search found (303787:
-                 "open the Chart Navigator to … populate a call list") */
-              onClick={() => onChartNavigator?.([...new Map(rows.map((r) => [r.chart, {
-                chart: r.chart, name: `${r.last},${r.first}`, description: String(r[screen.fields[1]?.key ?? ''] ?? ''),
-              }])).values()])}
-            >
-              Chart Navigator
-            </PBButton>
-          </Painted>
+        ))}
 
-          <Band top={y(85)} height={15}>Patient List</Band>
-          <SuperfindGrid
-            screen={screen}
-            rows={rows}
-            current={Math.min(current, Math.max(0, rows.length - 1))}
-            onCurrentChange={setCurrent}
-            top={y(102)}
-            height={290}
-            anchor={(row) => `host.mois.row.superfind-${row.chart}`}
-            empty="No patient matches those search parameters."
-          />
-
-          {/* the trailing period is in the UI */}
-          <Band top={y(401)} height={14}>Selected Patient&apos;s Other Problems.</Band>
-          <SuperfindGrid
-            screen={screen}
-            rows={others}
-            top={y(418)}
-            height={112}
-            anchor={(row) => `host.mois.row.superfind-other-${row[screen.fields[1]!.key] ?? ''}`}
-            empty="No other entries in this folder."
-          />
-
-          {/* Select 325..386, Cancel 392..453, both w 61 h 16 */}
-          <Painted left={325} top={y(557)} width={61}>
-            <PBButton
-              style={{ width: 61, height: 16, minWidth: 0 }}
-              command="superfind-select"
-              disabled={!picked}
-              onClick={() => picked && onSelect?.(picked.chart)}
-            >
-              Select
-            </PBButton>
+        {/* Statuses is a read-only display with its own "..."; the picker
+            behind that button is never shown anywhere in the corpus, so it
+            opens nothing (spec §13.11). Field 85 + button 13 = 98. */}
+        {screen.statuses !== undefined && (
+          <Painted left={518} top={y(61)} width={98} label="Statuses:">
+            <PBLookup w={98} readOnly value={screen.statuses} name="superfind-statuses" />
           </Painted>
-          <Painted left={392} top={y(557)} width={61}>
-            <PBButton
-              style={{ width: 61, height: 16, minWidth: 0 }}
-              command="superfind-cancel"
-              onClick={onClose}
-            >
-              Cancel
-            </PBButton>
-          </Painted>
-        </div>
-      </PBWindow>
-    </ModalLayer>
+        )}
+
+        <Painted left={653} top={y(60)} width={72}>
+          <PBButton
+            style={{ width: 72, height: 16, minWidth: 0 }}
+            command="superfind-print-list"
+            onClick={onPrintList}
+          >
+            Print List
+          </PBButton>
+        </Painted>
+        <Painted left={728} top={y(60)} width={69}>
+          <PBButton
+            style={{ width: 69, height: 16, minWidth: 0 }}
+            command="chart-navigator"
+            /* the navigator holds the patients this search found (303787:
+               "open the Chart Navigator to … populate a call list") */
+            onClick={() => onChartNavigator?.([...new Map(rows.map((r) => [r.chart, {
+              chart: r.chart, name: `${r.last},${r.first}`, description: String(r[screen.fields[1]?.key ?? ''] ?? ''),
+            }])).values()])}
+          >
+            Chart Navigator
+          </PBButton>
+        </Painted>
+
+        <Band top={y(85)} height={15}>Patient List</Band>
+        <SuperfindGrid
+          screen={screen}
+          rows={rows}
+          current={Math.min(current, Math.max(0, rows.length - 1))}
+          onCurrentChange={setCurrent}
+          top={y(102)}
+          height={290}
+          anchor={(row) => `host.mois.row.superfind-${row.chart}`}
+          empty="No patient matches those search parameters."
+        />
+
+        {/* the trailing period is in the UI */}
+        <Band top={y(401)} height={14}>Selected Patient&apos;s Other Problems.</Band>
+        <SuperfindGrid
+          screen={screen}
+          rows={others}
+          top={y(418)}
+          height={112}
+          anchor={(row) => `host.mois.row.superfind-other-${row[screen.fields[1]!.key] ?? ''}`}
+          empty="No other entries in this folder."
+        />
+
+        {/* Select 325..386, Cancel 392..453, both w 61 h 16 */}
+        <Painted left={325} top={y(557)} width={61}>
+          <PBButton
+            style={{ width: 61, height: 16, minWidth: 0 }}
+            command="superfind-select"
+            disabled={!picked}
+            onClick={() => picked && onSelect?.(picked.chart)}
+          >
+            Select
+          </PBButton>
+        </Painted>
+        <Painted left={392} top={y(557)} width={61}>
+          <PBButton
+            style={{ width: 61, height: 16, minWidth: 0 }}
+            command="superfind-cancel"
+            onClick={onClose}
+          >
+            Cancel
+          </PBButton>
+        </Painted>
+      </div>
+    </ModalWindow>
   )
 }

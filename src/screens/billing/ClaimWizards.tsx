@@ -275,8 +275,8 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
           title="Confirmation - Delete Claims"
           icon="question"
           buttons={[
-            { label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.review-delete-yes' },
-            { label: 'No', value: 'no', tutorialId: 'host.mois.command.review-delete-no' },
+            { label: 'Yes', value: 'yes', default: true, command: 'review-delete-yes' },
+            { label: 'No', value: 'no', command: 'review-delete-no' },
           ]}
           onClose={(v) => {
             if (v === 'yes') { store.remove(ids); setCount(ids.length); setAsk('deleted') } else setAsk(null)
@@ -288,7 +288,7 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
       {(ask === 'deleted' || ask === 'updated' || ask === 'nothing') && (
         <PBMessageBox
           title="Unsent Claim Review Wizard"
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.review-ok' }]}
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'review-ok' }]}
           onClose={() => setAsk(null)}
         >
           {ask === 'deleted' ? `${count} claim(s) deleted.`
@@ -604,7 +604,7 @@ export function BatchClaimWizard({ close }: AreaWindowProps) {
         <PBMessageBox
           title="Batch Claim Wizard"
           icon={problem ? 'warn' : 'info'}
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.batch-ok' }]}
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'batch-ok' }]}
           onClose={() => { setProblem(null); setDone(null) }}
         >
           {problem ?? `${done} claim(s) created in Unsent Claims.`}

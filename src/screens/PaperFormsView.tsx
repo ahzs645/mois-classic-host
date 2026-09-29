@@ -5,7 +5,7 @@ import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import type { ReportScreen } from '../data/reportScreens'
 import { registerScreenWindows, useScreenWindow } from '../host/screen-windows'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBTextArea, PBViewHeader,
+  PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBTextArea, PBViewHeader,
   type PBColumn, type PBCommand,
 } from '../pb'
 import { FormLabel } from './formKit'
@@ -196,7 +196,7 @@ export function PaperFormsView({ screen, node = 'paper' }: { screen: ReportScree
         <span style={{ width: 88 }}>Created:</span>
         <span>{created(record)}</span>
         <span className="pb-row__spacer" />
-        {record && <button type="button" className="pb-link" data-tutorial-id="host.mois.command.paper-encounter">ENC# {encounter || 'EMPTY'}</button>}
+        {record && <PBButton bare className="pb-link" command="paper-encounter">ENC# {encounter || 'EMPTY'}</PBButton>}
       </div>
 
       {options.windows}

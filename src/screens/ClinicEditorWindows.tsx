@@ -15,7 +15,7 @@ import { registerScreenWindows, useSessionState, type ScreenWindow } from '../ho
 import { SESSION_USER } from '../data/chartSession'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
-import { CaptionGroup, DialogFooter, FormLine, SectionCaption } from './formKit'
+import { CaptionGroup, DialogFooter, FormLine, ReadOnlyField, SectionCaption } from './formKit'
 import { useRecordList } from './listKit'
 import { PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
 import {
@@ -126,8 +126,6 @@ function patchRow(update: Update, node: string, key: string, patch: ClinicRow) {
    ------------------------------------------------------------------------ */
 
 const HINT: CSSProperties = { color: '#808080' }
-/* a read-only identity field: grey face, bold ink (Resource / Facility Code) */
-const LOCKED: CSSProperties = { background: '#e8e8e8', fontWeight: 700 }
 /* a field MOIS fills itself while Synchronize is ticked */
 const SYNCED: CSSProperties = { background: '#c0c0c0' }
 
@@ -447,7 +445,7 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
   /* grey, read-only, bold (#61) */
   const ident = (label: string, value: string, w: number, right?: boolean) => (
     <Line label={label} w={right ? 100 : 80} right={right} style={{ minHeight: 21 }}>
-      <PBInput w={w} value={value} readOnly style={IDENT} data-tutorial-id={fieldId(label)} />
+      <ReadOnlyField w={w} value={value} bold face="#e4e4e4" anchor={fieldId(label)} />
     </Line>
   )
 
@@ -516,9 +514,6 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
     </DemographicModal>
   )
 }
-
-/* the grey read-only face of the identity strip's fields (#61) */
-const IDENT: CSSProperties = { background: '#e4e4e4', fontWeight: 700 }
 
 /** A block of a Provider tab: bold navy caption inside a light outline (#61–#68). */
 function Group({ title, fill, style, children }: { title: ReactNode; fill?: boolean; style?: CSSProperties; children: ReactNode }) {
@@ -736,7 +731,7 @@ function AssociatedUser({ title, draft, set, onChange }: {
     <Group title={title}>
       <div className="pb-row" style={{ gap: 8, alignItems: 'center' }}>
         <span className="pb-form__label">Associated User</span>
-        <PBInput w={260} readOnly value={S(draft.userProfile)} style={{ background: '#e8e8e8' }} data-tutorial-id={fieldId('Associated User')} />
+        <ReadOnlyField w={260} value={S(draft.userProfile)} anchor={fieldId('Associated User')} />
         {/* raises Change Associated User (#69) */}
         <Btn command="associated-user-change" w={62} onClick={onChange}>Change...</Btn>
         <span style={{ width: 50 }} />
@@ -1390,7 +1385,7 @@ function ResourceDetailWindow({ rowKey, close }: { rowKey: string; close: () => 
         <Head>Resource Identification</Head>
         <div className="pb-row" style={{ alignItems: 'flex-start', padding: '4px 8px', gap: 0 }}>
           <div style={{ flex: '1 1 0' }}>
-            <Line label="Code:" w={76}><PBInput w={136} value={S(draft.code)} readOnly style={LOCKED} data-tutorial-id={fieldId('Code')} /></Line>
+            <Line label="Code:" w={76}><ReadOnlyField w={136} value={S(draft.code)} bold anchor={fieldId('Code')} /></Line>
             <Line label="Description:" w={76}>{text('Description', 'desc', 314)}</Line>
             <Line label="Detail:" w={76} style={{ alignItems: 'flex-start' }}>
               <PBTextArea rows={3} w={314} value={S(draft.detail)} onChange={(e) => set({ detail: e.target.value })} data-tutorial-id={fieldId('Detail')} />
@@ -1488,7 +1483,7 @@ function FacilityDetailWindow({ rowKey, close }: { rowKey: string; close: () => 
       <Head>Facility Information</Head>
       <div className="pb-row" style={{ alignItems: 'flex-start', padding: '4px 8px', gap: 0, flex: 'none', background: 'var(--pb-face)' }}>
         <div style={{ flex: '1 1 0' }}>
-          <Line label="Code:" w={76}><PBInput w={147} value={S(draft.code)} readOnly style={LOCKED} data-tutorial-id={fieldId('Code')} /></Line>
+          <Line label="Code:" w={76}><ReadOnlyField w={147} value={S(draft.code)} bold anchor={fieldId('Code')} /></Line>
           <Line label="Description:" w={76}>
             <PBInput w={310} value={S(draft.desc)} onChange={(e) => set({ desc: e.target.value })} data-tutorial-id={fieldId('Description')} />
           </Line>

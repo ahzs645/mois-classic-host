@@ -2,6 +2,7 @@ import type { ChartNavigatorRow } from './chartUtilities'
 import { patients, MOIS_TODAY } from './patients'
 import { unsentClaims } from './claims'
 import { toSlashes } from './clock'
+import { CLINIC_PROVIDER_NAMES_AZ } from './clinicRoster'
 
 /* ============================================================================
    What running a report in the Reports module needs besides its window.
@@ -178,12 +179,13 @@ export const SCORECARD_METRICS: ScorecardMetric[] = [
   { code: 'M14', name: 'ENCOUNTER NOTES', target: '80%', num: 101, den: 138 },
 ]
 
-/** the providers a metric node expands into; the last is always UNASSIGNED */
-export const SCORECARD_PROVIDERS = ['BEARDWOOD, WALTER', 'DUCHARME, AMARILYS', 'FAIRCHILD, NESRIN L', 'HOWSER, DOOGIE', 'UNASSIGNED']
+/** the providers a metric node expands into — the clinic's, A–Z
+    (data/clinicRoster); the last is always UNASSIGNED */
+export const SCORECARD_PROVIDERS = [...CLINIC_PROVIDER_NAMES_AZ, 'UNASSIGNED']
 
 /** split a metric's totals across the providers, deterministically */
 export function scorecardByProvider(m: ScorecardMetric): { provider: string; num: number; den: number }[] {
-  const weights = [0.34, 0.22, 0.2, 0.16, 0.08]
+  const weights = [0.3, 0.2, 0.18, 0.14, 0.12, 0.06]
   let dLeft = m.den
   let nLeft = m.num
   return SCORECARD_PROVIDERS.map((provider, i) => {

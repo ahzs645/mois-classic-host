@@ -190,7 +190,7 @@ export function ReviewingDialog({ node, onClose }: {
         <span style={{ position: 'absolute', left: x(638), top: y(640) }}>
           <PBButton
             style={{ width: 98, height: 21, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.mark-reviewed"
+            command="mark-reviewed"
             onClick={markReviewed}
           >
             Mark Reviewed
@@ -199,7 +199,7 @@ export function ReviewingDialog({ node, onClose }: {
         <span style={{ position: 'absolute', left: x(751), top: y(640) }}>
           <PBButton
             style={{ width: 75, height: 21, minWidth: 0 }}
-            data-tutorial-id="host.mois.command.review-close"
+            command="review-close"
             onClick={onClose}
           >
             Close

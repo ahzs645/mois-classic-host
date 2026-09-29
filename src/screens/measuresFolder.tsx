@@ -8,7 +8,7 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
-import { PBInput, type PBColumn, type PBCommand } from '../pb'
+import { PBButton, PBInput, type PBColumn, type PBCommand } from '../pb'
 
 /* ============================================================================
    The Patient Chart ▸ Measures folder's own behaviour, layered over the
@@ -58,8 +58,8 @@ function MyHealthKeyIcon() {
   )
 }
 
-const dotsButton = (id: string, onClick: () => void, label = '…') => (
-  <button type="button" className="pb-link" data-tutorial-id={id} onClick={(e) => { e.stopPropagation(); onClick() }}>{label}</button>
+const dotsButton = (command: string, onClick: () => void, label = '…') => (
+  <PBButton bare className="pb-link" command={command} onClick={(e) => { e.stopPropagation(); onClick() }}>{label}</PBButton>
 )
 
 export function useMeasuresFolder(node: string, rows: Record<string, string>[], cur: number) {
@@ -199,7 +199,7 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
           }}
         />
       )
-      case 'd': return dotsButton('host.mois.command.measure-code-lookup', () => open('lab-code-selection', {}))
+      case 'd': return dotsButton('measure-code-lookup', () => open('lab-code-selection', {}))
       case 'value': return (
         <PBInput
           w="100%"
@@ -210,7 +210,7 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'F4') { e.preventDefault(); openForm() } }}
         />
       )
-      case 'marker': return draftRow.marker === '-' ? '-' : dotsButton('host.mois.command.measure-value-form', openForm, draftRow.marker)
+      case 'marker': return draftRow.marker === '-' ? '-' : dotsButton('measure-value-form', openForm, draftRow.marker)
       default: return undefined
     }
   }
@@ -229,7 +229,7 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
       if (r.sent === 'Y') return <MyHealthKeyIcon />
       /* `.*.` reopens the saved form; `…` on a saved row offers nothing new */
       if (r.marker === '.*.' && reopens(r)) {
-        return dotsButton(`host.mois.command.measure-form-${r.id || r.code}`, () => open('measure-dynamic-form', { rowId: r.id ?? '', code: r.code }), '.*.')
+        return dotsButton(`measure-form-${r.id || r.code}`, () => open('measure-dynamic-form', { rowId: r.id ?? '', code: r.code }), '.*.')
       }
       return r.marker
     }

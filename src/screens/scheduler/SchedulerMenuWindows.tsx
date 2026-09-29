@@ -146,7 +146,7 @@ function SchedulerPrintEncounter({ close, open }: AreaWindowProps) {
   useScreenReport({ printOption: option })
   if (!row || !here) {
     return (
-      <RaisedMessageBox title="Print Encounter" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+      <RaisedMessageBox title="Print Encounter" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
         Select an appointment first.
       </RaisedMessageBox>
     )
@@ -211,7 +211,7 @@ function PasteEncounterData({ close }: AreaWindowProps) {
   const source = extras.clipboard
   if (!source) {
     return (
-      <RaisedMessageBox title="Paste Encounter Data" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+      <RaisedMessageBox title="Paste Encounter Data" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
         <span data-tutorial-id="host.mois.dialog.paste-encounter-data">No encounter data has been copied. Use Copy Encounter Data (Ctrl+Shift+C) first.</span>
       </RaisedMessageBox>
     )
@@ -220,7 +220,7 @@ function PasteEncounterData({ close }: AreaWindowProps) {
     <RaisedMessageBox
       title="Paste Encounter Data"
       icon="question"
-      buttons={[{ label: 'Yes', value: 'yes', default: true, tutorialId: 'host.mois.command.msgbox-yes' }, { label: 'No', value: 'no', tutorialId: 'host.mois.command.msgbox-no' }]}
+      buttons={[{ label: 'Yes', value: 'yes', default: true, command: 'msgbox-yes' }, { label: 'No', value: 'no', command: 'msgbox-no' }]}
       onClose={(v) => {
         if (v === 'yes' && row) {
           schedulerStore.pasteEncounter(row.key, source)
@@ -405,7 +405,7 @@ function ProviderAddressToClipboard({ close }: AreaWindowProps) {
   const [copied, setCopied] = useState<string | null>(null)
   if (copied !== null) {
     return (
-      <RaisedMessageBox title="MOIS" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.msgbox-ok' }]} onClose={close}>
+      <RaisedMessageBox title="MOIS" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
         <span data-tutorial-id="host.mois.dialog.address-copied">The address for {copied} has been copied to the clipboard. Paste it into another program with Ctrl+V.</span>
       </RaisedMessageBox>
     )

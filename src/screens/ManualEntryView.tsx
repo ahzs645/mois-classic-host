@@ -9,7 +9,7 @@ import {
   PBBand, PBButton, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBTabs, PBTextArea,
   PBViewHeader, pbSlug, type PBColumn,
 } from '../pb'
-import { ModalWindow } from './dialogKit'
+import { DocumentAttachmentFrame } from './AttachmentListWindow'
 import type { ExchangeGo } from './ExchangeView'
 import { FormLabel } from './formKit'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
@@ -382,7 +382,9 @@ export function ManualEntryView({ folder, go }: { folder: ManualEntryFolder; go:
 }
 
 /* ===========================================================================
-   Document / Attachment List — 303489 image b5550316.
+   Document / Attachment List — 303489 image b5550316, in the shared frame
+   (AttachmentListWindow.tsx DocumentAttachmentFrame) with this build's Task
+   Bar and columns.
 
    What `Attachment` opens on a record carrying more than one attachment.
    One row per attachment; double-click its paper clip or press Open
@@ -399,19 +401,19 @@ export function DocumentAttachmentListWindow({ onClose }: { onClose: () => void 
     </>
   )
   return (
-    <ModalWindow
-      title="Document / Attachment List"
+    <DocumentAttachmentFrame
       onClose={onClose}
       tutorialId="host.mois.dialog.document-attachment-list"
       zIndex={60}
       layerStyle={{ placeItems: 'start center', paddingTop: 36 }}
       windowStyle={{ width: 'min(826px, calc(100% - 12px))', height: 'min(596px, calc(100% - 44px))' }}
+      toolbar={(
+        <PBCommandRow
+          commands={ATTACHMENT_LIST_COMMANDS.map((label) => ({ label }))}
+          right={<PBButton command="close" onClick={onClose}>Close</PBButton>}
+        />
+      )}
     >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
-          <PBCommandRow
-            commands={ATTACHMENT_LIST_COMMANDS.map((label) => ({ label }))}
-            right={<PBButton command="close" onClick={onClose}>Close</PBButton>}
-          />
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
             <PBDataWindow
               rows={ATTACHMENT_LIST_ROWS}
@@ -444,7 +446,6 @@ export function DocumentAttachmentListWindow({ onClose }: { onClose: () => void 
             <span>Source:&nbsp;&nbsp;&nbsp;SYSTEM</span>
             <span>Sent Date: 2014.12.04</span>
           </div>
-        </div>
-    </ModalWindow>
+    </DocumentAttachmentFrame>
   )
 }

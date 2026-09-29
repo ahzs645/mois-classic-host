@@ -372,7 +372,7 @@ function NewPreferenceDialog({ close }: AreaWindowProps) {
       )}
       {message && (
         <PBMessageBox title="New Preference" icon="warn" onClose={() => setMessage('')}
-          buttons={[{ label: 'OK', value: 'ok', default: true, tutorialId: 'host.mois.command.new-preference-message-ok' }]}>
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'new-preference-message-ok' }]}>
           {message}
         </PBMessageBox>
       )}
