@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, type ComponentType, type ReactNode } from 'react'
+import { createRegistry } from './registry'
 
 /* ============================================================================
    Windows opened by name, outside the frame's own dialog states.
@@ -31,16 +32,16 @@ export type AreaWindowProps = {
   open: (id: string, args?: AreaWindowArgs) => boolean
 }
 
-const registry = new Map<string, ComponentType<AreaWindowProps>>()
+const registry = createRegistry<ComponentType<AreaWindowProps>>()
 
 export function registerAreaWindow(id: string, component: ComponentType<AreaWindowProps>) {
-  registry.set(id, component)
+  registry.register(id, component)
 }
 
 export const isAreaWindow = (id: string): boolean => registry.has(id)
 
 /** every registered id, in registration order (the DOM census walks them) */
-export const registeredAreaWindowIds = (): string[] => [...registry.keys()]
+export const registeredAreaWindowIds = (): string[] => registry.ids()
 
 export function AreaWindowLayer({
   open, onClose, onOpen,

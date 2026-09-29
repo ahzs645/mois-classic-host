@@ -1,4 +1,5 @@
 import { createElement, type ComponentType } from 'react'
+import { createRegistry } from './registry'
 
 /* ============================================================================
    Folder views registered by tree node — the work-area counterpart of
@@ -32,10 +33,10 @@ export type FolderViewProps = {
   open: (id: string, args?: Record<string, unknown>) => boolean
 }
 
-const registry = new Map<string, ComponentType<FolderViewProps>>()
+const registry = createRegistry<ComponentType<FolderViewProps>>()
 
 export function registerFolderView(nodes: string[], component: ComponentType<FolderViewProps>) {
-  nodes.forEach((node) => registry.set(node, component))
+  registry.register(nodes, component)
 }
 
 export const isFolderView = (node: string): boolean => registry.has(node)
