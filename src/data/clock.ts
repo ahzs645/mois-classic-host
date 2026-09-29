@@ -1,0 +1,56 @@
+/* ============================================================================
+   The stage's clock and date formats, React-free.
+
+   The emulator runs on fixed days so every lesson sees the same records:
+     · MOIS_TODAY (data/patients.ts) — the chart day, 2026.09.18. Anything a
+       lesson files today (a preference, a goal, a stamp) is dated this day.
+     · SCHEDULER_TODAY — the Scheduler's own day, 2026.08.11, the day the day
+       book captures were taken (data/billingPrograms.ts explains the split).
+   Only the time of day comes from the real clock.
+
+   MOIS prints one date three ways, and the screens convert between them:
+     2026.09.18   dialogs, grids, Created / Modified stamps     (dots)
+     2026/09/18   the chart export's dtm_* fields, some reports  (slashes)
+     2026-09-18   the Member grid, the Richtext reports           (dashes)
+   Every converter takes any of the three (and a trailing time), so a value
+   can be passed along without knowing where it came from.
+   ========================================================================= */
+import { MOIS_TODAY } from './patients'
+
+export { MOIS_TODAY }
+
+/** the Scheduler's day (data/schedulerStore.ts EPOCH, host/manifest.ts) */
+export const SCHEDULER_TODAY = '2026.08.11'
+
+export const pad2 = (n: number) => String(n).padStart(2, '0')
+
+const datePart = (v?: string | null) => (v ?? '').trim().split(/\s+/)[0] ?? ''
+
+/** → 2026.09.18 */
+export const toDots = (v?: string | null) => datePart(v).replace(/[/-]/g, '.')
+/** → 2026/09/18 */
+export const toSlashes = (v?: string | null) => datePart(v).replace(/[.-]/g, '/')
+/** → 2026-09-18 */
+export const toDashes = (v?: string | null) => datePart(v).replace(/[./]/g, '-')
+
+/** a Date's calendar day as 2026.09.18 (local time) */
+export const dotsOf = (d: Date) => `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`
+
+/** `day` (any format) plus `days`, as 2026.09.18 — UTC arithmetic, so a
+    daylight-saving change never shifts it */
+export function addDays(day: string, days: number): string {
+  const [y, m, d] = toDots(day).split('.').map(Number)
+  const t = new Date(Date.UTC(y!, m! - 1, d! + days))
+  return `${t.getUTCFullYear()}.${pad2(t.getUTCMonth() + 1)}.${pad2(t.getUTCDate())}`
+}
+
+/** MOIS_TODAY plus `days` */
+export const daysFromToday = (days: number) => addDays(MOIS_TODAY, days)
+
+/** the time of day now, HH:MM */
+export const hhmm = (d: Date = new Date()) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+/** the time of day now, HH:MM:SS */
+export const hhmmss = (d: Date = new Date()) => `${hhmm(d)}:${pad2(d.getSeconds())}`
+
+/** a stamp on the stage's day: `2026.09.18 14:05` (`sep` between them) */
+export const stageStamp = (sep = ' ', d: Date = new Date()) => `${MOIS_TODAY}${sep}${hhmm(d)}`

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { basketFolders } from '../data/basket'
+import { resetSessionStores } from '../data/sessionStore'
 import { billingAdminViews } from '../data/billingAdmin'
 import { chartRowsFor } from '../data/chart-records'
 import { hasChartExport, loadChartExport } from '../data/charts'
@@ -713,6 +714,8 @@ function Frame({
      New Task, Create New Message, …) — see screens/areaWindowRegistry.ts —
      and the Workspace's session edits, fresh for every frame */
   const [areaWindow, setAreaWindow] = useState<{ id: string; args?: Record<string, unknown> } | null>(null)
+  /* every session store registered with data/sessionStore.ts starts over */
+  useState(() => resetSessionStores())
   useState(() => resetWorkspaceStore())
   /* …and the chart edits, merge log, signatures and Desktop Provider the
      chart basics windows keep (data/patient-edits.ts, data/chart-basics-state.ts) */
