@@ -46,14 +46,18 @@ export function StageWindow({
 
 /** A Win32 message box, reported as a dialog like any other window. */
 export function StageMessageBox({
-  id, title, icon = 'question', children, buttons, onClose,
+  id, title, icon = 'question', children, buttons, onClose, prefix = '',
 }: {
   id: string
   title: string
   icon?: 'info' | 'warn' | 'error' | 'question'
   children: ReactNode
-  buttons: { label: string; value: string; default?: boolean }[]
+  /** `id` names the button's command when it is not its label's slug */
+  buttons: { label: string; value: string; default?: boolean; id?: string }[]
   onClose: (value: string) => void
+  /** prefixes every button's command, so this box's Yes cannot match a Yes
+      in a window behind it (`clickAnchor` takes the first match) */
+  prefix?: string
 }) {
   useReportDialog(id)
   return (
@@ -61,7 +65,7 @@ export function StageMessageBox({
       <div data-tutorial-id={`host.mois.dialog.${id}`} style={{ display: 'contents' }}>
         {/* each button is anchored `host.mois.command.<label>` (Yes → .yes) */}
         <PBMessageBox title={title} icon={icon} onClose={onClose}
-          buttons={buttons.map((b) => ({ ...b, tutorialId: `host.mois.command.${pbSlug(b.label)}` }))}>{children}</PBMessageBox>
+          buttons={buttons.map(({ id: command, ...b }) => ({ ...b, command: `${prefix}${command ?? pbSlug(b.label)}` }))}>{children}</PBMessageBox>
       </div>
     </DesktopLayer>
   )

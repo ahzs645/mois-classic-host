@@ -30,15 +30,15 @@ export function PBDropGlyph() {
    FooterButton) is this with its own size. An explicit `data-tutorial-id`
    still wins over the command's anchor.                                   */
 export function PBButton({
-  children, size, wide, className, command, onClick, ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm'; wide?: boolean; command?: string }) {
+  children, size, wide, className, command, onClick, 'data-tutorial-id': tutorialId, ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm'; wide?: boolean; command?: string; 'data-tutorial-id'?: string }) {
   const host = usePBInstrumentation()
-  const anchor = command ? host?.anchor('command', command) : undefined
+  const anchor = tutorialId ?? (command ? host?.anchor('command', command) : undefined)
   return (
     <button
       type="button"
       className={cx('pb-btn', size === 'sm' && 'pb-btn--sm', wide && 'pb-btn--wide', className)}
-      {...(anchor ? { 'data-tutorial-id': anchor } : null)}
+      data-tutorial-id={anchor}
       {...rest}
       onClick={command ? (e) => { host?.report('command', { command }); onClick?.(e) } : onClick}
     >

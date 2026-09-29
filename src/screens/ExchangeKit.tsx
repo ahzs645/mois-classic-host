@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { PBButton, PBCheckbox, PBInput, PBWindow, pbSlug } from '../pb'
+import { PBButton, PBCheckbox, PBInput, PBWindow, pbSlug, PBMessageBox } from '../pb'
 
 /* ============================================================================
    Pieces the Data Exchange screens share: the navy section caption over a
@@ -72,8 +72,8 @@ export function StatusList({ steps, at }: { steps: string[]; at: number }) {
 }
 
 /**
- * MOIS's Yes / No question box (3073580c: "Download Successful"). Drawn here
- * rather than with the kit's PBMessageBox so each button carries an anchor.
+ * MOIS's Yes / No question box (3073580c: "Download Successful"): the kit's
+ * PBMessageBox with each button anchored `host.mois.command.{label}`.
  */
 export function Prompt({ title, children, buttons, onClose, icon = 'question' }: {
   title: string
@@ -83,41 +83,11 @@ export function Prompt({ title, children, buttons, onClose, icon = 'question' }:
   icon?: 'question' | 'info'
 }) {
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 70 }}>
-      <PBWindow child controls={false} title={title} onClose={() => onClose('close')} className="pb-msgbox" tutorialId={`host.mois.dialog.${pbSlug(title)}`}>
-        <div className="pb-msgbox__body">
-          <span className="pb-msgbox__icon">
-            <svg viewBox="0 0 32 32" width="32" height="32">
-              <circle cx="16" cy="16" r="14" fill="#1f7fd0" />
-              {icon === 'question' ? (
-                <>
-                  <path d="M11.6 12.2c0-2.6 2-4.4 4.6-4.4 2.7 0 4.5 1.6 4.5 4 0 3.4-4 3.2-4 6.6h-3c0-4.4 4-4.2 4-6.4 0-1-.7-1.6-1.6-1.6-1 0-1.7.7-1.7 1.8z" fill="#fff" />
-                  <circle cx="16" cy="23.5" r="2" fill="#fff" />
-                </>
-              ) : (
-                <>
-                  <circle cx="16" cy="9.5" r="2" fill="#fff" />
-                  <path d="M13.6 14h4.2v10h-4.2z" fill="#fff" />
-                </>
-              )}
-            </svg>
-          </span>
-          <span className="pb-msgbox__text">{children}</span>
-        </div>
-        <div className="pb-msgbox__footer">
-          {buttons.map((b, i) => (
-            <PBButton
-              key={b}
-              className={i === 0 ? 'pb-btn--default' : undefined}
-              data-tutorial-id={`host.mois.command.${pbSlug(b)}`}
-              onClick={() => onClose(b)}
-            >
-              {b}
-            </PBButton>
-          ))}
-        </div>
-      </PBWindow>
-    </div>
+    <PBMessageBox plain title={title} icon={icon} closeValue="close" onClose={onClose}
+      tutorialId={`host.mois.dialog.${pbSlug(title)}`}
+      buttons={buttons.map((b, i) => ({ label: b, value: b, default: i === 0, command: pbSlug(b) }))}>
+      {children}
+    </PBMessageBox>
   )
 }
 

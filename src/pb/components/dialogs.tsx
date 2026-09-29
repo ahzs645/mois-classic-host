@@ -1,9 +1,11 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { PBButton } from './controls'
 import { PBWindow } from './chrome'
 
-/* --- message-box icons: the Win32 set, flat-drawn for the Win10 frame ---- */
-const ICONS = {
+/* --- message-box icons: the Win32 set, flat-drawn for the Win10 frame ----
+   Exported so a window that draws its own message-box body (a checkbox
+   under the text, a white face) uses the same four glyphs.               */
+export const PB_MESSAGE_ICONS = {
   info: (
     <svg viewBox="0 0 32 32" width="32" height="32">
       <circle cx="16" cy="16" r="14" fill="#1f7fd0" />
@@ -36,35 +38,52 @@ const ICONS = {
   ),
 }
 
+const ICONS = PB_MESSAGE_ICONS
+export type PBMessageIcon = keyof typeof PB_MESSAGE_ICONS
+
 export type PBMessageButton = {
   label: string; value: string; default?: boolean
   /** opt-in tutorial anchor on the button (host.mois.command.*) */
   tutorialId?: string
+  /** a command id: anchors `host.mois.command.{command}` and reports the press */
+  command?: string
+  style?: CSSProperties
 }
 
 /* --- PBMessageBox -------------------------------------------------------- */
 export function PBMessageBox({
-  title, icon = 'info', children, buttons, onClose,
+  title, icon = 'info', children, buttons, onClose, zIndex = 70, plain, tutorialId, closeValue = 'cancel', textStyle,
 }: {
   title: string
-  icon?: keyof typeof ICONS
+  icon?: PBMessageIcon
   children: ReactNode
   buttons: PBMessageButton[]
   onClose: (value: string) => void
+  /** stack over a window that raised the box (the kit layer sits at 70) */
+  zIndex?: number
+  /** a transparent layer rather than the dimming one */
+  plain?: boolean
+  /** the box's own anchor, `host.mois.dialog.{id}` */
+  tutorialId?: string
+  /** what the title-bar × answers */
+  closeValue?: string
+  textStyle?: CSSProperties
 }) {
   return (
-    <div className="pb-modal-layer" style={{ zIndex: 70 }}>
-      <PBWindow child controls={false} title={title} onClose={() => onClose('cancel')} className="pb-msgbox">
+    <div className={plain ? 'pb-modal-layer pb-modal-layer--plain' : 'pb-modal-layer'} style={{ zIndex }}>
+      <PBWindow child controls={false} title={title} onClose={() => onClose(closeValue)} className="pb-msgbox" tutorialId={tutorialId}>
         <div className="pb-msgbox__body">
           <span className="pb-msgbox__icon">{ICONS[icon]}</span>
-          <span className="pb-msgbox__text">{children}</span>
+          <span className="pb-msgbox__text" style={textStyle}>{children}</span>
         </div>
         <div className="pb-msgbox__footer">
           {buttons.map((b) => (
             <PBButton
               key={b.value}
               className={b.default ? 'pb-btn--default' : undefined}
+              command={b.command}
               data-tutorial-id={b.tutorialId}
+              style={b.style}
               onClick={() => onClose(b.value)}
             >
               {b.label}
