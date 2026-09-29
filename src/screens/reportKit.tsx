@@ -260,7 +260,7 @@ export function ParamFrame({
   buttonWidth?: number
   onOk: () => void
   onCancel: () => void
-  /** print only: a button pinned bottom-left, anchored `host.mois.command.<anchor>` (not reported) */
+  /** print only: a button pinned bottom-left, anchored `host.mois.command.<anchor>` and reported */
   left?: { label: ReactNode; anchor: string; onClick: () => void } | null | false
   /** report only: replaces the Ok / Cancel row entirely */
   footer?: ReactNode
@@ -291,7 +291,7 @@ export function ParamFrame({
               {left && (
                 <PBButton
                   style={{ position: 'absolute', left: 0, top: 14 }}
-                  data-tutorial-id={`host.mois.command.${left.anchor}`}
+                  command={left.anchor}
                   onClick={left.onClick}
                 >
                   {left.label}

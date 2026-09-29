@@ -175,10 +175,12 @@ export function FormLine({
    The grey read-only edit box MOIS fills itself: PbfWindows:~88 `RO`
    (w={w ?? 110}, bold). ClinicEditorWindows' LOCKED / IDENT faces are the
    same idea in another grey (#e8e8e8 bold / #e4e4e4 bold) — pass `face`.  */
-export function ReadOnlyField({ value, w = 110, bold, face = '#e8e8e8' }: {
+export function ReadOnlyField({ value, w = 110, bold, face = '#e8e8e8', anchor }: {
   value: string; w?: number | string; bold?: boolean; face?: string
+  /** the box's own anchor (`host.mois.field.…`) */
+  anchor?: string
 }) {
-  return <PBInput w={w} readOnly value={value} style={{ background: face, fontWeight: bold ? 700 : undefined }} />
+  return <PBInput w={w} readOnly value={value} style={{ background: face, fontWeight: bold ? 700 : undefined }} data-tutorial-id={anchor} />
 }
 
 /* --- SectionCaption ----------------------------------------------------------
@@ -207,7 +209,8 @@ export function ReadOnlyField({ value, w = 110, bold, face = '#e8e8e8' }: {
 export type SectionCaptionProps = {
   children?: ReactNode
   color?: string
-  padding?: number | string
+  /** `false`: no padding at all (the Chart Exchange captions) */
+  padding?: number | string | false
   rule?: string | false
   ruleTop?: string
   fixed?: boolean
@@ -227,7 +230,7 @@ export function SectionCaption({
   if (!inner) { s.color = color; s.fontWeight = 700 }
   if (ruleTop) s.borderTop = `1px solid ${ruleTop}`
   if (rule) s.borderBottom = `1px solid ${rule}`
-  s.padding = padding
+  if (padding !== false) s.padding = padding
   if (fixed) s.flex = 'none'
   Object.assign(s, style)
   const text = inner === 'span' ? <span style={{ color, fontWeight: 700 }}>{children}</span>
@@ -264,7 +267,7 @@ export function SectionCaption({
          title={<><span style={{ color: '#c00000', marginRight: 4 }}>{n}.</span>{title}</>}   */
 export function CaptionGroup({
   title, children, frame = 'box', border = '#d4d4d4', shadow, padding = '4px 10px 8px', shrink = true, fill,
-  caption, legendStyle, bodyStyle, anchor, style,
+  caption, legendStyle, bodyStyle, bodyClassName, anchor, style,
 }: {
   title: ReactNode
   children?: ReactNode
@@ -277,6 +280,8 @@ export function CaptionGroup({
   caption?: Omit<SectionCaptionProps, 'children'>
   legendStyle?: CSSProperties
   bodyStyle?: CSSProperties
+  /** 'fieldset': the body's class (PatientContactDialog's `pb-fieldset__body`) */
+  bodyClassName?: string
   anchor?: string
   style?: CSSProperties
 }) {
@@ -284,7 +289,7 @@ export function CaptionGroup({
     return (
       <fieldset className="pb-fieldset" data-tutorial-id={anchor} style={style}>
         <legend className="pb-fieldset__legend" style={legendStyle ?? NAVY_BOLD}>{title}</legend>
-        <div style={bodyStyle}>{children}</div>
+        <div className={bodyClassName} style={bodyStyle}>{children}</div>
       </fieldset>
     )
   }
@@ -386,6 +391,7 @@ function FooterButton({ b }: { b: FooterButtonSpec }) {
 
 export function DialogFooter({
   children, buttons, frame = 'row', left, gap, padding, height, border, background, fixed = true, plain, spacers = true, el = 'div', anchor, style,
+  justify = 'center',
 }: {
   children?: ReactNode
   buttons?: FooterButtonSpec[]
@@ -406,6 +412,9 @@ export function DialogFooter({
   spacers?: boolean
   /** 'row': the element — a span for a centred cell inside a grid */
   el?: 'div' | 'span'
+  /** 'row': how the buttons sit — centred (default), another alignment, or
+      `false` for none at all (NotificationServiceWindows' left-set row) */
+  justify?: CSSProperties['justifyContent'] | false
   anchor?: string
   style?: CSSProperties
 }) {
@@ -440,7 +449,7 @@ export function DialogFooter({
   }
 
   const s: CSSProperties = plain ? { display: 'flex' } : {}
-  s.justifyContent = 'center'
+  if (justify !== false) s.justifyContent = justify
   if (gap !== undefined) s.gap = gap
   Object.assign(s, opt)
   if (fixed) s.flex = 'none'

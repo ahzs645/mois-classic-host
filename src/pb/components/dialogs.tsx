@@ -55,7 +55,8 @@ export function PBMessageBox({
   title, icon = 'info', children, buttons, onClose, zIndex = 70, plain, tutorialId, closeValue = 'cancel', textStyle,
 }: {
   title: string
-  icon?: PBMessageIcon
+  /** `null`: a box with no icon (Deacon's) */
+  icon?: PBMessageIcon | null
   children: ReactNode
   buttons: PBMessageButton[]
   onClose: (value: string) => void
@@ -73,7 +74,7 @@ export function PBMessageBox({
     <div className={plain ? 'pb-modal-layer pb-modal-layer--plain' : 'pb-modal-layer'} style={{ zIndex }}>
       <PBWindow child controls={false} title={title} onClose={() => onClose(closeValue)} className="pb-msgbox" tutorialId={tutorialId}>
         <div className="pb-msgbox__body">
-          <span className="pb-msgbox__icon">{ICONS[icon]}</span>
+          {icon && <span className="pb-msgbox__icon">{ICONS[icon]}</span>}
           <span className="pb-msgbox__text" style={textStyle}>{children}</span>
         </div>
         <div className="pb-msgbox__footer">

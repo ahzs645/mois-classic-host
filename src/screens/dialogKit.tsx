@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useReportDialog } from '../host/screen-windows'
 import { PBWindow } from '../pb'
@@ -61,15 +61,17 @@ export function DesktopLayer({ children, fallback = 'inline' }: { children: Reac
 }
 
 /** The transparent layer a modal window sits on. */
-export function ModalLayer({ zIndex, className, style, children }: {
+export function ModalLayer({ zIndex, className, style, children, attrs }: {
   zIndex?: number
   /** replaces the plain layer's classes (a few windows use a tinted layer) */
   className?: string
   style?: CSSProperties
   children: ReactNode
+  /** further attributes on the layer (role, aria-*) */
+  attrs?: HTMLAttributes<HTMLDivElement>
 }) {
   return (
-    <div className={className ?? 'pb-modal-layer pb-modal-layer--plain'} style={{ ...(zIndex != null ? { zIndex } : null), ...style }}>
+    <div {...attrs} className={className ?? 'pb-modal-layer pb-modal-layer--plain'} style={{ ...(zIndex != null ? { zIndex } : null), ...style }}>
       {children}
     </div>
   )
@@ -77,7 +79,7 @@ export function ModalLayer({ zIndex, className, style, children }: {
 
 /** Escape closes, Tab cycles inside, focus returns on close — the keyboard
     contract a Win32 modal keeps (DemographicModal's, now any window's). */
-function FocusTrap({ label, width, onClose, children }: { label: string; width?: string; onClose: () => void; children: ReactNode }) {
+function FocusTrap({ label, width, style, onClose, children }: { label: string; width?: string; style?: CSSProperties; onClose: () => void; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
@@ -86,7 +88,7 @@ function FocusTrap({ label, width, onClose, children }: { label: string; width?:
   }, [])
   return (
     <div ref={box} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
-      style={width ? { width } : undefined} onKeyDown={(e) => {
+      style={width || style ? { ...(width ? { width } : null), ...style } : undefined} onKeyDown={(e) => {
         if (e.key === 'Escape') { e.stopPropagation(); onClose() }
         if (e.key === 'Tab') {
           const fields = [...(box.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, [tabindex="0"]') ?? [])]
@@ -124,23 +126,47 @@ export type ModalWindowProps = {
   /** report `id` as `host.dialog` while the window is up */
   report?: boolean
   /** a focus-trapping dialog box around the window, with this width */
-  trap?: { label: string; width?: string }
+  trap?: { label: string; width?: string; style?: CSSProperties }
   /** an anchor other than `host.mois.dialog.{id}` */
   tutorialId?: string
+  /* --- the rest of PBWindow, for the windows that need it --------------- */
+  windowClassName?: string
+  icon?: ReactNode
+  sub?: ReactNode
+  /** false draws a top-level window frame rather than an MDI child's */
+  child?: boolean
+  maximized?: boolean
+  onMinimize?: () => void
+  onMaximize?: () => void
+  /* --- around the window ------------------------------------------------ */
+  /** an element between the layer and the window (some windows carry their
+      anchor or a placement style on a wrapper) */
+  wrap?: { className?: string; style?: CSSProperties; tutorialId?: string }
+  /** further attributes on the layer (role, aria-*) */
+  layerAttrs?: HTMLAttributes<HTMLDivElement>
+  /** drawn in the layer after the window: a window raised beside it, a
+      <style> the window needs */
+  after?: ReactNode
 }
 
 export function ModalWindow({
   id, title, onClose, children, windowStyle, controls = false, zIndex, layerClassName, layerStyle, portal, report, trap, tutorialId,
+  windowClassName, icon, sub, child = true, maximized, onMinimize, onMaximize, wrap, layerAttrs, after,
 }: ModalWindowProps) {
   const window = (
-    <PBWindow child controls={controls} title={title} onClose={onClose}
+    <PBWindow child={child} controls={controls} title={title} onClose={onClose} className={windowClassName} icon={icon} sub={sub}
+      maximized={maximized} onMinimize={onMinimize} onMaximize={onMaximize}
       tutorialId={tutorialId ?? (id ? `host.mois.dialog.${id}` : undefined)} style={windowStyle}>
       {children}
     </PBWindow>
   )
+  const wrapped = wrap
+    ? <div className={wrap.className} style={wrap.style} data-tutorial-id={wrap.tutorialId}>{window}</div>
+    : window
   const layered = (
-    <ModalLayer zIndex={zIndex} className={layerClassName} style={layerStyle}>
-      {trap ? <FocusTrap label={trap.label} width={trap.width} onClose={onClose}>{window}</FocusTrap> : window}
+    <ModalLayer zIndex={zIndex} className={layerClassName} style={layerStyle} attrs={layerAttrs}>
+      {trap ? <FocusTrap label={trap.label} width={trap.width} style={trap.style} onClose={onClose}>{wrapped}</FocusTrap> : wrapped}
+      {after}
     </ModalLayer>
   )
   return (
