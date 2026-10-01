@@ -106,6 +106,9 @@ export type UniversalSearchRow = {
   system: string
   /** the `Alternate Terms` pane's contents for this row */
   alternates: string[]
+  /** the reference sets the term belongs to (a ticked set narrows to these);
+      data/universalSearchPresets.ts fills it for its pages */
+  sets?: string[]
 }
 
 /** The code systems the search runs against; `More…` is greyed in the capture. */

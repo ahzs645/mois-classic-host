@@ -218,7 +218,10 @@ export function SearchForBand({ context, fields, value, onChange, right, style }
             if (e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); setDropped((d) => !d) }
           }}
         />
-        <PBButton
+        {/* the history ▾ is drawn once the folder has a history (`b85fae5e…`,
+            v02.22); the v02.31.23 TRAINING captures of 2026-09-29, with none,
+            show the box and its "…" alone */}
+        {history.length > 0 && <PBButton
           bare
           className="pb-inputgroup__btn pb-inputgroup__btn--drop"
           aria-expanded={dropped}
@@ -229,7 +232,7 @@ export function SearchForBand({ context, fields, value, onChange, right, style }
           title="Search history"
         >
           ▾
-        </PBButton>
+        </PBButton>}
         <button
           type="button"
           className="pb-inputgroup__btn pb-inputgroup__btn--dots"

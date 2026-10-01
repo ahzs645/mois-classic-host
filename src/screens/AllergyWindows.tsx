@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { MoisRecord } from '../data/charts'
 import { MOIS_TODAY } from '../data/patients'
 import { addReactionRisk, type AgentType } from '../data/allergySession'
@@ -128,51 +128,80 @@ export function NewReactionRiskWindow({ onSaved, onClose }: {
    specify), Comments, Phone / Ext. / Date, View Recommendation History, and —
    once signed — the red "Recommendations are LOCKED." and Unsign
    Recommendations. Signed, the whole tab is read only, and the Comments box
-   never takes focus: clicking it opens the Text Viewer. */
+   never takes focus: clicking it opens the Text Viewer.
+
+   Geometry: 2026-09-29 TRAINING capture c16 (unsigned, chart 2429): every
+   box 17 tall, the ticks on a 19 pitch in two columns (15 and 287 in), Name
+   and Comments from 115 to 793, the radios at 115 / 205 / 295 / 385, Phone
+   88 · Ext. 47 · Date 83.5; under the form View Recommendation History (159)
+   at the left and Sign Recommendations (157.5) at the right, 22 tall. An
+   unsigned event's button reads Sign Recommendations. */
+const R_AT = (left: number, top: number, width?: number): CSSProperties => ({ position: 'absolute', left, top, width })
+const R_LAB = (left: number, top: number): CSSProperties => ({ ...R_AT(left, top), lineHeight: '17px', whiteSpace: 'nowrap' })
+
 export function RecommendationsPane({ record, onOpenText }: { record?: MoisRecord; onOpenText: () => void }) {
   const locked = record?.stp_record_state === 'SIGNED'
   const y = (k: string) => record?.[k] === 'Y'
   const status = record?.str_recommend_status ?? ''
+  const box = (left: number, top: number, w: number, extra?: CSSProperties) => (
+    <PBInput style={{ ...R_AT(left, top, w), height: 17, ...extra }} readOnly={locked} />
+  )
+  const tick = (left: number, top: number, label: string, k: string) => (
+    <span style={{ ...R_AT(left, top), lineHeight: '17px' }}><PBCheckbox label={label} checked={y(k)} disabled={locked} /></span>
+  )
+  const radio = (left: number, label: string, on: boolean) => (
+    <span style={{ ...R_AT(left, 104), lineHeight: '17px' }}><PBRadio name="prof-status" label={label} checked={on} disabled={locked} /></span>
+  )
   return (
-    <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0 }} data-tutorial-id="host.mois.group.recommendations">
-      <PBBand>Recommendations for Further Administration</PBBand>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 20px', padding: '6px 14px' }}>
-        <PBCheckbox label="No Changes to Administration Schedule" checked={y('str_no_change')} disabled={locked} />
-        <PBCheckbox label="Controlled Setting for Next Administration" checked={y('str_controlled_setting')} disabled={locked} />
-        <div className="pb-row"><PBCheckbox label="Expert Referral, specify:" checked={y('str_expert_referral')} disabled={locked} /><PBInput w={120} readOnly={locked} /></div>
-        <div className="pb-row"><PBCheckbox label="No Further Administrations With" checked={y('str_no_immunizations')} disabled={locked} /><PBInput w={60} readOnly={locked} /><span>, specify:</span><PBInput w={110} readOnly={locked} /></div>
-        <PBCheckbox label="Determine Protective Antibody Level" checked={y('str_protective_antibody')} disabled={locked} />
-        <PBCheckbox label="Active Follow-up for Recurrence After Next Administration" checked={y('str_follow_up_aefi')} disabled={locked} />
-        <span />
-        <div className="pb-row"><PBCheckbox label="Other, specify:" checked={y('str_immunization_other')} disabled={locked} /><PBInput w={160} readOnly={locked} /></div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '98px 1fr', gap: '4px 6px', padding: '0 14px', alignItems: 'center' }}>
-        <span>Name:</span><PBInput w="100%" readOnly={locked} defaultValue={record?.str_recommend_name ?? ''} />
-        <span>Professional Status:</span>
-        <div className="pb-row" style={{ gap: 26 }}>
-          {['MOH/MHO', 'MD', 'RN'].map((s) => <PBRadio key={s} name="prof-status" label={s} checked={status === s} disabled={locked} />)}
-          <PBRadio name="prof-status" label="Other, specify:" checked={false} disabled={locked} /><PBInput w={150} readOnly={locked} />
+    <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--pb-face)', '--pb-band-h': '22px' } as CSSProperties} data-tutorial-id="host.mois.group.recommendations">
+      <div style={{ flex: 'none', border: '1px solid #b6b6b6', borderTop: 0 }}>
+        <PBBand>Recommendations for Further Administration</PBBand>
+        <div style={{ position: 'relative', height: 274, borderTop: '1px solid #b6b6b6' }}>
+          {tick(15, 7, 'No Changes to Administration Schedule', 'str_no_change')}
+          {tick(287, 7, 'Controlled Setting for Next Administration', 'str_controlled_setting')}
+          {tick(15, 26, 'Expert Referral, specify:', 'str_expert_referral')}
+          {box(147.5, 26, 125.5)}
+          {tick(287, 26, 'No Further Administrations With', 'str_no_immunizations')}
+          {box(457, 26, 62)}
+          <span style={R_LAB(521, 26)}>, specify:</span>
+          {box(570, 26, 156)}
+          {tick(15, 45.5, 'Determine Protective Antibody Level', 'str_protective_antibody')}
+          {tick(287, 45.5, 'Active Follow-up for Recurrence After Next Administration', 'str_follow_up_aefi')}
+          {tick(287, 64.5, 'Other, specify:', 'str_immunization_other')}
+          {box(375.5, 64.5, 169)}
+          <span style={R_LAB(14, 84)}>Name:</span>
+          <PBInput style={{ ...R_AT(115, 84, 678), height: 17 }} readOnly={locked} defaultValue={record?.str_recommend_name ?? ''} />
+          <span style={R_LAB(14, 104)}>Professional Status:</span>
+          {radio(115, 'MOH/MHO', status === 'MOH/MHO')}
+          {radio(205, 'MD', status === 'MD')}
+          {radio(295, 'RN', status === 'RN')}
+          {radio(385, 'Other, specify:', false)}
+          {box(481, 104, 312)}
+          <span style={R_LAB(14, 124)}>Comments:</span>
+          {/* read only, the box never takes focus: a click is what opens the
+              Text Viewer, which is the only way to read past what fits */}
+          <div
+            className="pb-field"
+            data-tutorial-id="host.mois.field.recommendation-comments"
+            onClick={locked ? onOpenText : undefined}
+            style={{ ...R_AT(115, 124, 678), height: 125, overflow: 'hidden', whiteSpace: 'pre-wrap', background: locked ? 'var(--pb-face)' : '#fff', cursor: 'default', padding: '2px 4px' }}
+          >
+            {record?.str_comment ?? ''}
+          </div>
+          <span style={R_LAB(14, 251.5)}>Phone:</span>
+          {box(115, 251.5, 88)}
+          <span style={R_LAB(219, 251.5)}>Ext.:</span>
+          {box(244, 251.5, 47)}
+          <span style={R_LAB(326, 251.5)}>Date:</span>
+          {box(361, 251.5, 83.5)}
         </div>
-        <span style={{ alignSelf: 'start' }}>Comments:</span>
-        {/* read only, the box never takes focus: a click is what opens the
-            Text Viewer, which is the only way to read past what fits */}
-        <div
-          className="pb-field"
-          data-tutorial-id="host.mois.field.recommendation-comments"
-          onClick={locked ? onOpenText : undefined}
-          style={{ height: 58, overflow: 'hidden', whiteSpace: 'pre-wrap', background: locked ? 'var(--pb-face)' : '#fff', cursor: 'default', padding: '2px 4px' }}
-        >
-          {record?.str_comment ?? ''}
-        </div>
-        <span>Phone:</span>
-        <div className="pb-row"><PBInput w={90} readOnly={locked} /><span>Ext.:</span><PBInput w={48} readOnly={locked} /><span style={{ marginLeft: 30 }}>Date:</span><PBInput w={84} readOnly={locked} /></div>
       </div>
-      <div className="pb-row" style={{ padding: '6px 8px', marginTop: 'auto' }}>
-        <PBButton wide>View Recommendation History</PBButton>
-        <span className="pb-row__spacer" style={{ flex: '1 1 auto' }} />
-        {locked && <span style={{ color: '#d00' }} data-tutorial-id="host.mois.field.recommendations-locked">Recommendations are LOCKED.</span>}
-        <span className="pb-row__spacer" style={{ flex: '1 1 auto' }} />
-        <PBButton wide disabled={!locked}>Unsign Recommendations</PBButton>
+      <div className="pb-row" style={{ flex: 'none', padding: '5px 0 0 1.5px', gap: 0 }}>
+        <PBButton style={{ width: 159, minWidth: 0, height: 22, padding: 0 }}>View Recommendation History</PBButton>
+        <span className="pb-row__spacer" style={{ flex: '1 1 auto', textAlign: 'center' }}>
+          {locked && <span style={{ color: '#d00' }} data-tutorial-id="host.mois.field.recommendations-locked">Recommendations are LOCKED.</span>}
+        </span>
+        <PBButton style={{ width: 157.5, minWidth: 0, height: 22, padding: 0 }}>{locked ? 'Unsign Recommendations' : 'Sign Recommendations'}</PBButton>
       </div>
     </div>
   )

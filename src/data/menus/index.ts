@@ -36,6 +36,8 @@ export type MenuContext = {
  * not need a new prop threaded through the shell.
  */
 export type MenuGo = {
+  /** Maintenance ▸ Display: the high-DPI stretch (data/mois.tsx PBScaleMode) */
+  scale?: (mode: '' | 'pb-scale--200') => void
   node?: (id: string) => void
   module?: (id: string) => void
   lookup?: () => void

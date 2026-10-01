@@ -367,7 +367,9 @@ textarea.pb-field {
   /* placed by pb/popup: portalled onto the desktop so the frame, or a
      scrolling DataWindow, cannot clip the dropped list */
   z-index: 1000;
-  max-height: 232px;
+  /* tall enough for the lists MOIS drops without a scrollbar: the Order
+     Linking Service's sixteen statuses (2026-09-29 capture c05) */
+  max-height: 330px;
   overflow: auto;
   border: 1px solid #797979;
   background: #fefbf1;
@@ -379,7 +381,7 @@ textarea.pb-field {
 .pb-dddw__table th {
   position: sticky;
   top: 0;
-  height: 18px;
+  height: 19px;
   padding: 0 5px;
   background: #c8c8c8;
   border-right: 1px solid #fff;
@@ -394,7 +396,11 @@ textarea.pb-field {
    its last column does, and the run past it is list background, not header */
 .pb-dddw__table th:empty { background: transparent; border-right: 0; }
 .pb-dddw__table td {
-  height: 18px;
+  /* every captured list steps its rows 38 device px at 2x — 19px: the
+     2026-09-29 TRAINING captures (Type, Severity, Site, Route, Status,
+     Occupant Relationship) and reference/advanced-gender-genotypic-list.png
+     alike. It was 18, which drifted a long list a row short. */
+  height: 19px;
   padding: 0 5px;
   /* the hairline between columns, which the selected row paints over */
   border-right: 1px solid #f2f2f0;
@@ -408,6 +414,10 @@ textarea.pb-field {
 .pb-dddw__table tbody tr.is-current { background: #3376d0; color: #fff; }
 /* the hairline survives under the selection, lightened rather than hidden */
 .pb-dddw__table tbody tr.is-current td { border-right-color: rgba(255, 255, 255, .8); }
+
+/* a list whose Description runs to a second line (the Measures Status list,
+   2026-09-29 TRAINING capture c07): the row grows, top-aligned */
+.pb-dddw__list--wrap .pb-dddw__table td { height: auto; white-space: normal; vertical-align: top; padding-top: 1px; padding-bottom: 1px; min-height: 19px; }
 
 /* A Dynamic Form's drop-down (dddw_dform_field, Early Childhood Assessment's
    Method of Contact, 2026-09-28 capture) is another DataWindow: its rows are

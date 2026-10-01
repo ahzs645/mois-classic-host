@@ -87,12 +87,18 @@ export function summarySections(p: Patient, data: MoisChartExport | null = null,
   /* no chart loaded: MOIS still paints one collapsed band, PREFERENCES [1]
      (`reference/patient-summary-empty.png`). Its row was not captured. */
   if (!p.chart) return [{ id: 'preferences', title: 'PREFERENCES', rows: [], count: 1, accent: SUMMARY_ACCENT.preferences }]
+  return withCapturedCounts(p.chart, exportSections(p, data, lastDays, now))
+}
+
+function exportSections(p: Patient, data: MoisChartExport | null, lastDays: string, now: Date): SummarySection[] {
   const sections: SummarySection[] = []
   const add = (id: string, title: string, rows: SummaryRow[], extra: Partial<SummarySection> = {}) => {
     if (rows.length) sections.push({ id, title, rows, ...extra })
   }
   add('demographics', 'DEMOGRAPHICS', [
     ...(p.home ? [{ description: 'HOME PHONE', detail: p.home }] : []),
+    /* `reference/patient-summary-3598.png`: HOME PHONE, CELL PHONE, ETHNICITY */
+    ...(p.cell ? [{ description: 'CELL PHONE', detail: p.cell }] : []),
     ...Object.values(p.ethnicity ?? {}).flatMap((r) => r?.race ? [{ description: 'ETHNICITY', detail: r.race }] : []),
   ], { open: true, accent: SUMMARY_ACCENT.demographics })
   if (!data) return sections
@@ -115,6 +121,79 @@ export function summarySections(p: Patient, data: MoisChartExport | null = null,
   add('orders', 'ORDERS', data.order.filter(r => recent(r.dtm_ord_date)).map(r => ({ date: date(r.dtm_ord_date), description: r.str_order_type ?? '', detail: r.str_description ?? r.str_code_term ?? '', link: 'Orders' })), { window: 'last' })
   add('service', 'SERVICE EPISODES', data.chart_service.map(r => ({ date: date(r.dtm_start), description: r.str_service_code_term ?? '', detail: r.str_service_mrp ?? '', link: 'Demographics' })), { accent: SUMMARY_ACCENT.service })
   return sections
+}
+
+/* ----------------------------------------------------------------------------
+   Band counts transcribed from a Patient Summary capture.
+
+   A band MOIS paints collapsed shows its caption and `[count]`, never the
+   rows behind it. For a chart whose summary was captured that way, the
+   captured bands are listed here, in the capture's order, with its captions
+   and counts. `summarySections` paints each one from the chart's records
+   when it has any (DEMOGRAPHICS from the roster, 3598's CONNECTIONS from
+   charts/captured-3598.ts) and otherwise as a collapsed band that carries
+   the count and no rows — the same thing it does for the no-chart
+   PREFERENCES [1] band. Nothing is invented behind a count.
+   ------------------------------------------------------------------------- */
+
+export type CapturedBand = {
+  id: string
+  title: string
+  count: number
+  accent?: string
+  window?: SummarySection['window']
+  /** expanded in the capture */
+  open?: boolean
+}
+
+export const CAPTURED_SUMMARY_COUNTS: Record<string, CapturedBand[]> = {
+  /* `reference/patient-summary-3924.png` */
+  '3924': [
+    { id: 'demographics', title: 'DEMOGRAPHICS', count: 1, accent: SUMMARY_ACCENT.demographics, open: true },
+    { id: 'preferences', title: 'PREFERENCES', count: 6, accent: SUMMARY_ACCENT.preferences },
+    { id: 'connections', title: 'CONNECTIONS', count: 6 },
+    { id: 'associated', title: 'ASSOCIATED PARTIES', count: 2 },
+    { id: 'risks', title: 'REACTION RISKS', count: 2, accent: SUMMARY_ACCENT.risks },
+    { id: 'adverse', title: 'ADVERSE EVENTS', count: 1 },
+    { id: 'issues', title: 'HEALTH ISSUES', count: 1 },
+    { id: 'ltm', title: 'LONG TERM MEDS', count: 2 },
+    { id: 'documents', title: 'DOCUMENTS', count: 6, window: 'last' },
+    { id: 'paper', title: 'FORMS - PAPER', count: 1, window: 'last' },
+    { id: 'prescriptions', title: 'PRESCRIPTIONS', count: 1, window: 'last' },
+    { id: 'service', title: 'SERVICE EPISODES', count: 8, accent: SUMMARY_ACCENT.service },
+    { id: 'notifications', title: 'NOTIFICATIONS', count: 1, window: 'required' },
+  ],
+  /* `reference/patient-summary-3598.png` */
+  '3598': [
+    { id: 'demographics', title: 'DEMOGRAPHICS', count: 3, accent: SUMMARY_ACCENT.demographics, open: true },
+    { id: 'preferences', title: 'PREFERENCES', count: 15, accent: SUMMARY_ACCENT.preferences },
+    { id: 'connections', title: 'CONNECTIONS', count: 9, open: true },
+    { id: 'aliases', title: 'ALIAS IDS', count: 5 },
+    { id: 'associated', title: 'ASSOCIATED PARTIES', count: 1 },
+    { id: 'risks', title: 'REACTION RISKS', count: 3, accent: SUMMARY_ACCENT.risks },
+    { id: 'issues', title: 'HEALTH ISSUES', count: 3 },
+    { id: 'ltm', title: 'LONG TERM MEDS', count: 2 },
+    { id: 'service', title: 'SERVICE EPISODES', count: 18, accent: SUMMARY_ACCENT.service },
+  ],
+}
+
+/** A captured chart's bands in the capture's order: its own rows where the
+    chart has them, the transcribed count where it does not. Bands the chart's
+    records add that the capture does not list (a record filed this session)
+    follow them. */
+function withCapturedCounts(chart: string, sections: SummarySection[]): SummarySection[] {
+  const bands = CAPTURED_SUMMARY_COUNTS[chart]
+  if (!bands) return sections
+  const derived = new Map(sections.map((s) => [s.id, s]))
+  const painted = bands.map((b): SummarySection => {
+    const own = derived.get(b.id)
+    derived.delete(b.id)
+    const band = { id: b.id, title: b.title, accent: b.accent, window: b.window, open: b.open }
+    /* `open` stands either way: the window collapses its bands once, when it
+       mounts — before a lazily loaded chart's rows arrive */
+    return own?.rows.length ? { ...own, ...band } : { ...band, rows: [], count: b.count }
+  })
+  return [...painted, ...derived.values()]
 }
 
 /** `DOCUMENTS  IN LAST 60 DAY(S)` — the caption MOIS builds from the day boxes. */

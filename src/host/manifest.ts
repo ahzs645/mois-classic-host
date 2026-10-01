@@ -504,13 +504,13 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.mois.encounter.menu-region.{menu}',
     'host.mois.encounter.menu.{menu}.{item}',
   ],
-  /* The size MOIS paints this window at — both Patient Summary captures were
-     taken at 1000x736. A stage gives the emulator the whole browser as its
+  /* The size MOIS paints this window at — the 2026-09-29 TRAINING captures
+     are 1004x744 (the older Patient Summary ones 1000x736). A stage gives the emulator the whole browser as its
      desktop and opens the window at this size on it, rather than stretching
      the window: MOIS does not reflow, so a wider frame would be more window
      face, not more chart. The window is still movable and resizable from
      there, the way the real one is. */
-  windowSize: { width: 1000, height: 736 },
+  windowSize: { width: 1004, height: 744 },
 }
 
 /* What the shell opens on when it is not told: a chart open on Patient

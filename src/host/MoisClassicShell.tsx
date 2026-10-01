@@ -16,7 +16,7 @@ import {
   adminTree, billingTree, daybookProviders,
   exchangeTree, makeMainMenu, makeStatusCells, modules,
   patientChartTree, reportsTree, schedulerTree, workspaceTree,
-  type CarePlanKey, type PBTextMode, type PBTheme
+  type CarePlanKey, type PBScaleMode, type PBTextMode, type PBTheme
 } from '../data/mois'
 import { PatientProvider } from '../data/patient-context'
 import { dueOpeningReminders } from '../data/opening-reminders'
@@ -38,6 +38,7 @@ import { resetConcepts } from '../data/concepts'
 import {
   PBInstrumentationProvider, PBMdiHost, PBMdiProvider, PBMenuBar, PBMessageBox, PBModuleBar, PBStatusBar, PBTree, PBWindow,
   pbSlug, useMdi, type PBInstrumentationPayload, type PBTreeNode, type PBWindowClass,
+  PBScaleOverlay,
 } from '../pb'
 import '../pb/kit.css'
 import { AddAttachmentDialog } from '../screens/AddAttachmentDialog'
@@ -227,7 +228,9 @@ const ROUTES: Record<string, View> = {
   measures: 'report',
   mar: 'mar',
   determinants: 'determinants',
-  allergy: 'report',
+  /* allergy (Allergy / Intolerances) is the folder summary registered by
+     screens/FolderSummaryView.tsx (2026-09-29 TRAINING capture c03): a
+     ROUTES entry here would shadow the registry */
   reaction: 'report',
   admissions: 'report',
   interventions: 'report',
@@ -553,6 +556,12 @@ export interface MoisClassicShellProps extends HostShellProps {
    */
   text?: PBTextMode
   /**
+   * The high-DPI stretch (data/mois.tsx PBScaleMode). Omitted, the frame takes
+   * `?scale=100|200` off the URL, then Maintenance ▸ Display's last choice,
+   * else 200%. Passing it pins the mode.
+   */
+  scale?: PBScaleMode
+  /**
    * Start MOIS in an alternate launch mode — Encounter Lite, My Encounters,
    * or the chooser in front of one (screens/LaunchModeWindows.tsx). Wins over
    * the fixture's own (`MOIS_CLASSIC_LAUNCH_MODES` in host/manifest.ts).
@@ -596,6 +605,34 @@ function initialTextMode(pinned?: PBTextMode): PBTextMode {
   }
 }
 
+/* The display stretch (data/mois.tsx PBScaleMode, pb/scale.css). On by
+   default: the TRAINING captures the emulator is measured against are all a
+   200% Windows display. `?scale=100|200` overrides; Maintenance ▸ Display
+   switches and is remembered. */
+const SCALE_MODE_KEY = 'pb.display-scale'
+
+function initialScaleMode(pinned?: PBScaleMode): PBScaleMode {
+  if (typeof window !== 'undefined') {
+    const asked = new URLSearchParams(window.location.search).get('scale')
+    if (asked === '200') return 'pb-scale--200'
+    if (asked === '100') return ''
+  }
+  if (pinned !== undefined) return pinned
+  try {
+    return window.localStorage.getItem(SCALE_MODE_KEY) === '100' ? '' : 'pb-scale--200'
+  } catch {
+    return 'pb-scale--200'
+  }
+}
+
+function rememberScaleMode(mode: PBScaleMode) {
+  try {
+    window.localStorage.setItem(SCALE_MODE_KEY, mode === 'pb-scale--200' ? '200' : '100')
+  } catch {
+    /* storage blocked — the menu still works for this visit */
+  }
+}
+
 function rememberTextMode(mode: PBTextMode) {
   try {
     window.localStorage.setItem(TEXT_MODE_KEY, mode === 'pb-text--pixel' ? 'pixel' : 'tahoma')
@@ -614,7 +651,7 @@ export function MoisClassicShell(props: MoisClassicShellProps) {
 
 function Frame({
   fixture, patients, chart: chartProp, onChartChange,
-  onAction, onStateChange, onReady, formSlot, className, onOpenKit, text, windowSize, launchMode: launchModeProp,
+  onAction, onStateChange, onReady, formSlot, className, onOpenKit, text, scale, windowSize, launchMode: launchModeProp,
   loadEncounterForms, encounterFormSlot,
 }: MoisClassicShellProps) {
   const start = useMemo(() => resolveMoisClassicFixture(fixture), [fixture])
@@ -663,6 +700,11 @@ function Frame({
   const setTextMode = useCallback((mode: PBTextMode) => {
     setTextModeState(mode)
     rememberTextMode(mode)
+  }, [])
+  const [scaleMode, setScaleModeState] = useState<PBScaleMode>(() => initialScaleMode(scale))
+  const setScaleMode = useCallback((mode: PBScaleMode) => {
+    setScaleModeState(mode)
+    rememberScaleMode(mode)
   }, [])
   const [loginOpen, setLoginOpen] = useState(false)
   /* the open chart: MOIS holds one at a time and every window reads it. The
@@ -1469,6 +1511,7 @@ function Frame({
   useEffect(() => { onReady?.(api) }, [api, onReady])
 
   const menu = makeMainMenu(setTheme, setTextMode, () => setLoginOpen(true), mdi, onOpenKit, {
+    scale: setScaleMode,
     node: openNode,
     module: pickModule,
     lookup: openLookup,
@@ -1534,7 +1577,7 @@ function Frame({
     <AreaWindowProvider open={(id, args) => openWindowRef.current(id, args)}>
     <ScreenWindowProvider window={screenWindow} onOpen={openScreenWindow} onClose={closeScreenWindow}>
     <ActiveEncounterProvider>
-    <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, textMode, className)}>
+    <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, textMode, scaleMode, className)}>
       {/* host.screen.lockout: whether System Settings' LOCKOUT band has a lock set */}
       <LockoutStatusReporter />
       <div
@@ -1559,10 +1602,13 @@ function Frame({
         >
           <PBMenuBar items={menu} />
 
-          {/* "Desktop For:" strip that floats at the top right of the MDI frame */}
+          {/* "Desktop For:" — a face-grey panel at the top right of the MDI
+              frame, from 36px down the window to the top of the work area,
+              322.5 wide; the label 8.5 in, the field 216 wide ending 3.5 from
+              the edge (2026-09-29 TRAINING capture set 3 c34) */}
           <div style={{ position: 'relative', height: 0 }}>
-            <div className="pb-row" style={{ position: 'absolute', right: 8, top: -21, zIndex: 5 }}>
-              <span>Desktop For:</span>
+            <div className="pb-row" style={{ position: 'absolute', right: 0, top: -14, width: 322.5, height: 17.5, gap: 0, padding: '0 3.5px 0 8.5px', background: 'var(--pb-face)', zIndex: 5 }}>
+              <span style={{ flex: '1 1 auto' }}>Desktop For:</span>
               {/* clicking the field changes the Desktop Provider (art. 304393) */}
               <DesktopProviderField onOpen={() => { openWindowRef.current('desktop-provider') }} />
             </div>
@@ -1570,7 +1616,9 @@ function Frame({
 
           <div className="pb-split">
             {/* ---- left navigation ---- */}
-            <div className="pb-panel" style={{ width: 186, flex: 'none', padding: '0 2px 2px' }} data-tutorial-id="host.mois.navigator">
+            {/* the navigator stands on the desktop grey: its margin is the
+                MDI client, not the panel face */}
+            <div className="pb-panel" style={{ width: 186, flex: 'none', padding: '0 2px 0', background: 'var(--pb-mdi)' }} data-tutorial-id="host.mois.navigator">
               {/* the module header measures 25 in the captures, the same band
                   the view header beside it occupies */}
               <div className="pb-viewhead" style={{ height: 25.5 }}>
@@ -1863,6 +1911,8 @@ function Frame({
           onClose={() => setAreaWindow(null)}
           onOpen={(id, args) => openWindowRef.current(id, args)}
         />
+        {/* the 200% stretch, laid over everything the desktop holds */}
+        <PBScaleOverlay />
       </div>
     </div>
     </ActiveEncounterProvider>

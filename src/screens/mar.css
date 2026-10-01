@@ -5,72 +5,91 @@
    band, an order is a grey #e2e2e2 → #cfcfcf gradient row with a dashed rule
    under it, a SCHEDULED dose is blue and an overdue one red, and a cancelled
    order and its doses are struck through in grey. */
+/* 2026-09-29 TRAINING captures c20 (collapsed) and c21 (expanded), chart
+   2429, re-measured at 2x: the band is #bee6f8 under a #666869 rule, a
+   near-black rule between it and the View band, a #6c6e70 rule under that;
+   labels 10px in, every field at 90px, Record Limits ▾ and View ▾ at 448px.
+   The list runs edge to edge (no inset, no border). Heads: a #c1e8f8 →
+   white gradient, 27px, with #c3c3c3 rules at 20 · 97 · 470 · 588px that
+   stop short of the top and bottom. An order is a 33px band shading from
+   #bebfc1 at the top to #f4f4f5, a #d3d3d3 dashed rule under it; its doses
+   are white 22px rows (status 22px in, date 133, time 198, medication 244,
+   dose 626), the picked one #f1c2b2. */
 .pb-mar-filter {
   flex: none;
-  background: #bee4f7;
-  border-top: 1px solid #9fcbe6;
-  border-bottom: 1px solid #9fcbe6;
-  padding: 3px 8px;
+  background: #bee6f8;
+  border-top: 1px solid #666869;
+  border-bottom: 1px solid #1f2426;
+  padding: 5px 10px 6px;
   display: grid;
-  grid-template-columns: 78px 1fr;
-  gap: 3px 6px;
+  grid-template-columns: 80px 1fr;
+  gap: 4px 0;
   align-items: center;
 }
+.pb-mar-filter__row { display: flex; align-items: center; }
+.pb-mar-filter__row .pb-mar__label { width: 96px; }
+.pb-mar__label { text-align: right; padding-right: 7px; box-sizing: border-box; white-space: nowrap; }
 .pb-mar-viewband {
   flex: none;
-  display: flex;
+  display: grid;
+  grid-template-columns: 80px 270px 88px auto 1fr;
+  justify-items: start;
   align-items: center;
-  gap: 30px;
-  padding: 4px 8px;
-  background: #bee4f7;
-  border-bottom: 1px solid #9fcbe6;
+  height: 28px;
+  padding: 0 10px;
+  background: #bee6f8;
+  border-bottom: 1px solid #6c6e70;
 }
+.pb-mar-viewband .pb-mar__label { justify-self: stretch; }
 .pb-mar-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   background: #fff;
-  margin: 0 3px 3px;
-  border: 1px solid var(--pb-border);
   position: relative;
 }
 .pb-mar-head,
-.pb-mar-order,
-.pb-mar-event {
+.pb-mar-order {
   display: grid;
-  grid-template-columns: 18px 76px 1fr 116px 150px 100px;
+  grid-template-columns: 20px 77px 1fr 118px 127px 100px;
   align-items: center;
-  column-gap: 4px;
-  padding: 0 6px 0 2px;
   white-space: nowrap;
 }
 .pb-mar-head > span,
 .pb-mar-order > span,
-.pb-mar-event > span { overflow: hidden; text-overflow: ellipsis; }
+.pb-mar-event > span { overflow: hidden; padding-left: 4px; }
+.pb-mar-event > span { text-overflow: ellipsis; }
 .pb-mar-head {
-  height: 26px;
-  background: linear-gradient(#fff, #f3f3f3);
-  border-bottom: 1px solid #d8d8d8;
+  height: 27px;
+  align-items: start;
+  background: linear-gradient(#c1e8f8, #fafdff);
   position: sticky;
   top: 0;
   z-index: 1;
 }
-.pb-mar-head .pb-mar__count { color: #8a8a8a; text-align: right; }
+.pb-mar-head > span { margin-top: 4px; height: 19px; line-height: 19px; }
+.pb-mar-head > span:nth-child(n+2):not(:last-child) { border-left: 1px solid #c3c3c3; }
+.pb-mar-head .pb-mar__count { color: #8a8a8a; text-align: right; padding-right: 23px; }
 .pb-mar-order {
-  height: 34px;
-  background: linear-gradient(#ececec, #d2d2d2);
-  border-bottom: 1px dashed #b5b5b5;
+  height: 33px;
+  background: linear-gradient(#bebfc1, #f4f4f5);
+  border-bottom: 1px dashed #d3d3d3;
   cursor: default;
 }
-.pb-mar-order .pb-mar__count { color: #8a8a8a; text-align: right; }
+.pb-mar-order + .pb-mar-order { margin-top: 2px; }
+.pb-mar-order > span:nth-child(2) { padding-left: 6px; }
+.pb-mar-order .pb-mar__detail { white-space: pre; }
+.pb-mar-order .pb-mar__count { color: #8a8a8a; text-align: right; padding-right: 17px; }
 .pb-mar-order.is-current { background: linear-gradient(#f9d3c6, #ecb6a6); }
 .pb-mar-event {
-  grid-template-columns: 18px 110px 116px 1fr 150px;
-  height: 20px;
-  border-bottom: 1px solid #f0f0f0;
+  display: grid;
+  grid-template-columns: 18px 111px 65px 46px 1fr 193px;
+  align-items: center;
+  white-space: nowrap;
+  height: 22px;
   cursor: default;
 }
-.pb-mar-event.is-current { background: var(--pb-dw-select, #f3a88f); }
+.pb-mar-event.is-current { background: #f1c2b2; }
 .pb-mar-event--scheduled { color: #0060c0; }
 .pb-mar-event--overdue { color: #d00000; }
 .pb-mar-struck,
@@ -83,11 +102,49 @@
 .pb-mar__box {
   width: 9px;
   height: 9px;
-  border: 1px solid #8a8a8a;
-  background: #fff;
-  font-size: 9px;
-  line-height: 7px;
-  text-align: center;
-  padding: 0;
-  cursor: pointer;
+  justify-self: end;
+  margin-right: -2px;
 }
+/* c20: the band's edit fields are 16px tall (the kit's are 19) */
+.pb-mar-filter .pb-field,
+.pb-mar-filter .pb-inputgroup,
+.pb-mar-filter select { height: 16px; }
+/* the Multi-Value Selection's white grid box (c22) */
+.pb-mar-mvs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  background: #fff;
+  border: 1px solid #828790;
+}
+.pb-mar-mvs .pb-dw { flex: none; min-height: 0; align-self: stretch; }
+/* c22: Code and Description caption at the left (the kit centres them) */
+.pb-mar-mvs .pb-dw__table > thead > tr > th:nth-child(n+3) { text-align: left; padding-left: 6px; }
+/* Immunization Inventory Search (c26): two bordered boxes, each under its
+   band; labels 15px in, fields 101px in, 20px apart; the grid's first
+   three captions sit 10px into their columns */
+.pb-mar-lots__box {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #a0a0a0;
+  background: var(--pb-face);
+}
+.pb-mar-lots__search {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  gap: 4px 0;
+  align-items: center;
+  padding: 9px 0 8px 15px;
+}
+.pb-mar-lots__search .pb-field { height: 16px; }
+.pb-mar-lots__tick { position: absolute; top: 0; white-space: nowrap; }
+.pb-mar-lots__box .pb-dw__table > thead > tr > th:nth-child(-n+4):not(:first-child) { text-align: left; padding-left: 10px; }
+/* the Medication Administration Record window (c27): every control is
+   placed at the capture's position over the whole body, banner included */
+.pb-mar-rec { position: absolute; inset: 0; pointer-events: none; }
+.pb-mar-rec > * { pointer-events: auto; }
+.pb-mar-rec .pb-field,
+.pb-mar-rec .pb-inputgroup { height: 17px; }
+.pb-mar-rec__rule { position: absolute; left: 0; right: 0; margin: 0; border: 0; border-top: 1px solid #c8c8c8; pointer-events: none; }
+.pb-mar-rec__divider { position: absolute; left: 359px; top: 246px; height: 263px; border-left: 1px solid #c8c8c8; pointer-events: none; }
+.pb-mar-rec textarea.pb-mar-rec__note { position: absolute; left: 441px; width: 226px; height: 54px; resize: none; }

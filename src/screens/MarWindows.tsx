@@ -1,4 +1,7 @@
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useChartExport } from '../data/chart-records'
+import type { MoisRecord } from '../data/charts'
+import { capturedEncounters } from '../data/marChart2429'
 import { friendlyNameMatch, marDrugName } from '../data/marDrugCodes'
 import { adminSites } from '../data/mois'
 import type { MarEvent, MarOrder } from '../data/marOrders'
@@ -6,11 +9,13 @@ import { usePatient } from '../data/patient-context'
 import { useEncounterSession } from '../host/encounterArea'
 import { MOIS_TODAY } from '../data/patients'
 import { hhmm } from '../data/clock'
-import { DESKTOP_PROVIDER_DEFAULT } from '../data/session'
+import { DESKTOP_PROVIDER_DEFAULT, SESSION_USER } from '../data/session'
 import { registerScreenWindows } from '../host/screen-windows'
 import {
   PBCheckbox, PBDropDownDataWindow, PBInput, PBLookup, PBPatientBand, PBRadio, PBSelect, PBTextArea,
 } from '../pb'
+import { LAYER } from './dialogKit'
+import { PreferenceEncounterDialog } from './PreferenceEncounterDialog'
 import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -65,20 +70,40 @@ export function marDefaults(kind: MarKind | undefined): { action: string; givenB
     case 'witness': return { action: 'WITNESSED', givenBy: 'PATIENT' }
     case 'self': return { action: 'SELF-ADMINISTERED', givenBy: 'PATIENT' }
     case 'history': return { action: 'OTHER PROVIDER', givenBy: '' }
-    default: return { action: 'ADMINISTERED', givenBy: DESKTOP_PROVIDER_DEFAULT }
+    /* c27: Given By opens on the signed-in user */
+    default: return { action: 'ADMINISTERED', givenBy: SESSION_USER }
   }
 }
 
-/** A caption with its accelerator letter underlined (the first capital). */
-function Mnemonic({ text, letter }: { text: string; letter: string }) {
-  const i = text.search(new RegExp(`\\b${letter}`))
+/** A caption with its accelerator letter underlined (the first capital, or
+    the letter at `at` when it is not one — "Immuni<u>z</u>ation", c25). */
+function Mnemonic({ text, letter, at }: { text: string; letter: string; at?: number }) {
+  const i = at ?? text.search(new RegExp(`\\b${letter}`))
   if (i < 0) return <>{text}</>
   return <>{text.slice(0, i)}<u>{text[i]}</u>{text.slice(i + 1)}</>
 }
 
 /* --- New Medication Administration Information -----------------------------
-   1927481 `70e81e88…png`: eight radio choices in two columns, Continue (F2)
-   · Cancel. */
+   1927481 `70e81e88…png` (v02.30.11): eight radio choices in two columns,
+   Continue (F2) · Cancel.
+
+   2026-09-29 TRAINING capture c25 (v02.31.23, chart 2429) — the chooser
+   with MAR Ordering OFF: one column of five, Administer an Immunization
+   first, History renamed "Record an Immunization or Medication History" with
+   "(Other Provider)" grey beside it, and Immunization's letter the z
+   ("Immuni_z_ation"). Measured at 2x: 508 × 267; radios 38px in, the first
+   centred 28px under the title bar, 30px apart; Continue (F2) · Cancel on
+   the face below. INFERRED: that TRAINING runs with MAR Ordering OFF — its
+   chooser has no order choices, while its MAR list (c20) still offers Group
+   by Parent Order, so this is the OFF chooser of the build the stage shows
+   (v02.31.23); the ON chooser keeps `70e81e88…`'s eight. */
+const C25_CHOICES: { i: number; label?: string; at?: number }[] = [
+  { i: 4, at: 'Administer an Immuni'.length },
+  { i: 0 },
+  { i: 1, label: 'Record an Immunization or Medication History' },
+  { i: 6 },
+  { i: 7 },
+]
 export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
   onContinue: (choice: number) => void
   onClose: () => void
@@ -86,7 +111,7 @@ export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
   ordering?: boolean
 }) {
   const [choice, setChoice] = useState(-1)
-  const offered = MAR_CHOICES.map((_, i) => i).filter((i) => ordering || !MAR_CHOICES[i]!.order)
+  const offered = ordering ? MAR_CHOICES.map((_, i) => i) : C25_CHOICES.map((c) => c.i)
   const radio = (i: number) => (
     <div key={i} style={{ height: 48 }} data-tutorial-id={`host.mois.field.mar-choice-${i}`}>
       <PBRadio name="mar-new" label={<Mnemonic text={MAR_CHOICES[i]!.label} letter={MAR_CHOICES[i]!.key} />} checked={choice === i} onChange={() => setChoice(i)}
@@ -97,7 +122,8 @@ export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
   /* the accelerator letter picks its choice and continues (Ctrl+N, then A…) */
   const onKey = (e: KeyboardEvent) => {
     if (e.ctrlKey || e.altKey || e.metaKey) return
-    const i = offered.find((x) => MAR_CHOICES[x]!.key === e.key.toUpperCase())
+    const key = (x: number) => (!ordering && MAR_CHOICES[x]!.kind === 'immunization' ? 'Z' : MAR_CHOICES[x]!.key)
+    const i = offered.find((x) => key(x) === e.key.toUpperCase())
     if (i !== undefined) { e.preventDefault(); onContinue(i) }
     else if (e.key === 'F2' && choice >= 0) { e.preventDefault(); onContinue(choice) }
   }
@@ -106,10 +132,33 @@ export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
     document.addEventListener('keydown', listener)
     return () => document.removeEventListener('keydown', listener)
   })
-  const left = ordering ? [0, 1, 2, 3] : offered
-  const right = ordering ? [4, 5, 6, 7] : []
+  if (!ordering) {
+    return (
+      <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={508} height={267} onClose={onClose}
+        bodyStyle={{ background: '#fff', padding: '13px 0 0 31px' }}
+        footer={<>
+          <span className="pb-footer__spacer" />
+          <FooterButton primary wide={false} disabled={choice < 0} onClick={() => onContinue(choice)} tutorialId="host.mois.command.mar-continue">Continue (F2)</FooterButton>
+          <FooterButton wide={false} onClick={onClose}>Cancel</FooterButton>
+          <span className="pb-footer__spacer" />
+        </>}>
+        {C25_CHOICES.map(({ i, label, at }) => {
+          const c = MAR_CHOICES[i]!
+          return (
+            <div key={i} className="pb-row" style={{ height: 30, gap: 0 }} data-tutorial-id={`host.mois.field.mar-choice-${i}`}>
+              <PBRadio name="mar-new" label={<Mnemonic text={label ?? c.label} letter={c.key} at={at} />} checked={choice === i} onChange={() => setChoice(i)}
+                tutorialId={`host.mois.field.mar-choice-${c.kind}`} />
+              {c.sub && <span style={{ color: '#a0a0a0', marginLeft: 24 }}>{c.sub}</span>}
+            </div>
+          )
+        })}
+      </StageWindow>
+    )
+  }
+  const left = [0, 1, 2, 3]
+  const right = [4, 5, 6, 7]
   return (
-    <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={ordering ? 640 : 520} onClose={onClose}
+    <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={640} onClose={onClose}
       bodyStyle={{ background: '#fff' }}
       footer={<>
         <span className="pb-footer__spacer" />
@@ -117,25 +166,35 @@ export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
         <FooterButton onClick={onClose}>Cancel</FooterButton>
         <span className="pb-footer__spacer" />
       </>}>
-      <div style={{ display: 'grid', gridTemplateColumns: ordering ? '1fr 1fr' : '1fr', padding: '26px 30px 12px', gap: '0 30px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '26px 30px 12px', gap: '0 30px' }}>
         <div>{left.map(radio)}</div>
-        {right.length > 0 && <div>{right.map(radio)}</div>}
+        <div>{right.map(radio)}</div>
       </div>
     </StageWindow>
   )
 }
-/** The blue patient banner every MAR record window opens with. */
+/** The blue patient banner every MAR record window opens with.
+    2026-09-29 TRAINING capture c27, measured at 2x: 40px, shading from
+    #005598 to #49b0e1; captions (11px) centred 11px down, values (13px bold)
+    28px down; columns at 4 · 89 · 307 · 536 · 599px, GENDER's value centred
+    under its caption, the name printed F.M.L with an empty middle keeping
+    its two spaces ("FLO  AARONSON"). */
 export function MarBanner({ children }: { children?: ReactNode }) {
   const p = usePatient()
+  const name = [p.first, p.middle ?? '', p.last].join(' ').toUpperCase()
   return (
     <div style={{ flex: 'none' }}>
-      <PBPatientBand layout="inline" className="pb-row"
-        style={{ gap: 0, padding: '2px 6px', color: '#fff', background: 'linear-gradient(#27a7e0, #1583c4)' }}
+      <PBPatientBand layout="grid" labelStyle={{ fontSize: 11, lineHeight: '14px' }}
+        style={{
+          display: 'grid', gridTemplateColumns: '85px 218px 229px 63px 1fr', rowGap: 3, alignItems: 'center',
+          height: 40, boxSizing: 'border-box', padding: '4px 4px 0', color: '#fff', whiteSpace: 'pre',
+          background: 'linear-gradient(#005598, #49b0e1)', fontSize: 13,
+        }}
         cells={[
-          { label: 'CHART NO.', value: p.chart, w: 100 },
-          { label: 'PATIENT (F/M/L)', value: `${p.first} ${p.middle ?? ''} ${p.last}`.replace(/\s+/g, ' ').toUpperCase(), w: 260 },
-          { label: 'DATE OF BIRTH', value: `${p.dob}  ${p.age}`, w: 220 },
-          { label: 'GENDER', value: p.sex, w: 80 },
+          { label: 'CHART NO.', value: p.chart },
+          { label: 'PATIENT (F/M/L)', value: name },
+          { label: 'DATE OF BIRTH', value: `${p.dob}  ${p.age}` },
+          { label: 'GENDER', value: <span style={{ display: 'inline-block', width: 41, textAlign: 'center' }}>{p.sex}</span> },
           { label: 'BC HEALTH NO.', value: p.bchn ?? p.insurance ?? '' },
         ]} />
       {children}
@@ -153,7 +212,30 @@ export function MarBanner({ children }: { children?: ReactNode }) {
    Save and Close · Cancel.
    Existing: 1664605 `f9365aa5…png` — the same body under a pale-blue order
    block (Ordered By, Order Date / Time, Scheduled Start / End), footer Delete
-   Record alone at the left, Save and Close · Close at the right. */
+   Record alone at the left, Save and Close · Close at the right.
+
+   Geometry: 2026-09-29 TRAINING capture c27 (an immunization, chart 2429),
+   measured at 2x — a 751 × 633 window on white; every field 17px tall and
+   110px in (labels 9px in), rules at 114 · 192 · 246 · 509px under the
+   banner and a divider at 359px between Details / Other and the three
+   notes (441px in, 226 × 54). Given By opens on the signed-in user
+   (JALIL, AHMAD), Ordered By on the desktop provider, Created on the user.
+   The blue "*" beside Route, Site, Reason, Informed Consent, Form of Consent
+   and Consented By is c27's (an immunization); INFERRED: they are the MAR
+   Immunization Validation fields and mark an immunization only.
+   c28: ENC# <n> opens the Encounter ID window (screens/
+   PreferenceEncounterDialog.tsx) over the record; Change Encounter relinks
+   this record. */
+const F = { position: 'absolute' } as const
+function At({ x, y, w, h = 17, right, children }: { x: number; y: number; w?: number; h?: number; right?: boolean; children: ReactNode }) {
+  return (
+    <div style={{ ...F, left: x, top: y, width: w, height: h, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : undefined, whiteSpace: 'nowrap' }}>
+      {children}
+    </div>
+  )
+}
+const Req = ({ y }: { y: number }) => <At x={343} y={y}><span style={{ color: '#3140ff', fontWeight: 700 }}>*</span></At>
+
 export function MarRecordWindow({ event, order, action = '', kind, prefill, picked, onLookup, onSave, onDelete, onClose }: {
   /** omitted for a new record */
   event?: MarEvent
@@ -163,7 +245,8 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
       Self-Administered / History change its Action, Given By and date row */
   kind?: MarKind
   /** a scheduled dose being closed off from its order (the Scheduled
-      Record's Administered / Witnessed / … buttons): the order's drug and dose */
+      Record's Administered / Witnessed / … buttons), or the lot an
+      immunization was started from (c26): the drug, lot and dose */
   prefill?: Partial<MarEvent> & { orderBy?: string }
   /** a drug the Drug Code Lookup just returned: `seq` changes per pick */
   picked?: { name: string; seq: number }
@@ -176,10 +259,12 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
   const isNew = !event
   const r = event?.record
   const area = useEncounterSession()
+  const chart = usePatient().chart
+  const data = useChartExport()
   const history = isNew && kind === 'history'
   const defaults = marDefaults(kind)
   const [med, setMed] = useState(event?.generic ?? prefill?.generic ?? '')
-  const [lot, setLot] = useState(event?.lot ?? '')
+  const [lot, setLot] = useState(event?.lot ?? prefill?.lot ?? '')
   const [dose, setDose] = useState(event?.dose ?? prefill?.dose ?? '')
   const [unit, setUnit] = useState(event?.units ?? prefill?.units ?? '')
   const [route, setRoute] = useState(r?.str_route ?? '')
@@ -188,6 +273,10 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
   const [act, setAct] = useState(event?.status ?? (action || (isNew ? defaults.action : '')))
   const [givenBy, setGivenBy] = useState(event?.by ?? defaults.givenBy)
   const [accurate, setAccurate] = useState('Day')
+  /* the record's encounter: the export's link, else (new) the active one */
+  const [encounter, setEncounter] = useState<string>(r?.id_encounter ?? (isNew ? area.activeEncounter ?? '' : ''))
+  const [encounterOpen, setEncounterOpen] = useState(false)
+  const [opened] = useState(hhmm)
   /* a pick from the Drug Code Lookup lands in Medication */
   useEffect(() => { if (picked) setMed(picked.name) }, [picked?.seq]) // eslint-disable-line react-hooks/exhaustive-deps
   /* "If you know the friendly name, you can type that directly into this
@@ -199,99 +288,141 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
     status: act || 'ADMINISTERED', date: event?.date ?? MOIS_TODAY, time: event?.time ?? hhmm(),
     med, generic: med, dose, units: unit, series, site, lot, by: givenBy, record: r,
   })
+  /* the encounters Encounter ID reads: the chart export's, a transcribed
+     chart's (data/marChart2429.ts), and those made this session */
+  const encounters: MoisRecord[] = [
+    ...area.session.saved.map((e): MoisRecord => ({
+      id_encounter: e.id, dtm_appoint: e.date.replace(/\./g, '/'), num_appoint_hr: e.hr, num_appoint_min: e.mn,
+      num_time_slots: e.nbr, str_visit_code: e.code, lkp_provider: e.provider, str_service_location: e.loc, str_appt_note: e.reason,
+    })),
+    ...(data?.encounter ?? []),
+    ...capturedEncounters(chart),
+  ]
   const id = isNew ? MAR_WINDOWS.record : MAR_WINDOWS.detail
+  const immunization = isNew && kind === 'immunization'
+  const created = r ? `${(r.stp_date_create ?? '').replace(/\//g, '.').replace(/:\d\d$/, '')}  ${r.stp_user_create ?? ''}` : isNew ? `${MOIS_TODAY}  ${opened}  ${SESSION_USER}` : ''
+  const L = (y: number, text: ReactNode) => <At x={9} y={y}>{text}</At>
   return (
     <StageWindow id={id} title={isNew ? 'Medication Administration Record' : 'Medication Administration Detail Record'}
-      width={940} height={790} onClose={onClose}
-      bodyStyle={{ background: '#fff', overflow: 'auto' }}
+      width={751} height={633} onClose={onClose}
+      bodyStyle={{ background: '#fff', position: 'relative', overflow: 'hidden' }}
       footer={isNew ? <>
         <FooterButton onClick={() => onSave(entry(), false)} tutorialId="host.mois.command.save-and-duplicate" wide={false}>Save and Duplicate</FooterButton>
         <span className="pb-footer__spacer" />
         <FooterButton primary onClick={() => onSave(entry(), true)} tutorialId="host.mois.command.save-and-close" wide={false}>Save and Close</FooterButton>
-        <FooterButton onClick={onClose}>Cancel</FooterButton>
+        <FooterButton onClick={onClose} wide={false}>Cancel</FooterButton>
       </> : <>
         <FooterButton onClick={onDelete} tutorialId="host.mois.command.mar-delete-record" wide={false}>Delete Record</FooterButton>
         <span className="pb-footer__spacer" />
         <FooterButton primary onClick={() => onSave(entry(), true)} tutorialId="host.mois.command.save-and-close" wide={false}>Save and Close</FooterButton>
-        <FooterButton onClick={onClose}>Close</FooterButton>
+        <FooterButton onClick={onClose} wide={false}>Close</FooterButton>
       </>}>
-      <MarBanner>
-        {!isNew && (
-          <div className="pb-form" style={{ gridTemplateColumns: '110px 260px 130px 1fr', background: '#cfe8f7', padding: '6px 8px', gap: '4px 6px' }}>
+      <MarBanner />
+      <div className="pb-mar-rec">
+        {isNew ? <>
+          {/* a history record's order is Unknown and undated (`a405e0ac…png`) */}
+          {L(61, 'Ordered By:')}
+          <At x={108} y={61}><PBLookup w={217} name="mar-ordered-by" defaultValue={history ? 'Unknown' : prefill?.orderBy ?? DESKTOP_PROVIDER_DEFAULT} /></At>
+          <At x={372} y={61}>Order Date / Time:</At>
+          <At x={470} y={61}><PBInput w={72} align="center" defaultValue={history ? '0000.00.00' : MOIS_TODAY} /></At>
+          <At x={548} y={61}><PBInput w={45} align="center" defaultValue={history ? '' : opened} /></At>
+        </> : (
+          <div className="pb-form" style={{ ...F, left: 0, right: 0, top: 40, height: 74, alignContent: 'center', gridTemplateColumns: '110px 260px 130px 1fr', background: '#cfe8f7', padding: '0 9px', gap: '4px 6px' }}>
             <span>Ordered By:</span><b>{order?.orderBy}</b><span>Order Date / Time:</span><b>{order?.orderDate}&nbsp;&nbsp;&nbsp;{order?.orderTime}</b>
             <span>Scheduled Start:</span><b>{event?.date}&nbsp;&nbsp;&nbsp;{event?.time}</b><span>Scheduled End:</span><b />
           </div>
         )}
-      </MarBanner>
-      {isNew && (
-        <div className="pb-row" style={{ padding: '10px 8px', gap: 8, borderBottom: '1px solid #c9c9c9' }}>
-          {/* a history record's order is Unknown and undated (`a405e0ac…png`) */}
-          <span style={{ width: 110 }}>Ordered By:</span><PBLookup w={270} name="mar-ordered-by" defaultValue={history ? 'Unknown' : prefill?.orderBy ?? DESKTOP_PROVIDER_DEFAULT} />
-          <span style={{ marginLeft: 50 }}>Order Date / Time:</span><PBInput w={90} align="center" defaultValue={history ? '0000.00.00' : MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={history ? '' : hhmm()} />
-        </div>
+        <hr className="pb-mar-rec__rule" style={{ top: 114 }} />
+
+        {L(127, 'Action:')}
+        <At x={110} y={127}><PBInput w={226} value={act} onChange={(e) => setAct(e.target.value)} data-tutorial-id="host.mois.field.mar-action" /></At>
+        {!history && <>
+          <At x={340} y={127} w={90} right>PIR SDL:</At>
+          <At x={441} y={127}><PBLookup w={232} defaultValue={r?.str_pir_sdl ?? ''} /></At>
+        </>}
+        {history ? <>
+          {/* "Use the 'Accurate to the' drop-down menu to adjust the date of
+              administration … only the year, a month & year, or a full date" */}
+          {L(147, 'Date')}
+          <At x={110} y={147}><PBInput w={72} align="center" defaultValue={MOIS_TODAY} style={{ background: 'var(--pb-dw-select)' }} data-tutorial-id="host.mois.field.mar-date" /></At>
+          <At x={196} y={147}><span style={{ color: '#8a8a8a' }}>Accurate to the</span></At>
+          <At x={280} y={147}><PBSelect w={70} value={accurate} options={['Day', 'Month', 'Year']} onChange={(e) => setAccurate(e.target.value)} data-tutorial-id="host.mois.field.mar-accurate-to" /></At>
+        </> : <>
+          {L(147, 'Date / Time')}
+          <At x={110} y={147}><PBInput w={72} align="center" defaultValue={event?.date ?? MOIS_TODAY} /></At>
+          <At x={185} y={147}><PBInput w={45} align="center" defaultValue={event?.time ?? (isNew && kind !== 'self' ? opened : '')} /></At>
+        </>}
+        {L(167, 'Given By:')}
+        <At x={110} y={167}><PBInput w={226} value={givenBy} onChange={(e) => setGivenBy(e.target.value)} data-tutorial-id="host.mois.field.mar-given-by" /></At>
+        {history && <>
+          <At x={340} y={167} w={90} right>Location:</At>
+          <At x={441} y={167}><PBInput w={232} data-tutorial-id="host.mois.field.mar-location" /></At>
+        </>}
+        <hr className="pb-mar-rec__rule" style={{ top: 192 }} />
+
+        {L(202, 'Medication:')}
+        <At x={110} y={202}>
+          <span data-tutorial-id="host.mois.field.mar-medication">
+            <PBLookup w={563} name="mar-medication" value={med} onChange={setMed} onDots={onLookup} onEnter={commitMed}
+              onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); onLookup?.() } else if (e.key === 'Tab') commitMed(e.currentTarget.value) }} />
+          </span>
+        </At>
+        {L(223, 'Lot Number:')}
+        <At x={110} y={223}><PBLookup w={194} value={lot} onChange={setLot} /></At>
+        <At x={340} y={223} w={90} right>Series Number:</At>
+        <At x={441} y={223}><PBInput w={61} value={series} onChange={(e) => setSeries(e.target.value)} data-tutorial-id="host.mois.field.mar-series" /></At>
+        <hr className="pb-mar-rec__rule" style={{ top: 246 }} />
+
+        {L(251, 'Details:')}
+        <At x={110} y={251}>Dosage:</At>
+        <At x={110} y={273}><PBInput w={47} align="center" value={dose} onChange={(e) => setDose(e.target.value)} /></At>
+        <At x={162} y={273}><PBSelect w={116} value={unit} options={opt(unit, ['ML', 'MG', 'TABLET', 'SOLUTION', 'CAPSULE'])} onChange={(e) => setUnit(e.target.value)} /></At>
+        <At x={0} y={305} w={101} right>Route:</At>
+        <At x={110} y={305}><PBSelect w={174} value={route} options={opt(route, ['ORAL', 'SUBCUTANEOUS', 'INTRAMUSCULAR', 'SUBLINGUAL', 'INTRAVENOUS'])} onChange={(e) => setRoute(e.target.value)} /></At>
+        <At x={0} y={324} w={101} right>Site:</At>
+        <At x={110} y={324}>
+          <PBDropDownDataWindow w={226} columns={[{ key: 'site', header: 'Site', width: 60 }, { key: 'desc', header: 'Description' }]}
+            rows={adminSites} value={site} display="desc" onSelect={(row) => setSite(String(row.site))} />
+        </At>
+        {immunization && <><Req y={305} /><Req y={324} /></>}
+        <hr className="pb-mar-rec__rule" style={{ top: 350, right: 'auto', width: 359 }} />
+
+        <At x={9} y={360}><span style={{ color: '#000080', fontWeight: 700, fontSize: 13 }}>Other</span></At>
+        {L(382, 'Reason:')}
+        <At x={110} y={382}><PBSelect w={226} defaultValue={r?.str_reason_for_immun ?? ''} options={opt(r?.str_reason_for_immun ?? '', ['ROUTINE VACCINE', 'AS PRESCRIBED'])} /></At>
+        {L(401, 'Informed Consent:')}
+        <At x={110} y={401}><PBSelect w={226} defaultValue={r?.str_informed_consent ?? ''} options={opt(r?.str_informed_consent ?? '', ['YES', 'NO'])} /></At>
+        {L(420, 'Form of Consent:')}
+        <At x={110} y={420}><PBSelect w={226} defaultValue={r?.str_form_of_consent ?? ''} options={opt(r?.str_form_of_consent ?? '', ['IN PERSON', 'WRITTEN', 'VERBAL'])} /></At>
+        {L(439, 'Consented By:')}
+        <At x={110} y={439}><PBSelect w={226} defaultValue={r?.str_consented_by ?? ''} options={opt(r?.str_consented_by ?? '', ['CLIENT', 'GUARDIAN', 'SUBSTITUTE'])} /></At>
+        {immunization && <><Req y={382} /><Req y={401} /><Req y={420} /><Req y={439} /></>}
+        <At x={9} y={455} h={26}><span style={{ lineHeight: '13px' }}>Client Facility /<br />Worksite:</span></At>
+        <At x={110} y={458}><PBLookup w={226} /></At>
+        {L(488, 'Client Employee ID:')}
+        <At x={110} y={488}><PBInput w={226} /></At>
+
+        <div className="pb-mar-rec__divider" />
+        <At x={363} y={264} h={28}><span style={{ lineHeight: '13px' }}>Administration<br />Note:</span></At>
+        <PBTextArea className="pb-mar-rec__note" style={{ top: 264 }} />
+        <At x={363} y={327} h={28}><span style={{ lineHeight: '13px' }}>Preparation<br />Note:</span></At>
+        <PBTextArea className="pb-mar-rec__note" style={{ top: 327 }} />
+        <At x={363} y={401} h={28}><span style={{ lineHeight: '13px' }}>Consent<br />Note:</span></At>
+        <PBTextArea className="pb-mar-rec__note" style={{ top: 401 }} />
+        <hr className="pb-mar-rec__rule" style={{ top: 509 }} />
+
+        <At x={12} y={515}>Created:</At>
+        <At x={88} y={515}><span style={{ whiteSpace: 'pre' }}>{created}</span></At>
+        {/* a new record is linked to the active encounter (303427 "Active
+            Enc"); c28: the link opens Encounter ID */}
+        <At x={588} y={515} w={80} right>
+          <button type="button" className="pb-link" data-tutorial-id="host.mois.field.mar-encounter" onClick={() => setEncounterOpen(true)}>ENC# {encounter || 'EMPTY'}</button>
+        </At>
+      </div>
+      {encounterOpen && (
+        <PreferenceEncounterDialog encounterId={encounter} encounters={encounters} zIndex={LAYER.raised}
+          onChange={setEncounter} onClose={() => setEncounterOpen(false)} />
       )}
-      <div className="pb-form" style={{ gridTemplateColumns: '110px 280px 90px 1fr', padding: '8px', gap: '3px 6px', borderBottom: '1px solid #c9c9c9' }}>
-        <span>Action:</span><PBInput w={280} value={act} onChange={(e) => setAct(e.target.value)} data-tutorial-id="host.mois.field.mar-action" />
-        {history ? <><span /><span /></> : <><span>PIR SDL:</span><PBLookup w="100%" defaultValue={r?.str_pir_sdl ?? ''} /></>}
-        {history ? (
-          /* "Use the 'Accurate to the' drop-down menu to adjust the date of
-             administration … only the year, a month & year, or a full date" */
-          <>
-            <span>Date</span>
-            <div className="pb-row">
-              <PBInput w={90} align="center" defaultValue={MOIS_TODAY} style={{ background: 'var(--pb-dw-select)' }} data-tutorial-id="host.mois.field.mar-date" />
-              <span style={{ color: '#8a8a8a', marginLeft: 14 }}>Accurate to the</span>
-              <PBSelect w={70} value={accurate} options={['Day', 'Month', 'Year']} onChange={(e) => setAccurate(e.target.value)} data-tutorial-id="host.mois.field.mar-accurate-to" />
-            </div><span /><span />
-          </>
-        ) : (
-          <><span>Date / Time</span><div className="pb-row"><PBInput w={90} align="center" defaultValue={event?.date ?? MOIS_TODAY} /><PBInput w={56} align="center" defaultValue={event?.time ?? (isNew && kind !== 'self' ? hhmm() : '')} /></div><span /><span /></>
-        )}
-        <span>Given By:</span><PBInput w={280} value={givenBy} onChange={(e) => setGivenBy(e.target.value)} data-tutorial-id="host.mois.field.mar-given-by" />
-        {history ? <><span style={{ textAlign: 'right' }}>Location:</span><PBInput w="100%" data-tutorial-id="host.mois.field.mar-location" /></> : <><span /><span /></>}
-      </div>
-      <div className="pb-form" style={{ gridTemplateColumns: '110px 1fr', padding: '8px', gap: '3px 6px', borderBottom: '1px solid #c9c9c9' }}>
-        <span>Medication:</span>
-        <span data-tutorial-id="host.mois.field.mar-medication">
-          <PBLookup w="100%" name="mar-medication" value={med} onChange={setMed} onDots={onLookup} onEnter={commitMed}
-            onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); onLookup?.() } else if (e.key === 'Tab') commitMed(e.currentTarget.value) }} />
-        </span>
-        <span>Lot Number:</span>
-        <div className="pb-row"><PBLookup w={220} value={lot} onChange={setLot} /><span style={{ marginLeft: 'auto' }}>Series Number:</span><PBInput w={76} value={series} onChange={(e) => setSeries(e.target.value)} data-tutorial-id="host.mois.field.mar-series" /></div>
-      </div>
-      <div style={{ display: 'flex' }}>
-        <div style={{ flex: '1 1 auto', borderRight: '1px solid #c9c9c9' }}>
-          <div className="pb-form" style={{ gridTemplateColumns: '110px 1fr', padding: '8px', gap: '3px 6px', alignItems: 'center' }}>
-            <span>Details:</span><span>Dosage:</span>
-            <span /><div className="pb-row"><PBInput w={58} align="center" value={dose} onChange={(e) => setDose(e.target.value)} /><PBSelect w={140} value={unit} options={opt(unit, ['ML', 'TABLET', 'SOLUTION', 'CAPSULE'])} onChange={(e) => setUnit(e.target.value)} /></div>
-            <span style={{ textAlign: 'right' }}>Route:</span><PBSelect w={210} value={route} options={opt(route, ['ORAL', 'SUBCUTANEOUS', 'INTRAMUSCULAR', 'SUBLINGUAL', 'INTRAVENOUS'])} onChange={(e) => setRoute(e.target.value)} />
-            <span style={{ textAlign: 'right' }}>Site:</span>
-            <PBDropDownDataWindow w={270} columns={[{ key: 'site', header: 'Site', width: 60 }, { key: 'desc', header: 'Description' }]}
-              rows={adminSites} value={site} display="desc" onSelect={(row) => setSite(String(row.site))} />
-          </div>
-          <div style={{ padding: '4px 8px', color: '#000080', fontWeight: 700, borderTop: '1px solid #c9c9c9' }}>Other</div>
-          <div className="pb-form" style={{ gridTemplateColumns: '110px 1fr', padding: '0 8px 8px', gap: '3px 6px' }}>
-            <span>Reason:</span><PBSelect w={270} defaultValue={r?.str_reason_for_immun ?? ''} options={opt(r?.str_reason_for_immun ?? '', ['ROUTINE VACCINE', 'AS PRESCRIBED'])} />
-            <span>Informed Consent:</span><PBSelect w={270} defaultValue={r?.str_informed_consent ?? ''} options={opt(r?.str_informed_consent ?? '', ['YES', 'NO'])} />
-            <span>Form of Consent:</span><PBSelect w={270} defaultValue={r?.str_form_of_consent ?? ''} options={opt(r?.str_form_of_consent ?? '', ['IN PERSON', 'WRITTEN', 'VERBAL'])} />
-            <span>Consented By:</span><PBSelect w={270} defaultValue={r?.str_consented_by ?? ''} options={opt(r?.str_consented_by ?? '', ['CLIENT', 'GUARDIAN', 'SUBSTITUTE'])} />
-            <span style={{ lineHeight: '13px' }}>Client Facility /<br />Worksite:</span><PBLookup w={270} />
-            <span>Client Employee ID:</span><PBInput w={270} />
-          </div>
-        </div>
-        <div className="pb-form" style={{ width: 400, gridTemplateColumns: '90px 1fr', padding: '8px', gap: '8px 6px', alignItems: 'start' }}>
-          <span style={{ lineHeight: '14px' }}>Administration<br />Note:</span><PBTextArea rows={4} w="100%" />
-          <span style={{ lineHeight: '14px' }}>Preparation<br />Note:</span><PBTextArea rows={4} w="100%" />
-          <span style={{ lineHeight: '14px' }}>Consent<br />Note:</span><PBTextArea rows={4} w="100%" />
-        </div>
-      </div>
-      <div className="pb-row" style={{ padding: '8px', borderTop: '1px solid #c9c9c9', gap: 0 }}>
-        <span style={{ width: 100 }}>Created:</span>
-        <span>{r ? `${(r.stp_date_create ?? '').replace(/\//g, '.').replace(/:\d\d$/, '')}  ${r.stp_user_create ?? ''}` : `${MOIS_TODAY}  ${DESKTOP_PROVIDER_DEFAULT}`}</span>
-        <span className="pb-row__spacer" />
-        {/* a new record is linked to the active encounter (303427 "Active Enc") */}
-        <button type="button" className="pb-link" data-tutorial-id="host.mois.field.mar-encounter">ENC# {r?.id_encounter ?? (isNew ? area.activeEncounter : null) ?? 'EMPTY'}</button>
-      </div>
     </StageWindow>
   )
 }

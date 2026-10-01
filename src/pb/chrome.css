@@ -74,11 +74,13 @@
 
 .pb-titlebar__icon {
   width: 16px; height: 16px;
-  margin-right: 8px;
+  /* the icon starts 7.5px in and the caption 29px in (c34) */
+  margin: 0 5.5px 0 -1.5px;
   flex: none;
   display: grid;
   place-items: center;
 }
+.pb-icon-mois-app { display: inline-block; background: url("./glyphs/mois-app.png") center / 16px 16px no-repeat; }
 .pb-titlebar__text {
   white-space: nowrap;
   overflow: hidden;
@@ -125,7 +127,12 @@
   font-size: var(--pb-fs-chrome);
   user-select: none;
   flex: none;
+  /* the captions sit 1px below the bar's middle (c34: `Record` inks 72–89
+     device px, the bar 55–97) */
+  padding-top: 2px;
 }
+/* `Record` inks 7–8px in from the frame (c34: 7, patient-summary-3598: 8) */
+.pb-menubar__item:first-child { margin-left: -1px; }
 .pb-menubar__item {
   display: flex;
   align-items: center;

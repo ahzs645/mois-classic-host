@@ -14,9 +14,12 @@
   color: var(--pb-navy-text);
   flex: none;
 }
-/* the view header's title is the 16px strike, bold: cap 12.1, x-height 9.1,
-   descender 4, ink 134.08 for `Patient Summary` */
-.pb-viewhead__title { font-size: 16px; font-weight: 700; letter-spacing: 0; white-space: nowrap; }
+/* the view header's title is the 16px strike at regular weight — the
+   identity beside it is the bold one. Stems are one pixel in every capture
+   (reference/patient-summary-3598.png, the 2026-09-29 TRAINING set); ink
+   132.5 for `Patient Summary`, 103.5 for `Patient Chart`, 74 for
+   `Condition`, which the face's regular advances reach with 0.8px apart. */
+.pb-viewhead__title { font-size: 16px; font-weight: 400; letter-spacing: 0.8px; white-space: nowrap; }
 .pb-viewhead__meta  { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-viewhead__spacer { flex: 1 1 auto; }
 /* the chart identity every Patient Chart window prints at the right end */
@@ -191,15 +194,26 @@
 }
 .pb-panel--white { background: var(--pb-window); }
 .pb-panel--bordered { border: 1px solid var(--pb-border); }
-.pb-split { display: flex; flex: 1 1 auto; min-height: 0; }
-.pb-split__gutter {
-  width: 4px;
-  flex: none;
-  background: var(--pb-face);
-  cursor: col-resize;
-  border-left: 1px solid #d7d7d7;
-  border-right: 1px solid #d7d7d7;
+/* The MDI client: MOIS's navigator and work area sit on the desktop grey
+   (#c8c8c8), which shows as a strip under the menu bar (a 1px light edge,
+   then grey — the header starts 55.5px down the window), a gap between the
+   two panels and a band over the status bar. Measured on the 2026-09-29
+   TRAINING captures and reference/patient-summary-3598.png alike. */
+.pb-split {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4.5px 0 6.5px;
+  background: linear-gradient(#f3f3f3 0 1px, var(--pb-mdi) 1px);
 }
+.pb-split__gutter {
+  width: 3.5px;
+  flex: none;
+  background: var(--pb-mdi);
+  cursor: col-resize;
+}
+/* the work area's sunken left edge (#6d6d6d on the captures) */
+.pb-split__gutter + .pb-panel { border-left: 1px solid #6d6d6d; }
 
 /* --- patient banner: yellow compact form ------------------------------- */
 .pb-banner-yellow {
@@ -253,12 +267,18 @@
    therefore carries its own column width (`w`) rather than being spread by
    the flexbox — see the captures, where `Active ENC#:` sits ~660px in on a
    2000px-wide window rather than against the right edge.                   */
+/* The strip is painted on the window's white, not the face, and the Active
+   ENC# value is bold grey: `reference/order-history.png` and the 2026-09-29
+   Determinants of Health captures (charts 3598 and 3924) agree. */
 .pb-identity {
   display: flex;
   align-items: center;
   height: var(--pb-ident-h);
   padding: 0 8px;
-  border-bottom: 1px solid #d6d6d6;
+  background: var(--pb-window);
+  /* a dark rule, #666 — every chart window capture (the 2026-09-29 TRAINING
+     sets, reference/order-history.png) draws it the same */
+  border-bottom: 1px solid #666666;
   white-space: nowrap;
   flex: none;
   overflow: hidden;
@@ -268,7 +288,7 @@
    measured yet simply get the default spacing. */
 .pb-identity__field { display: flex; flex: none; padding-right: 30px; }
 .pb-identity__enc { display: flex; flex: none; }
-.pb-identity__enc-value { color: var(--pb-text-dim); letter-spacing: .3px; }
+.pb-identity__enc-value { color: var(--pb-text-dim); font-weight: 700; letter-spacing: .3px; }
 
 /* --- summary strip ------------------------------------------------------ */
 .pb-summaryband {
@@ -642,3 +662,17 @@
 .pb-select-form__list .pb-dw__filters .pb-field { height: 19px; }
 .pb-select-form__actions { justify-content: center; gap: 12px; padding: 15px 0 17px; }
 .pb-select-form__actions .pb-btn { height: 25px; }
+
+/* A painted detail form (ClinicalReportView's PaintedForm): every box is the
+   16px the TRAINING captures measure, a lookup's field and "…" included. */
+.pb-painted .pb-field { height: 100%; }
+.pb-painted .pb-inputgroup { height: 100%; }
+.pb-painted .pb-inputgroup > * { height: 100%; }
+
+/* A chart window's "Search For:" row under the identity strip: the box is
+   16.5px tall, 3.5px of face above and below it, and the row is ruled off
+   from what follows with the same dark rule (the 2026-09-29 TRAINING
+   captures: Imaging c12, Documents c31, Intervention c01, Condition c34). */
+.pb-searchband { padding: 3.5px 8px; border-bottom: 1px solid #666666; flex: none; }
+.pb-searchband .pb-inputgroup,
+.pb-searchband .pb-field { height: 16.5px; }

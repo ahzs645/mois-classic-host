@@ -63,6 +63,8 @@ export type IdentityNames = { first?: string; middle?: string; last?: string; do
      false / omitted → no band (`lookup` alone implies `true`).
    `fixedSearch` makes that row OrderView's PBFixed (`pb-fixed pb-row`,
    display flex) instead of a plain div.                                    */
+const CHART_STRIP_WIDTHS = { first: 170, middle: 139, last: 171, dob: 120 }
+
 export function ChartIdentityStrip({
   widths, upper, encounter = 'NO ENCOUNTER', noEncounter, onEncounterLookup, patient, search, lookup, fixedSearch,
 }: {
@@ -84,6 +86,10 @@ export function ChartIdentityStrip({
 }) {
   const chart = usePatient()
   const p: IdentityNames = patient ?? chart
+  /* the chart windows all print the four names on one grid — 170 · 139 ·
+     171 · 120, measured alike on the 2026-09-29 TRAINING captures of
+     Determinants of Health, Measurements, Imaging, Consults and Family Hx */
+  widths ??= CHART_STRIP_WIDTHS
   const name = (v?: string) => (upper ? (v ?? '').toUpperCase() : v)
   const band = search === true || (search === undefined && lookup !== undefined)
     ? <><span>Search For:</span><PBLookup w="100%" {...lookup} /></>
@@ -101,8 +107,8 @@ export function ChartIdentityStrip({
         onEncounterLookup={onEncounterLookup}
       />
       {band && (fixedSearch
-        ? <PBFixed className="pb-row" style={{ padding: '2px 8px', display: 'flex' }}>{band}</PBFixed>
-        : <div className="pb-row" style={{ padding: '2px 8px' }}>{band}</div>)}
+        ? <PBFixed className="pb-row pb-searchband" style={{ display: 'flex' }}>{band}</PBFixed>
+        : <div className="pb-row pb-searchband">{band}</div>)}
     </>
   )
 }

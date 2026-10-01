@@ -232,6 +232,13 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
   font-size: var(--pb-fs);
 }
 
+/* a drop-down DataWindow editing in place in the current row: its field
+   takes a peach fill, a shade lighter than the salmon row, inside a faint
+   grey edge (#ffc49f / #b8bfc8: the 2026-09-29 capture of Who
+   Lives with Me's Occupant Relationship, converted from the screenshot's
+   Display P3 to sRGB — its raw pixels read #f6c6a4) */
+.pb-dw__cellddw .pb-field { background: #ffc49f; border-color: #b8bfc8; }
+
 /* empty-state message a PB DataWindow shows in an unpopulated band */
 .pb-dw__empty {
   padding: 14px;
@@ -322,6 +329,24 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
 .pb-dw--head-grey .pb-dw__table > thead > tr > th.pb-dw__c--center { text-align: center; }
 .pb-dw--head-grey .pb-dw__table > thead > tr > th.pb-dw__c--num { text-align: right; }
 
+/* --- caption header ------------------------------------------------------
+   A chart window's status panel (Determinants of Health ▸ <domain> Status)
+   captions its columns in the soft grey of a disabled label, on the white of
+   the grid, over a pale rule — no fill, no weight, no separators. Sampled off
+   the 2026-09-29 TRAINING captures: ink #808080 (anti-aliased #767676–#888),
+   rule #e2e2e2, one 21px band. */
+.pb-dw--head-caption .pb-dw__table > thead > tr > th {
+  height: 21px;
+  text-align: left;
+  background: var(--pb-dw-row);
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 1px solid #e2e2e2;
+  font-weight: 400;
+  color: #808080;
+}
+.pb-dw--head-caption .pb-dw__table > thead > tr > th:hover { background: var(--pb-dw-row); }
+
 /* --- filter row ----------------------------------------------------------
    A lookup DataWindow puts a row of filter controls above its headers, on
    the dialog face.                                                         */
@@ -353,6 +378,11 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
   text-decoration-thickness: 1px;
 }
 .pb-dw__table > tbody > tr.pb-dw--arrived > td { color: #0000c0; }
+
+/* A history row whose Stop date has passed (Determinants of Health ▸ Who
+   Lives with Me): MOIS greys its ink and sorts it under the current ones.
+   Measured at #787878 on the 2026-09-29 TRAINING capture of chart 3598. */
+.pb-dw__table > tbody > tr.pb-dw--ended > td { color: #787878; }
 
 /* A Workspace Basket row the user has ticked and saved: MOIS greys the ink
    and leaves the row in place until the window refreshes (art. ID303756).

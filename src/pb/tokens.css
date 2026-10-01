@@ -12,6 +12,7 @@
   /* --- surfaces -------------------------------------------------------- */
   --pb-face:            #efefef;  /* dialog + form background (Win10 3DFACE) */
   --pb-window:          #ffffff;  /* client / content area                   */
+  --pb-mdi:             #c8c8c8;  /* the MDI client behind the two panels    */
   --pb-band:            #dad5d1;  /* group-box + section header band         */
   --pb-band-alt:        #e4e0dd;  /* nested / secondary band                 */
 
@@ -105,11 +106,14 @@
   --pb-row-gap:     3px;    /* vertical gap between form rows             */
   --pb-dw-row-h:    20px;   /* DataWindow detail band height              */
   --pb-band-h:      17px;   /* group-box header band height               */
-  --pb-ident-h:     26px;   /* FIRST/MIDDLE/LAST identity strip           */
+  --pb-ident-h:     27.75px; /* FIRST/MIDDLE/LAST identity strip, rule in: the
+                               command row's rule to this one is 55.5 device px
+                               on every 2x chart capture (order-history.png,
+                               the 2026-09-29 TRAINING sets) */
   --pb-tabstrip-h:  24px;   /* tab strip, measured from demographics-full  */
   /* the caption glyphs centre on y 13.25 in the captures, so the bar is 26.5
      tall; Windows centres a caption button on the bar it fills */
-  --pb-titlebar-h:  26.5px;
+  --pb-titlebar-h:  27.5px; /* 2026-09-29 TRAINING c34: caption ink 22–39 device px */
   --pb-menubar-h:   22px;
   --pb-status-h:    18px;
 

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import {
-  FORM_WINDOW, LAB_CODES, MEASURE_FORMS, QUESTIONNAIRE_CODES, clearDraft, markSent, messageDate, nextEntryId,
-  patchDraft, saveRowForm, setDraftCode, useMeasureEntry, type LabCode,
+  FORM_WINDOW, MEASURE_FORMS, QUESTIONNAIRE_CODES, clearDraft, markSent, messageDate, nextEntryId,
+  patchDraft, saveRowForm, setDraftCode, useMeasureEntry,
 } from '../data/measureEntry'
+import { toLabCode, withChartCodes, type MasterLabCode } from '../data/labCodeMaster'
 import { measureCalculators } from '../data/measures'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
@@ -12,10 +13,13 @@ import { CURRENT_USER, TASK_PRIORITIES, WORKSPACE_USERS } from '../data/tasks'
 import { workspaceStore } from '../data/workspaceStore'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBCheckbox, PBInput, PBSelect, PBTextArea } from '../pb'
+import { PBButton, PBCheckbox, PBInput, PBLookup, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
-import { PickButtons, PickListWindow, SearchForRow, SIZE } from './lookupKit'
+import {
+  FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, LookupNote, LookupPager, PickListWindow, SearchForRow,
+  usePagedCursor,
+} from './lookupKit'
 import { MeasureCalculatorDialog, type MeasurementRow } from './MeasureDialogs'
 import { Phq9FormWindow } from './Phq9FormWindow'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
@@ -24,13 +28,17 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    The windows the Measures folder's New Record row and its record options
    open by id (art. 302837).
 
-     lab-code-selection     the Code column's "…" (or F4 in Code): the lab
-                            code list — Code | Class | Quick Code | Test Name
-                            (`90db334a…`), searchable by quick code, the blue
-                            headers re-sort it ("you can also search by quick
-                            code and click on the blue column headers to
-                            reorganize your search results"). Select puts the
-                            code on the New Record row.
+     lab-code-selection     any Code "…" (or F4 in Code): Advanced Lookup
+                            Service ▸ Master Lab Code List, as the
+                            2026-09-29 TRAINING capture shows it — Test ID |
+                            Category | Lab Code | Test Name | Units | System |
+                            Property | Time Aspect | LOINC in lab-code order,
+                            Search For with its "…", Synonyms:, the
+                            description pane, Home / PgUp / Ok / Cancel /
+                            PgDwn / End and Source / Save on Close
+                            (data/labCodeMaster.ts). Ok puts the code on the
+                            New Record row; args `{ code }` (a filed row's
+                            "…") open it on that row's code.
      measure-dynamic-form   the "…" right of Value (or F4 in Value): the
                             measure's form — BLOOD PRESSURE MEASUREMENT or
                             PATIENT HEALTH QUESTIONNAIRE — over the New
@@ -54,75 +62,126 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    Patient Name "WHO, LUCY LOU"), `0c1ad1a1…` (Send), and `f036097f…` (the
    window whole, over the Encounter Detail Window: the left recipients pane
    with its `>` row and red X, the blue "Message" band on the right).
-   INFERRED: the Lab Code Selection window's caption, search box and buttons
-   (only its rows are captured); New Message's overall size and where Send
+   The older help-site capture of this list (`90db334a…`, Code | Class |
+   Quick Code | Test Name) is a previous build's; the TRAINING capture
+   replaces it. INFERRED: that Search For filters (the capture leaves it
+   empty); what Synonyms: and Source do. New Message's overall size and where Send
    sits (captured on its own); that the To button adds a recipient row.
    The v02.31.23 build this stage follows raises Create New Message for other
    records; New Message is the questionnaire-capable window of v02.31.27
    (the article's prerequisite), so it is used for the PHQ-9 codes only.
    ========================================================================= */
 
-/* --- Lab Code Selection -------------------------------------------------- */
-function LabCodeSelection({ close }: AreaWindowProps) {
+/* --- Advanced Lookup Service ▸ Master Lab Code List ----------------------- */
+/* Column widths read off the 2026-09-29 TRAINING capture (2x): gutter 14,
+   Test ID 64, Category 99, Lab Code 84, Test Name 184, Units 85, System 81,
+   Property 57, Time Aspect 75, LOINC the rest; the window 866 x 692. */
+function LabCodeSelection({ args, close }: AreaWindowProps) {
   const chart = usePatient().chart
   const entry = useMeasureEntry(chart)
-  const [text, setText] = useState(() => entry.draft?.test ? '' : entry.draft?.code ?? '')
-  const [sort, setSort] = useState<keyof LabCode>('code')
+  /* a filed row's "…" opens the list on that row's code; only the New
+     Record row takes a pick (INFERRED: a filed row's code is not changed
+     from here) */
+  const filed = argStr(args.code)
+  const [text, setText] = useState('')
+  const [source, setSource] = useState('STANDARD')
+  const [saveOnClose, setSaveOnClose] = useState(false)
+  const measures = useChartRecords('measure')
+  const master = useMemo(() => withChartCodes(measures), [measures])
   const rows = useMemo(() => {
     const t = text.trim().toUpperCase()
-    const hit = (c: LabCode) => !t || c.code.startsWith(t) || c.quick.includes(t) || c.test.includes(t) || c.klass.includes(t)
-    const key = sort
-    return LAB_CODES.filter(hit).sort((a, b) => (key === 'code' ? Number(a.code) - Number(b.code) : String(a[key]).localeCompare(String(b[key]))))
-  }, [text, sort])
-  const [cur, setCur] = useState(0)
-  const pick = (c: LabCode | undefined) => { if (c) { setDraftCode(chart, c); close() } }
+    if (!t) return master
+    /* a lab code or Test ID that starts with what was typed comes first, then
+       test names that contain it, each group in lab-code order */
+    const lead = master.filter((c) => c.labCode.startsWith(t) || c.id.startsWith(t))
+    const named = master.filter((c) => !lead.includes(c) && c.test.toUpperCase().includes(t))
+    return [...lead, ...named]
+  }, [text, master])
+  /* a Measures Code holds either the Test ID (363) or the lab code (HBA1C) */
+  const landOn = (filed || entry.draft?.code || '').toUpperCase()
+  const cursor = usePagedCursor(rows.length, 20, () => Math.max(0, master.findIndex((c) => (c.id || c.labCode) && (c.id === landOn || c.labCode === landOn))))
+  const row = rows[cursor.at]
+  /* the list keeps its current row in view, the way a DataWindow scrolls to
+     the row it is set on (and to where Home / PgUp / PgDwn / End move it) */
+  const rowId = row ? row.id || pbSlug(row.labCode) : ''
+  useEffect(() => {
+    if (rowId) document.querySelector(`[data-tutorial-id="host.mois.row.lab-code-${rowId}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [rowId])
+  const pick = (c: MasterLabCode | undefined) => {
+    if (!c) return
+    if (!filed) setDraftCode(chart, toLabCode(c))
+    close()
+  }
 
   return (
-    <PickListWindow
+    <PickListWindow<MasterLabCode>
       frame={(content, footer) => (
-        <WorkspaceDialogFrame id="lab-code-selection" title="Lab Code Selection" width={720} height={480} onClose={close} controls={false}>
+        <WorkspaceDialogFrame id="lab-code-selection" title="Advanced Lookup Service" width={866} height={692} onClose={close} controls={false}>
           {content}{footer}
         </WorkspaceDialogFrame>
       )}
+      body={LOOKUP_BODY}
+      panel={LOOKUP_PANEL}
+      band={<LookupBand variant="bold">Master Lab Code List</LookupBand>}
       search={(
         <SearchForRow
           link={false}
-          width={320}
-          value={text}
-          field="lab-code-search"
-          onChange={(v) => { setText(v); setCur(0) }}
-          onKeyDown={(e) => { if (e.key === 'Enter') pick(rows[cur]) }}
-          after={<span style={{ color: '#6a6a6a' }}>code, quick code or test name</span>}
-          style={{ gap: 6, padding: '8px 10px 4px', flex: 'none' }}
+          style={{ gap: 4, padding: '3px 4px', flex: 'none' }}
+          input={(
+            <PBLookup
+              w="100%"
+              value={text}
+              name="lab-code-search"
+              fieldId="host.mois.field.lab-code-search"
+              onChange={(v) => { setText(v); cursor.setCurrent(0) }}
+              onEnter={() => pick(row)}
+            />
+          )}
         />
       )}
-      gridBox={{ flex: '1 1 auto', minHeight: 0, display: 'flex', margin: '0 10px', border: '1px solid var(--pb-border)' }}
+      gridBox={null}
       grid={{
         flush: true,
+        rules: 'white',
+        style: { ...FILL_GRID, ['--pb-dw-gutter-width' as string]: '14px' },
         columns: [
-          { key: 'code', header: 'Code', width: 80 },
-          { key: 'klass', header: 'Class', width: 130 },
-          { key: 'quick', header: 'Quick Code', width: 100 },
-          { key: 'test', header: 'Test Name' },
+          { key: 'id', header: 'Test ID', width: 64 },
+          { key: 'category', header: 'Category', width: 99 },
+          { key: 'labCode', header: 'Lab Code', width: 84 },
+          { key: 'test', header: 'Test Name', width: 184 },
+          { key: 'units', header: 'Units', width: 85 },
+          { key: 'system', header: 'System', width: 81 },
+          { key: 'property', header: 'Property', width: 57 },
+          { key: 'time', header: 'Time Aspect', width: 75 },
+          { key: 'loinc', header: 'LOINC' },
         ],
         rows,
-        current: cur,
-        onCurrentChange: setCur,
+        current: cursor.at,
+        onCurrentChange: cursor.setCurrent,
         onActivate: (r) => pick(r),
-        onSort: (k) => setSort(k as keyof LabCode),
-        rowTutorialId: (r) => `host.mois.row.lab-code-${r.code}`,
+        rowTutorialId: (r) => `host.mois.row.lab-code-${r.id || pbSlug(r.labCode)}`,
         empty: 'No lab code matches.',
       }}
+      belowGrid={(
+        <div className="pb-row" style={{ gap: 8, padding: '2px 4px', borderTop: '1px solid #9a9a9a', flex: 'none', minHeight: 30, alignItems: 'flex-start', background: '#fff' }}>
+          <PBButton bare className="pb-link" style={{ textDecoration: 'underline' }} command="lab-code-synonyms">Synonyms:</PBButton>
+        </div>
+      )}
+      below={<LookupNote height={64}>This is the master lab code (unfiltered) selection list</LookupNote>}
+      footerInside
       footer={(
-        <PickButtons
-          className="pb-row"
-          style={{ gap: 14, padding: '10px 0', justifyContent: 'center', flex: 'none' }}
-          size={SIZE.dialog()}
-          buttons={[
-            { label: 'Select', command: 'lab-code-select', isDefault: true, disabled: !rows[cur], onClick: () => pick(rows[cur]) },
-            { label: 'Cancel', command: 'lab-code-cancel', onClick: close },
-          ]}
+        <LookupPager
+          cursor={cursor}
+          ok={{ command: 'lab-code-select', isDefault: true, disabled: !row, onClick: () => pick(row) }}
+          cancel={{ command: 'lab-code-cancel', onClick: close }}
         />
+      )}
+      after={(
+        <div className="pb-row" style={{ gap: 10, flex: 'none', paddingLeft: 8 }}>
+          <span>Source:</span>
+          <PBSelect w={176} options={['STANDARD']} value={source} onChange={(e) => setSource(e.target.value)} />
+          <PBCheckbox label="Save on Close" checked={saveOnClose} onChange={setSaveOnClose} />
+        </div>
       )}
     />
   )

@@ -83,13 +83,14 @@ export const MAR_ACTION_WINDOWS = {
      MAR (`e2d11224…png`), which MarView acts on and closes */
   saveOptions: 'mar-save-window-options',
   /* the error MOIS raises when System Settings' MAR Require Encounter is YES
-     and no encounter is active (303427 "Active Enc"; wording INFERRED) */
+     and no encounter is active (303427 "Active Enc"); its wording is the
+     2026-09-29 TRAINING capture c23's */
   requireEncounter: 'mar-require-encounter',
 } as const
 
 registerScreenWindows(Object.values(MAR_ACTION_WINDOWS))
 
-/** The eleven record statuses (`f7908f40…png`), code and description. */
+/** The record statuses (`f7908f40…png`'s eleven; c22 adds NO SHOW), code and description. */
 export const MAR_STATUSES: [string, string][] = [
   ['SCHEDULED', 'Scheduled'],
   ['DISPENSED', 'Dispensed'],
@@ -102,6 +103,8 @@ export const MAR_STATUSES: [string, string][] = [
   ['WITHHELD', 'Medication was Withheld'],
   ['OMITTED', 'Medication was Omitted'],
   ['CANCELLED', 'Administration was Cancelled'],
+  /* the twelfth, from the 2026-09-29 TRAINING capture c22 */
+  ['NO SHOW', 'Patient Absent for Medication'],
 ]
 
 export const MAR_FREQUENCIES = ['', 'OPD (Once Daily)', 'BID (Twice Daily)', 'TID (Three Times Daily)', 'QID (Four Times Daily)', 'QW (Once Weekly)', 'STAT (Immediately)']
@@ -481,7 +484,12 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
   )
 }
 
-/* --- Multi-Value Selection (Record Status "…") ---------------------------- */
+/* --- Multi-Value Selection (Record Status "…") ----------------------------
+   2026-09-29 TRAINING capture c22 (chart 2429), measured at 2x: a 484 × 452
+   window; a white grid box 5px in from the left and 11px from the right,
+   366px tall, whose DataWindow is only as wide as its columns (an 18px
+   gutter, Select 47, Code 142, Description 241) with 20px rows; twelve
+   statuses; Continue · Cancel (74 × 22) centred on the face below. */
 export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
   selected: string[]
   onOk: (codes: string[]) => void
@@ -491,25 +499,28 @@ export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
   const [cur, setCur] = useState(0)
   const rows = MAR_STATUSES.map(([code, description]) => ({ code, description }))
   return (
-    <StageWindow id={MAR_ACTION_WINDOWS.status} title="Multi-Value Selection" width={453} height={374} onClose={onClose}
-      bodyStyle={{ padding: 6, background: '#fff' }}
+    <StageWindow id={MAR_ACTION_WINDOWS.status} title="Multi-Value Selection" width={484} height={452} onClose={onClose}
+      bodyStyle={{ padding: '5px 11px 0 5px' }}
       footer={<>
         <span className="pb-footer__spacer" />
-        <FooterButton primary onClick={() => onOk([...picked.ticked])} tutorialId="host.mois.command.mar-status-ok">Ok (F2)</FooterButton>
-        <FooterButton onClick={onClose}>Cancel</FooterButton>
+        <FooterButton primary wide={false} onClick={() => onOk([...picked.ticked])} tutorialId="host.mois.command.mar-status-ok">Continue</FooterButton>
+        <FooterButton wide={false} onClick={onClose}>Cancel</FooterButton>
         <span className="pb-footer__spacer" />
       </>}>
-      <PBDataWindow flush style={{ flex: '1 1 auto', minHeight: 0 }} rows={rows} current={cur} onCurrentChange={setCur}
+      <div className="pb-mar-mvs">
+      {/* c22 paints the current row only with its arrow: no fill, no zebra */}
+      <PBDataWindow flush zebra={false} style={{ width: 448, ['--pb-dw-row-h' as string]: '20px', ['--pb-dw-gutter-width' as string]: '18px', ['--pb-dw-select' as string]: '#fff' }} rows={rows} current={cur} onCurrentChange={setCur}
         rowTutorialId={(r) => `host.mois.row.mar-status-${pbSlug(r.code)}`}
         columns={[
           {
-            key: 'select', header: 'Select', width: 50, align: 'center',
+            key: 'select', header: 'Select', width: 47, align: 'center',
             render: (r) => <PBCheckbox checked={picked.has(r.code)} tutorialId={`host.mois.cell.mar-status-${pbSlug(r.code)}`}
               onChange={(on) => picked.set(r.code, on)} />,
           },
-          { key: 'code', header: 'Code', width: 112 },
-          { key: 'description', header: 'Description' },
+          { key: 'code', header: 'Code', width: 142 },
+          { key: 'description', header: 'Description', width: 241 },
         ]} />
+      </div>
     </StageWindow>
   )
 }

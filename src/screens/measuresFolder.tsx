@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useChartRecords, useNodeRecords } from '../data/chart-records'
 import {
   FORM_WINDOW, MEASURE_FORMS, clearDraft, longDate, nextEntryId, patchDraft, resolveLabCode, saveRowForm,
@@ -8,7 +8,8 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
-import { PBButton, PBInput, type PBColumn, type PBCommand } from '../pb'
+import { PBButton, PBDropDownDataWindow, PBInput, pbSlug, type PBColumn, type PBCommand } from '../pb'
+import { ABNORMAL_FLAGS, RESULT_STATUSES } from '../data/resultCodes'
 
 /* ============================================================================
    The Patient Chart ▸ Measures folder's own behaviour, layered over the
@@ -58,8 +59,11 @@ function MyHealthKeyIcon() {
   )
 }
 
-const dotsButton = (command: string, onClick: () => void, label = '…') => (
-  <PBButton bare className="pb-link" command={command} onClick={(e) => { e.stopPropagation(); onClick() }}>{label}</PBButton>
+/* the grid's "…" and ".*." are plain black text on the row, not links
+   (2026-09-29 TRAINING captures c01, c06) */
+const dotsButton = (command: string, onClick: () => void, label = '...') => (
+  <PBButton bare command={command} onClick={(e) => { e.stopPropagation(); onClick() }}
+    style={{ border: 0, background: 'transparent', padding: 0, font: 'inherit', color: 'inherit', lineHeight: 'inherit' }}>{label}</PBButton>
 )
 
 export function useMeasuresFolder(node: string, rows: Record<string, string>[], cur: number) {
@@ -82,6 +86,12 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
   }
   const draftRow = entry.draft
   const draft = !!draftRow
+  /* Flag and Status are edited in the grid: a click on either cell of the
+     current row drops its Code | Description list (captures c06, c07).
+     INFERRED: the change stands for the session, like the folder's other
+     in-grid edits. */
+  const [cellEdits, setCellEdits] = useState<Record<string, { flag?: string; status?: string }>>({})
+  const [editing, setEditing] = useState<{ id: string; col: string } | null>(null)
 
   const all = useMemo((): Record<string, string>[] => {
     if (!active) return rows
@@ -89,6 +99,7 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
       const id = records[i]?.id_measure ?? r.id ?? ''
       return {
         ...r,
+        ...cellEdits[id],
         id,
         panel: records[i]?.id_panel ?? '',
         marker: formFor.has(id) ? '.*.' : MEASURE_FORMS[r.code ?? ''] || /CALCULATOR/.test(records[i]?.str_interface ?? '') ? '…' : '-',
@@ -111,7 +122,7 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
     }
     const list = [...blank, ...filed, ...withLinks].map(sent)
     return session.measureFilter ? list.filter((r) => r.code === session.measureFilter) : list
-  }, [active, rows, records, session.orderLinks, session.measureLinks, session.measureRows, session.measureFilter, draftRow, entry.sent, formFor])
+  }, [active, rows, records, session.orderLinks, session.measureLinks, session.measureRows, session.measureFilter, draftRow, entry.sent, formFor, cellEdits])
 
   const current = active ? all[cur] : undefined
   /* the folder's current row, for Graph Measures / Filter Measures and the
@@ -215,16 +226,51 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
     }
   }
 
+  /* a row with no flag leaves the Flag cell empty, not "-" (c01, c06) */
+  const shown = (r: Record<string, string>, key: string) => (key === 'flag' && r.flag === '-' ? '' : r[key])
   const flagCell = (r: Record<string, string>, key: string): ReactNode => (flagged(r)
-    ? <span className="pb-dw__flagcell" style={{ display: 'block', margin: '0 -3px', padding: '0 3px', background: 'var(--pb-dw-flag, #ffff66)' }}>{r[key]}</span>
-    : r[key])
+    ? <span className="pb-dw__flagcell" style={{ display: 'block', margin: '0 -3px', padding: '0 3px', background: 'var(--pb-dw-flag, #ffff66)' }}>{shown(r, key)}</span>
+    : shown(r, key))
+  /* the current filed row's Flag or Status cell: painted text until clicked,
+     then its drop-down, open */
+  const codeCell = (r: Record<string, string>, col: 'flag' | 'status', painted: ReactNode): ReactNode => {
+    const id = r.id ?? ''
+    const isCurrent = !!id && id !== 'new' && current?.id === id
+    if (isCurrent && editing?.id === id && editing.col === col) {
+      return (
+        <span className="pb-dw__cellddw" style={{ display: 'block' }}>
+          <PBDropDownDataWindow
+            autoOpen
+            wrap={col === 'status'}
+            w="100%"
+            listW={col === 'status' ? 300 : 330}
+            columns={[{ key: 'code', header: 'Code', width: col === 'status' ? 38 : 44 }, { key: 'description', header: 'Description' }]}
+            rows={col === 'status' ? RESULT_STATUSES : ABNORMAL_FLAGS}
+            value={r[col] === '-' ? '' : r[col]}
+            display="code"
+            tutorialId={`host.mois.field.measure-${col}-${pbSlug(id)}`}
+            onSelect={(c) => { setCellEdits((e) => ({ ...e, [id]: { ...e[id], [col]: c.code } })); setEditing(null) }}
+          />
+        </span>
+      )
+    }
+    return (
+      /* on click, once the press is over: opened on the press, the same
+         click's release would land on the list's own ▾ and shut it */
+      <span style={{ display: 'block', minHeight: 14 }} onClick={() => { if (isCurrent) setEditing({ id, col }) }}>
+        {painted}
+      </span>
+    )
+  }
 
   const cellFor = (key: string) => (r: Record<string, string>): ReactNode => {
     if (r.id === 'new') {
       const own = draftCell(key)
       if (own !== undefined) return own
     }
-    if (key === 'd') return '…'
+    /* every row's Code "…" opens the Master Lab Code List, on that row's
+       code (2026-09-29 TRAINING capture, chart 3924) */
+    if (key === 'd') return dotsButton(`measure-code-lookup-${pbSlug(r.id || r.code || '')}`, () => open('lab-code-selection', { code: r.code ?? '' }))
     if (key === 'marker') {
       if (r.sent === 'Y') return <MyHealthKeyIcon />
       /* `.*.` reopens the saved form; `…` on a saved row offers nothing new */
@@ -236,6 +282,8 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
     if (key === 'status' && r.sent === 'Y') {
       return <span data-tutorial-id={`host.mois.field.measure-status-${r.id}`} style={{ display: 'block', margin: '0 -3px', padding: '0 3px', background: '#ccf5ff' }}>{r.status}</span>
     }
+    if (key === 'flag') return codeCell(r, 'flag', flagCell(r, key))
+    if (key === 'status') return codeCell(r, 'status', r.status)
     if (FLAGGED_CELLS.has(key)) return flagCell(r, key)
     return r[key]
   }

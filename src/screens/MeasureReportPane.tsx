@@ -1,4 +1,4 @@
-import { PBInput, PBTextArea } from '../pb'
+import { PBInput, PBLookup, PBTextArea } from '../pb'
 
 /** Report and Detail are different DataWindows. Geometry checked in the
  * live TRAINING client on 2026-09-21; values come only from the selected row. */
@@ -18,7 +18,7 @@ export function MeasureReportPane({ detail, row }: { detail: boolean; row?: Reco
           <span>Facility Loc.:</span>{input('facilityLocation')}
           <span>Facility Ref.:</span>{input('facilityReference')}
         </> : <>
-          <span>Order Date:</span><div className="pb-row">{input('orderDate', 98)}<span>Order #:</span>{input('orderNumber')}</div>
+          <span>Order Date:</span><div className="pb-row">{input('orderDate', 98)}<span>Order #:</span>{/* greyed, with its "…": set by Link to Order, never typed (2026-09-29 TRAINING captures c01, c02) */}<PBLookup w="100%" value={value('orderNumber')} readOnly disabled /></div>
           <span>Ordered By:</span>{input('by')}
           <span>Copies To:</span>{input('copiesTo')}
         </>}

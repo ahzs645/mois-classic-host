@@ -136,11 +136,11 @@ export const IconReport = ({ size = 16, style }: IconProps) => (
   </svg>
 )
 
+/* the application icon itself: the 16px image of MOIS's own mois.ico (the
+   SMOIS build ships it), which is what every title bar shows — the
+   2026-09-29 TRAINING captures draw exactly this bitmap, stretched 2x */
 export const IconMoisApp = ({ size = 16, style }: IconProps) => (
-  <svg viewBox="0 0 16 16" style={{ ...box(size), ...style }}>
-    <ellipse cx="8" cy="8" rx="7" ry="4.6" fill="#cfe4f5" stroke="#3d78b0" />
-    <ellipse cx="8" cy="8" rx="3.4" ry="2.1" fill="#fff" stroke="#3d78b0" />
-  </svg>
+  <span className="pb-icon-mois-app" style={{ ...box(size), ...style }} />
 )
 
 /* --- title-bar glyphs: Win10 draws these as 1px strokes ------------------ */

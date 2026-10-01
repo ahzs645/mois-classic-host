@@ -1,3 +1,5 @@
+import type { UniversalSearchPresetId } from './universalSearchPresets'
+
 /* ============================================================================
    The "clinical report" window class.
 
@@ -16,14 +18,39 @@ export type ReportField =
   | { label: string; kind: 'date'; w?: number; value?: string; time?: boolean }
   | { kind: 'gap' }
 
-/** one tab's two-column detail form */
-export type ReportForm = { left: ReportField[]; right: ReportField[] }
+/** A field painted where the capture puts it, in CSS px from the detail
+    page's top-left: MOIS lays several fields on one line (Region · Laterality
+    · Flag), which the two-column form cannot say. `label` is the caption and
+    the record binding; `cap` places the caption — omitted it sits at the left
+    margin, `{ right }` right-aligns it to end at that x, `false` hides it (a
+    time box beside its date). */
+export type PaintedField = {
+  label: string
+  kind: 'text' | 'lookup' | 'area' | 'date' | 'time' | 'dots' | 'combo' | 'rule'
+  x: number
+  y: number
+  w: number
+  /** 16 unless given (an area, a two-line caption's box) */
+  h?: number
+  cap?: { right: number } | { left: number } | false
+  disabled?: boolean
+  value?: string
+  /** a lookup whose "…" opens the Universal Search Window on this preset */
+  search?: UniversalSearchPresetId
+}
+
+/** one tab's two-column detail form, or its painted fields */
+export type ReportForm = { left: ReportField[]; right: ReportField[]; painted?: PaintedField[] }
 
 export type ReportScreen = {
   title: string
   commands: (string | null)[]
   disabled?: string[]
-  columns: { key: string; header: string; auditId?: string; width?: number; align?: 'left' | 'center' | 'right'; dots?: boolean; check?: boolean }[]
+  columns: {
+    key: string; header: string; auditId?: string; width?: number; align?: 'left' | 'center' | 'right'; dots?: boolean; check?: boolean
+    /** a "…" column that opens the Universal Search Window on this preset */
+    search?: UniversalSearchPresetId
+  }[]
   rows: Record<string, string>[]
   /** omit for the tab-less variants such as Paper Forms */
   tabs?: string[]
@@ -35,6 +62,16 @@ export type ReportScreen = {
      facility fields onto Detail. `left`/`right` is the first tab; the rest are
      keyed by tab caption here. */
   forms?: Record<string, ReportForm>
+  /** the first tab painted field by field (see PaintedField) */
+  painted?: PaintedField[]
+  /** the grid's painted height when a capture measures one of its own */
+  gridHeight?: number
+  /** a "Hide Linked Elsewhere" tick at the end of the Search For line
+      (Documents, 2026-09-29 TRAINING capture set 3 c31) */
+  hideLinked?: boolean
+  /** PowerBuilder's fixed-width tabs rather than caption-sized ones
+      (Consult Reports: Report · Detail · Office Notes (0), ~100px each) */
+  fixedTabs?: boolean
   /** the Acknowledgement History / Workflow Summary rail */
   rail?: boolean
   /** a plain-text notice between Search For and the grid */
@@ -187,6 +224,31 @@ export const reportScreens: Record<string, ReportScreen> = {
       { onset: '2024.08.08', tilde: '', type: 'DRUG ALLERGY', category: '', code: '00468029', agent: 'PENICILLIN V POTASSIUM 500000UNIT TAB…', reactions: 'ANAPHYLAXIS', m: '', clip: '-' },
     ],
     tabs: ['Detail', 'Reactions', 'Linked Events'],
+    /* 2026-09-29 TRAINING capture (set 3) c04, chart 2429: the agent line
+       under Type is led by its own Agent Category drop-down, then the code,
+       its "…" and the agent; two rules part it from the four coded
+       drop-downs and from Comment */
+    painted: [
+      { label: 'Date of Onset:', kind: 'date', x: 112.5, y: 11, w: 83, cap: { left: 11 } },
+      { label: 'Type:', kind: 'combo', x: 112.5, y: 30, w: 155.5, cap: { left: 11 } },
+      { label: 'Agent Category Selector', kind: 'combo', x: 11, y: 49, w: 98, cap: false, value: 'Agent Category:' },
+      { label: 'Agent Code:', kind: 'text', x: 112.5, y: 49, w: 83, cap: false },
+      { label: 'Agent lookup', kind: 'dots', x: 195.5, y: 49, w: 15, cap: false },
+      { label: 'Agent:', kind: 'text', x: 211, y: 49, w: 320.5, cap: false },
+      { label: 'Stop Date:', kind: 'date', x: 569, y: 11, w: 83, cap: { right: 562.5 } },
+      { label: 'Agent Category:', kind: 'text', x: 569, y: 30, w: 204, cap: { right: 562.5 }, disabled: true },
+      { label: 'rule 1', kind: 'rule', x: 0, y: 71.5, w: 1000, cap: false },
+      { label: 'Risk Status:', kind: 'combo', x: 112.5, y: 81, w: 218, cap: { left: 11 } },
+      { label: 'Certainty:', kind: 'combo', x: 112.5, y: 100, w: 218, cap: { left: 11 } },
+      { label: 'Criticality:', kind: 'combo', x: 112.5, y: 119, w: 218, cap: { left: 11 } },
+      { label: 'Severity:', kind: 'combo', x: 112.5, y: 138, w: 218, cap: { left: 11 } },
+      { label: 'Phase at Onset:', kind: 'combo', x: 569, y: 81, w: 204, cap: { right: 562.5 } },
+      { label: 'Informant:', kind: 'combo', x: 569, y: 100, w: 204, cap: { right: 562.5 } },
+      { label: 'Observer:', kind: 'combo', x: 569, y: 119, w: 204, cap: { right: 562.5 } },
+      { label: 'Documenter:', kind: 'combo', x: 569, y: 138, w: 204, cap: { right: 562.5 } },
+      { label: 'rule 2', kind: 'rule', x: 0, y: 159.5, w: 1000, cap: false },
+      { label: 'Comment:', kind: 'area', x: 87.5, y: 166.5, w: 686, h: 72, cap: { left: 11 } },
+    ],
     /* evidence/MATRIX-R0660-paper-clip: the agent row spans both columns and a
        blank band separates it from the four coded dropdowns below */
     left: [
@@ -220,7 +282,8 @@ export const reportScreens: Record<string, ReportScreen> = {
       { key: 'performed', header: 'Performed', width: 78, align: 'center' },
       { key: 'by', header: 'Ordered By', width: 96, align: 'center' },
       { key: 'test', header: 'Test Name' },
-      dots('d'),
+      /* the Test Name "…" searches MEDICAL IMAGING (2026-09-29 TRAINING capture c11) */
+      { ...dots('d'), search: 'medical-imaging' },
       { key: 'region', header: 'Region', width: 72, align: 'center' },
       { key: 'laterality', header: 'Laterality', width: 68, align: 'center' },
       { key: 'modality', header: 'Modality', width: 62, align: 'center' },
@@ -258,6 +321,32 @@ export const reportScreens: Record<string, ReportScreen> = {
          right; who performed, reported and transcribed stays on the left with
          its date beside it */
       Detail: {
+        /* 2026-09-29 TRAINING capture c12 (chart 3924, a new record): every
+           field on a 19px pitch, captions at the left margin or right-aligned
+           before their box */
+        painted: [
+          { label: 'Test Name:', kind: 'text', x: 68.5, y: 6, w: 347 },
+          { label: 'Region:', kind: 'text', x: 68.5, y: 25, w: 71 },
+          { label: 'Laterality:', kind: 'text', x: 192.5, y: 25, w: 71, cap: { right: 187.5 } },
+          { label: 'Flag:', kind: 'text', x: 307, y: 25, w: 41, cap: { right: 302.5 } },
+          { label: 'Modality:', kind: 'text', x: 68.5, y: 44, w: 71 },
+          { label: 'Contrast:', kind: 'text', x: 192.5, y: 44, w: 71, cap: { right: 187.5 } },
+          { label: 'Status:', kind: 'text', x: 307, y: 44, w: 41, cap: { right: 302.5 } },
+          { label: 'Perform By:', kind: 'text', x: 68.5, y: 63, w: 195 },
+          { label: 'Date:', kind: 'date', x: 307, y: 63, w: 63, cap: { right: 302.5 } },
+          { label: 'Perform Time', kind: 'time', x: 373.5, y: 63, w: 42, cap: false, value: ':' },
+          { label: 'Report By:', kind: 'text', x: 68.5, y: 82, w: 195 },
+          { label: 'Date:', kind: 'date', x: 307, y: 82, w: 63, cap: { right: 302.5 } },
+          { label: 'Transcribed:', kind: 'text', x: 68.5, y: 101, w: 195 },
+          { label: 'Date:', kind: 'date', x: 307, y: 101, w: 63, cap: { right: 302.5 } },
+          { label: 'Transcribed Time', kind: 'time', x: 373.5, y: 101, w: 42, cap: false },
+          { label: 'Exam Reasn:', kind: 'text', x: 68.5, y: 120, w: 347 },
+          { label: 'Diag. Desc:', kind: 'lookup', x: 68.5, y: 139, w: 347 },
+          { label: 'Key Word:', kind: 'area', x: 68.5, y: 158, w: 347, h: 43 },
+          { label: 'Facility:', kind: 'text', x: 491.5, y: 6, w: 157, cap: { right: 487.5 } },
+          { label: 'Facility Loc.:', kind: 'text', x: 491.5, y: 25, w: 157, cap: { right: 487.5 } },
+          { label: 'Facility Ref.:', kind: 'text', x: 491.5, y: 44, w: 157, cap: { right: 487.5 } },
+        ],
         left: [
           { label: 'Test Name:', kind: 'text', w: 320, value: 'CAT SCAN - WHOLE BODY' },
           { label: 'Region:', kind: 'text', w: 150, value: 'FULL BODY' },
@@ -299,7 +388,8 @@ export const reportScreens: Record<string, ReportScreen> = {
       { key: 'seenby', header: 'Seen By', width: 150 },
       dots('d2'),
       { key: 'reason', header: 'Reason for Consult Request' },
-      dots('d3'),
+      /* the Reason "…" searches CONSULT REQUESTS (AIHS) (capture c13) */
+      { ...dots('d3'), search: 'consult-requests' },
       { key: 's', header: 'S', width: 22, align: 'center', check: true },
       { key: 'm', header: 'M', width: 22, align: 'center' },
       clip,
@@ -310,6 +400,25 @@ export const reportScreens: Record<string, ReportScreen> = {
       { refer: '2026.05.05', seen: '', by: '(RN) GIESBRECHT, MARY', seenby: '', reason: '', s: '', m: '', clip: '-' },
     ],
     tabs: ['Report', 'Detail', 'Office Notes (0)'],
+    fixedTabs: true,
+    /* Report as the 2026-09-29 TRAINING capture c16 paints it (chart 2429):
+       Reason with its "…", Seen By and its Date, a two-line Consultant's
+       Diagnosis box with a "…" beside it, the Report body across the page;
+       the order block on the right, Order # greyed */
+    painted: [
+      { label: 'Reason:', kind: 'lookup', x: 68.5, y: 6, w: 272, search: 'consult-requests' },
+      { label: 'Seen By:', kind: 'text', x: 68.5, y: 25, w: 151 },
+      { label: 'Date:', kind: 'date', x: 264.5, y: 25, w: 77, cap: { right: 259.5 } },
+      { label: "Consultant's\nDiagnosis:", kind: 'area', x: 68.5, y: 44.5, w: 254, h: 35 },
+      { label: "Consultant's Diagnosis lookup", kind: 'dots', x: 323.5, y: 44.5, w: 18, cap: false },
+      { label: 'Report:', kind: 'area', x: 68.5, y: 82.5, w: 580, h: 164 },
+      { label: 'Refer Date:', kind: 'date', x: 419.5, y: 6, w: 77, cap: { right: 414.5 } },
+      { label: 'Order #:', kind: 'lookup', x: 559.5, y: 6, w: 88, cap: { right: 554.5 }, disabled: true },
+      { label: 'Referred By:', kind: 'lookup', x: 419.5, y: 25, w: 228, cap: { right: 414.5 } },
+      { label: 'Report By:', kind: 'text', x: 419.5, y: 44, w: 128, cap: { right: 414.5 } },
+      { label: 'Date:', kind: 'date', x: 582.5, y: 44, w: 66, cap: { right: 577.5 } },
+      { label: 'Copies To:', kind: 'lookup', x: 419.5, y: 63, w: 228, cap: { right: 414.5 } },
+    ],
     /* Report — evidence/MATRIX-R0577-paper-clip */
     left: [
       { label: 'Reason:', kind: 'lookup' },
@@ -449,8 +558,9 @@ export const reportScreens: Record<string, ReportScreen> = {
   },
 }
 
-/* `Allergy / Intolerances` and its `Reaction Risks` child are the same window in
-   MOIS — clicking the folder opens the child. The tree calls the child node
+/* `Reaction Risks` is this window. (`Allergy / Intolerances` itself opens the
+   folder summary, FolderSummaryView.tsx, per the 2026-09-29 TRAINING capture;
+   the `allergy` key here is kept as the window's name.) The tree calls the child node
    `reaction`, and the shell checks `reportScreens` before `chartScreens`, so
    without this alias the child fell through to the column-only stub in
    `chartScreens.reaction` and rendered an empty grid with no review banner and
@@ -562,6 +672,30 @@ Object.assign(reportScreens, {
       { date: '2028.12.27', author: '', type: 'ENCOUNTER', note: 'CODE WHITE DRILL', s: '', m: '⇩', link: '↷', clip: '1' },
     ],
     tabs: ['Report', 'Distribution (0)'],
+    hideLinked: true,
+    /* 2026-09-29 TRAINING capture (set 3) c31, chart 2429: a 20px pitch, the
+       coded right-hand fields drop-downs, Order # greyed with its "…",
+       Transcribed three boxes, Comment across both columns */
+    painted: [
+      { label: 'Note:', kind: 'text', x: 91.5, y: 5, w: 280 },
+      { label: 'Order #:', kind: 'lookup', x: 548.5, y: 5, w: 98.5, cap: { right: 544.5 }, disabled: true },
+      { label: 'Attending:', kind: 'lookup', x: 91.5, y: 25, w: 280 },
+      { label: 'Source Venue:', kind: 'combo', x: 455.5, y: 25, w: 192, cap: { right: 450.5 } },
+      { label: 'Author:', kind: 'lookup', x: 91.5, y: 45, w: 280 },
+      { label: 'Author Type:', kind: 'combo', x: 455.5, y: 45, w: 192, cap: { right: 450.5 } },
+      { label: 'Responsible Org.:', kind: 'lookup', x: 91.5, y: 65, w: 280 },
+      { label: 'Author Role:', kind: 'combo', x: 455.5, y: 65, w: 192, cap: { right: 450.5 } },
+      { label: 'Recipient:', kind: 'lookup', x: 91.5, y: 85, w: 280 },
+      { label: 'Facility:', kind: 'text', x: 455.5, y: 85, w: 191.5, cap: { right: 450.5 } },
+      { label: 'Copies To:', kind: 'lookup', x: 91.5, y: 104.5, w: 280 },
+      { label: 'Facility Ref.:', kind: 'text', x: 455.5, y: 104.5, w: 191.5, cap: { right: 450.5 } },
+      { label: 'Transcribed:', kind: 'text', x: 91.5, y: 124.5, w: 162 },
+      { label: 'Transcribed Date', kind: 'date', x: 256.5, y: 124.5, w: 72, cap: false },
+      { label: 'Transcribed Time', kind: 'time', x: 330.5, y: 124.5, w: 41, cap: false },
+      { label: 'Facility Loc.:', kind: 'text', x: 455.5, y: 124.5, w: 191.5, cap: { right: 450.5 } },
+      { label: 'Service Event:', kind: 'lookup', x: 91.5, y: 144.5, w: 280 },
+      { label: 'Comment:', kind: 'area', x: 91.5, y: 164.5, w: 555.5, h: 88.5 },
+    ],
     left: [
       { label: 'Note:', kind: 'text', w: 320, value: 'INTEGRATED PRIMARY COMMUNITY CARE SERVIC…' },
       { label: 'Attending:', kind: 'lookup', w: 320 },
@@ -609,6 +743,8 @@ Object.assign(reportScreens, {
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 7, w: '100%', value: 'Saw last year.' }],
     right: [],
+    /* set 3 c02: the Family Hx layout — caption at the margin, one wide box */
+    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115 }],
     created: '2025.02.26  13:59  (RN) FLYNN, DEREK',
   },
 
@@ -617,10 +753,11 @@ Object.assign(reportScreens, {
     title: 'Family Hx',
     commands: SIMPLE, disabled: DIS, plain: true,
     columns: [
-      { key: 'chart', header: 'Chart', width: 86, align: 'center' },
+      /* widths read off the 2026-09-29 TRAINING capture c15 */
+      { key: 'chart', header: 'Chart', width: 65, align: 'center' },
       dots('d1'),
-      { key: 'name', header: 'Name', width: 160, align: 'center' },
-      { key: 'relationship', header: 'Relationship', width: 120, align: 'center' },
+      { key: 'name', header: 'Name', width: 152, align: 'center' },
+      { key: 'relationship', header: 'Relationship', width: 115, align: 'center' },
       { key: 'condition', header: 'Condition' },
       dots('d2'),
       { key: 'm', header: 'M', width: 22, align: 'center' },
@@ -636,6 +773,8 @@ Object.assign(reportScreens, {
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 6, w: '100%' }],
     right: [],
+    /* c15: the caption at the left margin, one wide box under the grid */
+    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115 }],
     created: '2025.05.07  13:53  MCKENZIE, KRISTEN',
   },
 
@@ -704,6 +843,15 @@ Object.assign(reportScreens, {
       { start: '2026.06.10', end: '', problem: 'DEVELOPMENTALLY DISABLED', rank: '-', certainty: '', severity: '', m: '', clip: '-' },
     ],
     tabs: ['Detail', 'Linked Goals', 'Medications', 'Rx History'],
+    fixedTabs: true,
+    /* set 3 c34, chart 2429 */
+    painted: [
+      { label: 'Problem Name:', kind: 'lookup', x: 100.5, y: 12, w: 347, cap: { left: 11 } },
+      { label: 'Severity System:', kind: 'combo', x: 612, y: 12, w: 176, cap: { right: 604.5 } },
+      { label: 'Severity Code:', kind: 'combo', x: 612, y: 31, w: 176, cap: { right: 604.5 } },
+      { label: 'Source:', kind: 'combo', x: 100.5, y: 50, w: 182, cap: { left: 11 } },
+      { label: 'Comment:', kind: 'area', x: 100.5, y: 69, w: 688, h: 165, cap: { left: 11 } },
+    ],
     /* evidence/MATRIX-R0833-paper-clip: a blank band sits under Problem Name */
     left: [
       { label: 'Problem Name:', kind: 'lookup', w: '100%', value: 'ASTHMA' },
@@ -738,6 +886,8 @@ Object.assign(reportScreens, {
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 7, w: '100%' }],
     right: [],
+    /* set 3 c29 */
+    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115 }],
     created: '2025.02.13  07:41  WARKENTIN, LISA',
   },
 
@@ -838,6 +988,10 @@ Object.assign(reportScreens, {
     ],
     rows: [],
     tabs: ['Detail', 'Agents', 'Reactions', 'Recommendations', 'Linked Reaction Risks'],
+    /* set 3 c13–c18: fixed 138px tabs, the strip 22px higher than the other
+       folders' so Recommendations' form fits */
+    fixedTabs: true,
+    gridHeight: 222,
     left: [
       { label: 'Onset Date:', kind: 'date', w: 92, value: '' },
       { label: 'Report Type:', kind: 'text', w: 160 },

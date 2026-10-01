@@ -145,16 +145,22 @@
   height: 7px;
   flex: none;
   border-bottom: 1px solid #000;
+  /* nine raised 2px dashes, 4px apart and centred, each a navy core with a
+     light lower-right edge, on a band shading #f2f0ee → #a5a4a1
+     (2026-09-29 TRAINING capture set 3 c34, sRGB) */
   background:
-    repeating-linear-gradient(90deg, #6a6a6a 0 1px, transparent 1px 3px)
-    center / 64px 1px no-repeat,
-    linear-gradient(180deg, #fffdfe 0%, #e4e0dd 100%);
+    repeating-linear-gradient(90deg, #26385b 0 2px, transparent 2px 4px)
+      center 2px / 34px 2px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 1px, #faf8f5 1px 2px, transparent 2px 4px)
+      calc(50% + 1px) 3px / 34px 1px no-repeat,
+    linear-gradient(180deg, #f2f0ee 0%, #dcd8d1 20%, #a5a4a1 100%);
 }
 .pb-modulebar__btn {
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 29px;
+  /* 30px with its rule: every button of c34's bar is 60 device px apart */
+  height: 30px;
   padding: 0 9px;
   border: 0;
   border-bottom: 1px solid #000;
@@ -168,7 +174,7 @@
   white-space: nowrap;
   flex: none;
 }
-.pb-modulebar__btn:last-child { border-bottom: 0; }
+.pb-modulebar__btn:last-of-type { border-bottom: 0; }
 .pb-modulebar__btn:hover {
   background: linear-gradient(180deg, #ffffff 0%, #f1eeeb 48%, #dedbd8 100%);
 }
@@ -176,3 +182,31 @@
 .pb-modulebar__btn.is-active:hover { background: #d4d3d8; }
 
 .pb-modulebar__icon { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
+
+/* MOIS's own module icons, cut from the 2026-09-29 TRAINING capture (set 3
+   c34, converted to sRGB): 2x bitmaps of the 16px originals on a 20 x 18
+   canvas, drawn at 1x so a 2x screen shows them as the capture does. */
+.pb-modicon { display: block; width: 20px; height: 18px; flex: none; background: center / 20px 18px no-repeat; }
+.pb-modulebar__icon:has(.pb-modicon) { width: 20px; height: 18px; margin: 0 -4px 0 -4.5px; }
+.pb-modicon--chart { background-image: url("./glyphs/module-chart.png"); }
+.pb-modicon--workspace { background-image: url("./glyphs/module-workspace.png"); }
+.pb-modicon--scheduler { background-image: url("./glyphs/module-scheduler.png"); }
+.pb-modicon--billing { background-image: url("./glyphs/module-billing.png"); }
+.pb-modicon--admin { background-image: url("./glyphs/module-admin.png"); }
+.pb-modicon--exchange { background-image: url("./glyphs/module-exchange.png"); }
+.pb-modicon--reports { background-image: url("./glyphs/module-reports.png"); }
+
+/* the bar's last row: the overflow chevron (» over a small ▾) at the right
+   of an empty 29px band, the buttons' white-to-#d8d4cc gradient (c34) */
+.pb-modulebar__more {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 29px;
+  padding-right: 9px;
+  border-top: 1px solid #000;
+  background: linear-gradient(180deg, #ffffff 0%, #d8d4cc 100%);
+  flex: none;
+}
+.pb-modulebar__chevron { display: flex; flex-direction: column; align-items: center; line-height: 7px; font: 700 12px/7px var(--pb-font-ui); color: #000; }
+.pb-modulebar__chevron small { font-size: 7px; line-height: 6px; }

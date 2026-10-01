@@ -16,6 +16,8 @@ const fields: Record<string, string[]> = {
   'Problem Name': ['str_problem_name'], 'Certainty': ['str_certainity'], 'Source': ['str_source'],
   'Author': ['str_author'], 'Author Role': ['str_author_role'], 'Sensitive': ['str_sensitive'],
   'Subject': ['str_type'], 'Subject Detail': ['str_preference'], 'Category': ['str_classification'],
+  /* Reaction Risks' agent line (set 3 c04): the code and the agent */
+  'Agent Code': ['str_substance_code'], 'Agent': ['str_substance'],
   'Informant': ['str_informant'], 'Observer': ['str_observer'], 'Documenter': ['str_documenter'],
 }
 export function bindReportField(f: ReportField, r?: MoisRecord): ReportField {

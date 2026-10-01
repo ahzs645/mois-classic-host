@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { isOn, useSystemSetting } from '../data/accessSettings'
 import { useChartExport } from '../data/chart-records'
 import { marDrugName } from '../data/marDrugCodes'
+import { capturedMar } from '../data/marChart2429'
+import type { ImmunizationLot } from '../data/marImmunizationLots'
 import { marOrdersFromExport, practiceOrder, type MarEvent, type MarOrder } from '../data/marOrders'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { hhmm, pad2 } from '../data/clock'
@@ -24,6 +26,7 @@ import {
   MarDeleteWindow, MarOrderWindow, MarRecordWindow, type MarKind,
 } from './MarWindows'
 import { useTickSet } from './listKit'
+import { MAR_IMMUNIZATION_INVENTORY, MarImmunizationInventoryWindow } from './MarImmunizationInventoryWindow'
 import { ChartIdentityStrip } from './patientKit'
 import { contextPoint, RowContextMenu, type ContextMenuAt } from './RowContextMenu'
 import { StageMessageBox } from './StageWindow'
@@ -63,8 +66,9 @@ import './mar.css'
      beside View, and << < > >> under the grid paging the dates.
    - With System Settings' MAR Ordering OFF, Group by Parent Order goes from
      View ▾ and the chooser keeps its four non-order choices (`0f376e75…`,
-     `a5be44cc…`, `3ba5db00…`).
-   - Record Status's "…" opens the Multi-Value Selection of the eleven
+     `a5be44cc…`, `3ba5db00…`); in v02.31.23 that chooser is c25's five
+     (Administer an Immunization added, see MarChooserWindow).
+   - Record Status's "…" opens the Multi-Value Selection of the
      statuses (`f7908f40…`); Search For filters on medication, date and
      administered by; Record Limits keeps the newest 10 / 20.
    - Maintenance ▸ Save Window Options as My Defaults (`e2d11224…`) keeps
@@ -82,6 +86,24 @@ import './mar.css'
      (screens/MarActionWindows.tsx), Dispensed at once.
    - New … routes each of the eight choices to its window; MAR Require
      Encounter = YES refuses a new record while no encounter is active.
+
+   2026-09-29 TRAINING captures c20–c23 (chart 2429, v02.31.23), measured at
+   2x (screens/mar.css has the numbers):
+   - c20 / c21: the command buttons are 94 · 103 · 94 · 94px and none is
+     greyed with nothing picked; the filter and View bands align their
+     fields at 90px and Record Limits ▾ / View ▾ at 448px; the list runs edge
+     to edge under #c1e8f8 heads with short #c3c3c3 rules; an order band
+     shades dark to light; a picked dose is #f1c2b2. Chart 2429 lists its
+     own three orders (data/marChart2429.ts) instead of the practice order.
+   - c22: Record Status "…" lists twelve statuses (NO SHOW added) with
+     Continue · Cancel (screens/MarActionWindows.tsx).
+   - c23: MAR Require Encounter's error reads "Error: No encounter record" /
+     "New records require an associated encounter record.", OK.
+   - c25 → c26 → c27: with MAR Ordering OFF the chooser is c25's five, and
+     Administer an Immunization opens the Immunization Inventory Search
+     (screens/MarImmunizationInventoryWindow.tsx) whose Select opens the
+     record with the lot's agent, lot number and dose (INFERRED sequence:
+     c27 carries c26's selected row).
 
    Anchors, beyond the kit's command/row ones: host.mois.field.mar-view,
    host.mois.field.mar-search, host.mois.field.mar-record-limits,
@@ -149,7 +171,9 @@ export function MarView() {
      a cancelled order and its doses read CANCELLED; a closed-off dose
      carries its change, and a rescheduled dose's replacement is added */
   const allOrders = useMemo<MarOrder[]>(() => {
-    const all = [...session.added, practiceOrder(), ...marOrdersFromExport(data)]
+    /* a chart whose TRAINING MAR is transcribed (data/marChart2429.ts) lists
+       that, without the stage's practice order */
+    const all = [...session.added, ...(capturedMar(patient.chart) ?? [practiceOrder(), ...marOrdersFromExport(data)])]
     return all
       .map((o) => ({
         ...o,
@@ -162,7 +186,7 @@ export function MarView() {
         ? { ...o, events: o.events.map((e) => (e.status === 'SCHEDULED' ? { ...e, status: 'CANCELLED' } : e)) }
         : o))
       .sort((a, b) => b.orderDate.localeCompare(a.orderDate))
-  }, [data, session])
+  }, [data, session, patient.chart])
 
   /* Record Status, Search For and Record Limits cut the events shown */
   const orders = useMemo<MarOrder[]>(() => {
@@ -243,6 +267,8 @@ export function MarView() {
     if (kind === 'order') win.open(MAR_ACTION_WINDOWS.newOrder)
     else if (kind === 'reschedule') win.open(MAR_ACTION_WINDOWS.reschedule)
     else if (kind === 'not-given') win.open(MAR_ACTION_WINDOWS.notGiven)
+    /* c25 → c26 → c27: an immunization starts from its lot */
+    else if (kind === 'immunization') win.open(MAR_IMMUNIZATION_INVENTORY, { choice: i })
     else win.open(MAR_WINDOWS.record, { choice: i })
   }
   /* a scheduled dose's action, from the Scheduled Record or the right-click */
@@ -342,15 +368,14 @@ export function MarView() {
               onMouseDown={() => setSel({ order: o.id })}
               onDoubleClick={() => open.flip(g.key)}
             >
-              <button type="button" className="pb-mar__box" aria-expanded={isOpen}
+              <button type="button" className="pb-expander pb-mar__box" aria-expanded={isOpen} aria-label={isOpen ? 'Collapse' : 'Expand'}
+                data-state={isOpen ? 'open' : 'shut'}
                 data-tutorial-id={`host.mois.group.mar-${pbSlug(o.med).slice(0, 40)}`}
-                onClick={() => open.flip(g.key)}>
-                {isOpen ? '−' : '+'}
-              </button>
+                onClick={() => open.flip(g.key)} />
               <span>{view === 'Group by Medication' ? '' : o.orderDate}</span>
               <span>{o.med}</span>
               <span>{view === 'Group by Medication' ? '' : o.orderBy}</span>
-              <span>{view === 'Group by Medication' ? '' : o.detail}</span>
+              <span className="pb-mar__detail">{view === 'Group by Medication' ? '' : o.detail}</span>
               <span className="pb-mar__count">({g.orders.reduce((n, x) => n + admin(x), 0)} / {events.length} records)</span>
             </div>
             {isOpen && events.map(({ e, o: x }) => (
@@ -366,9 +391,10 @@ export function MarView() {
               >
                 <span />
                 <span>{e.status}</span>
-                <span>{e.date}&nbsp;&nbsp;&nbsp;{e.time}</span>
+                <span>{e.date}</span>
+                <span>{e.time}</span>
                 <span>{e.generic}</span>
-                <span style={{ textAlign: 'right' }}>{[e.dose, e.units].filter(Boolean).join(' ')}</span>
+                <span>{[e.dose, e.units].filter(Boolean).join(' ')}</span>
               </div>
             ))}
           </Fragment>
@@ -467,6 +493,8 @@ export function MarView() {
   const recordChoice = typeof parentArgs?.choice === 'number' ? parentArgs.choice : choice
   const closes = typeof parentArgs?.closes === 'string' ? findEvent(parentArgs.closes) : null
   const rescheduling = typeof parentArgs?.event === 'string' ? findEvent(parentArgs.event) : null
+  /* the lot the Immunization Inventory Search picked (c26 → c27) */
+  const lotPick = (parentArgs?.lot ?? null) as ImmunizationLot | null
   const statusText = statuses.length ? statuses.join(', ') : ''
 
   return (
@@ -474,30 +502,31 @@ export function MarView() {
       <PBViewHeader title="Medication Administration Record" right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={[
-          { label: 'New …', onClick: startNew },
-          { label: 'Open Parent Order', disabled: !selOrder || !ordering, onClick: openOrder },
-          { label: 'Open Record', disabled: !selEvent, onClick: openRecord },
-          { label: 'Refresh', onClick: () => setRecord('') },
+          /* c20: 94 · 103 · 94 · 94 px, and none greyed with no row picked */
+          { label: 'New …', onClick: startNew, exactWidth: 94 },
+          { label: 'Open Parent Order', disabled: !ordering, onClick: openOrder, exactWidth: 103 },
+          { label: 'Open Record', onClick: openRecord, exactWidth: 94 },
+          { label: 'Refresh', onClick: () => setRecord(''), exactWidth: 94 },
         ]}
       />
       <ChartIdentityStrip />
+      {/* c20: fields at 90px, Record Limits ▾ and View ▾ both at 448px */}
       <div className="pb-mar-filter" data-tutorial-id="host.mois.group.mar-filters">
         <span>Record Status:</span>
         <div className="pb-row" style={{ gap: 0 }}>
-          <PBLookup w={480} placeholder="All…" name="mar-record-status" value={statusText} readOnly onDots={() => win.open(MAR_ACTION_WINDOWS.status)} />
+          <PBLookup w={481} placeholder="All…" name="mar-record-status" value={statusText} readOnly onDots={() => win.open(MAR_ACTION_WINDOWS.status)} />
         </div>
         <span>Search For:</span>
-        <div className="pb-row">
-          <PBInput w={266} placeholder="List for…" value={search} onChange={(e) => setSearch(e.target.value)} data-tutorial-id="host.mois.field.mar-search" />
-          <span style={{ marginLeft: 20 }}>Record Limits:</span>
-          <PBSelect w={108} value={limit} options={LIMITS} onChange={(e) => setLimit(e.target.value)} data-tutorial-id="host.mois.field.mar-record-limits" />
+        <div className="pb-mar-filter__row">
+          <PBInput w={262} placeholder="List for…" value={search} onChange={(e) => setSearch(e.target.value)} data-tutorial-id="host.mois.field.mar-search" />
+          <span className="pb-mar__label">Record Limits:</span>
+          <PBSelect w={107} value={limit} options={LIMITS} onChange={(e) => setLimit(e.target.value)} data-tutorial-id="host.mois.field.mar-record-limits" />
         </div>
       </div>
       <div className="pb-mar-viewband" data-tutorial-id="host.mois.group.mar-view">
         <PBButton bare className="pb-link" onClick={expandAll} command="expand-all">Expand All</PBButton>
         <PBButton bare className="pb-link" onClick={collapseAll} command="collapse-all">Collapse All</PBButton>
-        <span className="pb-row__spacer" style={{ flex: '1 1 auto' }} />
-        <span>View:</span>
+        <span className="pb-mar__label">View:</span>
         <PBSelect w={140} value={view} options={views} onChange={(e) => { setView(e.target.value); setGridPage(0) }} data-tutorial-id="host.mois.field.mar-view" />
         {view === 'Grid View' && (
           <span className="pb-row" style={{ gap: 10 }}>
@@ -515,10 +544,11 @@ export function MarView() {
       )}
       {shows(MAR_WINDOWS.record) && (
         <MarRecordWindow
-          key={`record-${recordChoice}-${closes?.e.id ?? 'new'}`}
+          key={`record-${recordChoice}-${closes?.e.id ?? lotPick?.lot ?? 'new'}`}
           kind={MAR_CHOICES[recordChoice]?.kind}
           action={MAR_CHOICES[recordChoice]?.action}
-          prefill={closes ? { generic: closes.e.generic, dose: closes.e.dose, units: closes.e.units, orderBy: closes.o.orderBy } : undefined}
+          prefill={closes ? { generic: closes.e.generic, dose: closes.e.dose, units: closes.e.units, orderBy: closes.o.orderBy }
+            : lotPick ? { generic: lotPick.generic, lot: lotPick.lot, dose: lotPick.size, units: lotPick.unit } : undefined}
           picked={picked}
           onLookup={lookupFrom(MAR_WINDOWS.record)}
           onClose={win.close}
@@ -674,13 +704,18 @@ export function MarView() {
           }}
         />
       )}
+      {win.is(MAR_IMMUNIZATION_INVENTORY) && (
+        <MarImmunizationInventoryWindow onClose={win.close}
+          onPick={(lot) => win.open(MAR_WINDOWS.record, { choice: typeof args.choice === 'number' ? args.choice : MAR_CHOICES.findIndex((c) => c.kind === 'immunization'), lot })} />
+      )}
       {win.is(MAR_ACTION_WINDOWS.status) && (
         <MarStatusSelectionWindow selected={statuses} onClose={win.close} onOk={(codes) => { setStatuses(codes); win.close() }} />
       )}
       {win.is(MAR_ACTION_WINDOWS.requireEncounter) && (
-        <StageMessageBox id={MAR_ACTION_WINDOWS.requireEncounter} title="MAR Require Encounter" icon="error"
+        /* 2026-09-29 TRAINING capture c23 */
+        <StageMessageBox id={MAR_ACTION_WINDOWS.requireEncounter} title="Error: No encounter record" icon="error"
           buttons={[{ label: 'OK', value: 'ok', default: true }]} onClose={win.close}>
-          A MAR record must be linked to an encounter.<br />Select an Active Encounter (Active ENC# …) before creating a new MAR record.
+          New records require an associated encounter record.
         </StageMessageBox>
       )}
     </>

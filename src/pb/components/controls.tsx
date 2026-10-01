@@ -465,7 +465,7 @@ export const PBSpacer = () => <span className="pb-row__spacer" />
    (pb/popup), so a clipping ancestor — the frame, a scrolling DataWindow —
    never cuts it off.                                                      */
 export function PBDropDownDataWindow<T extends Record<string, any>>({
-  columns, rows, value, display, onSelect, w, listW, disabled, tutorialId,
+  columns, rows, value, display, onSelect, w, listW, disabled, tutorialId, autoOpen, wrap,
 }: {
   /* a DDDW column paints its own cell when it has to: the visit-code list
      fills the slot-count cell with the colour the day book books it in */
@@ -486,6 +486,12 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
   /* stamped on the input, not a wrapper — `clickAnchor` has to reach the
      control itself for a replayed step to open the list */
   tutorialId?: string
+  /** take focus, and so drop the list, as soon as it mounts — a grid cell
+      put into edit by a click (Who Lives with Me, Measures' Flag / Status) */
+  autoOpen?: boolean
+  /** let a long Description run to a second line and grow its row (the
+      Measures Status list, 2026-09-29 TRAINING capture c07) */
+  wrap?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState(value ?? '')
@@ -497,6 +503,10 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
   /* the field follows an externally set value — the frame owns "Daybook For",
      so a replayed pick has to show in the field as well as in the day */
   useEffect(() => { if (value !== undefined) setText(value) }, [value])
+  useEffect(() => {
+    if (autoOpen) ref.current?.querySelector('input')?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -534,7 +544,7 @@ export function PBDropDownDataWindow<T extends Record<string, any>>({
       </button>
 
       {open && (
-        <PBPopup id={listId} anchorRef={ref} owner={owner} className="pb-dddw__list" minWidth={listW ?? 'anchor'}>
+        <PBPopup id={listId} anchorRef={ref} owner={owner} className={wrap ? 'pb-dddw__list pb-dddw__list--wrap' : 'pb-dddw__list'} minWidth={listW ?? 'anchor'}>
           {/* a listbox, so a guided tutorial step lets a click on a row through */}
           <table className="pb-dddw__table" role="listbox">
             <thead>

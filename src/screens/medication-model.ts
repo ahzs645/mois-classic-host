@@ -75,7 +75,9 @@ const EMPTY: MedSession = {
 }
 
 const dot = (v?: string) => (v ? v.split(' ')[0]!.replace(/\//g, '.') : '')
-const stampOf = (date?: string, user?: string) => [date?.replace(/\//g, '.').replace(/:\d\d$/, ''), user].filter(Boolean).join('  ')
+/* drops the seconds of an `HH:MM:SS` stamp only — a stamp already written
+   `HH:MM` (charts/captured-*.ts) keeps its minutes */
+const stampOf = (date?: string, user?: string) => [date?.replace(/\//g, '.').replace(/(\d\d:\d\d):\d\d$/, '$1'), user].filter(Boolean).join('  ')
 
 /** An export prescription, or long-term medication (tdt_medication_lt: its
     own id, dtm_start / dtm_end), as the folder's row. */

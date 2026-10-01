@@ -5,7 +5,8 @@
    worth of rows written to match a capture. A chart in here is different —
    every screen reads the same exported record set, so the encounters, the
    measures, the medications and the documents all belong to one person and
-   agree with each other.
+   agree with each other. Charts 2429, 3924 and 3598 have no export; theirs
+   are transcribed from TRAINING captures (captured.ts) in the same shape.
 
    The records are imported lazily and the demographics are not. Listing the
    patient in the roster needs the name and birth date on every load; the
@@ -23,11 +24,19 @@ import type { MoisChartExport, MoisRecord } from './types'
 /** demographics for every exported chart — always loaded, small */
 export const chartSummaries: Record<string, MoisRecord> = {
   [chart87288Summary.num_chart ?? '87288']: chart87288Summary,
+  /* charts transcribed from TRAINING captures (captured.ts): the export
+     carries the chart number only — their demographics are patients.ts's */
+  '2429': { num_chart: '2429' },
+  '3924': { num_chart: '3924' },
+  '3598': { num_chart: '3598' },
 }
 
 const loaders: Record<string, () => Promise<MoisChartExport>> = {
   [chart87288Summary.num_chart ?? '87288']: () =>
     import('./chart-87288').then((m) => withTrainingRecords('87288', m.chart87288)),
+  '2429': () => import('./captured-2429').then((m) => m.captured2429),
+  '3924': () => import('./captured-3924').then((m) => m.captured3924),
+  '3598': () => import('./captured-3598').then((m) => m.captured3598),
 }
 
 /** resolved exports, so a chart is fetched once per session */

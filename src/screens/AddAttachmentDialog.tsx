@@ -7,12 +7,12 @@ import { useOpenWindow } from './areaWindowRegistry'
 import { AttachmentListWindow, useAttachmentLog } from './AttachmentListWindow'
 import { PHSA_EFORM_WINDOW, phsaFormFor } from './PhsaEformWindows'
 import {
-  AFTER_ATTACHING, ATTACH_FILE_MODES, FORM_LETTER_GROUPS, FORM_LETTER_WIDTHS,
-  formLetterRows,
+  AFTER_ATTACHING, ATTACH_FILE_MODES,
   type AttachFileMode, type AttachFileRow, type FormLetterRow
 } from '../data/chartUtilities'
+import { DEFAULT_RECENT_LIMIT, attachFormRowsFor } from '../data/attachFormLetters'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBSpinner,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect,
   PBTabs, pbSlug,
 } from '../pb'
 import { ModalWindow } from './dialogKit'
@@ -37,6 +37,18 @@ import { useTickSet } from './listKit'
    divided down. The XP-era build `303803 / 22f5f74485c3` labels the second
    tab `Attach File` (singular); the current build's plural is used here.
 
+   2026-09-29 TRAINING capture c09 (chart 3924, Attachment on a chart report
+   folder, 2x) is the reference for the window as it stands now: 934x732
+   with a 29px title bar; the tab strip 23 tall, 5px in and 5px down, both
+   captions bold on 125px tabs; one #656565 frame round the band, the filter
+   row and the grid; a heart in the filter row's first cell and on every
+   row; the recent list at 0, so the grid opens on FORMS; the ruleless 22px
+   grid, zebra from the first row, the current row's `>` in the heart cell;
+   and the bottom bar's 17px combo box and 22px buttons. Its rows are in
+   data/attachFormLetters.ts. c09 shows the recent-list box without spin
+   arrows, so it is a plain box here. Tab B is not in c09 and is unchanged
+   apart from the shared strip and page.
+
    Gaps left deliberately (spec §13): the `Select Form / Letter` and
    `Letter Setup` dialogs named in `303790` step 4a were never captured, the
    Attach Form / Letter grid has no column-title cells anywhere in the corpus
@@ -58,19 +70,66 @@ import { useTickSet } from './listKit'
      associated with the Active Encounter selected").
    ========================================================================= */
 
-const W = 930
-const H = 731
-const TITLEBAR_H = 27
-
-/** capture y → client y */
-const y = (captureY: number) => captureY - 161
+const W = 934
+const H = 732
+const TITLEBAR_H = 29
+/** c09: the tab page's bottom edge to the window's bottom border */
+const BAR_H = 55
 
 const TAB_FORM = 'Attach Form / Letter'
 const TAB_FILE = 'Attach File(s)'
 
+/* --- c09 geometry ----------------------------------------------------------
+   Measured off the 2x capture, halved. One frame (1px #656565) holds the
+   band, the filter row and the grid; the grid has no column rules and no
+   tile inset, and its rows run flush at a 22px pitch. */
+const FRAME_LINE = '#656565'
+/** filter boxes: the heart cell, then one box per column, 1px apart */
+const FILTER = { heart: 24, description: 651, source: 81, docType: 76, spare: 76 }
+/** data columns: arrow + heart, then the three the capture fills; the spare
+    column (no values in any capture) takes the rest, under the spare box */
+const COLS = { heart: 23, description: 650, source: 86, docType: 76 }
+/** c09: the heart and expander grey, the band blue, the current-row salmon */
+const HEART_GREY = '#9c9c9c'
+const GROUP_BLUE = '#a9cef6'
+const CURRENT_SALMON = '#e89c84'
+const BAND_FACE = '#e0dcd7'
+
+/* The tab labels are both bold in c09, and the two tabs are the same 125px.
+   The page hangs from the strip with a #dadada hairline on its other sides. */
+const SCOPE = 'pb-add-attachment'
+const SCOPED_CSS = `
+.${SCOPE} .pb-tabs__tab { font-weight: 700; min-width: 125px; padding: 0; }
+.${SCOPE} .pb-tabs__page { border: 1px solid var(--pb-tab-line); border-top: 0; }
+.${SCOPE} .pb-attach-forms .pb-dw__table > tbody > tr.pb-dw__group td { padding-left: 12px; border-bottom: 0; }
+.${SCOPE} .pb-attach-forms .pb-dw__groupcell { gap: 3px; }
+/* the grid's text runs ~7% wider than the kit's at the same cap height */
+.${SCOPE} .pb-attach-forms .pb-dw__table > tbody > tr > td { letter-spacing: .4px; }
+`
+
+/** The favourite heart — grey on every row in c09. No kit glyph carries it. */
+function Heart({ on }: { on?: boolean }) {
+  return (
+    <svg width="10" height="9" viewBox="0 0 10 9" aria-hidden="true" style={{ display: 'block', flex: 'none' }}>
+      <path
+        d="M5 8.6 L1 4.7 A2.3 2.3 0 0 1 5 1.7 A2.3 2.3 0 0 1 9 4.7 Z"
+        /* the red of a favourited row is INFERRED: c09 has none */
+        fill={on ? '#c02020' : HEART_GREY}
+      />
+    </svg>
+  )
+}
+
+/** The current-row chevron, which c09 paints in the heart cell's left edge. */
+const ROW_ARROW = (
+  <svg width="5" height="8" viewBox="0 0 5 8" aria-hidden="true" style={{ display: 'block' }}>
+    <path d="M1 1 L3.9 4 L1 7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+)
+
 /* --- Tab A ----------------------------------------------------------------
-   One filter box per data column, sized off `c4c825549fd1`. The heart gutter
-   carries no box. There are no column-title cells: this row is the header. */
+   One filter box per data column. The heart cell carries a heart and no box.
+   There are no column-title cells: this row is the header. */
 function FilterRow() {
   const box = (key: string, width: number) => (
     <PBInput
@@ -81,12 +140,14 @@ function FilterRow() {
     />
   )
   return (
-    <div className="pb-row" style={{ gap: 2, flex: 'none', padding: '4px 0' }}>
-      <span style={{ width: FORM_LETTER_WIDTHS.favourite, flex: 'none' }} />
-      {box('description', FORM_LETTER_WIDTHS.description)}
-      {box('source', FORM_LETTER_WIDTHS.source)}
-      {box('doc-type', FORM_LETTER_WIDTHS.docType)}
-      {box('spare', FORM_LETTER_WIDTHS.spare)}
+    <div className="pb-row" style={{ gap: 1, flex: 'none', padding: '3px 0', alignItems: 'center' }}>
+      <span style={{ width: FILTER.heart - 1, flex: 'none', display: 'flex', paddingLeft: 9 }}>
+        <Heart />
+      </span>
+      {box('description', FILTER.description)}
+      {box('source', FILTER.source)}
+      {box('doc-type', FILTER.docType)}
+      {box('spare', FILTER.spare)}
     </div>
   )
 }
@@ -97,79 +158,113 @@ function AttachFormTab({ recentLimit, onRecentLimit, onPick }: {
   /** the row the cursor is on, for Ok */
   onPick?: (row: FormLetterRow | undefined) => void
 }) {
+  const rows = attachFormRowsFor(recentLimit)
   const [current, setCurrentRow] = useState(0)
-  const setCurrent = (i: number) => { setCurrentRow(i); onPick?.(formLetterRows[i]) }
+  const setCurrent = (i: number) => { setCurrentRow(i); onPick?.(rows[i]) }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  /* which rows carry the heart is not shown in any capture, so none do */
+  /* which rows carry a red heart is not shown in any capture, so none do */
   const favourites = useTickSet<string>()
 
   const key = (r: FormLetterRow) => `${r.group}:${r.description}`
   const toggleFavourite = (r: FormLetterRow) => favourites.flip(key(r))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '6px 8px 8px' }}>
-      <div style={{ ['--pb-band' as string]: '#dcd7d2', ['--pb-band-h' as string]: '21px', flex: 'none' }}>
-        <PBBand
-          right={(
-            <span className="pb-row" style={{ gap: 6 }}>
-              <span>Maximum Items in Your Recent List:</span>
-              <PBSpinner w={44} align="center" min={0} value={recentLimit} onChange={onRecentLimit} />
-            </span>
-          )}
-        >
-          Select Form / Letter
-        </PBBand>
-      </div>
-
-      <FilterRow />
-
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-        <PBDataWindow
-          rows={formLetterRows}
-          current={current}
-          onCurrentChange={setCurrent}
-          gutter={false}
-          head={false}
-          groupBy={(r) => r.group}
-          groups={FORM_LETTER_GROUPS}
-          collapsed={collapsed}
-          onCollapsedChange={setCollapsed}
-          groupTutorialId={(g) => `host.mois.group.${pbSlug(g)}`}
-          rowTutorialId={(r) => `host.mois.row.form-${pbSlug(r.description)}`}
-          columns={[
-            {
-              key: 'favourite',
-              header: '',
-              width: FORM_LETTER_WIDTHS.favourite,
-              align: 'center',
-              render: (r) => (
-                <button
-                  type="button"
-                  style={{
-                    border: 0, background: 'none', padding: 0, font: 'inherit', cursor: 'default',
-                    color: favourites.has(key(r)) ? '#c02020' : '#909090',
-                  }}
-                  onClick={() => toggleFavourite(r)}
-                  aria-label="Favourite"
-                >
-                  {favourites.has(key(r)) ? '♥' : '♡'}
-                </button>
-              ),
-            },
-            { key: 'description', header: '', width: FORM_LETTER_WIDTHS.description },
-            { key: 'source', header: '', width: FORM_LETTER_WIDTHS.source },
-            { key: 'docType', header: '', width: FORM_LETTER_WIDTHS.docType },
-            { key: 'spare', header: '', width: FORM_LETTER_WIDTHS.spare },
-          ]}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '4px 3px 6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: `1px solid ${FRAME_LINE}` }}>
+        <div
           style={{
-            flex: '1 1 auto', minWidth: 0,
-            /* the tree-grid runs a 22px pitch, and its two band rows are
-               #A6CAF0 rather than the kit's pale blue */
-            ['--pb-dw-row-h' as string]: '22px',
-            ['--pb-dw-group' as string]: '#a6caf0',
-            ['--pb-dw-row-alt' as string]: '#e6e6e6',
+            ['--pb-band' as string]: BAND_FACE, ['--pb-band-h' as string]: '21px',
+            flex: 'none', borderBottom: `1px solid ${FRAME_LINE}`,
           }}
-        />
+        >
+          <PBBand
+            right={(
+              <span className="pb-row" style={{ gap: 8, fontWeight: 400, marginRight: -2 }}>
+                <span>Maximum Items in Your Recent List:</span>
+                {/* c09 paints a plain box here, no spin arrows */}
+                <PBInput
+                  w={37}
+                  align="center"
+                  inputMode="numeric"
+                  value={String(recentLimit)}
+                  data-tutorial-id="host.mois.field.attach-recent-limit"
+                  style={{ height: 17 }}
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value.replace(/\D/g, '') || '0', 10)
+                    const limit = Number.isFinite(n) ? n : 0
+                    onRecentLimit(limit)
+                    setCurrentRow(0)
+                    onPick?.(attachFormRowsFor(limit)[0])
+                  }}
+                />
+              </span>
+            )}
+          >
+            Select Form / Letter
+          </PBBand>
+        </div>
+
+        <FilterRow />
+
+        <div className="pb-attach-forms" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+          <PBDataWindow
+            rows={rows}
+            current={current}
+            onCurrentChange={setCurrent}
+            gutter={false}
+            head={false}
+            groupBy={(r) => r.group}
+            collapsed={collapsed}
+            onCollapsedChange={setCollapsed}
+            groupTutorialId={(g) => `host.mois.group.${pbSlug(g)}`}
+            rowTutorialId={(r) => `host.mois.row.form-${pbSlug(r.description)}`}
+            /* c09 bands the rows by their place in the list: the first grey,
+               the second white, and so on (the first is under the salmon) */
+            rowFill={(_r, i) => (i % 2 === 0 ? '#e6e6e6' : '#ffffff')}
+            columns={[
+              {
+                key: 'favourite',
+                header: '',
+                width: COLS.heart,
+                render: (r, i) => (
+                  <span style={{ display: 'flex', alignItems: 'center' }}>
+                    <span style={{ width: 9, flex: 'none' }}>{i === current ? ROW_ARROW : null}</span>
+                    <button
+                      type="button"
+                      style={{ border: 0, background: 'none', padding: 0, cursor: 'default', display: 'flex' }}
+                      onClick={() => toggleFavourite(r)}
+                      aria-label="Favourite"
+                      aria-pressed={favourites.has(key(r))}
+                    >
+                      <Heart on={favourites.has(key(r))} />
+                    </button>
+                  </span>
+                ),
+              },
+              {
+                key: 'description',
+                header: '',
+                width: COLS.description,
+                /* the current row's text sits 3px further in (c09) */
+                render: (r, i) => <span style={{ paddingLeft: i === current ? 3 : 0 }}>{r.description}</span>,
+              },
+              { key: 'source', header: '', width: COLS.source },
+              { key: 'docType', header: '', width: COLS.docType },
+              { key: 'spare', header: '' },
+            ]}
+            style={{
+              flex: '1 1 auto', minWidth: 0,
+              border: 0, borderTop: `1px solid ${FRAME_LINE}`,
+              ['--pb-dw-row-h' as string]: '22px',
+              ['--pb-dw-pad-x' as string]: '2px',
+              ['--pb-dw-cell-gap' as string]: '0px',
+              ['--pb-dw-line-soft' as string]: 'transparent',
+              ['--pb-dw-line' as string]: 'transparent',
+              ['--pb-dw-group' as string]: GROUP_BLUE,
+              ['--pb-dw-select' as string]: CURRENT_SALMON,
+            }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -267,7 +362,7 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
   const { chart } = usePatient()
   const openWindow = useOpenWindow()
   const [log, setLog] = useAttachmentLog(attachTo)
-  const [picked, setPicked] = useState<FormLetterRow | undefined>(formLetterRows[0])
+  const [picked, setPicked] = useState<FormLetterRow | undefined>(() => attachFormRowsFor(DEFAULT_RECENT_LIMIT)[0])
   /* what the chart export already counts on an encounter row's paper clip */
   const exported = attachTo?.startsWith('encounter:')
     ? Number(chartRowsFor(chart, 'encounters').find((r) => `encounter:${r.id}` === attachTo)?.attach) || 0
@@ -298,7 +393,7 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
     onOk?.(after)
   }
   const [tab, setTab] = useState(TAB_FORM)
-  const [recentLimit, setRecentLimit] = useState(10)
+  const [recentLimit, setRecentLimit] = useState(DEFAULT_RECENT_LIMIT)
   const [mode, setMode] = useState<AttachFileMode>('Copy Original File(s)')
   const [after, setAfter] = useState(AFTER_ATTACHING[0])
   const [saveChoice, setSaveChoice] = useState(false)
@@ -316,25 +411,29 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
     >
       <div
         data-tutorial-id="host.mois.dialog.add-attachment"
+        className={SCOPE}
         style={{
           display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0,
           background: 'var(--pb-face)',
-          /* the tab strip is 32 tall here, not the chart windows' 24 */
-          ['--pb-tabstrip-h' as string]: '32px',
+          /* c09: the strip stands 5px under the title bar and 5px in from
+             either side, and is 23 tall (the selected tab; the other 21) */
+          padding: '5px 5px 0',
+          ['--pb-tabstrip-h' as string]: '23px',
         }}
       >
+        <style>{SCOPED_CSS}</style>
         <PBTabs tabs={[TAB_FORM, TAB_FILE]} active={tab} onChange={setTab} face>
           {tab === TAB_FORM
             ? <AttachFormTab recentLimit={recentLimit} onRecentLimit={setRecentLimit} onPick={setPicked} />
             : <AttachFileTab mode={mode} onMode={setMode} />}
         </PBTabs>
 
-        {/* --- the window's bottom bar, outside both tabs --- */}
-        <div style={{ position: 'relative', flex: 'none', height: y(863) - y(809) }}>
-          <span className="pb-form__label" style={{ position: 'absolute', left: 0, top: 10 }}>
+        {/* --- the window's bottom bar, outside both tabs (c09) --- */}
+        <div style={{ position: 'relative', flex: 'none', height: BAR_H, margin: '0 -5px' }}>
+          <span className="pb-form__label" style={{ position: 'absolute', left: 5, top: 11 }}>
             After Attaching:
           </span>
-          <span style={{ position: 'absolute', left: 84, top: 8 }}>
+          <span style={{ position: 'absolute', left: 84, top: 10, ['--pb-row-h' as string]: '17px' }}>
             <PBSelect
               w={163}
               options={AFTER_ATTACHING}
@@ -343,21 +442,21 @@ export function AddAttachmentDialog({ onOk, onClose, target }: {
               onChange={(e) => setAfter(e.target.value)}
             />
           </span>
-          <span style={{ position: 'absolute', left: 87, top: 29 }}>
+          <span style={{ position: 'absolute', left: 85, top: 26 }}>
             <PBCheckbox label="Save Choice" checked={saveChoice} onChange={setSaveChoice} />
           </span>
-          <span style={{ position: 'absolute', left: 382, top: 14 }}>
+          <span style={{ position: 'absolute', left: 382, top: 17 }}>
             <PBButton
-              style={{ width: 75, height: 25, minWidth: 0 }}
+              style={{ width: 75, height: 22, minWidth: 0 }}
               command="add-attachment-ok"
               onClick={file}
             >
               Ok
             </PBButton>
           </span>
-          <span style={{ position: 'absolute', left: 462, top: 14 }}>
+          <span style={{ position: 'absolute', left: 462, top: 17 }}>
             <PBButton
-              style={{ width: 75, height: 25, minWidth: 0 }}
+              style={{ width: 75, height: 22, minWidth: 0 }}
               command="add-attachment-cancel"
               onClick={onClose}
             >

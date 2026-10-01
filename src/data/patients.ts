@@ -361,7 +361,13 @@ export const patients: Patient[] = [
   },
   /* chart block read off `reference/patient-summary-3598.png`: MOIS prints
      this chart's insurance and health numbers in groups of three */
-  { chart: '3598', status: 'A', registered: '2024.09.17',  last: 'AADAMS',   first: 'PATCH',  middle: 'HARRY',      dob: '1993.05.12', gender: 'M', home: '259.876.5678', cell: '778999666', insurance: '9876 588 666', insuranceBy: 'BC', dep: '00', bchn: '9876 588 666' },
+  { chart: '3598', status: 'A', registered: '2024.09.17',  last: 'AADAMS',   first: 'PATCH',  middle: 'HARRY',      dob: '1993.05.12', gender: 'M', home: '259.876.5678', cell: '778999666', insurance: '9876 588 666', insuranceBy: 'BC', dep: '00', bchn: '9876 588 666',
+    /* contact block read off the 2026-09-29 Determinants of Health ▸ Housing
+       capture ("Contact Information as per Demographics") */
+    address: 'P.O. BOX 12345', address2: '123 HOME STREET', city: 'QUESNEL', province: 'BC', postal: 'V2M 3T3', country: 'Canada', preferredPhone: 'Home',
+    /* the summary capture's DEMOGRAPHICS band: ETHNICITY  FIRST NATIONS (who
+       reported it is not captured) */
+    ethnicity: { self: { race: 'FIRST NATIONS' } } },
   {
     /* `reference/patient-summary-3924.png` is the newest capture of this chart
        and the one the emulator opens on, so its chart block is the authority:
@@ -370,6 +376,9 @@ export const patients: Patient[] = [
        is the same chart earlier in its life, not a second reading. */
     chart: '3924', status: 'A', registered: '2025.08.27', last: 'AADAMS', first: 'PATCH', middle: '',
     alias: 'WEBFORMS TEST', dob: '1986.12.19', gender: 'M', home: '250.765.3212',
+    /* the 2026-09-29 Determinants of Health ▸ Housing capture's contact block:
+       only the second address line, Canada and the Home preference are set */
+    address2: 'WEBFORMS TEST mtvx0yd5 1ugx', country: 'Canada', preferredPhone: 'Home',
     insurance: 'WFvx0zyo', note: 'WEBFORMS TEST mtvx0y',
     encounter: '10065087',
     reminders: [{

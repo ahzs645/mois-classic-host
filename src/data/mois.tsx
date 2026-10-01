@@ -4,9 +4,9 @@ import type { PBMenuItem } from '../pb/components/chrome'
 import { menusFor, type MenuGo, type MenuName } from './menus'
 import { CARECONNECT_ENABLED_ROW, isYes, systemSettingValue } from './systemSettings'
 import {
-  IconBasket, IconBilling, IconBook, IconCalendarGrid, IconChart, IconClock, IconEnvelope,
+  IconBasket, IconBook, IconCalendarGrid, IconClock, IconEnvelope,
   IconFolder, IconTaskCheck,
-  IconGear, IconIdCard, IconPeople, IconPlusDoc, IconReport,
+  IconIdCard, IconPeople, IconReport,
 } from '../pb'
 
 const f = (id: string, label: string, children?: PBTreeNode[]): PBTreeNode => ({
@@ -296,14 +296,17 @@ export const reportsTree: PBTreeNode[] = [
   { id: 'rp-list', label: 'Report List', icon: <IconReport /> },
 ]
 
+/* the module bar's icons are MOIS's own (pb/tree.css .pb-modicon) */
+const modIcon = (id: string) => <span className={`pb-modicon pb-modicon--${id}`} />
+
 export const modules = [
-  { id: 'chart', label: 'Patient Chart', icon: <IconIdCard /> },
-  { id: 'workspace', label: 'Workspace', icon: <IconPlusDoc /> },
-  { id: 'scheduler', label: 'Scheduler', icon: <IconCalendarGrid /> },
-  { id: 'billing', label: 'Billing', icon: <IconBilling /> },
-  { id: 'admin', label: 'Administration', icon: <IconChart /> },
-  { id: 'exchange', label: 'Data Exchange', icon: <IconGear /> },
-  { id: 'reports', label: 'Reports', icon: <IconReport /> },
+  { id: 'chart', label: 'Patient Chart', icon: modIcon('chart') },
+  { id: 'workspace', label: 'Workspace', icon: modIcon('workspace') },
+  { id: 'scheduler', label: 'Scheduler', icon: modIcon('scheduler') },
+  { id: 'billing', label: 'Billing', icon: modIcon('billing') },
+  { id: 'admin', label: 'Administration', icon: modIcon('admin') },
+  { id: 'exchange', label: 'Data Exchange', icon: modIcon('exchange') },
+  { id: 'reports', label: 'Reports', icon: modIcon('reports') },
 ]
 
 export type PBTheme = '' | 'pb-theme--flat' | 'pb-theme--classic'
@@ -323,6 +326,21 @@ export type PBTextMode = '' | 'pb-text--pixel'
 export const TEXT_MODES: { id: PBTextMode; label: string }[] = [
   { id: '', label: 'Tahoma 11 (smooth)' },
   { id: 'pb-text--pixel', label: 'Bitmap MS Sans Serif (default)' },
+]
+
+/**
+ * How the whole window is put on a high-DPI screen — a third axis. MOIS is a
+ * 96-dpi PowerBuilder program: on a Windows display set to 200% it is drawn at
+ * 1x and Windows stretches the picture to twice the size, smoothing it, which
+ * is the soft look of every 2026-09-29 TRAINING capture. `pb-scale--200`
+ * reproduces that stretch (pb/scale.css); `''` draws the window sharp, the
+ * way MOIS looks at 100%. See docs/rendering-fidelity.md.
+ */
+export type PBScaleMode = '' | 'pb-scale--200'
+
+export const SCALE_MODES: { id: PBScaleMode; label: string }[] = [
+  { id: 'pb-scale--200', label: 'Windows 200%, as captured (default)' },
+  { id: '', label: 'Windows 100% (sharp)' },
 ]
 
 type MdiLike = {
@@ -556,6 +574,7 @@ export const makeMainMenu = (
       ...THEMES.map((t) => ({ label: `Appearance: ${t.label}`, onSelect: () => setTheme(t.id) })),
       { sep: true },
       ...TEXT_MODES.map((t) => ({ label: `Text: ${t.label}`, onSelect: () => setTextMode(t.id) })),
+      ...(go?.scale ? [{ sep: true }, ...SCALE_MODES.map((m) => ({ label: `Display: ${m.label}`, onSelect: () => go.scale?.(m.id) }))] : []),
       /* emulator extra (standalone viewer only), moved off Help, which is
          MOIS's own list */
       ...(onKit ? [{ sep: true }, { label: 'UI Kit gallery…', onSelect: onKit }] : []),

@@ -63,6 +63,7 @@ export function PBDataWindow<T extends Record<string, any>>({
   empty,
   style,
   onSort,
+  stretch,
 }: {
   columns: PBColumn<T>[]
   rows: T[]
@@ -128,10 +129,14 @@ export function PBDataWindow<T extends Record<string, any>>({
       puts its "include RECON CODE 1" checkbox there (303602 `f2fa600c`).
       Omitted, the cell is empty, as before. */
   filterGutter?: ReactNode
-  /** header band: the DataWindow blue, the grey the Patient Summary uses, or
-      `false` for a grid that draws no header row at all (the Report List) */
-  head?: 'blue' | 'grey' | false
-  empty?: ReactNode
+  /** header band: the DataWindow blue, the grey the Patient Summary uses,
+      `caption` for the soft grey captions of a chart window's status panel
+      (Determinants of Health), or `false` for a grid that draws no header
+      row at all (the Report List) */
+  head?: 'blue' | 'grey' | 'caption' | false
+  /** what an empty grid says; `false` paints nothing, the way a MOIS history
+      grid with no rows is just its white body */
+  empty?: ReactNode | false
   style?: CSSProperties
   /**
    * Opt-in column sorting: a click on a column title calls this with the
@@ -140,6 +145,15 @@ export function PBDataWindow<T extends Record<string, any>>({
    * Each title is anchored `host.mois.sort.{key}` and reports `host.mois.sort`.
    */
   onSort?: (key: string) => void
+  /**
+   * A DataWindow never stretches its columns. When every column has a painted
+   * width and they come to less than the window, the header band and the rows
+   * stop at the last column and the run past it is the grid's own white
+   * (2026-09-29 TRAINING capture c24, the Encounter List). So a grid whose
+   * columns are all sized keeps their sum; `stretch` opts back into filling
+   * the width. A grid with an unsized column fills with that column, as before.
+   */
+  stretch?: boolean
 }) {
   const [internal, setInternal] = useState(0)
   const [ownCollapsed, setOwnCollapsed] = useState<Set<string>>(new Set())
@@ -149,6 +163,10 @@ export function PBDataWindow<T extends Record<string, any>>({
   const sortHost = usePBInstrumentation()
 
   const span = columns.length + (gutter ? 1 : 0)
+  const sized = columns.map((c) => (typeof c.width === 'number' ? c.width : c.width === undefined && c.dots ? 16 : null))
+  const natural: CSSProperties | undefined = !stretch && sized.every((w) => w !== null)
+    ? { width: `calc(${gutter ? 'var(--pb-dw-gutter-width, 13px) + ' : ''}${sized.reduce<number>((a, w) => a + (w ?? 0), 0)}px)` }
+    : undefined
 
   /* Bands with no rows behind them. They are emitted just before the next
      band that does have rows, so the painted order is `groups`, not the
@@ -223,12 +241,13 @@ export function PBDataWindow<T extends Record<string, any>>({
         rules === false && 'pb-dw--norules',
         rules === 'white' && 'pb-dw--rules-white',
         head === 'grey' && 'pb-dw--head-grey',
+        head === 'caption' && 'pb-dw--head-caption',
         hscroll && 'pb-dw--hscroll',
       )}
       style={style}
     >
       <div className="pb-dw__scroll">
-        <table className="pb-dw__table">
+        <table className="pb-dw__table" style={natural}>
           <colgroup>
             {gutter && <col style={{ width: 'var(--pb-dw-gutter-width, 13px)' }} />}
             {columns.map((c) => <col key={c.key} style={{ width: c.width ?? (c.dots ? 16 : undefined) }} />)}
@@ -266,7 +285,7 @@ export function PBDataWindow<T extends Record<string, any>>({
           </thead>
           )}
           <tbody>
-            {rows.length === 0 && !groups?.length && (
+            {rows.length === 0 && !groups?.length && empty !== false && (
               <tr>
                 <td colSpan={columns.length + (gutter ? 1 : 0)} style={{ height: 'auto', borderRight: 0 }}>
                   <div className="pb-dw__empty">{empty ?? 'No rows retrieved.'}</div>
@@ -344,7 +363,7 @@ export function PBDataWindow<T extends Record<string, any>>({
    PBTabs
    ======================================================================== */
 export function PBTabs({
-  tabs, active, onChange, compact, justified, face, boldSelected = true, children,
+  tabs, active, onChange, compact, justified, face, boldSelected = true, tabPad, children,
 }: {
   tabs: string[]
   active: string
@@ -357,12 +376,16 @@ export function PBTabs({
   face?: boolean
   /** PB's `boldselectedtext`. On everywhere in the source material but Demographics. */
   boldSelected?: boolean
+  /** a caption-sized tab's padding either side, when a capture measures one
+      other than compact's 5px (Determinants of Health: 9px) */
+  tabPad?: number
   children: ReactNode
 }) {
   const host = usePBInstrumentation()
   return (
     <div className="pb-tabs">
       <div
+        style={tabPad === undefined ? undefined : { ['--pb-tab-pad' as string]: `${tabPad}px` }}
         className={cx(
           'pb-tabs__strip',
           compact && 'pb-tabs__strip--compact',
@@ -520,6 +543,10 @@ export function PBModuleBar({
           {m.label}
         </button>
       ))}
+      {/* the overflow row: MOIS shows it under the last module (c34) */}
+      <div className="pb-modulebar__more" aria-hidden="true">
+        <span className="pb-modulebar__chevron">»<small>▼</small></span>
+      </div>
     </div>
   )
 }

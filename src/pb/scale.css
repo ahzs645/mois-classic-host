@@ -1,0 +1,15 @@
+/* ============================================================================
+   pb/scale — the Windows 200% stretch (pb/scale.tsx, data/mois.tsx).
+   Only a 2x screen can show it: the kernel steps one device pixel, and a
+   bilinear 2x stretch is that kernel only when a CSS px is two device px.
+   ========================================================================= */
+.pb-scale-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+/* Filtered per top-level child of the desktop — the frame, each dialog layer,
+   each dropped list — so nothing is filtered twice. (A backdrop-filter
+   overlay was tried first: Chromium mirrors the backdrop it samples, which
+   painted reversed copies of the menu bar and tree.) */
+@media (resolution: 2dppx) {
+  .pb-root.pb-scale--200 .pb-desktop > :not(.pb-scale-defs) {
+    filter: url(#pb-dpi-stretch-200);
+  }
+}

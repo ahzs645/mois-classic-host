@@ -18,8 +18,11 @@ import { MoisClassicShell } from './host/MoisClassicShell'
    movable, resizable and maximisable from there, as the real one is.
    ========================================================================= */
 
-/** The window size both Patient Summary captures were taken at. */
-const WINDOW = { width: 1000, height: 736 }
+/** The window size the 2026-09-29 TRAINING captures were taken at: 1004 x
+    744, the frame edge to edge and the title bar's top to the status bar's
+    foot (set 3 c34, 2008 x 1490 at 2x). The older Patient Summary captures
+    were 1000 x 736. */
+const WINDOW = { width: 1004, height: 744 }
 
 export default function App() {
   return (

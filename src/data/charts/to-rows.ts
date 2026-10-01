@@ -84,7 +84,12 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       onset: d(r.dtm_start),
       tilde: '',
       type: r.str_intolerance_type ?? '',
-      category: tick(r.str_is_drug),
+      /* the box is "Drug Category or Non-Drug Agent" (its tip, set 3 c09), so
+         it is ticked when the agent is NOT a specific drug: `str_is_drug` N.
+         Set 3 c04 ticks it on two FOOD ALLERGY agents; 87288's PENICILLIN
+         category record is N; the Adverse Events agent block reads the same
+         column the same way (AdverseEventWindows `eventAgents`). */
+      category: r.str_is_drug === 'N' ? '\u2713' : '',
       code: r.str_substance_code ?? '',
       agent: r.str_substance ?? '',
       reactions: r.str_reactions ?? r.str_reaction ?? '',

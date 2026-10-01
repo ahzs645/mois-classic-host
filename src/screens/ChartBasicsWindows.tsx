@@ -185,8 +185,9 @@ export function DesktopProviderField({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       title="Change Desktop Provider (Alt+D)"
       style={{
-        width: 210, height: 17, padding: '0 4px', textAlign: 'left', font: 'inherit', color: 'inherit',
-        background: 'var(--pb-yellow)', border: '1px solid var(--pb-border)', cursor: 'default',
+        /* c34: 216 x 16.5, a light sunken edge (#adafb5) with no dark top */
+        width: 216, height: 16.5, padding: '0 4px', textAlign: 'left', font: 'inherit', color: 'inherit',
+        background: '#ffffc0', border: '1px solid #adafb5', borderTopColor: '#e6e6e0', cursor: 'default',
       }}
     >
       {desktop.provider}

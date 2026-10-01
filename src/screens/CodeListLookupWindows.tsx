@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { PBButton, PBDataWindow, PBInput, pbSlug } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
@@ -7,7 +7,7 @@ import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
 import { ModalWindow } from './dialogKit'
 import { DialogFooter } from './formKit'
-import { LookupBand, LookupPager, usePagedCursor } from './lookupKit'
+import { LookupBand, LookupPager, SALMON, usePagedCursor } from './lookupKit'
 import { matchesSearch, parseSearch, type SearchField } from './SearchForBand'
 
 /* ============================================================================
@@ -37,9 +37,21 @@ import { matchesSearch, parseSearch, type SearchField } from './SearchForBand'
      searchable at once. (MOIS offers the link only to users with access to
      Administration ▸ Prompt Lists; the practice user has it.)
 
-   The six agents are the capture's own; the rest are INFERRED common reaction
-   agents so a filter has something to narrow. Codes are the capture's where
-   it prints one, otherwise the stage's.
+   2026-09-29 TRAINING capture c10 (v02.31, opened from a New Adverse
+   Event agent's "…", chart 2429), which wins where the v02.20 article
+   differs: a 676 × 663 window; the flat band-grey "Master Reaction Agent
+   List" band (20) with no Row Count while nothing is searched for; the
+   Search For box salmon (it holds focus, empty); a 17px gutter with the ">"
+   and Code 123 · Description 325 · Category 188.5 on white / grey banded
+   rows 19 tall, the current row salmon; the Synonyms line (34) and the memo
+   (65); Home · PgUp (white, hard-framed) · Ok · Cancel (21 apart) · PgDwn ·
+   End. The list's first 21 rows are c10's, verbatim, in its Description
+   order (ACETYLATED LANOLIN … is cut off in the capture at "WOO…" and is
+   kept as far as it reads). The article's agents that sort after ANT VENOM
+   follow them; its ACETAMINOPHEN, ACETIC ACID, ACETYLSALICYLIC ACID and
+   ANGIOTENSIN … rows are dropped, because c10 shows the list without them
+   where they would sort. Row Count shows once a search filters (the
+   article's capture, INFERRED to be the filtered state).
 
    Opened by name: `host.mois.openUtility {window: 'master-reaction-agent-list'}`.
    Anchors: host.mois.dialog.master-reaction-agent-list; host.mois.field.
@@ -52,14 +64,36 @@ import { matchesSearch, parseSearch, type SearchField } from './SearchForBand'
 
 type Agent = { code: string; description: string; category: string }
 
-const AGENTS: Agent[] = [
-  { code: '401', description: 'ACETAMINOPHEN CONTAINING COMPOUND', category: 'DRUG' },
-  { code: '199', description: 'ACETIC ACID', category: 'DRUG' },
-  { code: '40', description: 'ANGIOTENSIN CONVERTING ENZYME INHIBITOR', category: 'DRUG' },
+/** c10, verbatim and in its order */
+const C10_AGENTS: Agent[] = [
+  { code: '255885002', description: 'ABITOL', category: 'ENVIRONMENTAL' },
+  { code: '4370008', description: 'ACETONE', category: 'ENVIRONMENTAL' },
+  { code: '395922006', description: 'ACETYLATED LANOLIN ALCOHOL / SHEEP ALCOHOL / WOO', category: 'ENVIRONMENTAL' },
+  { code: '256511000', description: 'ACRYLIC', category: 'ENVIRONMENTAL' },
+  { code: '10249006', description: 'AGAR / AGAR-AGAR GUM / BENGAL GELATIN', category: 'ENVIRONMENTAL' },
+  { code: '53041004', description: 'ALCOHOL', category: 'FOOD' },
+  { code: '53527002', description: 'ALCOHOLIC DRINKS (ALCOHOL)', category: 'FOOD' },
+  { code: '227375005', description: 'ALLSPICE', category: 'FOOD' },
+  { code: '999486101000087106', description: 'ALMOND EXTRACT', category: 'FOOD' },
+  { code: '413480003', description: 'ALMOND PRODUCT', category: 'FOOD' },
+  { code: '256350002', description: 'ALMONDS', category: 'FOOD' },
+  { code: '391739009', description: 'ALOE', category: 'ENVIRONMENTAL' },
+  { code: '420963005', description: 'AMARANTH', category: 'ENVIRONMENTAL' },
+  { code: '43953005', description: 'AMMONIA', category: 'ENVIRONMENTAL' },
+  { code: '422932000', description: 'ANACARDIACEAE FAMILY NUT', category: 'FOOD' },
+  { code: '227193003', description: 'ANCHOVIES CANNED IN OIL', category: 'FOOD' },
+  { code: '17047000', description: 'ANILINE', category: 'ENVIRONMENTAL' },
+  { code: '264287008', description: 'ANIMAL DANDER', category: 'ENVIRONMENTAL' },
+  { code: '256406004', description: 'ANIMAL EPITHELIUM', category: 'ENVIRONMENTAL' },
+  { code: '57720001', description: 'ANISE OIL', category: 'FOOD' },
+  { code: '999486111000087108', description: 'ANT VENOM', category: 'FOOD' },
+]
+
+/** 304711's agents (v02.20) that sort after c10's last row; the rest INFERRED */
+const LATER_AGENTS: Agent[] = [
   { code: '308', description: 'ANTHRACENEDIONE', category: 'DRUG' },
   { code: '282', description: 'OXACEPROL DERIVATIVE', category: 'DRUG' },
   { code: '306', description: 'ZINC ACETATE', category: 'DRUG' },
-  { code: '12', description: 'ACETYLSALICYLIC ACID', category: 'DRUG' },
   { code: '57', description: 'CEPHALOSPORINS', category: 'DRUG' },
   { code: '71', description: 'CODEINE', category: 'DRUG' },
   { code: '118', description: 'HMG-COA REDUCTASE INHIBITOR', category: 'DRUG' },
@@ -69,11 +103,11 @@ const AGENTS: Agent[] = [
   { code: '530', description: 'PEANUTS', category: 'FOOD' },
   { code: '544', description: 'SHELLFISH', category: 'FOOD' },
   { code: '560', description: 'BEE STING', category: 'NON-DRUG' },
-]
+].sort((a, b) => a.description.localeCompare(b.description))
+
+const AGENTS: Agent[] = [...C10_AGENTS, ...LATER_AGENTS]
 
 const SEED_SYNONYMS: Record<string, string[]> = {
-  '40': ['ACE INHIBITOR', 'ACEI', 'AECI'],
-  '12': ['ASA', 'ASPIRIN'],
   '118': ['STATIN'],
   '203': ['PCN'],
   '251': ['SULFA'],
@@ -110,8 +144,8 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
   const pick = () => { if (row) { onPick?.(row); onClose() } }
 
   return (
-    <ModalWindow id="master-reaction-agent-list" title="Advanced Lookup Service" onClose={onClose} zIndex={95}
-      windowStyle={{ width: 'min(688px, 100%)', height: 'min(668px, 100%)' }}
+    <ModalWindow id="master-reaction-agent-list" title="Advanced Lookup Service" onClose={onClose} zIndex={95} portal="inline"
+      windowStyle={{ width: 'min(676px, 100%)', height: 'min(663px, 100%)' }}
       after={editing && row && (
         <SynonymEntry
           initial={synonyms[row.code] ?? []}
@@ -119,19 +153,23 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
           onClose={() => setEditing(false)}
         />
       )}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '16.5px 10px 0 8.5px' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #9a9a9a', background: '#fff' }}>
-          <div className="pb-row" style={{ gap: 0, background: 'linear-gradient(#ecebe8, #d8d5d0)', borderBottom: '1px solid #9a9a9a', flex: 'none' }}>
-            <b style={{ flex: '1 1 auto', padding: '3px 6px' }}>Master Reaction Agent List</b>
-            <span data-tutorial-id="host.mois.field.row-count" style={{ background: '#ffff00', padding: '3px 8px', minWidth: 130, borderLeft: '1px solid #9a9a9a' }}>Row Count = {rows.length}</span>
+          <div className="pb-row" style={{ gap: 0, height: 20, background: '#dbd7d3', borderBottom: '1px solid #686868', flex: 'none' }}>
+            <b style={{ flex: '1 1 auto', padding: '0 5px' }}>Master Reaction Agent List</b>
+            {!parsed.empty && (
+              <span data-tutorial-id="host.mois.field.row-count" style={{ background: '#ffff00', padding: '3px 8px', minWidth: 130, alignSelf: 'stretch', borderLeft: '1px solid #9a9a9a' }}>Row Count = {rows.length}</span>
+            )}
           </div>
-          <div className="pb-row" style={{ gap: 4, padding: '2px 4px', flex: 'none', background: state === 'valid' ? '#a4d86e' : state === 'invalid' ? '#ff1a1a' : undefined }}>
+          <div className="pb-row" style={{ gap: 4, height: 19.5, padding: '1px 4px 1px 3px', flex: 'none', background: state === 'valid' ? '#a4d86e' : state === 'invalid' ? '#ff1a1a' : undefined }}>
             <span style={{ color: 'var(--pb-link)' }}>Search For:</span>
-            <span className="pb-inputgroup" style={{ flex: '1 1 auto' }}>
+            <span className="pb-inputgroup" style={{ flex: '1 1 auto', height: 17 }}>
               <input
                 type="text"
                 className="pb-field"
                 value={search}
+                autoFocus
+                style={{ height: 17, background: state === 'empty' ? SALMON : undefined }}
                 onChange={(e) => { setSearch(e.target.value); setCur(0) }}
                 onKeyDown={(e) => {
                   if (e.key === 'Escape' && search) { e.preventDefault(); e.stopPropagation(); setSearch('') }
@@ -142,7 +180,7 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
               <button type="button" className="pb-inputgroup__btn pb-inputgroup__btn--dots">…</button>
             </span>
           </div>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', borderTop: '1px solid #9a9a9a', padding: '1.5px 0 0 1px' }}>
             <PBDataWindow<Agent>
               flush
               rules="white"
@@ -153,19 +191,20 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
               onSort={(key) => setSort((s) => (s && s.key === key ? { key: key as keyof Agent, desc: !s.desc } : { key: key as keyof Agent, desc: false }))}
               rowTutorialId={(r) => `host.mois.row.reaction-agent-${pbSlug(r.code)}`}
               empty="No reaction agent matches."
+              style={{ '--pb-dw-gutter-width': '17px', '--pb-dw-row-h': '19px' } as CSSProperties}
               columns={[
-                { key: 'code', header: 'Code', width: 120, headAlign: 'center' },
-                { key: 'description', header: 'Description', width: 322, headAlign: 'center' },
+                { key: 'code', header: 'Code', width: 123, headAlign: 'center' },
+                { key: 'description', header: 'Description', width: 325, headAlign: 'center' },
                 { key: 'category', header: 'Category', headAlign: 'center' },
               ]}
             />
           </div>
-          <div className="pb-row" style={{ gap: 8, padding: '2px 4px', borderTop: '1px solid #9a9a9a', flex: 'none', minHeight: 30, alignItems: 'flex-start' }}>
+          <div className="pb-row" style={{ gap: 8, padding: '2px 4px', borderTop: '1px solid #9a9a9a', flex: 'none', height: 34, alignItems: 'flex-start' }}>
             <PBButton
               bare
               command="synonyms"
               className="pb-link"
-              style={{ textDecoration: 'underline', fontWeight: 700 }}
+              style={{ textDecoration: 'underline' }}
               disabled={!row}
               onClick={() => { if (row) setEditing(true) }}
             >
@@ -173,7 +212,7 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
             </PBButton>
             <span data-tutorial-id="host.mois.field.synonyms">{row ? (synonyms[row.code] ?? []).join(', ') : ''}</span>
           </div>
-          <div style={{ borderTop: '1px solid #9a9a9a', height: 64, padding: '2px 4px', flex: 'none' }}>
+          <div style={{ borderTop: '1px solid #9a9a9a', height: 65, padding: '2px 1px', flex: 'none' }}>
             This is the master reaction agent (unfiltered) selection list
           </div>
         </div>
@@ -181,16 +220,19 @@ export function MasterReactionAgentList({ onPick, onClose }: { onPick?: (agent: 
       <LookupPager
         cursor={cursor}
         className="pb-row"
-        style={{ gap: 0, padding: '10px 8px', flex: 'none' }}
-        navSize={{ width: 77, minWidth: 0 }}
-        pickSize={{ width: 74 }}
-        pickGap={22}
+        style={{ gap: 0, padding: '12px 10px 12px 8.5px', flex: 'none' }}
+        navSize={NAV}
+        pickSize={{ width: 75, minWidth: 0, height: 21.5 }}
+        pickGap={21}
         ok={{ command: 'reaction-agent-ok', disabled: !row, onClick: pick }}
         cancel={{ command: 'reaction-agent-cancel', onClick: onClose }}
       />
     </ModalWindow>
   )
 }
+
+/** c10: Home · PgUp · PgDwn · End are white and hard-framed */
+const NAV: CSSProperties = { width: 77, minWidth: 0, height: 21.5, background: '#fff', border: '1px solid #000', marginRight: -1 }
 
 /** Synonym Entry — `ed38b1e1…`: ten numbered lines, Ok (F2) / Cancel. */
 function SynonymEntry({ initial, onOk, onClose }: { initial: string[]; onOk: (list: string[]) => void; onClose: () => void }) {

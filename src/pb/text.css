@@ -70,21 +70,28 @@
      come to 122.6. A browser's own synthesis changes no advance at all, so
      the pixel is added back here. */
   letter-spacing: 1px;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto;
 }
+/* the title is not bold (see layout.css), so it takes no smear pixel */
+.pb-root.pb-text--pixel .pb-viewhead__title { letter-spacing: 0.8px; }
 
 /* The module bar and status bar are Windows-painted too: they keep Tahoma
    (`--pb-font-ui`) and its smoothing in every mode. */
 .pb-root.pb-text--pixel .pb-modulebar,
 .pb-root.pb-text--pixel .pb-statusbar {
   word-spacing: normal;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto;
 }
 
-/* The frame is Windows 10, not PowerBuilder — it was never aliased. */
+/* The frame is Windows 10, not PowerBuilder — it was never aliased.
+   Smoothing is the platform default (`auto`), not `antialiased`: macOS's
+   antialiased mode thins the strokes, and on the 2026-09-29 TRAINING
+   captures the menu bar's ink weight measures 85.1 against 73.2 thinned and
+   85.1 at the default — the same holds for the view header, module bar and
+   status bar. */
 .pb-root.pb-text--pixel .pb-titlebar,
 .pb-root.pb-text--pixel .pb-menubar,
 .pb-root.pb-text--pixel .pb-menu,
 .pb-root.pb-text--pixel .pb-login {
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto;
 }

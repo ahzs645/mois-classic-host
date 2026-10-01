@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { useLoadedChart } from './charts'
+import { CAPTURED_EXPORT_SOURCE } from './charts/captured'
 import { patientFromExport } from './charts/to-patient'
 import { usePatientEdits } from './patient-edits'
 import {
@@ -62,8 +63,12 @@ export function PatientProvider({ chart, roster, children }: {
     /* no chart loaded — MOIS as it opens: every field blank but Dep, which
        reads 00 (`reference/patient-summary-empty.png`) */
     if (!chart) return toChartPatient(NO_CHART)
-    const found = data && data.header.source !== 'dynamic-form-preview' ? patientFromExport(data) : findPatient(chart, list)
-    const chartPatch = data?.header.source === 'dynamic-form-preview' ? {
+    /* a dynamic-form preview and a chart transcribed from TRAINING captures
+       (charts/captured.ts) carry records, not a patient: the roster keeps
+       the identity */
+    const rosterIdentity = data?.header.source === 'dynamic-form-preview' || data?.header.source === CAPTURED_EXPORT_SOURCE
+    const found = data && !rosterIdentity ? patientFromExport(data) : findPatient(chart, list)
+    const chartPatch = data && rosterIdentity ? {
       ...(data.chart.dtm_dob !== undefined ? { dob: data.chart.dtm_dob.replace(/\//g, '.') } : {}),
       ...(data.chart.str_gestation !== undefined ? { multiGestation: data.chart.str_gestation === 'Y' } : {}),
     } : {}
