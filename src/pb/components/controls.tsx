@@ -147,12 +147,14 @@ export function dispatchLearnerChange(el: HTMLElement) {
 export type PBSelectOption = string | { value: string; label: string }
 
 export function PBSelect({
-  options: entries, w, className, listClassName, style, value, defaultValue, onChange, onKeyDown, onClick, onMouseDown, onBlur, disabled, ...rest
+  options: entries, w, className, listClassName, listStyle, style, value, defaultValue, onChange, onKeyDown, onClick, onMouseDown, onBlur, disabled, ...rest
 }: SelectHTMLAttributes<HTMLSelectElement> & {
   options: readonly PBSelectOption[]
   w?: number | string
   /** a variant of the dropped list: `pb-dddw__list--dform` is a Dynamic Form's DDDW */
   listClassName?: string
+  /** DataWindow-authored list geometry; passed through the shared popup. */
+  listStyle?: CSSProperties
 }) {
   const items = entries.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
   const options = items.map((o) => o.value)
@@ -234,7 +236,7 @@ export function PBSelect({
       </button>
 
       {open && (
-        <PBPopup id={listId} anchorRef={ref} owner={owner} className={cx('pb-dddw__list', listClassName)} minWidth="anchor">
+        <PBPopup id={listId} anchorRef={ref} owner={owner} className={cx('pb-dddw__list', listClassName)} minWidth="anchor" style={listStyle}>
           <table className="pb-dddw__table" role="listbox">
             <tbody>
               {items.map((o) => (
