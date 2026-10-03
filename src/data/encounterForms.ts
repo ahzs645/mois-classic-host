@@ -87,24 +87,35 @@ export type SummaryRow = {
   detail: string
 }
 
+/* The Encounter Summary tab's bands, in the order MOIS paints them, and the
+   ones it opens collapsed. Drive Mois 2026-09-20 11.43.56 (the Encounters
+   folder's Report pane over encounter 10067296, the same summary DataWindow)
+   paints ENCOUNTER NOTES [2] open, MEASURES [1] shut, WEB FORMS [2] shut and
+   DOCUMENTS [2] open; 11.37.31 (the window's own tab, before the notes and
+   the measure were filed) paints only WEB FORMS shut and DOCUMENTS open — a
+   band with no rows is not painted at all. */
+export const ENCOUNTER_SUMMARY_BANDS = ['ENCOUNTER NOTES', 'MEASURES', 'WEB FORMS', 'DOCUMENTS'] as const
+export const ENCOUNTER_SUMMARY_SHUT: ReadonlySet<string> = new Set(['MEASURES', 'WEB FORMS'])
+
 /** MOIS shows WEB FORMS [2] collapsed and DOCUMENTS [2] open on this encounter. */
 export const encounterSummaryGroups = ['WEB FORMS', 'DOCUMENTS']
 
 export const encounterSummaryRows: SummaryRow[] = [
-  /* The same two forms are counted under both bands — once as the form that
-     was filled, once as the document it produced. The capture shows
-     `WEB FORMS [2]` collapsed, so what its rows print is unverified; they are
-     given the form's own name, which is what the Encounter Forms tab lists. */
+  /* The same two forms are counted under both bands — once as the web form
+     that was filled, once as the document it produced — and print the same
+     line under each: Drive Mois 2026-09-20 11.44.08 opens WEB FORMS on
+     `WEBFORM / REALLY IMPORTANT WEBFORM` then `WEBFORM [ JALIL, AHMAD ] /
+     Patient Context Diagnostics part 3`, the two DOCUMENTS rows of 11.37.31. */
   {
     group: 'WEB FORMS',
     date: '2026.09.16',
-    description: 'WEB FORM',
+    description: 'WEBFORM',
     detail: 'REALLY IMPORTANT WEBFORM',
   },
   {
     group: 'WEB FORMS',
     date: '2026.09.16',
-    description: 'WEB FORM',
+    description: 'WEBFORM [ JALIL, AHMAD ]',
     detail: 'Patient Context Diagnostics part 3',
   },
   {

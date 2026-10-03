@@ -273,3 +273,32 @@ export function bookedAppointment(draft: {
     { n: draft.slots.trim() || '3', resource: draft.resource ?? '' },
   )
 }
+
+/** Advanced Lookup Service ▸ Visit Reason Code List — the first page as the
+    2026-10-02 TRAINING capture lists it (Desktop 11.43.39 PM): SNOMED CT
+    concepts, alphabetical by description, each with its MOIS category. */
+export type VisitReasonCode = { code: string; description: string; category: string; system: string }
+const vr = (code: string, description: string, category: string): VisitReasonCode => ({ code, description, category, system: 'SNOMED' })
+export const VISIT_REASON_CODES: VisitReasonCode[] = [
+  vr('116289008', 'ABDOMINAL BLOATING', 'FINDING'),
+  vr('43364001', 'ABDOMINAL DISCOMFORT', 'FINDING'),
+  vr('41931001', 'ABDOMINAL DISTENSION', 'FINDING'),
+  vr('271860004', 'ABDOMINAL MASS', 'FINDING'),
+  vr('21522001', 'ABDOMINAL PAIN', 'FINDING'),
+  vr('74704000', 'ABDOMINAL PAIN THROUGH TO BACK', 'FINDING'),
+  vr('25786006', 'ABNORMAL BEHAVIOR', 'FINDING'),
+  vr('386813002', 'ABNORMAL BREATHING', 'FINDING'),
+  vr('22325002', 'ABNORMAL GAIT', 'FINDING'),
+  vr('69707008', 'ABNORMAL KERATINIZATION', 'FINDING'),
+  vr('307681002', 'ABNORMAL SPONTANEOUS EYE MOVEMENTS', 'DISORDER'),
+  vr('274708000', 'ABNORMAL SPUTUM', 'FINDING'),
+  vr('7973008', 'ABNORMAL VISION', 'FINDING'),
+  vr('399963005', 'ABRASION', 'DISORDER'),
+  vr('128477000', 'ABSCESS', 'DISORDER'),
+  vr('73452002', 'ABSCESS OF LUNG', 'DISORDER'),
+  vr('423794002', 'ABUSIVE EMOTIONAL RELATIONSHIP WITH PARTNER', 'FINDING'),
+  vr('235595009', 'ACID REFLUX', 'DISORDER'),
+  vr('11381005', 'ACNE', 'DISORDER'),
+  vr('62479008', 'ACQUIRED IMMUNE DEFICIENCY SYNDROME (AIDS)', 'AIDS'),
+  vr('10509002', 'ACUTE BRONCHITIS', 'DISORDER'),
+]

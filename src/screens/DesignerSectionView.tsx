@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio, PBSelect,
-  PBTextArea, PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
+  PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
   DESIGNER_COMMANDS, DESIGNER_COMMAND_WIDTH, designerScreen,
@@ -13,7 +13,7 @@ import { ConceptTransfer } from './ConceptTransferWindows'
 import { addConcept, conceptRow, useConcepts } from '../data/concepts'
 import { CarePlanTemplatesView } from './CarePlanTemplatesView'
 import { useScreenReport } from '../host/screen-state'
-import { DesktopLayer } from './StageWindow'
+import { LAYER, ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Administration ▸ Designer Section — the list view ("Skeleton L").
@@ -300,18 +300,15 @@ function DesignerNewRecordDialog({
   useScreenReport({ dialog: pbSlug(dialog.title) })
 
   return (
-    <DesktopLayer>
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      {/* PBWindow does not forward attributes, so the anchor rides a wrapper
-          that shrink-wraps the frame — a lesson rings the window, not the layer */}
-      <div data-tutorial-id={host?.anchor('dialog', pbSlug(dialog.title))}>
-      <PBWindow
-        child
-        controls={false}
-        title={dialog.title}
-        onClose={onClose}
-        style={{ width: dialog.w, height: dialog.h }}
-      >
+    <ModalWindow
+      title={dialog.title}
+      onClose={onClose}
+      zIndex={LAYER.workspace}
+      windowStyle={{ width: dialog.w, height: dialog.h }}
+      /* the anchor rides a wrapper that shrink-wraps the frame — a lesson
+         rings the window, not the layer */
+      wrap={{ tutorialId: host?.anchor('dialog', pbSlug(dialog.title)) }}
+    >
         {/* #51 insets the band and its fields in an outlined box, with the
             buttons under the box; the older dialogs run the band edge to edge */}
         <div style={dialog.boxed
@@ -389,9 +386,6 @@ function DesignerNewRecordDialog({
           ))}
           <span className="pb-footer__spacer" />
         </div>
-      </PBWindow>
-      </div>
-    </div>
-    </DesktopLayer>
+    </ModalWindow>
   )
 }

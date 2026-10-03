@@ -52,6 +52,9 @@ export type SchedulerState = {
   savedBills: Record<string, string>
   /** Health Issue picked for a row (F4 / the "…" beside the cell) */
   issues: Record<string, string>
+  /** Visit Reason picked for a row from the Visit Reason Code List (the
+      "…" beside the cell) — its description, the way the cell prints it */
+  reasons?: Record<string, string>
   /** rows whose encounter was saved with its note: DS reads C */
   noted: Record<string, boolean>
   /** Quick Registration wrote this chart number onto the row */
@@ -147,11 +150,13 @@ export function dayRows(s: SchedulerState, provider: string, offset: number): Da
     const status = s.statuses[row.key]
     const billed = s.billed[row.key]
     const issue = s.issues[row.key]
+    const reason = s.reasons?.[row.key]
     const chart = s.charted[row.key]
     return {
       ...row,
       as: status ?? row.as,
       ...(issue ? { issue } : {}),
+      ...(reason ? { reason } : {}),
       ...(billed ? { services: '00100', bs: 'C' } : {}),
       ...(s.noted[row.key] ? { ds: 'C' } : {}),
       ...(chart ? { chart } : {}),
@@ -332,6 +337,10 @@ export const schedulerStore = {
 
   setIssue(key: string, code: string) {
     set({ issues: { ...state().issues, [key]: code }, last: 'diagnosis' })
+  },
+
+  setReason(key: string, reason: string) {
+    set({ reasons: { ...state().reasons, [key]: reason }, last: 'visit-reason' })
   },
 
   /** Copy / Move Appointment Utility ▸ Continue */

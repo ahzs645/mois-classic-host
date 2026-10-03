@@ -7,15 +7,30 @@ import { PatientFieldRow } from './patientKit'
 import './opening-chart-reminder.css'
 
 /* Opening-chart notification, laid out from the supplied MOIS: TRAINING
-   capture. The chart identity and reminder rows come from the open chart. */
+   capture. The chart identity and reminder rows come from the open chart.
+
+   `variant="encounter"` is the same Automated Notification Service window
+   when an Encounter Detail Window opens on a chart with a reminder due:
+   only the heading changes, to "Reminder: Opening Encounter Detail" (Drive
+   Mois 2026-09-21 4.38.59 PM, chart 3924 — otherwise identical to the
+   Opening Chart capture; Desktop 2026-10-02 11.43.48 PM, chart 3424).
+   The 10-02 capture also shows how rows without a note print: regular
+   weight, no "SEE NOTE BELOW", red only while due (the not-yet-due rows are
+   black), on the DataWindow zebra. A row with a note keeps the bold red and
+   "SEE NOTE BELOW" of both 3924 captures. INFERRED: what makes a row red is
+   its due date having passed (the black rows' dates are not shown). */
 type Row = OpeningReminder & { stoppedNow: boolean }
 
-export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop, onClose }: {
+export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop, onClose, variant = 'chart', today }: {
   patient: Patient
   reminders: OpeningReminder[]
   stopped: ReadonlySet<string>
   onStop: (index: number, value: boolean) => void
   onClose: () => void
+  /** what is opening: the chart (the default) or an Encounter Detail Window */
+  variant?: 'chart' | 'encounter'
+  /** MOIS today, for which rows are due; omitted, every row counts as due */
+  today?: string
 }) {
   const [current, setCurrent] = useState(0)
   const rows: Row[] = reminders.map((reminder) => ({
@@ -34,12 +49,12 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
         onChange={(value) => onStop(index, value)}
       />
     ) },
-    { key: 'note', header: '', width: '18%', render: () => <strong>SEE NOTE BELOW</strong> },
+    { key: 'note', header: '', width: '18%', render: (row) => (row.note ? <strong>SEE NOTE BELOW</strong> : null) },
   ]
 
   return (
     <ModalWindow
-      id="opening-chart-reminder"
+      id={variant === 'encounter' ? 'encounter-opening-reminder' : 'opening-chart-reminder'}
       title="Automated Notification Service"
       onClose={onClose}
       windowClassName="pb-opening-reminder"
@@ -49,7 +64,7 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
         <div className="pb-opening-reminder__red">
           <div className="pb-opening-reminder__content">
             <div className="pb-opening-reminder__heading">
-              <strong>Reminder: Opening Chart</strong>
+              <strong>{variant === 'encounter' ? 'Reminder: Opening Encounter Detail' : 'Reminder: Opening Chart'}</strong>
               <strong>chart no.: {patient.chart} {patient.first} {patient.last} {reminderAge(patient.dob)} {patient.gender}</strong>
             </div>
             <PatientFieldRow layout="inline" className="pb-opening-reminder__identity" style={null} fields={[
@@ -63,10 +78,14 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
               rows={rows}
               current={current}
               onCurrentChange={setCurrent}
-              zebra={false}
+              zebra
               rules="white"
               style={{ flex: '1 1 auto', minHeight: 0, border: 0 }}
-              rowClassName={() => 'pb-opening-reminder__row'}
+              rowClassName={(row) => cx(
+                'pb-opening-reminder__row',
+                !row.note && 'pb-opening-reminder__row--plain',
+                Boolean(today) && row.due > (today ?? '') && 'pb-opening-reminder__row--later',
+              )}
             />
             <div className="pb-opening-reminder__detail-head">
               <strong>Description / Detail</strong>
@@ -85,4 +104,6 @@ export function OpeningChartReminderDialog({ patient, reminders, stopped, onStop
 /* The reminder spells the unit out — `39 YEAR OLD M` in the 3924 capture —
    where the view headers abbreviate it (`39 YR OLD`). Only the year form is
    captured, so months keep the header's `MTH`. */
+const cx = (...names: (string | false)[]) => names.filter(Boolean).join(' ')
+
 const reminderAge = (dob: string) => ageOf(dob).replace(/\bYR\b/g, 'YEAR')

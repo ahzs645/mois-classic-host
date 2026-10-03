@@ -183,7 +183,9 @@ function ChartImportWindow({ onContinue, onCancel }: { onContinue: () => void; o
     <FormLine key={k} label={k} w={70}><b>{v}</b></FormLine>
   ))
   return (
-    <ModalWindow id="chart-import" title="Chart Import" onClose={onCancel} zIndex={60}
+    /* sized to fill the work area it opens in, like a maximised sheet; kept
+       docked there until a capture shows it raised over the frame */
+    <ModalWindow portal={false} id="chart-import" title="Chart Import" onClose={onCancel} zIndex={60}
       windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, gap: 4, padding: 4 }}>
         <div className="pb-row" style={{ gap: 30, alignItems: 'flex-start', border: '1px solid #888', padding: '2px 8px 6px', flex: 'none' }}>

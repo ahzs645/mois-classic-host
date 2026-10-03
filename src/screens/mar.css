@@ -11,10 +11,10 @@
    labels 10px in, every field at 90px, Record Limits ▾ and View ▾ at 448px.
    The list runs edge to edge (no inset, no border). Heads: a #c1e8f8 →
    white gradient, 27px, with #c3c3c3 rules at 20 · 97 · 470 · 588px that
-   stop short of the top and bottom. An order is a 33px band shading from
-   #bebfc1 at the top to #f4f4f5, a #d3d3d3 dashed rule under it; its doses
-   are white 22px rows (status 22px in, date 133, time 198, medication 244,
-   dose 626), the picked one #f1c2b2. */
+   stop short of the top and bottom. An order is a 34px band (a #c8c8c8
+   top line, shading from #bfc1c3 to #f4f4f5, a #d3d3d3 dashed rule under
+   it); its doses are white 22px rows, the picked one #f2c6b8 (the column
+   offsets are on .pb-mar-event). */
 .pb-mar-filter {
   flex: none;
   background: #bee6f8;
@@ -70,9 +70,14 @@
 .pb-mar-head > span { margin-top: 4px; height: 19px; line-height: 19px; }
 .pb-mar-head > span:nth-child(n+2):not(:last-child) { border-left: 1px solid #c3c3c3; }
 .pb-mar-head .pb-mar__count { color: #8a8a8a; text-align: right; padding-right: 23px; }
+/* 2026-09-29 TRAINING c21, re-measured at 2x: band tops 56px apart with
+   one 22px dose under each, so a band is 34px — a 1px #c8c8c8 top line, the
+   32px shading and the dashed rule (c20's collapsed bands are 36px apart:
+   34 + the 2px gap) */
 .pb-mar-order {
-  height: 33px;
-  background: linear-gradient(#bebfc1, #f4f4f5);
+  height: 34px;
+  background: linear-gradient(#bfc1c3, #f4f4f5);
+  border-top: 1px solid #c8c8c8;
   border-bottom: 1px dashed #d3d3d3;
   cursor: default;
 }
@@ -81,15 +86,20 @@
 .pb-mar-order .pb-mar__detail { white-space: pre; }
 .pb-mar-order .pb-mar__count { color: #8a8a8a; text-align: right; padding-right: 17px; }
 .pb-mar-order.is-current { background: linear-gradient(#f9d3c6, #ecb6a6); }
+/* c21 at 2x, from the list's left edge: status 23.5px in, date 135, time
+   200.5, medication 247.5; the dose 183.5px short of the right edge */
 .pb-mar-event {
   display: grid;
-  grid-template-columns: 18px 111px 65px 46px 1fr 193px;
+  grid-template-columns: 19px 112px 66px 47px 1fr 186px;
   align-items: center;
   white-space: nowrap;
   height: 22px;
   cursor: default;
 }
-.pb-mar-event.is-current { background: #f1c2b2; }
+/* c21's picked dose, sampled after the capture's display profile is
+   converted to sRGB: #f2c6b8 */
+.pb-mar-event.is-current { background: #f2c6b8; }
+.pb-mar-event--last { border-bottom: 1px solid #c8c8c8; }
 .pb-mar-event--scheduled { color: #0060c0; }
 .pb-mar-event--overdue { color: #d00000; }
 .pb-mar-struck,
@@ -118,27 +128,33 @@
   border: 1px solid #828790;
 }
 .pb-mar-mvs .pb-dw { flex: none; min-height: 0; align-self: stretch; }
+/* c22: a 16px blue head between the cell gaps */
+.pb-mar-mvs .pb-dw__table > thead > tr > th { height: 18px; }
 /* c22: Code and Description caption at the left (the kit centres them) */
 .pb-mar-mvs .pb-dw__table > thead > tr > th:nth-child(n+3) { text-align: left; padding-left: 6px; }
-/* Immunization Inventory Search (c26): two bordered boxes, each under its
-   band; labels 15px in, fields 101px in, 20px apart; the grid's first
-   three captions sit 10px into their columns */
+/* Immunization Inventory Search (c26, re-measured at 2x): two boxes ruled
+   #666 (#676768 under each 25px band); labels 13px in, fields 100px in,
+   17px tall and 20px apart with 9px above and below; a 21px grid head; the
+   grid's first three captions sit 10px further in than their cells' text */
 .pb-mar-lots__box {
   display: flex;
   flex-direction: column;
-  border: 1px solid #a0a0a0;
+  border: 1px solid #666;
   background: var(--pb-face);
+  --pb-band-h: 25px;
 }
+.pb-mar-lots__box > .pb-band { border-bottom: 1px solid #676768; }
 .pb-mar-lots__search {
   display: grid;
   grid-template-columns: 86px 1fr;
-  gap: 4px 0;
+  gap: 3px 0;
   align-items: center;
-  padding: 9px 0 8px 15px;
+  padding: 9px 0 9px 13px;
 }
-.pb-mar-lots__search .pb-field { height: 16px; }
+.pb-mar-lots__search .pb-field { height: 17px; }
+.pb-mar-lots__box .pb-dw__table > thead > tr > th { height: 21px; }
 .pb-mar-lots__tick { position: absolute; top: 0; white-space: nowrap; }
-.pb-mar-lots__box .pb-dw__table > thead > tr > th:nth-child(-n+4):not(:first-child) { text-align: left; padding-left: 10px; }
+.pb-mar-lots__box .pb-dw__table > thead > tr > th:nth-child(-n+4):not(:first-child) { text-align: left; padding-left: 14px; }
 /* the Medication Administration Record window (c27): every control is
    placed at the capture's position over the whole body, banner included */
 .pb-mar-rec { position: absolute; inset: 0; pointer-events: none; }
@@ -162,3 +178,37 @@
 .pb-mar-list--bymed .pb-mar-order .pb-mar__name { padding-left: 4px; }
 .pb-mar-list--bymed .pb-mar-order .pb-mar__count { text-align: left; padding: 0 0 0 4px; }
 .pb-mar-list--bymed .pb-mar__box { justify-self: end; margin-right: 0; }
+
+/* --- the windows' button strips, measured at 2x on the 2026-09-29 TRAINING
+   captures from each window's outer edge. FooterButton has no size props
+   (a kit-prop candidate), so the strips are sized here, scoped by the
+   window's anchor. */
+/* c25: the five-choice chooser — a 54px strip, Continue (F2) 161px in
+   (84 × 24), Cancel 14px after it (82 × 24) */
+[data-tutorial-id="host.mois.dialog.mar-new"]:has(.pb-mar-c25) .pb-footer {
+  height: 54px; box-sizing: border-box; padding: 0 0 0 160px; gap: 14px;
+}
+[data-tutorial-id="host.mois.dialog.mar-new"]:has(.pb-mar-c25) .pb-footer .pb-btn { height: 24px; padding: 0; width: 84px; }
+[data-tutorial-id="host.mois.dialog.mar-new"]:has(.pb-mar-c25) .pb-footer .pb-btn + .pb-btn { width: 82px; }
+/* c22: Multi-Value Selection — a 47px strip, Continue 169px in and Cancel
+   9px after it, both 74 × 22 */
+[data-tutorial-id="host.mois.dialog.mar-record-status"] .pb-footer {
+  height: 47px; box-sizing: border-box; padding: 9px 0 0 168px; gap: 9px; align-items: flex-start;
+}
+[data-tutorial-id="host.mois.dialog.mar-record-status"] .pb-footer .pb-btn { height: 22px; padding: 0; width: 74px; }
+/* c26: Immunization Inventory Search — a 40px strip under the list's box,
+   Select 436px in and Cancel 9px after it, both 75 × 21 (the pair sits
+   right of centre) */
+[data-tutorial-id="host.mois.dialog.mar-immunization-inventory"] .pb-footer {
+  height: 40px; box-sizing: border-box; padding: 0 0 2px 435px; gap: 9px;
+}
+[data-tutorial-id="host.mois.dialog.mar-immunization-inventory"] .pb-footer .pb-btn { height: 21px; padding: 0; width: 75px; }
+/* c27: the new record — a #6a6a6a line over a 47px strip; Save and
+   Duplicate 8px in (114 wide), Save and Close (88) and Cancel (89) 6px
+   apart ending 7px short of the right edge, all 23px tall */
+[data-tutorial-id="host.mois.dialog.mar-record"] .pb-footer {
+  height: 48px; box-sizing: border-box; border-top: 1px solid #6a6a6a; padding: 0 6px 0 7px; gap: 6px;
+}
+[data-tutorial-id="host.mois.dialog.mar-record"] .pb-footer .pb-btn { height: 23px; padding: 0; width: 88px; }
+[data-tutorial-id="host.mois.dialog.mar-record"] .pb-footer .pb-btn:first-child { width: 114px; }
+[data-tutorial-id="host.mois.dialog.mar-record"] .pb-footer .pb-btn:last-child { width: 89px; }

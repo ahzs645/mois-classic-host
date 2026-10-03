@@ -213,7 +213,10 @@ export function UserSearchWindow({ initial, onPick, onClose }: {
           { label: 'Inactive', checked: inactive, onChange: (v) => { setInactive(v); setCur(0) }, tutorialId: 'host.mois.field.status-inactive' },
         ],
       }}
-      gridBox={{ ...GRID_BOX, margin: '6px 8px 0', border: '1px solid #8a8a8a', background: '#fff' }}
+      /* 2026-10-02 TRAINING capture: rows pitch 20.5 capture px (÷ 1.14 =
+         18), tighter than the kit's 20; the captions sit left in their
+         columns, Status's centred */
+      gridBox={{ ...GRID_BOX, margin: '6px 8px 0', border: '1px solid #8a8a8a', background: '#fff', ['--pb-dw-row-h' as string]: '18px' }}
       grid={{
         rows,
         current,

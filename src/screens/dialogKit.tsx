@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useReportDialog } from '../host/screen-windows'
-import { PBWindow } from '../pb'
+import { PBRaisedFrom, PBWindow, usePBDesktop, usePBLayerZ } from '../pb'
 
 /* ============================================================================
    The one modal window every screen's dialogs are drawn with.
@@ -45,20 +45,31 @@ export const LAYER = {
      'parent'  portal into the probe's parent instead (DemographicModal)   */
 export type DesktopFallback = 'inline' | 'none' | 'parent'
 
+/* The desktop a window mounts on and how high it stacks there live in the
+   kit (pb/desktop), shared with PBMessageBox; the shell provides both. */
+export { PBDesktopProvider as MoisDesktopProvider } from '../pb'
+
 export function DesktopLayer({ children, fallback = 'inline' }: { children: ReactNode; fallback?: DesktopFallback }) {
+  const desktop = usePBDesktop()
   const probe = useRef<HTMLSpanElement>(null)
-  const [layer, setLayer] = useState<HTMLElement | null>(null)
+  /* the DOM lookup: undefined until done, null when there is no desktop */
+  const [found, setFound] = useState<HTMLElement | null | undefined>(undefined)
   useLayoutEffect(() => {
-    const desktop = probe.current?.closest<HTMLElement>('.pb-desktop') ?? null
-    setLayer(desktop ?? (fallback === 'parent' ? probe.current?.parentElement ?? null : null))
-  }, [fallback])
+    if (desktop) return
+    const near = probe.current?.closest<HTMLElement>('.pb-desktop') ?? null
+    setFound(near ?? (fallback === 'parent' ? probe.current?.parentElement ?? null : null))
+  }, [desktop, fallback])
+  const layer = desktop ?? found
   return (
     <>
-      <span ref={probe} hidden />
-      {layer ? createPortal(children, layer) : fallback === 'inline' ? children : null}
+      {!desktop && <span ref={probe} hidden />}
+      {layer ? createPortal(children, layer) : layer === null && fallback === 'inline' ? children : null}
     </>
   )
 }
+
+/** Attributes for a modal layer, `data-*` markers included. */
+export type LayerAttrs = HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>
 
 /** The transparent layer a modal window sits on. */
 export function ModalLayer({ zIndex, className, style, children, attrs }: {
@@ -68,11 +79,12 @@ export function ModalLayer({ zIndex, className, style, children, attrs }: {
   style?: CSSProperties
   children: ReactNode
   /** further attributes on the layer (role, aria-*) */
-  attrs?: HTMLAttributes<HTMLDivElement>
+  attrs?: LayerAttrs
 }) {
+  const z = usePBLayerZ(zIndex)
   return (
-    <div {...attrs} className={className ?? 'pb-modal-layer pb-modal-layer--plain'} style={{ ...(zIndex != null ? { zIndex } : null), ...style }}>
-      {children}
+    <div {...attrs} className={className ?? 'pb-modal-layer pb-modal-layer--plain'} style={{ ...(z != null ? { zIndex: z } : null), ...style }}>
+      <PBRaisedFrom.Provider value={z ?? 40}>{children}</PBRaisedFrom.Provider>
     </div>
   )
 }
@@ -120,9 +132,13 @@ export type ModalWindowProps = {
   zIndex?: number
   layerClassName?: string
   layerStyle?: CSSProperties
-  /** mount on the `.pb-desktop`, and what to do until it is found; omitted,
-      the window renders where it is */
-  portal?: DesktopFallback
+  /** mount on the `.pb-desktop`, and what to do until it is found. Every
+      MOIS dialog is centred over the frame that raised it, never inside the
+      work area (2026-10-02 TRAINING captures: New Security Profile over the
+      frame, Select Launch Mode over Security Profile Settings, Backlog is
+      Empty over User Account), so this defaults to 'inline'. `false` renders
+      the window where it is, for a window that really is docked in a sheet. */
+  portal?: DesktopFallback | false
   /** report `id` as `host.dialog` while the window is up */
   report?: boolean
   /** a focus-trapping dialog box around the window, with this width */
@@ -143,14 +159,14 @@ export type ModalWindowProps = {
       anchor or a placement style on a wrapper) */
   wrap?: { className?: string; style?: CSSProperties; tutorialId?: string }
   /** further attributes on the layer (role, aria-*) */
-  layerAttrs?: HTMLAttributes<HTMLDivElement>
+  layerAttrs?: LayerAttrs
   /** drawn in the layer after the window: a window raised beside it, a
       <style> the window needs */
   after?: ReactNode
 }
 
 export function ModalWindow({
-  id, title, onClose, children, windowStyle, controls = false, zIndex, layerClassName, layerStyle, portal, report, trap, tutorialId,
+  id, title, onClose, children, windowStyle, controls = false, zIndex, layerClassName, layerStyle, portal = 'inline', report, trap, tutorialId,
   windowClassName, icon, sub, child = true, maximized, onMinimize, onMaximize, wrap, layerAttrs, after,
 }: ModalWindowProps) {
   const window = (

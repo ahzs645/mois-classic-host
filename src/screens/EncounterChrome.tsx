@@ -113,15 +113,20 @@ export function NewNoteConfirmation({ onAnswer }: { onAnswer: (yes: boolean, alw
       layerStyle={{ position: 'fixed', padding: 8 }}
       windowStyle={{ width: 'min(405px, 100%)' }}
     >
-        <div className="pb-row" style={{ gap: 14, alignItems: 'flex-start', padding: '14px 18px 0' }}>
+        {/* Spacing off Drive Mois 2026-09-20 11.43.19 (the same prompt at
+            2.28×, 405 × 177 with its 31px title bar): the icon 11px into
+            the face and 22 in, the question at 75, Yes / No 79px down the
+            face at 120 and 210, the check box 121px down and 11 in, 18px of
+            face under it. */}
+        <div className="pb-row" style={{ gap: 20, alignItems: 'flex-start', padding: '9px 18px 0 20px' }}>
           <QuestionGlyph />
           <span style={{ paddingTop: 6 }}>Would you like to create another progress note?</span>
         </div>
-        <DialogFooter gap={16} padding="26px 0 8px">
+        <DialogFooter gap={16} padding="36px 0 10px">
           <DialogButton id="new-note-yes" width={74} isDefault onClick={() => onAnswer(true, always)}>Yes</DialogButton>
           <DialogButton id="new-note-no" width={74} onClick={() => onAnswer(false, false)}>No</DialogButton>
         </DialogFooter>
-        <div style={{ padding: '0 10px 8px' }}>
+        <div style={{ padding: '0 10px 14px' }}>
           <PBCheckbox label="Always create new note" checked={always} onChange={setAlways} tutorialId="host.mois.field.always-create-new-note" />
         </div>
     </ModalWindow>
@@ -132,7 +137,17 @@ export function NewNoteConfirmation({ onAnswer }: { onAnswer: (yes: boolean, alw
 function QuestionGlyph() {
   return (
     <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" style={{ flex: 'none' }}>
-      <circle cx="16" cy="16" r="14" fill="#1f5fb8" stroke="#123f80" />
+      {/* the Windows 7 question glyph 11.43.19 shows: a glossy blue disc,
+          lighter at the top left, in a pale grey ring */}
+      <defs>
+        <radialGradient id="pb-question-disc" cx="35%" cy="30%" r="75%">
+          <stop offset="0" stopColor="#7aa6e8" />
+          <stop offset=".55" stopColor="#2a5fbe" />
+          <stop offset="1" stopColor="#173f8c" />
+        </radialGradient>
+      </defs>
+      <circle cx="16" cy="16" r="15" fill="#d9dde4" stroke="#9aa3b2" />
+      <circle cx="16" cy="16" r="13" fill="url(#pb-question-disc)" stroke="#16357a" strokeWidth=".8" />
       <path d="M11.6 12.2c0-2.6 2-4.4 4.6-4.4 2.7 0 4.5 1.6 4.5 4 0 3.4-4 3.2-4 6.6h-3c0-4.4 4-4.2 4-6.4 0-1-.7-1.6-1.6-1.6-1 0-1.7.7-1.7 1.8z" fill="#fff" />
       <circle cx="16" cy="23.5" r="2" fill="#fff" />
     </svg>

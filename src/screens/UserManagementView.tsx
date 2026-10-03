@@ -3,7 +3,7 @@ import { useSessionState } from '../host/screen-windows'
 import { useState } from 'react'
 import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput,
-  PBTextArea, PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
+  PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation,
 } from '../pb'
 import { MOIS_TODAY } from '../data/patients'
 import {
@@ -17,7 +17,7 @@ import { ModalWindow } from './dialogKit'
 import { DialogFooter, SectionCaption, footerButtons } from './formKit'
 import { useColumnFilters } from './listKit'
 import { NewUserDialog, UserAccountWindow, newUserDisplayName, type NewUserDraft } from './UserAccountWindow'
-import { SecurityProfileWindow } from './SecurityProfileWindow'
+import { NewSecurityProfileDialog, SecurityProfileWindow, useSecurityProfiles } from './SecurityProfileWindow'
 import { useScreenReport } from '../host/screen-state'
 
 /* ============================================================================
@@ -43,9 +43,15 @@ import { useScreenReport } from '../host/screen-state'
    the Window column, the centred word `Overrides` in the Functions column, a
    51px rule in the Reports column.
 
+   `New Record` on Security Profiles raises `New Security Profile` (2026-10-02
+   TRAINING capture 02; screens/SecurityProfileWindow.tsx); Continue adds the
+   profile to the list and opens its settings.
+
+   THE GRID RUNS EDGE TO EDGE. Captures 02 and 14 draw the DataWindow flush
+   to the work area under the command row — no inset, no border box — so the
+   grid is `flush`; past its last column the work area is the grid's white.
+
    WHAT THIS SCREEN DOES NOT DO, because no capture exists:
-     - `New Record` on Security Profiles raises nothing. No "New Security
-       Profile" dialog is captured anywhere in the corpus.
      - `New Record` on User Groups opens `User Group Detail` directly.
        `303203`'s prose puts an intermediate name-and-`Create Record` prompt
        in front of it; that prompt is never captured, so it is not invented.
@@ -58,8 +64,9 @@ import { useScreenReport } from '../host/screen-state'
    MEASURED vs KIT, stated rather than presented as measured:
      - the filter strip paints at the kit's 22px, not the measured 17px
        (y 74-90 on `28bcccbceb53`);
-     - the gutter paints at the kit's fixed 13px, not the measured 15-16px —
-       `spec.gutter` records the real figure;
+     - the gutter paints at `spec.gutter` through the kit's
+       `--pb-dw-gutter-width` (17 / 13 off the 2026-10-02 TRAINING captures
+       02 / 14);
      - the rules flanking `Overrides` take the caption ink (`currentColor`).
        Their colour was never sampled; only their 51px length and their x
        positions were.
@@ -120,8 +127,10 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
   const [newOpen, setNewOpen] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
   const [accounts, setAccounts] = useUserAccounts()
+  const [profiles, setProfiles] = useSecurityProfiles()
+  const profileNode = spec.node === 'ad-security-profiles'
 
-  const all = spec.node === 'ad-users' ? accounts : spec.rows
+  const all = spec.node === 'ad-users' ? accounts : profileNode ? profiles : spec.rows
   const filter = useColumnFilters(all, spec.columns.map((c, i) => {
     const box = spec.filter?.find((b) => b.col === i)
     return box ? { key: c.key, w: box.w, anchor: `filter-${pbSlug(c.key)}` } : null
@@ -174,8 +183,6 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
           label,
           onClick:
             label === 'New Record'
-              /* Security Profiles has no captured New Record dialog, so its
-                 button raises nothing rather than an invented one */
               ? (spec.newDialog ? () => setNewOpen(true) : undefined)
               : label === 'Edit Record'
                 ? () => { const r = rows[current]; if (r) openEditor(r) }
@@ -186,7 +193,7 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
 
       <div
         className={`pb-um-grid-${spec.node} pb-um-inactive`}
-        style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}
+        style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}
       >
         <PBDataWindow<UserRow>
           rows={rows}
@@ -197,6 +204,7 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
           filters={filters}
           /* `28bcccbceb53` draws no vertical gridlines at all */
           rules={spec.rules}
+          flush
           rowClassName={(r) => (
             spec.inactive && r[spec.inactive.key] === spec.inactive.value ? 'is-inactive' : undefined
           )}
@@ -205,6 +213,10 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
             : (r) => `host.mois.row.${spec.anchorPrefix}-${pbSlug(String(r[spec.anchorKey] ?? ''))}`}
           style={{
             ['--pb-dw-row-h' as string]: `${spec.pitch}px`,
+            ['--pb-dw-gutter-width' as string]: `${spec.gutter}px`,
+            /* the grid's white runs to the work area's edge past the last
+               column (02), rather than stopping with the columns */
+            flex: '1 1 auto',
             /* the filter strip's boxes sit on white in every capture, not on
                the dialog face the kit's lookup grids use */
             ['--pb-band' as string]: '#ffffff',
@@ -224,6 +236,19 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
             if (!draft.user.trim() || !draft.first.trim() || !draft.last.trim() || accounts.some(r => String(r.user).toLowerCase() === draft.user.trim().toLowerCase())) return
             const row = newUserRow(draft)
             setAccounts((a) => [...a, row])
+            setNewOpen(false)
+            setCur(all.length)
+            setEditing(row)
+          }}
+        />
+      )}
+      {newOpen && spec.newDialog === 'new-security-profile' && (
+        <NewSecurityProfileDialog
+          onClose={() => setNewOpen(false)}
+          onContinue={(draft) => {
+            if (profiles.some((r) => String(r.profile).toLowerCase() === draft.profile.toLowerCase())) return
+            const row: UserRow = { profile: draft.profile, desc: draft.desc, users: '0' }
+            setProfiles((p) => [...p, row])
             setNewOpen(false)
             setCur(all.length)
             setEditing(row)
@@ -270,14 +295,21 @@ function newUserRow(draft: NewUserDraft): UserRow {
 }
 
 /**
- * The header band's height, scoped to one grid. The kit ties a header's
+ * The header band's height, ink and the zebra's phase, scoped to one grid. The kit ties a header's
  * height to `--pb-dw-row-h`, which on User Accounts has to be the 24px detail
  * band rather than the 34px header band, so the two are separated here.
  * (The inactive-row ink rides `pb-um-inactive` from `UM_CSS`.)
  */
 function headCss(spec: UserListSpec): string {
-  return `.pb-um-grid-${spec.node} .pb-dw__table > thead > tr:not(.pb-dw__filters) > th`
-    + ` { height: ${spec.headH}px; padding-top: 0; padding-bottom: 0; }`
+  const grid = `.pb-um-grid-${spec.node} .pb-dw__table`
+  const head = `${grid} > thead > tr:not(.pb-dw__filters) > th`
+  return `${head} { height: ${spec.headH}px; padding-top: 0; padding-bottom: 0; }`
+    + (spec.headInk ? `${head} { color: ${spec.headInk}; border-right-color: var(--pb-dw-header); }` : '')
+    + (spec.zebraFlipped
+      ? `${grid} > tbody > tr:nth-child(odd) { background: var(--pb-dw-row); }`
+        + `${grid} > tbody > tr:nth-child(even) { background: var(--pb-dw-row-alt); }`
+        + `${grid} > tbody > tr.is-current { background: var(--pb-dw-select); }`
+      : '')
 }
 
 /* ===========================================================================
@@ -309,17 +341,15 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
   }
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 70 }}>
-      <style>{UM_CSS}</style>
-      <div data-tutorial-id={host?.anchor('dialog', pbSlug(d.title))}>
-        <PBWindow
-          child
-          controls={false}
-          className="pb-um-dialog"
-          title={d.title}
-          onClose={onClose}
-          style={{ width: 640, maxWidth: '100%', maxHeight: '100%' }}
-        >
+    <ModalWindow
+      title={d.title}
+      onClose={onClose}
+      zIndex={70}
+      windowClassName="pb-um-dialog"
+      windowStyle={{ width: 640, maxWidth: '100%', maxHeight: '100%' }}
+      wrap={{ tutorialId: host?.anchor('dialog', pbSlug(d.title)) }}
+      after={<style>{UM_CSS}</style>}
+    >
           {/* the 25px navy band inside the window reads `User Group` */}
           <div className="pb-viewhead"><span className="pb-viewhead__title">{d.navy}</span></div>
 
@@ -384,9 +414,7 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
 
           <DialogFooter frame="pb" buttons={footerButtons(d.footer, { wide: true, onPress: onClose }).map((button) =>
             button.command === 'cancel' ? { ...button, command: 'user-group-detail-cancel' } : button)} />
-        </PBWindow>
-      </div>
-    </div>
+    </ModalWindow>
   )
 }
 

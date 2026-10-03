@@ -3,9 +3,10 @@ import { useChartExport, useChartRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
 import { date, encounterStamp, serviceEpisodes } from '../data/charts/relations'
 import {
-  selectFormRows,
+  ENCOUNTER_SUMMARY_SHUT, selectFormRows,
   type EncounterFormRow, type FormListRow
 } from '../data/encounterForms'
+import { SUMMARY_SELECTED_ROW } from '../data/summary'
 import {
   apptStatusCodes, providerSearchRows,
   serviceLocations,
@@ -123,6 +124,18 @@ export type EncounterRecord = {
 const ENCOUNTER_TIMES: [string, string][] = [
   ['Arrived:', 'arrived'], ['In-Room:', 'inroom'], ['Seen:', 'seen'], ['Discharge:', 'discharge'],
 ]
+
+/* The Appt Status drop-down (Drive Mois 2026-09-20 11.39.17, at 2.28×): a
+   155px list whose grey header stops at Description — Code 36, Description
+   101 — with the cream list face running on past it; the seven codes A I S
+   D N R C (data/daybook APPOINTMENT_STATUSES) on the usual 19px pitch. The
+   Detail / Coding tab's Appt Status drops the same list. */
+const APPT_STATUS_COLUMNS = [
+  { key: 'code', header: 'Code', width: 36 },
+  { key: 'description', header: 'Description', width: 101 },
+  { key: '_', header: '' },
+]
+const APPT_STATUS_LIST_W = 155
 
 /** The note band's pending note: New Note, or the first note of an empty encounter. */
 type Pending = { text: string; author: string; complete: boolean | null }
@@ -419,16 +432,13 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
 
             <span className="pb-form__label">Appt Status:</span>
             <PBDropDownDataWindow
-              columns={[
-                { key: 'code', header: 'Code', width: 52 },
-                { key: 'description', header: 'Description', width: 160 },
-              ]}
+              columns={APPT_STATUS_COLUMNS}
               rows={apptStatusCodes}
               value={record?.str_appt_status ?? ''}
               display="code"
               /* 350–405 in encounter-detail-header.png */
               w={56}
-              listW={214}
+              listW={APPT_STATUS_LIST_W}
               tutorialId="host.mois.lookup.appt-status"
             />
 
@@ -564,7 +574,16 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
                 docuStatus={area.session.notes[enc.id] ? (notes.some((n) => n.complete) ? 'C' : 'I') : undefined}
               />
             )}
-            {tab === 'Encounter Summary' && <EncounterSummaryPage encounter={enc.id} encounterDate={enc.date ?? ''} notes={maskPrivate(notes)} />}
+            {tab === 'Encounter Summary' && (
+              <EncounterSummaryPage
+                encounter={enc.id}
+                encounterDate={enc.date ?? ''}
+                provider={record?.lkp_provider ?? enc.provider ?? ''}
+                notes={maskPrivate(notes)}
+                onOpenNote={(i) => { setPending(null); setNoteIndex(i); setTab('Progress Note(s)') }}
+                onOpenTab={setTab}
+              />
+            )}
             <div style={{ display: tab === 'Encounter Forms' ? 'flex' : 'none', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
               <EncounterFormsPage encounterId={enc.id} encounterDate={enc.date ?? ''} notes={notes} attendingFallback={record?.str_attending ?? ''} loadEncounterForms={loadEncounterForms} encounterFormSlot={encounterFormSlot} />
             </div>
@@ -749,10 +768,14 @@ function EncounterFormsPage({ encounterId, encounterDate, notes, attendingFallba
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           flush
+          /* Form Type 199 · Form Name 239 · Attending 170, each with its
+             white separator: Drive Mois 2026-09-20 11.37.26 at 2.28× and user
+             capture 2026-09-25 #33 at 1.10× measure the same three (the
+             header band stops at Attending; the run past it is white) */
           columns={[
-            { key: 'type', header: 'Form Type', width: 268, headAlign: 'center' },
-            { key: 'name', header: 'Form Name', width: 302, headAlign: 'center' },
-            { key: 'attending', header: 'Attending', width: 222, headAlign: 'center' },
+            { key: 'type', header: 'Form Type', width: 199, headAlign: 'center' },
+            { key: 'name', header: 'Form Name', width: 239, headAlign: 'center' },
+            { key: 'attending', header: 'Attending', width: 170, headAlign: 'center' },
           ]}
           rows={rows}
           current={cur}
@@ -837,6 +860,30 @@ export function EncounterWebformWindow({ children, onClose, title = 'MOIS' }: { 
   )
 }
 
+/* Select Form at its real size. Drive Mois 2026-09-20 11.37.45 is a 2.28×
+   capture — its glyphs stand exactly as tall as the 11.37.26 window's, which
+   is 2.28× — not the 2× the dialog was first measured at, so it is 645 ×
+   612, not 735 × 698: a 30px title bar; the Form List frame 10px down and
+   12 in either side, 520 tall; its band 24, the filter row 24 (boxes 17
+   tall), the blue header 18 and the rows on an 18px pitch; gutter 16, Form
+   Type 220, Version 41, the scroll bar 16; Create Form / Cancel 94 × 22,
+   10 apart, 14 under the frame with 15 of face below. The kit's
+   `.pb-select-form*` rules (pb/layout.css) carry the 2× numbers, so this
+   window overrides them here. */
+const SELECT_FORM_CSS = `
+.pb-select-form .pb-select-form__list { --pb-dw-gutter-width: 16px; --pb-dw-row-h: 18px; margin: 10px 12px 0; }
+.pb-select-form .pb-select-form__list > .pb-band { min-height: 24px; padding: 2px 6px; }
+.pb-select-form .pb-select-form__list .pb-dw__table > thead > tr:not(.pb-dw__filters) > th { top: 24px; height: 18px; }
+.pb-select-form .pb-select-form__list .pb-dw__table > thead > tr.pb-dw__filters > th { height: 24px; padding: 3px 0; }
+.pb-select-form .pb-select-form__list .pb-dw__filters .pb-field { height: 17px; }
+/* "Version" fits its 41px column only with the DataWindow's 1px inset; and a
+   name keeps its own spacing ("CGI  SCALE" has two) */
+.pb-select-form .pb-select-form__list .pb-dw__table > thead > tr:not(.pb-dw__filters) > th:last-child { padding: 0 1px; text-overflow: clip; }
+.pb-select-form .pb-select-form__list .pb-dw__table > tbody > tr > td { white-space: pre; }
+.pb-select-form .pb-select-form__actions { gap: 10px; padding: 14px 0 15px; }
+.pb-select-form .pb-select-form__actions .pb-btn { height: 22px; }
+`
+
 export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtIn = [] }: {
   onCreate: (form: FormListRow) => void
   onClose: () => void
@@ -872,17 +919,18 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
         className="pb-select-form"
         title="Select Form"
         onClose={onClose}
-        style={{ width: 'min(735px, 100%)', height: 'min(698px, 100%)' }}
+        style={{ width: 'min(645px, 100%)', height: 'min(612px, 100%)' }}
       >
+        <style>{SELECT_FORM_CSS}</style>
         <div className="pb-select-form__list">
           <PBBand>Form List</PBBand>
           {error && <div role="alert" style={{ padding: 8 }}>{error}</div>}
           <PBDataWindow
             flush
             columns={[
-              { key: 'type', header: 'Form Type', width: 252, headAlign: 'center' },
+              { key: 'type', header: 'Form Type', width: 220, headAlign: 'center' },
               { key: 'name', header: 'Form Name', headAlign: 'center' },
-              { key: 'version', header: 'Version', width: 48, headAlign: 'center' },
+              { key: 'version', header: 'Version', width: 41, headAlign: 'center' },
             ]}
             filters={filterRow}
             rows={shown}
@@ -894,14 +942,14 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
         </div>
         <div className="pb-row pb-select-form__actions">
           <PBButton
-            style={{ minWidth: 108 }}
+            style={{ width: 94, minWidth: 0 }}
             command="create-form"
             disabled={loading || !shown[cur]}
             onClick={() => shown[cur] && onCreate(shown[cur]!)}
           >
             Create Form
           </PBButton>
-          <PBButton style={{ minWidth: 108 }} onClick={onClose}>Cancel</PBButton>
+          <PBButton style={{ width: 94, minWidth: 0 }} onClick={onClose}>Cancel</PBButton>
         </div>
       </PBWindow>
     </ModalLayer>
@@ -910,64 +958,196 @@ export function SelectFormDialog({ onCreate, onClose, loadEncounterForms, builtI
 
 
 /* ============================================================================
-   Encounter Summary — the visit as one text page.
+   Encounter Summary — the visit rolled up as a banded DataWindow.
 
-   MOIS paints this tab as a report, not a grid (301931 `a02db6dd…`, 303116
-   `92edff12…`): grey fixed-pitch bands — PROGRESS NOTE with the author and
-   Last Modified under it, TEST NAME : LINKED TO ENCOUNTER / VALUE / UNITS /
-   FL, and one REVIEW DATE / REVIEW BY / REVIEWED <folder> band per folder
-   reviewed while the encounter was open.
+   Drive Mois 2026-09-20 11.37.31 (v02.31.23, encounter 10067296, captured
+   at 2.28×): `Expand All` / `Collapse All` links on a face-coloured strip,
+   a grey header band of bold Date · Description · Detail · Hyperlink over a
+   true-black rule, then a white-to-#cbdefb band per record type, captioned
+   `WEB FORMS  [2]` with its expander box, and the band's rows: Date ·
+   Description · Detail and two Hyperlink glyphs. 11.43.56 / 11.44.08 (the
+   same DataWindow in the Encounters folder's Report pane, same encounter)
+   add the ENCOUNTER NOTES and MEASURES bands, which bands open collapsed,
+   and the salmon current row (#f2c6b8, Patient Summary's). This replaces
+   the grey fixed-pitch text report the older build painted (301931
+   `a02db6dd…`, 303116 `92edff12…`).
+
+   Geometry off 11.37.31, measured from the tab page's inner left edge: the
+   links at 8 and 78; captions at 9 / 80 / 426 / 681, so the columns are
+   Date 71, Description 346, Detail 255, Hyperlink 109 with the text 8px in;
+   the link strip and header 21px each, bands and rows 20. The two glyphs sit
+   20px into Hyperlink, 16px each, 5px apart.
+
+   Rows (data/encounterForms ENCOUNTER_SUMMARY_BANDS):
+     ENCOUNTER NOTES — the visit's date, `Appt w/:<provider>` and under it
+       `Note:` and the note in Courier (11.43.56). The rows are #e8e8e8 both,
+       where every other band alternates white / #e8e8e8 by row number.
+     MEASURES — the collection date (11.44.08 prints the blank 2026.09.16
+       measure of chart 3924, captured-3924.ts, with nothing else).
+       INFERRED: a named measure prints its test name and value + units.
+     WEB FORMS / DOCUMENTS — `<doc type>` with `[ <author> ]` when the
+       document names one, and the document's note (11.37.31, 11.44.08). A
+       web-form document is listed under both bands, as the captures show.
    ========================================================================= */
 const REVIEWED: Record<string, string> = {
   conditions: 'HEALTH ISSUES', reaction: 'REACTION RISKS', ltm: 'LONG TERM MEDICATIONS',
 }
 
-function EncounterSummaryPage({ encounter, encounterDate, notes }: {
+type SummaryLine = {
+  band: string
+  date: string
+  description: ReactNode
+  detail: string
+  /** what the "go to record" glyph opens */
+  open?: () => void
+}
+
+/* the band caption's run before `[n]`, 14.5px in 11.37.31 */
+export const BAND_GAP = '   '
+/* 11.37.31: the band gradient lands on #cbdefb, the rows alternate on #e8e8e8 */
+export const SUMMARY_BAND_ACCENT = '#cbdefb'
+export const SUMMARY_ROW_ALT = '#e8e8e8'
+export const ENCOUNTER_SUMMARY_CSS = `
+.pb-encounter-summary__links {
+  flex: none; display: flex; align-items: center; height: 21px; padding-left: 8px; gap: 22px;
+  background: var(--pb-face); border-bottom: 1px solid #8e8e8e;
+}
+.pb-encounter-summary .pb-dw--head-grey .pb-dw__table > thead > tr > th { height: 21px; }
+.pb-encounter-summary__links .pb-link { color: #1106fe; text-decoration: underline; }
+.pb-encounter-summary__glyphs { display: inline-flex; align-items: center; gap: 5px; padding-left: 12px; vertical-align: middle; }
+.pb-encounter-summary__note { font-family: "Courier New", monospace; white-space: pre-wrap; }
+/* a note row is three lines on a 13px pitch, its date and glyphs set at the
+   top (11.43.56: two note rows 41px each) */
+.pb-encounter-summary .pb-dw__table > tbody > tr.pb-encounter-summary__multi > td {
+  vertical-align: top; line-height: 13px; padding-top: 2px; padding-bottom: 0;
+}
+`
+
+/** the summary's second glyph: a clipboard with a red tick (11.37.31). What
+    it does is not captured, so it is drawn and does nothing. */
+export const SummaryCheckGlyph = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+    <rect x="2.5" y="2.5" width="11" height="12.5" rx="1" fill="#eef4fb" stroke="#7f9cc4" />
+    <rect x="5" y="1" width="6" height="3.5" rx=".8" fill="#e9cf7a" stroke="#8a7432" strokeWidth=".8" />
+    <path d="M4.6 9.2 L7.2 12 L13.6 4.4" fill="none" stroke="#e01d1d" strokeWidth="1.9" strokeLinejoin="round" />
+  </svg>
+)
+
+export function EncounterSummaryPage({ encounter, encounterDate, provider, notes, onOpenNote, onOpenTab }: {
   encounter: string
   encounterDate: string
+  /** the encounter's provider — a note row reads `Appt w/:<provider>` */
+  provider: string
   notes: SessionNote[]
+  /** the "go to record" glyph on a note row (INFERRED: it opens that note) */
+  onOpenNote?: (index: number) => void
+  /** … on a measure or a web form row (INFERRED: that row's own tab) */
+  onOpenTab?: (tab: string) => void
 }) {
   const area = useEncounterSession()
+  const instrumentation = usePBInstrumentation()
   const measures = useEncounterMeasures(encounter, encounterDate)
+  const documents = useChartRecords('document').filter((r) => r.id_encounter === encounter)
   const reviews = area.session.reviews[encounter] ?? []
-  const band = (children: ReactNode, id?: string) => (
-    <div data-tutorial-id={id} style={{ background: '#d6d3ce', borderTop: '1px solid #808080', fontWeight: 700, padding: '1px 3px', marginTop: 12 }}>{children}</div>
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(ENCOUNTER_SUMMARY_SHUT))
+  /* nothing is current until a row is clicked (11.37.31 paints no salmon row) */
+  const [cur, setCur] = useState(-1)
+
+  const documentLine = (band: string, r: MoisRecord): SummaryLine => ({
+    band,
+    date: date(r.dtm_date ?? r.stp_date_create),
+    description: `${r.str_doc_type ?? ''}${r.str_author ? ` [ ${r.str_author} ]` : ''}`,
+    detail: r.str_note ?? '',
+    open: band === 'WEB FORMS' ? () => onOpenTab?.('Encounter Forms') : () => { openFrameNode('documents', r.id_document) },
+  })
+  const lines: SummaryLine[] = [
+    ...notes.map((n, i): SummaryLine => ({
+      band: 'ENCOUNTER NOTES',
+      date: encounterDate,
+      description: <>
+        {`Appt w/:${provider}`}
+        {/* the export breaks its header lines with a bare CR, which a browser does not break on */}
+        <div className="pb-encounter-summary__note">{`Note:\n${n.text.replace(/\r\n?/g, '\n')}`}</div>
+      </>,
+      detail: '',
+      open: () => onOpenNote?.(i),
+    })),
+    ...measures.map((m): SummaryLine => ({
+      band: 'MEASURES',
+      date: m.collected ?? encounterDate,
+      description: m.name,
+      detail: [m.value, m.units].filter(Boolean).join(' '),
+      open: () => onOpenTab?.('Measurements'),
+    })),
+    /* a web form files a document whose source is the web form definition */
+    ...documents.filter((r) => r.str_source === 'tdt_webform_definition' || r.str_doc_type === 'WEBFORM').map((r) => documentLine('WEB FORMS', r)),
+    ...documents.map((r) => documentLine('DOCUMENTS', r)),
+    /* INFERRED: the older build's REVIEW DATE / REVIEW BY / REVIEWED <folder>
+       report (303116 `92edff12…`) as bands of this grid; no current-build
+       capture shows a review on the summary */
+    ...Object.entries(REVIEWED).flatMap(([folder, noun]) => reviews
+      .filter((r) => r.folder === folder)
+      .map((r): SummaryLine => ({ band: `REVIEWED ${noun}`, date: r.date.replace(/-/g, '.'), description: r.by, detail: r.note }))),
+  ]
+  const bands = [...new Set(lines.map((l) => l.band))]
+  const anchor = (band: string) => (band === 'ENCOUNTER NOTES' ? 'host.mois.group.summary-progress-note'
+    : band === 'MEASURES' ? 'host.mois.group.summary-measurements'
+    : band.startsWith('REVIEWED ') ? `host.mois.group.summary-reviewed-${pbSlug(band.slice('REVIEWED '.length))}`
+    : `host.mois.group.summary-${pbSlug(band)}`)
+  const link = (label: string, id: string, onClick: () => void) => (
+    <button type="button" className="pb-link" data-tutorial-id={`host.mois.command.${id}`} onClick={() => {
+      instrumentation?.report('command', { command: id })
+      onClick()
+    }}>{label}</button>
   )
-  const col = (text: string, width: number) => <span style={{ display: 'inline-block', width: `${width}ch`, whiteSpace: 'pre' }}>{text}</span>
-  const dash = (d: string) => d.replace(/\./g, '-')
+
   return (
-    <div
-      data-tutorial-id="host.mois.field.encounter-summary"
-      style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff', padding: '2px 4px', fontFamily: '"Courier New", monospace', fontSize: 12 }}
-    >
-      <div style={{ width: '82ch' }}>
-        {notes.length > 0 && <>
-          {band('PROGRESS NOTE', 'host.mois.group.summary-progress-note')}
-          {notes.map((n) => (
-            <div key={n.key} style={{ marginBottom: 8 }}>
-              <div>{col(n.author || n.createdBy, 40)}Last Modified: {(n.modified || n.created).split('  ')[0]}</div>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{n.text}</div>
-            </div>
-          ))}
-        </>}
-        {measures.length > 0 && <>
-          {band(<>{col('TEST NAME : LINKED TO ENCOUNTER', 52)}{col('VALUE', 16)}{col('UNITS', 10)}FL</>, 'host.mois.group.summary-measurements')}
-          {measures.map((m, i) => (
-            <div key={i} style={{ borderBottom: '1px solid #e0e0e0' }}>
-              {col(`${dash(m.collected ?? '')}  ${m.name}`, 52)}{col(m.value, 16)}{col(m.units, 10)}{m.flag === '-' ? '' : m.flag}
-            </div>
-          ))}
-        </>}
-        {Object.entries(REVIEWED).map(([folder, noun]) => {
-          const rows = reviews.filter((r) => r.folder === folder)
-          if (!rows.length) return null
-          return (
-            <div key={folder}>
-              {band(<>{col('REVIEW DATE', 14)}{col('REVIEW BY', 13)}REVIEWED {noun}</>, `host.mois.group.summary-reviewed-${pbSlug(noun)}`)}
-              {rows.map((r, i) => <div key={i}>{col(dash(r.date), 14)}{col(r.by, 13)}{r.note}</div>)}
-            </div>
-          )
-        })}
+    <div className="pb-encounter-summary" data-tutorial-id="host.mois.field.encounter-summary"
+      style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+      <style>{ENCOUNTER_SUMMARY_CSS}</style>
+      <div className="pb-encounter-summary__links">
+        {link('Expand All', 'summary-expand-all', () => setCollapsed(new Set()))}
+        {link('Collapse All', 'summary-collapse-all', () => setCollapsed(new Set(bands)))}
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <PBDataWindow<SummaryLine>
+          flush
+          wrap
+          head="grey"
+          gutter={false}
+          rules={false}
+          style={{ ['--pb-dw-pad-x' as string]: '8px', ['--pb-dw-select' as string]: SUMMARY_SELECTED_ROW }}
+          rows={lines}
+          current={cur}
+          onCurrentChange={setCur}
+          groupBy={(r) => r.band}
+          groupLabel={(band, rows) => `${band}${BAND_GAP}[${rows.length}]`}
+          groupAccent={() => SUMMARY_BAND_ACCENT}
+          groupTutorialId={anchor}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          rowFill={(r, i) => (r.band === 'ENCOUNTER NOTES' || i % 2 === 1 ? SUMMARY_ROW_ALT : '#fff')}
+          rowClassName={(r) => (r.band === 'ENCOUNTER NOTES' ? 'pb-encounter-summary__multi' : undefined)}
+          rowTutorialId={(r, i) => `host.mois.row.summary-${pbSlug(r.band)}-${i - lines.findIndex((l) => l.band === r.band) + 1}`}
+          columns={[
+            { key: 'date', header: 'Date', width: 71 },
+            { key: 'description', header: 'Description', width: 346 },
+            { key: 'detail', header: 'Detail', width: 255 },
+            {
+              key: 'link', header: 'Hyperlink', width: 109,
+              render: (r) => (
+                <span className="pb-encounter-summary__glyphs">
+                  <button type="button" className="pb-link pb-link--mois" aria-label="Go to record" title="Go to record"
+                    disabled={!r.open} onClick={() => r.open?.()} />
+                  <SummaryCheckGlyph />
+                </span>
+              ),
+            },
+            { key: '_pad', header: '' },
+          ]}
+          /* an encounter with nothing on it is the grid's bare white body */
+          empty=""
+        />
       </div>
     </div>
   )
@@ -1588,6 +1768,14 @@ const CODE_COLUMN: Record<string, string> = {
 }
 const CODE_X = (i: number) => 95 + 91 * i
 
+/** `2026/09/16 12:01:33` + user → `2026.09.16  12:01  USER`, the way the
+    page's foot prints a record stamp (11.37.36) */
+const recordStamp = (when?: string, who?: string) => {
+  if (!when) return ''
+  const [day, time = ''] = when.split(' ')
+  return [date(day), time.slice(0, 5), who ?? ''].filter(Boolean).join('  ')
+}
+
 function CodingPage({ record, docuStatus }: { record?: MoisRecord; docuStatus?: string }) {
   const mode = record?.str_visit_mode ? VISIT_MODE_CONCEPTS[record.str_visit_mode]?.name ?? record.str_visit_mode : ''
   const location = record?.str_service_location ?? ''
@@ -1599,7 +1787,7 @@ function CodingPage({ record, docuStatus }: { record?: MoisRecord; docuStatus?: 
   const rule = (y: number) => <div style={{ position: 'absolute', left: 0, top: y, width: 547, height: 1, background: '#c9c9c9' }} />
   const caption = { fontWeight: 700, color: 'var(--pb-text-head)' }
   return (
-    <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 360, background: 'var(--pb-face)' }}>
+    <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 420, background: 'var(--pb-face)' }}>
       {at(6, 18.5, <span>Resource:</span>)}
       {at(95, 18.5, <PBInput w={182} readOnly defaultValue={record?.str_resource ?? ''} />)}
       {at(6, 37.5, <span>Room:</span>)}
@@ -1615,12 +1803,12 @@ function CodingPage({ record, docuStatus }: { record?: MoisRecord; docuStatus?: 
       {/* tdt_encounter.str_appt_status (MATRIX-R0449), the header's own
           code list */}
       {at(368, 18.5, <PBDropDownDataWindow
-        columns={[{ key: 'code', header: 'Code', width: 52 }, { key: 'description', header: 'Description', width: 160 }]}
+        columns={APPT_STATUS_COLUMNS}
         rows={apptStatusCodes}
         value={record?.str_appt_status ?? ''}
         display="code"
         w={56}
-        listW={214}
+        listW={APPT_STATUS_LIST_W}
       />)}
       {right(37.5, 'Service Location:')}
       {at(368, 37.5, <PBSelect options={location ? ['', location] : ['']} defaultValue={location} w={171} />)}
@@ -1666,6 +1854,20 @@ function CodingPage({ record, docuStatus }: { record?: MoisRecord; docuStatus?: 
         {/* the header's General Note again: str_office_note (MATRIX-R0474) */}
         <PBTextArea w={443} style={{ height: 106 }} defaultValue={record?.str_office_note ?? ''} />
       </div>
+
+      {/* The record stamp at the foot of the page (Drive Mois 2026-09-20
+          11.37.36, at 2.28×): a light rule the page's full width 52px above
+          its bottom edge, then `Created:` and `Last Modified:` 41 and 25px
+          above it, the captions at 6 and the stamps at 95 —
+          `2026.09.16  12:01  <user>`, tdt_encounter's stp_date_create /
+          stp_user_create and stp_date_modify / stp_user_modify. */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 51, height: 1, background: '#cdcdcd' }} />
+      {[['Created:', record?.stp_date_create, record?.stp_user_create, 41], ['Last Modified:', record?.stp_date_modify, record?.stp_user_modify, 25]].map(([label, when, who, up]) => (
+        <div key={label as string} style={{ position: 'absolute', left: 0, right: 0, bottom: (up as number) - 8, height: 16, display: 'flex', alignItems: 'center' }}>
+          <span style={{ position: 'absolute', left: 6 }}>{label}</span>
+          <span style={{ position: 'absolute', left: 95, whiteSpace: 'pre' }} data-tutorial-id={`host.mois.field.encounter-${pbSlug(String(label))}`}>{recordStamp(when as string | undefined, who as string | undefined)}</span>
+        </div>
+      ))}
     </div>
   )
 }

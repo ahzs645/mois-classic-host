@@ -16,8 +16,10 @@ import { FormLine } from './formKit'
    to `src/pb`, so they are applied as scoped rules instead; all four are
    listed in the wave report as candidates for real kit props.
 
-     1. the 2019-theme dialog chrome's RED close box, where the kit paints the
-        Win10 grey one (`a58fd3359aa3`, `32e650d43334`);
+     1. (retired) the 2019-theme help-site captures drew a RED close box;
+        the 2026-10-02 TRAINING captures of New User, Security Profile
+        Settings and User Account draw the kit's plain black one, so the
+        rule is gone;
      2. a 29px header band over 19px rows — the kit ties a header's height to
         the detail-band pitch (`415516e9d83a`, the Membership List);
      3. the #9C9C9C inactive-record ink, which greys EVERY cell of a row
@@ -26,8 +28,6 @@ import { FormLine } from './formKit'
         (`e227667383d1`).
    ------------------------------------------------------------------------ */
 export const UM_CSS = `
-.pb-um-dialog .pb-titlebar__btn--close { color: ${UM_RED}; }
-.pb-um-dialog .pb-titlebar__btn--close:hover { color: #ffffff; }
 .pb-um-head29 .pb-dw__table > thead > tr:not(.pb-dw__filters) > th { height: 29px; }
 .pb-um-inactive .pb-dw__table > tbody > tr.is-inactive > td { color: ${UM_INACTIVE}; }
 .pb-um-picker .pb-dw__table > tbody > tr.is-picked,

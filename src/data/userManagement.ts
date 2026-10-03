@@ -118,8 +118,14 @@ export type UserListSpec = {
   pitch: number
   /** measured column-header band height; 16 unless the header is two rows */
   headH: number
-  /** measured row-indicator gutter — the kit paints its own fixed 13px */
+  /** measured row-indicator gutter, painted through `--pb-dw-gutter-width` */
   gutter: number
+  /** the zebra starts on the second row (grey) rather than the first
+      (2026-10-02 TRAINING capture 14) */
+  zebraFlipped?: boolean
+  /** the header captions' ink where it is not black (capture 14: the soft
+      #808080 caption grey, with no separators between them) */
+  headInk?: string
   /** vertical gridlines; false only on User Accounts */
   rules: boolean
   /** which field flips a row to the #9C9C9C inactive ink, and on what value */
@@ -138,7 +144,7 @@ export type UserListSpec = {
   /** which editor window Edit Record / a double-click opens */
   editor?: 'security-profile' | 'user-account' | 'user-group'
   /** the New Record dialog, where one is captured */
-  newDialog?: 'new-user' | 'user-group-detail'
+  newDialog?: 'new-user' | 'user-group-detail' | 'new-security-profile'
   source: string
 }
 
@@ -171,11 +177,14 @@ const SECURITY_PROFILES: UserListSpec = {
   ],
   pitch: 19,
   headH: 16,
-  gutter: 16,
+  /* 2026-10-02 TRAINING capture 02: 20 capture px */
+  gutter: 17,
   rules: true,
   anchorPrefix: 'profile',
   anchorKey: 'profile',
   editor: 'security-profile',
+  /* 2026-10-02 TRAINING capture 02 */
+  newDialog: 'new-security-profile',
 }
 
 /* ===========================================================================
@@ -267,10 +276,12 @@ const USER_ACCOUNTS: UserListSpec = {
   ],
   pitch: 24,
   headH: 34,
-  /* the gutter is 15-17px across this family; no capture of THIS grid gives a
-     boundary for it, so the family's 16 is carried and the kit paints 13 */
-  gutter: 16,
+  /* 2026-10-02 TRAINING capture 14: the names start 20 capture px in, so
+     the gutter is 13 and the text its usual 4px past it */
+  gutter: 13,
   rules: false,
+  zebraFlipped: true,
+  headInk: '#808080',
   inactive: { key: 'status', value: 'I' },
   anchorPrefix: 'user',
   anchorKey: 'user',
@@ -363,73 +374,104 @@ export const PASSWORD_POLICY_SPEC = {
 }
 
 /* ===========================================================================
-   The `New User` dialog                `a58fd3359aa3`
+   The `New User` dialog                `a58fd3359aa3`; re-measured off the
+                                        2026-10-02 TRAINING capture
 
-   Fifteen rows, in the capture's order. Navy title bar with a red X close
-   box at the right; inner group caption `New User`; `Create User` / `Cancel`.
+   2026-10-02 TRAINING capture (shot at 1.14x; every figure below is the
+   capture's ÷ 1.14): a 611px window holding one sunken panel 578 wide, inset
+   17 / 15 from the window's edge. The panel opens with a grey `New User`
+   header band (bold black, ruled off — not a navy group caption) and is
+   divided by full-width rules into four sections of 147 / 107 / 112 / 115:
+   names and contact | Role .. Expiry | Security Profiles | Password ..
+   `* Required Entry`. Labels start 16 in and every first control at 100, so
+   the sections line up down the panel; the second and third controls of a
+   line sit at their own measured x (`x` below, from the panel's left).
+   `Create User` / `Cancel` (74 x 21) are centred on the face under it.
+
+   No field is washed: the focused User Name edit is white in this capture,
+   where the 2019 help-site capture drew MOIS's #FFC09C.
    ======================================================================== */
 
 export type NewUserField =
-  | { kind: 'text'; label: string; w: number; required?: boolean; value?: string; focus?: boolean }
+  | { kind: 'text'; label: string; x: number; w: number; required?: boolean; value?: string; align?: 'center' }
   /**
    * A disabled grey edit with a `Synchronize with Name Fields` tick box
    * beside it — MOIS writes the field for you while the box is checked.
    */
-  | { kind: 'sync'; label: string; w: number }
-  | { kind: 'hint'; label: string; w: number; hint: string }
-  | { kind: 'drop'; label: string; w: number; options: string[]; required?: boolean }
-  /** the multi-line list box + `Change` button */
-  | { kind: 'profiles'; label: string; w: number; required?: boolean }
-  | { kind: 'password'; label: string; w: number }
-  | { kind: 'check'; label: string; check: string; checked?: boolean }
-  | { kind: 'note'; text: string }
+  | { kind: 'sync'; label: string; x: number; w: number }
+  /** an edit with a grey example to its right, aligned to the sync labels */
+  | { kind: 'hint'; label: string; x: number; w: number; hint: string }
+  | { kind: 'drop'; label: string; x: number; w: number; options: string[]; required?: boolean }
+  /** the sunken list box + `Change` button */
+  | { kind: 'profiles'; label: string; x: number; w: number; h: number; required?: boolean }
+  /** pre-filled with masked text in the capture */
+  | { kind: 'password'; label: string; x: number; w: number }
+  | { kind: 'check'; label: string; x: number; check: string; checked?: boolean }
+  | { kind: 'note'; x: number; text: string }
 
-/** Two or three controls sharing one row of the dialog. */
+/** The controls sharing one line of the dialog, left to right. */
 export type NewUserRow = NewUserField[]
+/** A ruled-off section of the panel: its height and its lines' centres. */
+export type NewUserSection = { h: number; rows: { y: number; fields: NewUserRow }[] }
 
 export const NEW_USER_TITLE = 'New User'
 export const NEW_USER_BAND = 'New User'
 export const NEW_USER_BUTTONS = ['Create User', 'Cancel']
+export const NEW_USER_SIZE = { w: 611, panelW: 578, band: 20, labelX: 16, controlX: 100 }
+/** where the tick boxes and the `( ex: JCS )` example line up */
+export const NEW_USER_SYNC_X = 286
 
 /**
  * `Role` and `Expertise` are both Selection Lists (see the 62-row Selection
  * List Management table), so their drop lists are populated from the roster
  * the emulator already carries rather than from a capture — no capture of
- * either dropped list exists.
+ * either dropped list exists. Role opens blank in the 2026-10-02 capture.
  */
 export const USER_ROLES = ['ADMIN', 'PHYSICIAN', 'NURSE', 'MOA', 'LOCUM', 'RESIDENT', 'READ ONLY']
 export const USER_EXPERTISE = ['', 'FAMILY PRACTICE', 'INTERNAL MEDICINE', 'MENTAL HEALTH', 'PAEDIATRICS', 'SURGERY']
 
-export const NEW_USER_ROWS: NewUserRow[] = [
-  /* 1 */[
-    { kind: 'text', label: 'User Name:', w: 150, required: true, focus: true },
-    { kind: 'text', label: 'Prefix:', w: 70 },
-    { kind: 'text', label: 'Suffix:', w: 70 },
-  ],
-  /* 2 */[
-    { kind: 'text', label: 'First Name:', w: 150, required: true },
-    { kind: 'text', label: 'Middle Name:', w: 110 },
-    { kind: 'text', label: 'Last Name:', w: 150, required: true },
-  ],
-  /* 3 */[{ kind: 'sync', label: 'Display Name:', w: 220 }],
-  /* 4 */[{ kind: 'sync', label: 'Signature:', w: 220 }],
-  /* 5 */[{ kind: 'hint', label: 'Initials:', w: 60, hint: '( ex: JCS )' }],
-  /* 6 */[
-    { kind: 'text', label: 'Cell Phone:', w: 130 },
-    { kind: 'text', label: 'Email:', w: 220 },
-  ],
-  /* 7 */[{ kind: 'drop', label: 'Role:', w: 180, options: USER_ROLES, required: true }],
-  /* 8 */[{ kind: 'drop', label: 'Expertise:', w: 180, options: USER_EXPERTISE }],
-  /* 9  — MOIS fills today's date in for you (`303183`) */
-  [{ kind: 'text', label: 'Effective:', w: 92, value: MOIS_TODAY }],
-  /* 10 */[{ kind: 'text', label: 'Expiry:', w: 92 }],
-  /* 11 */[{ kind: 'profiles', label: 'Security Profiles:', w: 300, required: true }],
-  /* 12 */[{ kind: 'password', label: 'Password:', w: 150 }],
-  /* 13 */[{ kind: 'password', label: 'Confirm:', w: 150 }],
-  /* 14 — checked by default */
-  [{ kind: 'check', label: 'Reset Pswrd:', check: 'User To Choose New Password On Next Login', checked: true }],
-  /* 15 */[{ kind: 'note', text: '* Required Entry' }],
+export const NEW_USER_SECTIONS: NewUserSection[] = [
+  { h: 147, rows: [
+    { y: 20, fields: [
+      { kind: 'text', label: 'User Name:', x: 100, w: 180, required: true },
+      { kind: 'text', label: 'Prefix:', x: 373, w: 70 },
+      { kind: 'text', label: 'Suffix:', x: 478, w: 71 },
+    ] },
+    { y: 40, fields: [
+      { kind: 'text', label: 'First Name:', x: 100, w: 102, required: true },
+      { kind: 'text', label: 'Middle Name:', x: 286, w: 102 },
+      { kind: 'text', label: 'Last Name:', x: 449, w: 102, required: true },
+    ] },
+    { y: 61, fields: [{ kind: 'sync', label: 'Display Name:', x: 100, w: 180 }] },
+    { y: 82, fields: [{ kind: 'sync', label: 'Signature:', x: 100, w: 180 }] },
+    { y: 103, fields: [{ kind: 'hint', label: 'Initials:', x: 100, w: 86, hint: '( ex: JCS )' }] },
+    { y: 124, fields: [
+      { kind: 'text', label: 'Cell Phone:', x: 100, w: 102 },
+      { kind: 'text', label: 'Email:', x: 298, w: 162 },
+    ] },
+  ] },
+  { h: 107, rows: [
+    { y: 20, fields: [{ kind: 'drop', label: 'Role:', x: 100, w: 313, options: ['', ...USER_ROLES], required: true }] },
+    { y: 41, fields: [{ kind: 'drop', label: 'Expertise:', x: 100, w: 313, options: USER_EXPERTISE }] },
+    /* MOIS fills today's date in for you (`303183`), centred in its edit */
+    { y: 61, fields: [{ kind: 'text', label: 'Effective:', x: 100, w: 86, value: MOIS_TODAY, align: 'center' }] },
+    { y: 82, fields: [{ kind: 'text', label: 'Expiry:', x: 100, w: 86 }] },
+  ] },
+  /* a 129 x 88 sunken list, its top 11 below the rule; Change 70 x 21 */
+  { h: 112, rows: [
+    { y: 21, fields: [{ kind: 'profiles', label: 'Security Profiles:', x: 100, w: 129, h: 88, required: true }] },
+  ] },
+  { h: 115, rows: [
+    { y: 22, fields: [{ kind: 'password', label: 'Password:', x: 100, w: 125 }] },
+    { y: 43, fields: [{ kind: 'password', label: 'Confirm:', x: 100, w: 125 }] },
+    /* checked by default */
+    { y: 64, fields: [{ kind: 'check', label: 'Reset Pswrd:', x: 100, check: 'User To Choose New Password On Next Login', checked: true }] },
+    { y: 86, fields: [{ kind: 'note', x: 98, text: '* Required Entry' }] },
+  ] },
 ]
+
+/** What the masked Password / Confirm edits open holding. */
+export const NEW_USER_MASK = '*********'
 
 /* ===========================================================================
    The `User Account` window            974 x 714
@@ -453,35 +495,77 @@ export const USER_ACCOUNT_TABS = [
   'Other',
 ]
 
-export const USER_ACCOUNT_SIZE = { w: 974, h: 714 }
+/* 974 x 714 in `42be29fdd885`; the 2026-10-02 TRAINING capture's window is
+   1108 x 820 at 1.14x — 972 x 719 — with a 46px foot under the tab page
+   holding Apply Changes / Cancel (89 x 23, 13 apart). The width stays. */
+export const USER_ACCOUNT_SIZE = { w: 974, h: 719 }
+export const USER_ACCOUNT_FOOT = { h: 46, button: 89, buttonH: 23, gap: 13 }
 export const USER_ACCOUNT_FOOTER = ['Apply Changes', 'Cancel']
 
-/** The fixed block above the tab strip: three columns of three fields. */
-export const USER_ACCOUNT_HEADER: { label: string; w: number; key: string }[][] = [
+/**
+ * The fixed block above the tab strip (2026-10-02 TRAINING capture): three
+ * columns of three label / value pairs, the values in **bold read-only
+ * text**, not edit boxes, on the window face, ruled off underneath, 60px
+ * tall. The first two columns' labels are left-set (x 10 / 285) with values
+ * at 83 / 359; the third column's labels are right-set against 612 with the
+ * values at 617. Lines are 18px apart, the first centred 13 down.
+ * `Change Name` (77 x 21) sits at x 846, 8 down.
+ */
+export const USER_ACCOUNT_HEADER: { label: string; key: string }[][] = [
   [
-    { label: 'User Name:', w: 130, key: 'user' },
-    { label: 'First Name:', w: 130, key: 'first' },
-    { label: 'Last Name:', w: 130, key: 'last' },
+    { label: 'User Name:', key: 'user' },
+    { label: 'First Name:', key: 'first' },
+    { label: 'Last Name:', key: 'last' },
   ],
   [
-    { label: 'Prefix:', w: 90, key: 'prefix' },
-    { label: 'Middle Name:', w: 90, key: 'middle' },
-    { label: 'Suffix:', w: 90, key: 'suffix' },
+    { label: 'Prefix:', key: 'prefix' },
+    { label: 'Middle Name:', key: 'middle' },
+    { label: 'Suffix:', key: 'suffix' },
   ],
   [
-    { label: 'Display Name:', w: 160, key: 'display' },
-    { label: 'Signature:', w: 160, key: 'signature' },
-    { label: 'Initials:', w: 160, key: 'initials' },
+    { label: 'Display Name:', key: 'display' },
+    { label: 'Signature:', key: 'signature' },
+    { label: 'Initials:', key: 'initials' },
   ],
 ]
+export const USER_ACCOUNT_HEADER_GEOMETRY = {
+  h: 60, pitch: 18, top: 13,
+  columns: [{ label: 10, value: 83 }, { label: 285, value: 359 }, { labelRight: 612, value: 617 }],
+  changeName: { x: 846, y: 8, w: 77, h: 21 },
+}
+
+/**
+ * The ten tabs' painted widths, left to right (2026-10-02 TRAINING capture,
+ * tab separators at x 22 / 121 / 300 / 428 / 535 / 617 / 730 / 826 / 932 /
+ * 1025 / 1074, ÷ 1.14). They are not one padding round the caption — Other
+ * is 9px either side of its text, Module / Window Access 17 — so each is
+ * carried as measured.
+ */
+export const USER_ACCOUNT_TAB_WIDTHS = [87, 157, 112, 94, 72, 99, 84, 93, 82, 43]
+
+/**
+ * Every tab page but Subscription and Other holds one sunken panel (or two
+ * side by side) inset 7 from the page, each opening with a 22px grey band
+ * ruled off underneath (2026-10-02 TRAINING capture).
+ */
+export const USER_ACCOUNT_PANEL = { inset: 7, band: 22 }
 
 /* --- tab 1: `User Account` ------------------------------------------------
    `42be29fdd885`. Band caption `User Account`. The spec's prose says "four
-   group boxes" and then names six; six are captured and six are rendered.  */
+   group boxes" and then names six; six are captured and six are rendered.
+
+   2026-10-02 TRAINING capture: two columns of etched group boxes 465 wide,
+   8 apart, with bold BLACK captions. Left: Account Settings (168 tall),
+   Security Profiles (48), Notification Service Settings (250). Right:
+   Password Settings (123), Other Settings (89), Workspace Settings (250),
+   the last whose acknowledge list runs DOWN the box, one item per 22px line.
+   The 303492 `Unmatched Results Inbox` row is not in this build's box.     */
 
 export const NOTIFICATION_PRIORITIES = ['V. High:', 'High:', 'Medium:', 'Low:']
 export const NOTIFICATION_METHODS = ['Popup', 'Flash', 'N/A']
-/** Defaults in the capture: V. High = Popup, the other three = Flash. */
+/** Defaults in `42be29fdd885`: V. High = Popup, the other three = Flash. The
+    2026-10-02 TRAINING account shows none chosen — that is one account's
+    settings, so the help-site defaults stay. */
 export const NOTIFICATION_DEFAULTS = ['Popup', 'Flash', 'Flash', 'Flash']
 export const NOTIFICATION_BLOCKS = ['Messages', 'Tasks']
 
@@ -500,12 +584,19 @@ export const DESKTOP_PROVIDERS = [
 ]
 
 /* --- tab 2: `Module / Window Access` --------------------------------------
-   `1e9141017547` at user level, `a1bd18a6fdfa` at profile level. Two panes,
-   measured 277px and 659px. The user-level panes carry an extra `Override`
-   column that the profile-level ones do not.                               */
+   `1e9141017547` at user level, `a1bd18a6fdfa` at profile level; re-read off
+   the 2026-10-02 TRAINING captures (Security Profile Settings 03–05, User
+   Account 16). Two panes, 275 / 673px (313 / 767 capture px ÷ 1.14) inside
+   the 976px window. The user-level panes carry an extra `Override` column
+   that the profile-level ones do not.
 
-export const MODULE_PANE_W = 277
-export const WINDOW_PANE_W = 659
+   The right pane is the selected module's navigator tree, node for node and
+   in the navigator's order (03 / 05 against `patientChartTree`: Patient
+   Summary ▸ Demographic … Care Plan ▸ Preferences, Goals …), so the screen
+   builds it from the trees in data/mois.tsx rather than from a copy here. */
+
+export const MODULE_PANE_W = 275
+export const WINDOW_PANE_W = 673
 
 export const ACCESS_LEVELS = ['Administrator', 'Read/Write', 'Read Only']
 export const ACCESS_FOOTNOTE =
@@ -513,6 +604,9 @@ export const ACCESS_FOOTNOTE =
 
 export type ModuleAccessRow = { module: string; override?: boolean; access?: boolean }
 
+/* The capture's ALLIED HEALTH (TIER 1) grants Administration and Data
+   Exchange too; these are the seeded profiles' own, and `303191` (give a
+   user Data Exchange by Override) needs a module the profile withholds. */
 export const MODULE_ACCESS_ROWS: ModuleAccessRow[] = [
   { module: 'Patient Chart', access: true },
   { module: 'Workspace', access: true },
@@ -532,34 +626,38 @@ export type WindowAccessRow = {
   level?: string
 }
 
-export const WINDOW_ACCESS_ROWS: WindowAccessRow[] = [
-  { node: 'Patient Chart', depth: 0, access: true, level: 'Read/Write' },
-  { node: 'Patient Summary', depth: 1, access: true, level: 'Read Only' },
-  { node: 'Demographics', depth: 1, access: true, level: 'Read/Write' },
-  { node: 'Orders', depth: 1, access: true, level: 'Read/Write' },
-  { node: 'Encounters', depth: 1, access: true, level: 'Read/Write' },
-  { node: 'Administration', depth: 0, access: false, level: 'Read Only' },
-  { node: 'User Management', depth: 1, access: false, level: 'Read Only' },
-  { node: 'Clinic Management', depth: 1, access: false, level: 'Read Only' },
-  /* 3799750 `3aa5c0ee…png` / `ed3a6269…png`: the private-note nodes, unticked
-     until an administrator grants them */
-  { node: 'Chart Access Control', depth: 1, access: true, level: 'Read/Write' },
-  { node: 'Management', depth: 2, access: true, level: 'Read/Write' },
-  { node: 'Break Glass Audit', depth: 2, access: true, level: 'Read/Write' },
-  { node: 'Private Notes', depth: 2, access: false, level: 'Read/Write' },
-  { node: 'Workspace', depth: 0, access: true, level: 'Administrator' },
-  { node: 'Other', depth: 1, access: false, level: 'Read/Write' },
-  { node: 'My Private Notes', depth: 2, access: false, level: 'Read/Write' },
-]
+/** A node's Access Level where the capture shows one; every other node
+    opens on Read/Write. Patient Chart, per 03 / 05 (ALLIED HEALTH (TIER 1)). */
+export const WINDOW_ACCESS_LEVELS: Record<string, Record<string, string>> = {
+  'Patient Chart': {
+    'Patient Summary': 'Administrator', Demographic: 'Administrator',
+    'Determinants of Health': 'Administrator', Encounters: 'Administrator', Measures: 'Administrator',
+    Imaging: 'Read Only', Consults: 'Read Only', Procedures: 'Read Only', Interventions: 'Read Only',
+    'Family History': 'Read Only', Prescriptions: 'Read Only', 'Print History': 'Read Only',
+    'Social History': 'Read Only',
+  },
+}
+
+/** Nodes a module's access tree lists that the navigator does not build:
+    3799750 `2f2f9da1…png` / `ed3a6269…png` put Management and Break Glass
+    Audit beside Private Notes under Chart Access Control. */
+export const WINDOW_ACCESS_CHILDREN: Record<string, string[]> = {
+  'Chart Access Control': ['Management', 'Break Glass Audit', 'Private Notes'],
+}
+
+/** 3799750: the private-note nodes are unticked until an administrator
+    grants them. Every other node opens ticked, as 03–05 and 16 show. */
+export const WINDOW_ACCESS_WITHHELD = ['Private Notes', 'My Private Notes']
 
 /* --- tab 3: `Special Functions` -------------------------------------------
-   `e361c4e01d11` (profile level). Band caption `Function Access`; columns
-   `Function` / `Description` / a checkbox plus the word `Execute`.
+   `e361c4e01d11`, re-read off the 2026-10-02 TRAINING captures (06 / 07 at
+   profile level, 17 at user level). Band caption `Function Access`; columns
+   `Function` / `Description` / a checkbox plus the word `Execute`; the user
+   level puts `☐ Override` before it. All 23 rows in the capture's order, in
+   plain black: the two red "BH-internal" rows of the older help-site
+   capture are not red in the live build.                                   */
 
-   The two BH-internal rows render **entirely** in #FF0000 — function,
-   description and the word "Execute".                                      */
-
-export type SpecialFunctionRow = { fn: string; desc: string; execute?: boolean; bh?: boolean }
+export type SpecialFunctionRow = { fn: string; desc: string; execute?: boolean }
 
 export const SPECIAL_FUNCTION_ROWS: SpecialFunctionRow[] = [
   { fn: 'Merge Chart', desc: 'Merge / Combine a Patient Chart' },
@@ -572,9 +670,8 @@ export const SPECIAL_FUNCTION_ROWS: SpecialFunctionRow[] = [
   { fn: 'Data Extraction, Access, & Control', desc: 'Data Extraction, Access, & Control Utility' },
   { fn: 'Report All Tasks and Messages', desc: 'Report All Tasks and Messages' },
   { fn: 'Share W/S on Behalf of MOIS User', desc: 'Ability to Share Workspace on Behalf of a MOIS User' },
-  /* BH-internal — whole row in #FF0000 */
-  { fn: 'Web form administration', desc: 'Install and update web form definitions', bh: true },
-  { fn: 'Override web form signature', desc: 'Allow overriding of web form signatures', bh: true },
+  { fn: 'Web form administration', desc: 'Install and update web form definitions' },
+  { fn: 'Override web form signature', desc: 'Allow overriding of web form signatures' },
   { fn: 'Static Recipients', desc: 'Ability to See and Select Static Recipients' },
   { fn: 'Change Associated Service Group', desc: "Ability to change a record's associated service group." },
   { fn: 'MAR Lock Override', desc: 'Ability to edit MAR records regardless of lock setting and MAR creator' },
@@ -593,32 +690,9 @@ export const SPECIAL_FUNCTION_ROWS: SpecialFunctionRow[] = [
   { fn: 'OAT Prescribing', desc: 'Ability to create OAT prescriptions', execute: true },
 ]
 
-/* The names, the descriptions and the two red rows are all `e361c4e01d11`'s
-   (the DATA ENTRY profile), word for word. */
-
 /* --- tab 4: `Report Access` -----------------------------------------------
-   `9e179125c6d6`. A single-column expander tree on a full-pane #C8DCFA
-   background with `+` boxes and bold labels. The capture scrolls, so this is
-   the visible run and not the whole list.                                  */
-
-export const REPORT_ACCESS_FOLDERS = [
-  'Accounts - General',
-  'Accounts - MSP',
-  'Accounts - Private (Inv)',
-  'Accounts - Private (Trans)',
-  'Bills - by Diagnosis',
-  'Bills - Fee Code',
-  'Clinical - Audits',
-  'Clinical - Main',
-  'Clinical - Pro/Obs',
-  'Dynamic Forms',
-  'MSP Billing',
-  'Practice Management',
-  'Practice Management - Access',
-  'Recalls / Reminders',
-  'Report Builders',
-  'Security / Access Audit',
-]
+   The folders and reports are the Report List's (data/reportCatalogue.ts);
+   screens/ReportAccessPane.tsx draws them at both levels.                  */
 
 /* --- tab 5: `User Alias` --------------------------------------------------
    `cd62a8ecb55f`, `a1e947ea321b`. Band `User Alias List` with New / Delete
@@ -679,6 +753,21 @@ export const SHARED_WITH_ME_COLUMNS: UserColumn[] = [
 ]
 export const SHARED_WITH_ME_ROWS: UserRow[] = [
   { start: '2025.03.17', stop: '--', user: 'SHEWCHUK, LEAH' },
+]
+
+/**
+ * 2026-10-02 TRAINING capture: Inbox Forwarding runs the page's width, 269
+ * tall; 4 under it, `Sharing Workspace With` (588 wide) and `Workspaces
+ * Shared With Me` (357) sit 7 apart, both 270 tall. Each band's buttons are
+ * butted edge to edge at its right and fill its height. The right panel is
+ * read-only: a 31px #C8DCFA caption band, then bold black column captions
+ * left-set at 9 / 83 / 158 over a black rule, on white.
+ */
+export const WORKSPACE_MGT_GEOMETRY = { inboxH: 269, gap: 4, sharingW: 588, sharedW: 357, sideGap: 7, sharedBand: 31 }
+export const SHARED_WITH_ME_PANEL_COLUMNS: UserColumn[] = [
+  { key: 'start', header: 'Start', width: 74, headAlign: 'left' },
+  { key: 'stop', header: 'Stop', width: 75, headAlign: 'left' },
+  { key: 'user', header: 'User Account', headAlign: 'left' },
 ]
 
 /* --- tab 7: `Memberships` -------------------------------------------------
@@ -831,17 +920,28 @@ export const OTHER_SETTINGS: OtherSetting[] = [
 ]
 
 /* ===========================================================================
-   The `Security Profile Settings` window   976 x 666, 4 tabs   `a1bd18a6fdfa`
+   The `Security Profile Settings` window   976 x 682, 5 tabs   `a1bd18a6fdfa`
+
+   2026-10-02 TRAINING captures 03–13: the window's frame is 1110 x 778
+   capture px (÷ 1.14 = 974 x 682; 38–816 down, 18–1128 across). Above the strip, a bordered band: `Security
+   Profile:` (136px, its text selected on open) and `Description:` (343px).
+   Five fixed-width tabs, 171 capture px = 150px each, the fifth `Launch
+   Mode` (11–13), which the older help-site window did not have.
    ======================================================================== */
 
 export const SECURITY_PROFILE_TABS = [
-  'Module / Window Access', 'Special Functions', 'Report Access', 'User List',
+  'Module / Window Access', 'Special Functions', 'Report Access', 'User List', 'Launch Mode',
 ]
-export const SECURITY_PROFILE_SIZE = { w: 976, h: 666 }
+export const SECURITY_PROFILE_TAB_W = 150
+export const SECURITY_PROFILE_SIZE = { w: 976, h: 682 }
 export const SECURITY_PROFILE_FOOTER = ['Apply Changes', 'Cancel']
 export const SECURITY_PROFILE_TITLE = 'Security Profile Settings'
+/** the header band's two edits, 155 / 391 capture px */
+export const SECURITY_PROFILE_HEADER = { nameW: 136, descW: 343 }
 
-/** `415516e9d83a`. HAS gridlines, unlike the User Accounts grid. */
+/** `415516e9d83a`. HAS gridlines, unlike the User Accounts grid. Capture 10
+    agrees: rules at 206 / 148 / 104 / 105 / 104 / 111 / 110 / 73 capture px
+    (÷ 1.14 = the widths below), a 33px (29) two-line header, 19px rows. */
 export const PROFILE_USER_LIST_BAND = 'Current User List'
 export const PROFILE_USER_LIST_GUTTER = 16
 export const PROFILE_USER_LIST_HEAD_H = 29
@@ -857,6 +957,39 @@ export const PROFILE_USER_LIST_COLUMNS: UserColumn[] = [
   { key: 'expiry', header: 'Expiry', width: 97, align: 'center' },
   { key: 'status', header: 'Status', width: 64, align: 'center' },
 ]
+
+/* --- tab 5: `Launch Mode` -------------------------------------------------
+   Captures 11 (none yet), 12 (the `Select Launch Mode` list Add Launch Mode
+   raises: Main Program, Encounter Lite, Ok / Cancel) and 13 (Main Program
+   added: the right pane's caption becomes `Core MOIS` over the grey line
+   `Not additional settings` — sic, kept). The choices are the launch
+   chooser's (screens/LaunchModeWindows.tsx). */
+export const LAUNCH_MODE_BUTTONS = ['Add Launch Mode', 'Remove Launch Mode']
+export const LAUNCH_MODE_NOTE =
+  'Note: If a Role does not have a launch mode, the Main Program will be the default launch mode.'
+export const LAUNCH_MODE_LIST_HEAD = 'Launch Mode'
+export const LAUNCH_MODE_SETTING_HEAD = 'Launch Mode Setting'
+/** the left pane, 347 capture px */
+export const LAUNCH_MODE_LIST_W = 305
+
+/* ===========================================================================
+   The `New Security Profile` dialog   capture 02 (2026-10-02 TRAINING)
+
+   Raised by New Record on User Security Profiles: 535 x 227 capture px
+   (469 x 199). A bordered panel headed by a grey `New Security Profile`
+   band; `Security Profile:` (197 capture px → 173) over a two-line
+   `Description:` (355 x 35 → 311 x 31); Continue / Cancel, 85 x 24 → 75 x 21.
+   ======================================================================== */
+export const NEW_SECURITY_PROFILE = {
+  title: 'New Security Profile',
+  band: 'New Security Profile',
+  buttons: ['Continue', 'Cancel'],
+  w: 469,
+  /** the caption column: captions start 11px in, the edits 91px in */
+  labelW: 74,
+  nameW: 173,
+  descW: 311,
+}
 
 /* ===========================================================================
    The `User Group Detail` dialog       (from `303203`)
@@ -909,6 +1042,42 @@ export const CHANGE_PASSWORD = {
   buttons: ['Change', 'Cancel'],
   /* the checkbox is UNCHECKED here, where the New User dialog's is checked */
   reset: 'User To Choose New Password On Next Login',
+}
+
+/* ===========================================================================
+   The `Change Name` dialog             2026-10-02 TRAINING capture
+   (User Account ▸ header ▸ Change Name.)
+
+   460 wide. Three ruled sections, 135 / 34 / 56 tall, then a 51px foot with
+   Save / Cancel (75 x 21, 6 apart) centred. Labels at 17, edits at 96 and
+   135 wide (the Display Name / Signature Line edits 177), lines 20 apart
+   with the first centred 19 down. Each grey example follows its edit by 4;
+   the tick boxes sit at 277. Display Name is disabled while its box is
+   ticked; the Signature Line box is unticked, so that edit is live.
+   ======================================================================== */
+
+export const CHANGE_NAME = {
+  title: 'Change Name',
+  w: 460,
+  sections: [135, 34, 56],
+  labelX: 17,
+  controlX: 96,
+  editW: 135,
+  wideW: 177,
+  syncX: 277,
+  pitch: 20,
+  top: 19,
+  footH: 51,
+  rows: [
+    { label: 'Prefix:', key: 'prefix', hint: 'E.g. DR., MR., MRS., MS.' },
+    { label: 'First Name:', key: 'first', required: true },
+    { label: 'Middle Name:', key: 'middle' },
+    { label: 'Last Name:', key: 'last', required: true },
+    { label: 'Suffix:', key: 'suffix', hint: 'E.g. MD' },
+    { label: 'Initials:', key: 'initials' },
+  ] as { label: string; key: string; hint?: string; required?: boolean }[],
+  sync: 'Synchronize with Name Fields',
+  buttons: ['Save', 'Cancel'],
 }
 
 /* ===========================================================================

@@ -63,27 +63,75 @@
 .pb-flowsheet__tool:hover { border-color: var(--pb-btn-hover-brd); background: var(--pb-btn-hover); }
 .pb-flowsheet__toolsep { width: 1px; height: 14px; margin: 0 2px; background: #a9b1bc; }
 
+/* --- identity + as-of strips (2026-07-27 captures, CSS px at ×1.3665) ---
+   fixed-x labels with bold values, as a PB report header prints them.
+   The whole report prints a size up from the DataWindow body: at ×1.3665
+   "Review BS Records?" is 112px, "LONG TERM MEDICATIONS" 154px, "FLOW SHEET
+   AS OF" 119px and "BC Health No.:" 75.5px — 0.81–0.88 of them at the
+   body's 11px, 0.94–1.02 at 12px of the outline face (Arial, the stand-in
+   for Microsoft Sans Serif, lands within 2% on all four grid strings). The
+   glyphs are MS Sans Serif's bitmap look, i.e. its 10pt strike. */
+.pb-flowsheet__ident,
+.pb-flowsheet__asof,
+.pb-flowsheet__grid { font-size: 12px; }
+/* the bitmap face exists at 11px only; a larger strike comes off the
+   outline face, as pb/text.css does for the view header */
+.pb-root.pb-text--pixel .pb-flowsheet__ident,
+.pb-root.pb-text--pixel .pb-flowsheet__asof,
+.pb-root.pb-text--pixel .pb-flowsheet__grid {
+  font-family: "Microsoft Sans Serif", "MS Sans Serif", Tahoma, Verdana, Arial, sans-serif;
+  word-spacing: normal;
+  -webkit-font-smoothing: auto;
+}
 .pb-flowsheet__ident,
 .pb-flowsheet__asof {
-  display: flex;
-  gap: 34px;
-  padding: 3px 10px;
+  position: relative;
+  flex: none;
   background: var(--pb-window);
   white-space: nowrap;
   overflow: hidden;
 }
-.pb-flowsheet__ident { border-bottom: 1px solid #000; }
-.pb-flowsheet__ident span b { margin-left: 8px; }
-.pb-flowsheet__asof { gap: 110px; border-bottom: 1px solid #9a9a9a; }
+.pb-flowsheet__ident > *,
+.pb-flowsheet__asof > * { position: absolute; line-height: 15px; }
+/* MS Sans Serif has no bold cut: Windows smears each glyph a pixel right
+   and adds that pixel to its advance (pb/text.css). The browser's own
+   synthesis does neither on the outline face, so the smear is drawn here. */
+.pb-flowsheet__ident > b,
+.pb-flowsheet__asof > b {
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-shadow: 1px 0 0 currentColor;
+}
+/* 22px, its caps 3.7px down, a black rule under it */
+.pb-flowsheet__ident { height: 23px; border-bottom: 1px solid #000; }
+.pb-flowsheet__ident > * { top: 1px; }
+/* 27.5px, caps 8.5px down; the grey rule is the report's top edge */
+.pb-flowsheet__asof { height: 28px; border-bottom: 1px solid #848484; }
+.pb-flowsheet__asof > * { top: 6px; }
 
-.pb-flowsheet__scroll {
+/* --- the split report ---------------------------------------------------- */
+.pb-flowsheet__panes {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  flex-direction: column;
-  overflow: auto;
   background: var(--pb-window);
 }
+.pb-flowsheet__pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-x: scroll;
+  background: var(--pb-window);
+}
+/* the frozen element pane: its own horizontal bar, no vertical one, and
+   the 1px split rule (#6E6E6E, peak of a 1.4-device-px line) */
+.pb-flowsheet__pane--left {
+  flex: none;
+  overflow-y: hidden;
+  border-right: 1px solid #6e6e6e;
+}
+.pb-flowsheet__pane--right { flex: 1 1 auto; overflow-y: scroll; }
+
 .pb-flowsheet__grid {
   flex: 1 0 auto;
   border-collapse: collapse;
@@ -92,46 +140,44 @@
 }
 .pb-flowsheet__grid th,
 .pb-flowsheet__grid td {
-  height: 16px;
-  padding: 0 4px;
+  height: var(--pb-dw-row-h);
+  padding: 0 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
   text-align: center;
-  border-left: 1px solid #c9c9c9;
+  /* every date column is ruled on its right, header included */
+  border-right: 1px solid #a0a0a0;
 }
 .pb-flowsheet__grid th {
   position: sticky;
   top: 0;
   z-index: 1;
-  height: 18px;
+  height: 22px;
   font-weight: 400;
   background: var(--pb-dw-header);
-  border-bottom: 1px solid #9fb3d1;
 }
-.pb-flowsheet__grid .pb-flowsheet__el { text-align: left; border-left: 0; }
-.pb-flowsheet__grid .pb-flowsheet__rest { border-left: 1px solid #c9c9c9; }
-/* the heavier rule where the year turns over, as both captures draw it */
+.pb-flowsheet__grid .pb-flowsheet__el { text-align: left; border-right: 0; }
+/* the label clips at the column's own edge; the 5px after it stays blank */
+.pb-flowsheet__grid .pb-flowsheet__el { padding-right: 0; }
+.pb-flowsheet__el > span { display: block; overflow: hidden; }
+.pb-flowsheet__grid .pb-flowsheet__rest { border-right: 0; }
+/* the heavier rule where the year turns over (help-site images) */
 .pb-flowsheet__grid .is-year { border-left: 2px solid #3d3d3d; }
-.pb-flowsheet__grid tbody tr:nth-child(even):not(.pb-flowsheet__filler) { background: #f4f4f4; }
-.pb-flowsheet__grid tbody tr.is-current { background: var(--pb-dw-select-soft); }
-.pb-flowsheet__grid tbody tr.is-current td:first-child { background: var(--pb-dw-select); }
+.pb-flowsheet__grid tbody tr:not(.pb-flowsheet__filler) { background: var(--pb-dw-row); }
+.pb-flowsheet__grid tbody tr:nth-child(odd):not(.pb-flowsheet__filler) { background: var(--pb-dw-row-alt); }
+.pb-flowsheet__grid tbody tr.is-current:nth-child(n) { background: var(--pb-dw-select); }
 .pb-flowsheet__filler td { height: auto; }
-.pb-flowsheet__grid tbody tr:not(.pb-flowsheet__filler) td { border-bottom: 1px solid #ececec; }
 
-.pb-flowsheet__ltm {
-  flex: none;
-  padding: 4px 4px 8px;
-  border-top: 1px solid #9a9a9a;
-  background: var(--pb-window);
+/* a medication's bar: navy #005596 filling the cell from 2px in to its
+   right rule, 1px clear of the row top and bottom, its "========" in a light
+   blue (the peak of a 1px stroke on the navy, ≈ #4DB4E4) */
+.pb-flowsheet__grid td:has(> .pb-flowsheet__bar) { padding: 1px 0 1px 2px; }
+.pb-flowsheet__bar {
+  display: block;
+  height: 100%;
+  background: #005596;
+  color: #4db4e4;
+  line-height: 18px;
+  text-align: center;
 }
-.pb-flowsheet__ltm-head { font-weight: 700; padding: 2px 0 3px; }
-.pb-flowsheet__ltm-row {
-  height: 16px;
-  line-height: 16px;
-  padding-left: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  cursor: default;
-}
-.pb-flowsheet__ltm-row:hover { background: var(--pb-select); }

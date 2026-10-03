@@ -29,7 +29,7 @@ import { PatientDetailPage } from './PatientDetailPage'
 import { patientEdits, renamePatientEdits, savePatient, undoPatient, refreshPatient, updatePatient, usePatientEdits, usePatientSaved } from '../data/patient-edits'
 import { demographicServiceCenters } from '../data/demographic-lookups'
 import { PBDropDownDataWindow } from '../pb'
-import { AddressExpiryDialog, AddressWizardDialog, PatientPhotoDialog, MspEligibilityDialog, DemographicLookupDialog,
+import { AddressExpiryDialog, AddressWizardDialog, ConnectionDialog, PatientPhotoDialog, MspEligibilityDialog, DemographicLookupDialog,
   DemographicModal, DialogButtons, geographicTerms, today } from './DemographicDialogs'
 
 /* The v02.31 strip (reference/demographics-full.png, v02.31.23), which art.
@@ -1408,9 +1408,11 @@ function DemographicsPage({ onLookup }: { onLookup?: () => void }) {
 
               <span className="pb-form__label">Service:</span>
               <RowR>
-                <PBDropDownDataWindow w={188} listW={420} tutorialId="host.mois.field.demographic-service" value={patient.service ?? ''} display="code"
+                {/* the Office Info list drops 409 wide with a 123 Service Center
+                    column (Drive Mois 2026-09-22 8.17.45, 1.5x) */}
+                <PBDropDownDataWindow w={188} listW={409} tutorialId="host.mois.field.demographic-service" value={patient.service ?? ''} display="code"
                   rows={demographicServiceCenters} onSelect={r => change({ service: r.code })}
-                  columns={[{ key: 'code', header: 'Service Center', width: 135, render: r => <span style={{ color: r.inactive ? 'red' : undefined }}>{r.code}</span> },
+                  columns={[{ key: 'code', header: 'Service Center', width: 123, render: r => <span style={{ color: r.inactive ? 'red' : undefined }}>{r.code}</span> },
                     { key: 'description', header: 'Description', render: r => <span style={{ color: r.inactive ? 'red' : undefined }}>{r.description}</span> }]} />
                 <span className="pb-row__spacer" />
                 <span className="pb-demog__stacked">Invoice Balance</span>
@@ -1504,7 +1506,8 @@ function DemographicsPage({ onLookup }: { onLookup?: () => void }) {
       {dialog === 'wizard' && <AddressWizardDialog onClose={() => setDialog(null)} />}
       {dialog === 'archive' && <AddressExpiryDialog onClose={() => setDialog(null)} />}
       {dialog === 'status' && <DemographicStatusDialog onClose={() => setDialog(null)} />}
-      {dialog === 'pharmacy' && <DemographicPharmacyDialog onClose={() => setDialog(null)} />}
+      {/* Change... opens the captured Connection window; its "…" opens Select Pharmacy */}
+      {dialog === 'pharmacy' && <ConnectionDialog onClose={() => setDialog(null)} lookup={close => <DemographicPharmacyDialog onClose={close} />} />}
       {cityOpen && <DemographicLookupDialog title="City" value={patient.city ?? ''} city
         rows={[...geographicTerms, ...(patient.city && !geographicTerms.some(r => r.term === patient.city) ? [{ term: patient.city, category: 'CITY', code: '', system: `PP-${patient.province ?? 'BC'}` }] : [])]}
         onPick={r => { change({ city: r.term, province: r.system.replace('PP-', '') }); setCityOpen(false) }} onClose={() => setCityOpen(false)} />}

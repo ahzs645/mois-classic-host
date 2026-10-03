@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { PBBand, PBButton, PBCheckbox, PBSelect, PBWindow, usePBInstrumentation } from '../pb'
+import { PBBand, PBButton, PBCheckbox, PBSelect, usePBInstrumentation } from '../pb'
+import { LAYER, ModalWindow } from './dialogKit'
 import { CmdButton } from './CmdButton'
-import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
+import { WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
 /* ============================================================================
    The report "Selection Parameter" pieces: the frame a Reports / Print-menu
@@ -28,7 +29,8 @@ const NAVY = '#000080'
 
 /**
  * The navy section heading. The copies differ only in padding and rules:
- * - `ruled` (default) — ruled above and below, `marginTop: 4`:
+ * - `ruled` (default) — ruled below only (#808080), 22px, `marginTop: 4` but
+ *   none for a frame's first heading (re-measured 2026-10-03, see SECTION):
  *   ReportParameterWindows 74, ReportSpecWindow 171, PatientsByProcedureWindow 32
  * - `under` — ruled below, `marginTop: 2`: reports/AuditReportWindows 73
  * - `flat` — ruled below, `padding: 4px 8px 3px`, no margin: reports/AccessReportWindows 166
@@ -38,15 +40,22 @@ const NAVY = '#000080'
  */
 export type ParamSectionKind = 'ruled' | 'under' | 'flat' | 'open'
 
+/* `ruled`, re-measured 2026-10-03 off 304051 `3c0bc2a2` / `2e4ff9ba` and
+   304042 `bcde4768` (1:1) and the v02.31.23 captures Drive `MOIS
+   Screenshot/` 2026-08-11 3.38.53 PM / 3.41.22 PM: a heading is a 22px
+   line, text 11px in, with ONE #808080 rule under it — none above (the
+   first heading sits on the band's own bottom rule; a later one, Aging's
+   `Report By` / `Include`, has only space above it). The first heading's
+   margin is dropped by RK_CSS inside a ParamFrame. */
 const SECTION: Record<ParamSectionKind, CSSProperties> = {
-  ruled: { color: NAVY, fontWeight: 700, padding: '5px 8px 3px', borderBottom: '1px solid #a0a0a0', borderTop: '1px solid #a0a0a0', marginTop: 4 },
+  ruled: { color: NAVY, fontWeight: 700, display: 'flex', alignItems: 'center', minHeight: 23, padding: '0 11px', borderBottom: '1px solid #808080', marginTop: 4 },
   under: { color: NAVY, fontWeight: 700, padding: '5px 8px 3px', borderBottom: '1px solid #a0a0a0', marginTop: 2 },
   flat: { color: NAVY, fontWeight: 700, padding: '4px 8px 3px', borderBottom: '1px solid #a0a0a0' },
   open: { color: NAVY, fontWeight: 700, padding: '10px 10px 4px', borderBottom: '1px solid #a0a0a0' },
 }
 
 export function ParamSection({ kind = 'ruled', children }: { kind?: ParamSectionKind; children: ReactNode }) {
-  return <div style={SECTION[kind]}>{children}</div>
+  return <div className={kind === 'ruled' ? 'rk-sec' : undefined} style={SECTION[kind]}>{children}</div>
 }
 
 /** The thin grey rule between a section's groups (reports/AuditReportWindows 76 `Rule`). */
@@ -81,8 +90,10 @@ export function ParamLine({ label, w = 90, stacked, align, style, children }: {
       </div>
     )
   }
+  /* 21px a line (304051 `3c0bc2a2`: From / To 21px apart, the same in the
+     v02.31.23 capture 2026-08-11 3.38.53 PM) */
   return (
-    <div className="pb-row" style={{ gap: 6, padding: '2px 10px', minHeight: 21, ...style }}>
+    <div className="pb-row rk-line" style={{ gap: 6, padding: '1px 10px', minHeight: 21, ...style }}>
       <span className="pb-form__label" style={{ width: w, flex: 'none' }}>{label}</span>
       {children}
     </div>
@@ -211,8 +222,8 @@ export function FieldSelect({ id, value, options, onChange, w }: {
  *
  * `variant="report"` (default) — the Reports module's: a WorkspaceDialogFrame
  * ringed `host.mois.dialog.<id>`, no min/max boxes, the bordered face on
- * `var(--pb-face)`, a scrolling body, and Ok / Cancel as DialogButtons
- * `<prefix>-ok` / `<prefix>-cancel`, `buttonWidth` wide (75), 19px apart.
+ * `var(--pb-face)`, a scrolling body, and Ok / Cancel as 22px PBButtons
+ * `<prefix>-ok` / `<prefix>-cancel`, `buttonWidth` wide (75), 12px apart.
  *   - ReportParameterWindows 127 `ParamFrame({ report, title, width, height, prefix, onOk, close })`:
  *     `id={\`report-params-${report}\`} prefix={prefix} w={width} h={height} onCancel={close}`
  *   - ReportSpecWindow 494-512: `id={\`report-params-${sid}\`} prefix={sid}
@@ -271,15 +282,14 @@ export function ParamFrame({
   if (variant === 'print') {
     const bw = buttonWidth ?? 69
     return (
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-        <PBWindow
-          child
-          controls={false}
-          tutorialId={`host.mois.dialog.${id}`}
-          title={title}
-          onClose={onCancel}
-          style={{ width: w, height: `min(${h}px, calc(100vh - 80px))` }}
-        >
+      <ModalWindow
+        id={id}
+        title={title}
+        onClose={onCancel}
+        zIndex={LAYER.workspace}
+        windowStyle={{ width: w, height: `min(${h}px, calc(100vh - 80px))` }}
+        after={after}
+      >
           <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 12, gap: 0 }}>
             <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-window)' }}>
               {band && <PBBand>Selection Parameter</PBBand>}
@@ -301,23 +311,30 @@ export function ParamFrame({
               <CmdButton style={{ width: bw }} command={`${prefix}-cancel`} onClick={onCancel}>Cancel</CmdButton>
             </div>
           </div>
-        </PBWindow>
-        {after}
-      </div>
+      </ModalWindow>
     )
   }
   const bw = buttonWidth ?? 75
   return (
     <WorkspaceDialogFrame id={id} title={title} width={w} height={h} controls={false} onClose={onCancel}>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '10px 12px 0' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-face)' }}>
+      <style>{RK_CSS}</style>
+      {/* the pane sits 13px down, 11px in from the left and 19px from the
+          right; Ok / Cancel are 22px tall, 12px apart, 13px under the pane
+          and 22px off the bottom, centred 10px LEFT of the pane's centre —
+          304051 `3c0bc2a2` / `2e4ff9ba`, 304042 `bcde4768` (1:1, a 620×430
+          pane in every one), and the same in the v02.31.23 captures Drive
+          `MOIS Screenshot/` 2026-08-11 3.38.53 PM / 3.41.22 PM */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: '13px 19px 0 11px' }}>
+        <div className="rk-pane" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid #646464', background: 'var(--pb-face)' }}>
           {band && <PBBand>Selection Parameter</PBBand>}
-          <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', paddingBottom: 6 }}>{children}</div>
+          <div className="rk-body" style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', paddingBottom: 6 }}>{children}</div>
         </div>
         {footer ?? (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 19, padding: '12px 0 10px', flex: 'none' }}>
-            <DialogButton id={`${prefix}-ok`} width={bw} isDefault onClick={onOk}>{okLabel}</DialogButton>
-            <DialogButton id={`${prefix}-cancel`} width={bw} onClick={onCancel}>Cancel</DialogButton>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, padding: '13px 20px 22px 0', flex: 'none' }}>
+            {/* DialogButton is 24px tall; these are 22 (a DialogButton
+                `height` prop is the kit candidate) */}
+            <PBButton command={`${prefix}-ok`} className="pb-btn--default" style={{ width: bw, minWidth: 0, height: 22 }} onClick={onOk}>{okLabel}</PBButton>
+            <PBButton command={`${prefix}-cancel`} style={{ width: bw, minWidth: 0, height: 22 }} onClick={onCancel}>Cancel</PBButton>
           </div>
         )}
       </div>
@@ -325,3 +342,13 @@ export function ParamFrame({
     </WorkspaceDialogFrame>
   )
 }
+
+/* The report frame's own sizes (see ParamFrame and ParamSection): the grey
+   `Selection Parameter` band is 25px over a #646464 rule (PBBand is 18 with
+   none — a `PBBand` size prop is the kit candidate), the first heading sits
+   on that rule, and the first line under a heading starts 3px below it. */
+const RK_CSS = `
+.rk-pane > .pb-band { min-height: 26px; border-bottom: 1px solid #646464; box-sizing: border-box; }
+.rk-body > .rk-sec:first-child { margin-top: 0 !important; }
+.rk-body > .rk-sec + .rk-line { margin-top: 3px; }
+`

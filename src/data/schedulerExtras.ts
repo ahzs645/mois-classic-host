@@ -74,6 +74,8 @@ export type DaybookFormState = {
   alias: string
   comment: string
   noCallList: boolean
+  /** this day's call list has been made (the link reads Open after that) */
+  callListMade?: boolean
 }
 
 /** Chart Summaries the Patient Detail Slide can show (art. 303795 `377de417…`). */

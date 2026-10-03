@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import {
   PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio, PBSelect,
-  PBTabs, PBTextArea, PBWindow, pbSlug, usePBInstrumentation,
+  PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
   CARE_PLAN_COLUMNS, CARE_PLAN_ROWS,
@@ -28,7 +28,7 @@ import { useTemplateBodies } from '../data/letterDocs'
 import { useOpenWindow } from './areaWindowRegistry'
 import { NewLetterDialog } from './LetterEditorDialogs'
 import { TemplatePreview } from './LetterTemplateCanvas'
-import { DesktopLayer } from './StageWindow'
+import { LAYER, ModalWindow } from './dialogKit'
 import { allConcepts, ruleCodeSystem, ruleSentence, saveConcept, type ConceptEntry } from '../data/concepts'
 import type { MoisConceptRule } from '../data/conceptXml'
 
@@ -171,29 +171,25 @@ function DetailFrame({
   useScreenReport({ dialog: pbSlug(title) })
   const [left, ...centred] = leftFooter ? footer : [undefined, ...footer]
   return (
-    <DesktopLayer>
-    {/* one track the size of the desktop: without it the grid's implicit
-        track grows to the window's measured width, the `100%` maxima below
-        resolve against that, and a window measured wider or taller than the
-        stage (Paper Form, Panel Setup) runs off it with its footer */}
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}>
-      {/* PBWindow does not forward attributes, so the window's anchor rides a
-          wrapper that shrink-wraps it rather than the whole modal layer. The
-          wrapper is clamped to the work area too, so a window measured
-          larger than the stage keeps its footer and right edge on screen. */}
-      <div data-tutorial-id={host?.anchor('dialog', pbSlug(title))} style={{ maxWidth: '100%', maxHeight: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {/* `w` x `h` is the window's painted size, measured. The two maxima
-            are the emulator's, not MOIS's: a real PB window would run off the
-            frame, and clamping keeps the footer reachable in the work area. */}
-        <PBWindow
-          child
-          controls={false}
-          title={title}
-          onClose={onClose}
-          /* a column-flex item that may shrink: `maxHeight: 100%` alone never
-             applied, the wrapper's height being indefinite */
-          style={{ width: w, height: h, maxWidth: '100%', flex: '0 1 auto', minHeight: 0 }}
-        >
+    /* One track the size of the desktop: without it the grid's implicit
+       track grows to the window's measured width, the `100%` maxima below
+       resolve against that, and a window measured wider or taller than the
+       stage (Paper Form, Panel Setup) runs off it with its footer. The
+       window's anchor rides a wrapper clamped to the desktop too, so a
+       window measured larger than the stage keeps its footer and right edge
+       on screen. `w` x `h` is the window's painted size, measured; the two
+       maxima are the emulator's, not MOIS's (a real PB window would run off
+       the frame). The window is a column-flex item that may shrink:
+       `maxHeight: 100%` alone never applied, the wrapper's height being
+       indefinite. */
+    <ModalWindow
+      title={title}
+      onClose={onClose}
+      zIndex={60}
+      layerStyle={{ gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}
+      wrap={{ tutorialId: host?.anchor('dialog', pbSlug(title)), style: { maxWidth: '100%', maxHeight: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 } }}
+      windowStyle={{ width: w, height: h, maxWidth: '100%', flex: '0 1 auto', minHeight: 0 }}
+    >
           {/* 25px, `#004080`, caption inset 8px — the same band the list view
               paints, reused here as the window's own title band */}
           {navy && <div className="pb-viewhead"><span className="pb-viewhead__title">{navy}</span></div>}
@@ -210,10 +206,7 @@ function DetailFrame({
             {/* balances the left button so the pair stays centred */}
             {left && <span style={{ visibility: 'hidden' }}><PBButton wide tabIndex={-1} aria-hidden="true">{left}</PBButton></span>}
           </div>
-        </PBWindow>
-      </div>
-    </div>
-    </DesktopLayer>
+    </ModalWindow>
   )
 }
 
@@ -1051,9 +1044,9 @@ export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => v
   const setAll = (v: boolean) => setPicked(picked.map(() => v))
 
   return (
-    <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
-      <div data-tutorial-id={host?.anchor('dialog', 'import-paper-forms')}>
-        <PBWindow child controls={false} title="Import Paper Forms" onClose={onClose} style={{ width: 867, height: 561, maxWidth: '100%', maxHeight: '100%' }}>
+    <ModalWindow title="Import Paper Forms" onClose={onClose} zIndex={LAYER.workspace}
+      windowStyle={{ width: 867, height: 561, maxWidth: '100%', maxHeight: '100%' }}
+      wrap={{ tutorialId: host?.anchor('dialog', 'import-paper-forms') }}>
           {/* --- Import File: ------------------------------------------- */}
           <div style={{ flex: 'none' }}>
             <div className="pb-band" style={{ background: BAND }}>Import File:</div>
@@ -1144,9 +1137,7 @@ export function ImportPaperFormsDialog({ onClose, onImport }: { onClose: () => v
             ))}
             <span className="pb-footer__spacer" />
           </div>
-        </PBWindow>
-      </div>
-    </div>
+    </ModalWindow>
   )
 }
 

@@ -6,7 +6,6 @@ import {
 } from '../pb'
 import { useChartRecords } from '../data/chart-records'
 import { pad2 } from '../data/clock'
-import { daybookProviders } from '../data/mois'
 import { knownPatient, VISIT_CODE_FILL } from '../data/daybook'
 import { usePatient } from '../data/patient-context'
 import {

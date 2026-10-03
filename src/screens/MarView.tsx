@@ -93,7 +93,7 @@ import './mar.css'
      greyed with nothing picked; the filter and View bands align their
      fields at 90px and Record Limits ▾ / View ▾ at 448px; the list runs edge
      to edge under #c1e8f8 heads with short #c3c3c3 rules; an order band
-     shades dark to light; a picked dose is #f1c2b2. Chart 2429 lists its
+     shades dark to light; a picked dose is #f2c6b8. Chart 2429 lists its
      own three orders (data/marChart2429.ts) instead of the practice order.
    - c22: Record Status "…" lists twelve statuses (NO SHOW added) with
      Continue · Cancel (screens/MarActionWindows.tsx).
@@ -368,7 +368,7 @@ export function MarView() {
           <span className="pb-mar__count">Admin / Total</span>
         </div>
       )}
-      {groups.map((g) => {
+      {groups.map((g, gi) => {
         const o = g.orders[0]!
         const events = g.orders.flatMap((x) => x.events.map((e) => ({ e, o: x })))
         const isOpen = open.has(g.key)
@@ -396,10 +396,12 @@ export function MarView() {
                 <span className="pb-mar__count">({g.orders.reduce((n, x) => n + admin(x), 0)} / {events.length} records)</span>
               </>}
             </div>
-            {isOpen && events.map(({ e, o: x }) => (
+            {isOpen && events.map(({ e, o: x }, ei) => (
               <div
                 key={e.id}
-                className={['pb-mar-event', status(e, x), sel?.event === e.id ? 'is-current' : ''].join(' ')}
+                /* c21: a #c8c8c8 line closes the list under its last dose */
+                className={['pb-mar-event', status(e, x), sel?.event === e.id ? 'is-current' : '',
+                  gi === groups.length - 1 && ei === events.length - 1 ? 'pb-mar-event--last' : ''].join(' ')}
                 data-tutorial-id={`host.mois.row.mar-${pbSlug(e.status)}-${pbSlug(e.date)}`}
                 onMouseDown={() => setSel({ order: x.id, event: e.id })}
                 onDoubleClick={() => {

@@ -210,7 +210,9 @@ function PatientLabDetailWindow({ onClose, onMatch, resultKey }: { onClose: () =
     <div className="pb-row" style={{ gap: 6 }}><Lbl w={62}>{label}</Lbl><b>{value}</b></div>
   )
   return (
-    <ModalWindow id="patient-lab-detail" title="Patient Lab Detail" onClose={onClose} zIndex={60}
+    /* sized to fill the work area it opens in, like a maximised sheet; kept
+       docked there until a capture shows it raised over the frame */
+    <ModalWindow portal={false} id="patient-lab-detail" title="Patient Lab Detail" onClose={onClose} zIndex={60}
       windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, gap: 3, padding: 3 }}>
           <div className="pb-row" style={{ gap: 4, alignItems: 'stretch', flex: 'none' }}>
@@ -263,7 +265,9 @@ function ManualLabProcessingWindow({ onClose, onProcess, resultKey }: { onClose:
   /* the Activity record's "User match (manual) — Date, time, user" */
   const { add } = useLabActivity(resultKey)
   return (
-    <ModalWindow id="manual-lab-result-processing" title="Manual Lab Result Processing" onClose={onClose} zIndex={65}
+    /* sized to fill the work area it opens in, like a maximised sheet; kept
+       docked there until a capture shows it raised over the frame */
+    <ModalWindow portal={false} id="manual-lab-result-processing" title="Manual Lab Result Processing" onClose={onClose} zIndex={65}
       windowStyle={{ width: 'calc(100% - 8px)', height: 'calc(100% - 8px)' }}>
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: 4 }}>
           <div style={{ width: 252, flex: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>

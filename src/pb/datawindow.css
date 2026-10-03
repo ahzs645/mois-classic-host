@@ -76,6 +76,10 @@
   cursor: default;
 }
 .pb-dw__table > thead > tr > th:last-child { border-right: 0; }
+/* A left caption on the blue band: `headAlign: 'left'` sets it (the grey and
+   plain heads are left already). The band stays centred otherwise, even over
+   left-set cells — a column's `align` alone never moves its caption. */
+.pb-dw__table > thead > tr > th.pb-dw__c--left { text-align: left; }
 .pb-dw__table > thead > tr > th:hover { background: #bccdf0; }
 .pb-dw__table > thead > tr > th.pb-dw__sorted::after { content: " \25B2"; font-size: 8px; }
 .pb-dw__table > thead > tr > th.pb-dw__sorted--desc::after { content: " \25BC"; font-size: 8px; }

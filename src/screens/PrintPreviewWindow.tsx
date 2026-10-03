@@ -39,7 +39,23 @@ import { WorkspaceDialogFrame } from './WorkspaceDialogFrame'
      columns? { key, header, width? }[]   a table report: its columns …
      rows?    Record<string,string>[]     … and its rows, paginated
                         ROWS_PER_PAGE to a page with the header repeated
+     landscape? boolean   the page is 11in wide rather than 8.5in
    `pages` wins when both are given. With neither, one empty page.
+
+   GEOMETRY (2026-10-03 fidelity pass; 303518 `8fec3b9c` 1:1 and the
+   v02.31.23 capture Drive `Bright Health Presentation/` 2026-08-11 3.41.34 PM,
+   ≈1.19×): only a close box in the caption; the rail (screens/printKit
+   `report` skin); the `Preview` group (legend regular weight) holding a
+   black-ruled viewport 10px in and 13px under the group's rule, the page
+   flush in its top-left corner — a Letter page, 816px a side at 100%
+   (8.5in; 1056 landscape), white with a black edge, the window face beyond
+   it — and under the viewport, 2px down, a white black-ruled box 31px tall:
+   `Printer:` 6px in, the printer name 48px in, and `Change...` a link at a
+   fixed 480px. Both captures open with the 100% radio set and Percent 125,
+   and the page drawn at 125% (816 × 1.25 = the 1020px page of 8fec3b9c), so
+   the window opens at 125. v02.31.23 prints the printer as `CutePDFWriter ()`.
+   INFERRED: the gap between stacked pages (one page is all either capture
+   shows).
 
    Behaviour: the zoom radios / Percent + Apply scale the page; Print All
    and Print Range record what was sent (reported as `host.screen.printed`:
@@ -55,6 +71,7 @@ export type PrintPreviewArgs = {
   bare?: boolean
   columns?: PrintPreviewColumn[]
   rows?: Record<string, string>[]
+  landscape?: boolean
 }
 
 const ROWS_PER_PAGE = 32
@@ -85,6 +102,7 @@ function asArgs(args: Record<string, unknown>): PrintPreviewArgs {
     bare: argBool(args.bare),
     columns: Array.isArray(args.columns) ? (args.columns as PrintPreviewColumn[]) : undefined,
     rows: Array.isArray(args.rows) ? (args.rows as Record<string, string>[]) : undefined,
+    landscape: argBool(args.landscape),
   }
 }
 
@@ -96,8 +114,8 @@ export function PrintPreviewWindow({ args, close }: AreaWindowProps) {
         : ['']
   ), [a.pages, a.columns, a.rows, a.heading, a.title])
   const [zoom, setZoom] = useState('100')
-  const [percent, setPercent] = useState('100')
-  const [scale, setScale] = useState(100)
+  const [percent, setPercent] = useState('125')
+  const [scale, setScale] = useState(125)
   const [copies, setCopies] = useState('1')
   const [range, setRange] = useState('All Pages')
   const [printed, setPrinted] = useState<string | null>(null)
@@ -107,7 +125,7 @@ export function PrintPreviewWindow({ args, close }: AreaWindowProps) {
   const pickZoom = (z: string) => { setZoom(z); setPercent(z); setScale(Number(z)) }
 
   return (
-    <WorkspaceDialogFrame id="print-preview" title="Print Preview" width={1000} height={700} onClose={close}>
+    <WorkspaceDialogFrame id="print-preview" title="Print Preview" width={1000} height={700} controls={false} onClose={close}>
       <PrintPreviewFrame
         skin="report"
         zooms={ZOOMS}
@@ -126,19 +144,20 @@ export function PrintPreviewWindow({ args, close }: AreaWindowProps) {
         printerTypes={['Report Printer', 'Form Printer']}
       >
         {/* ---- the preview -------------------------------------------- */}
-        <fieldset className="pb-fieldset pb-fieldset--fill" style={{ margin: 0, flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <legend className="pb-fieldset__legend" style={{ color: '#000' }}>Preview</legend>
+        <fieldset className="pb-fieldset pb-fieldset--fill" style={{ margin: 0, padding: '6px 6px 2px 9px', flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <legend className="pb-fieldset__legend" style={{ color: '#000', fontWeight: 400, marginLeft: 5, padding: '0 3px' }}>Preview</legend>
           <div
             data-tutorial-id="host.mois.field.preview-page"
-            style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#d4d0c8', padding: '8px 0' }}
+            style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)', border: '1px solid #000' }}
           >
             {pages.map((page, i) => (
               <div
                 key={i}
                 style={{
-                  width: 720, margin: '0 auto 10px', background: '#fff', border: '1px solid #808080',
-                  boxShadow: '2px 2px 0 #9a9a9a', padding: '18px 26px 26px', zoom: scale / 100,
-                  fontFamily: 'Arial, "Helvetica Neue", sans-serif', fontSize: 12, lineHeight: 1.35, minHeight: 360,
+                  width: a.landscape ? 1056 : 816, minHeight: a.landscape ? 816 : 1056, boxSizing: 'border-box',
+                  margin: i ? '10px 0 0' : 0, background: '#fff', borderRight: '1px solid #000', borderBottom: '1px solid #000',
+                  padding: '30px 30px', zoom: scale / 100,
+                  fontFamily: 'Arial, "Helvetica Neue", sans-serif', fontSize: 12, lineHeight: 1.35,
                 }}
               >
                 {!a.bare && (
@@ -151,14 +170,14 @@ export function PrintPreviewWindow({ args, close }: AreaWindowProps) {
               </div>
             ))}
           </div>
-          <div className="pb-row" style={{ gap: 8, padding: '4px 6px', borderTop: '1px solid #a0a0a0', flex: 'none' }}>
-            <span className="pb-form__label">Printer:</span>
-            <span>CutePDFWriter</span>
-            <button type="button" className="pb-link" style={{ marginLeft: 'auto', marginRight: 'auto' }}>Change...</button>
+          <div style={{ position: 'relative', height: 31, marginTop: 2, flex: 'none', boxSizing: 'border-box', border: '1px solid #000', background: '#fff', display: 'flex', alignItems: 'center' }}>
+            <span className="pb-form__label" style={{ position: 'absolute', left: 6 }}>Printer:</span>
+            <span style={{ position: 'absolute', left: 48 }}>CutePDFWriter ()</span>
+            <button type="button" className="pb-link" style={{ position: 'absolute', left: 480 }}>Change...</button>
             {/* emulator affordance: MOIS hands the job to Windows and says
                 nothing; the stage names what was sent so the step shows it */}
             {printed && (
-              <span data-tutorial-id="host.mois.field.preview-printed" style={{ color: '#404040' }}>
+              <span data-tutorial-id="host.mois.field.preview-printed" style={{ position: 'absolute', left: 560, right: 6, color: '#404040', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 Sent to printer: {printed === 'all' ? `all ${pages.length} page(s)` : `pages ${printed}`}, {copies || '1'} cop{copies === '1' ? 'y' : 'ies'}
               </span>
             )}

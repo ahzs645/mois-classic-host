@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type UIEvent, type WheelEvent } from 'react'
 import { useChartRecords } from '../data/chart-records'
 import { date } from '../data/charts/relations'
-import { pad2 } from '../data/clock'
 import type { MoisRecord } from '../data/charts/types'
+import {
+  FLOWSHEET_ELEMENTS, FLOWSHEET_TYPES, LTM_HEADING, LTM_RULE, periodStart, type FlowSheetElement,
+} from '../data/flowSheets'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { PBButton, PBDropDownDataWindow, PBInput } from '../pb'
 import { ModalWindow } from './dialogKit'
+import { useMedRows, type Med } from './medication-model'
 import './flow-sheet.css'
 
 /* ============================================================================
@@ -16,6 +19,12 @@ import './flow-sheet.css'
    sheet itself.
 
    PROVENANCE
+   - Drive `MOIS Screenshot/` 2026-07-27 12.11.17 PM and 12.11.27 PM — the
+     current build's DIABETES flow sheet for a training chart, cropped to
+     the window's client area (no title bar or toolbar in frame), scrolled to
+     the top and then to the bottom. ≈1.3665 device px per CSS px, from the
+     20px DataWindow row (27.33 device px). These are the authority for the
+     sheet below; the help-site images are an older build.
    - art. 303789 "How to Create a Flow Sheet", image `570bfeace7ac…` (the
      annotated composite: 3a/3b are the parameters dialog with its Type list
      dropped, 4 is the "DIABETES Flowsheet" window). The text: dates are
@@ -33,32 +42,15 @@ import './flow-sheet.css'
      "Click 'Ok' or F2" then "click 'Print'".
    - System Settings (data/systemSettings.ts): `Flow Sheet Order` = A,
      "(A)scending or (D)escending from Left to Right", and `Flow Sheet
-     Period` = 2, "Default Period Length in Years". Both captures agree: the
-     To date is today and From is two years back plus a day (2014.06.04 –
-     2016.06.03, 2010.08.10 – 2012.08.09).
+     Period` = 2, "Default Period Length in Years". The help-site captures
+     default From to two years back plus a day (2014.06.04 – 2016.06.03,
+     2010.08.10 – 2012.08.09); the 2026-07-27 sheet prints exactly two years
+     (2024.07.27 TO 2026.07.27), which is what data/flowSheets.ts follows.
    ========================================================================= */
 
 export type FlowSheetParams = { from: string; to: string; type: string }
 
-/** The Flowsheet list the Type drop-down drops (570bfeac, step 3b). */
-export const FLOWSHEET_TYPES = [
-  { flowsheet: 'ASTHMA', description: 'ASTHMA CDM FLOWSHEET' },
-  { flowsheet: 'CHF', description: 'CHF CDM FLOWSHEET' },
-  { flowsheet: 'COPD', description: 'COPD CDM FLOWSHEET' },
-  { flowsheet: 'DIABETES', description: 'DIABETES CDM FLOWSHEET' },
-  { flowsheet: 'HEPC', description: 'HEPC CDM FLOWSHEET' },
-  { flowsheet: 'HTN', description: 'HTN CDM FLOWSHEET' },
-]
-
-/** `Flow Sheet Period` (years) from System Settings. */
-const FLOW_SHEET_PERIOD = 2
-
-/** today less the period, plus one day — how both captures default From */
-function periodStart(today: string, years = FLOW_SHEET_PERIOD): string {
-  const [y, m, d] = today.split('.').map(Number)
-  const t = new Date(Date.UTC(y - years, m - 1, d + 1))
-  return `${t.getUTCFullYear()}.${pad2(t.getUTCMonth() + 1)}.${pad2(t.getUTCDate())}`
-}
+export { FLOWSHEET_TYPES }
 
 /* ============================================================================
    Flow Sheet Parameters
@@ -139,223 +131,216 @@ export function FlowSheetParametersDialog({ defaultType = 'DIABETES', onOk, onCl
   )
 }
 
+
 /* ============================================================================
-   The element list per flow sheet.
+   The flow sheet window.
 
-   A flow sheet is a Designer ▸ Flowsheet definition (art. 303098): ordered
-   labels, each bound to a data source — Measure, Long Term Medications, an
-   Encounter Form question, … The manual shows the rows of exactly one of
-   the six CDM sheets: DIABETES in `570bfeac`, transcribed below in its
-   order, "----" separators included, down to `Insulin` where the capture's
-   bottom edge cuts it off. The other five are NOT in the manual; their rows
-   are a reasonable reading of the matching Health Maintenance concept (the
-   COPD list follows the art. 304722 concept table) and are marked as such.
+   Layout from the 2026-07-27 captures (CSS px at ×1.3665):
+   - a white identity strip, 22px with a black rule under it: Chart: /
+     Patient: / DoB: / Sex: / BC Health No.: at fixed x, the values bold and
+     the name LAST, FIRST MIDDLE. (The help-site build labelled the last one
+     "Insurance:"; the current build says "BC Health No.:" and prints the
+     insurer code with the number, "AB *912…" — the asterisk is not
+     explained by anything captured, so it is not reproduced.)
+   - a 28px strip "FLOW SHEET AS OF <to>" / "DATE RANGE: <from> TO <to>".
+   - the Element / Date crosstab in a split DataWindow: the element column
+     (252px) frozen in a left pane with its own horizontal scroll bar, a 1px
+     split rule, and a right pane holding the date columns (104px each,
+     ascending — `Flow Sheet Order` = A) with the vertical scroll bar. Both
+     panes show the whole report; the right one opens scrolled past the
+     element column, onto a 5px blank gap before the first date: the date
+     headers centre on 257 + 104n, and the gap shows no text even where a
+     long medication name runs to the split rule (ESOMEPRAZOLE 40 MG TABLET
+     (DELAYED), so it is space between the column objects, not the tail of
+     the element column. Header 22px, #C8DCFA; rows 20px, zebra #E8E8E8 / white from
+     the first row; the current row salmon across both panes; a grey rule
+     on the right of every date column, header included.
+   - the element rows, a 23-hyphen rule, LONG TERM MEDICATIONS, an empty
+     row, then one row per long-term medication with a navy "========" bar
+     in every date column the medication was current on.
 
-   `form` rows read an Encounter Form question (Review BS Records?, …) that a
-   chart export does not carry, so they print empty — which is also what the
-   captures show for most dates.
+   The toolbar strip (printer glyph + Print, Close/Exit) is above the
+   captures' crop; it is kept from art. 303789 / 303225 (older build).
+
+   A column exists for every date an element has a record on, valued or not
+   (`5be0ba8b` shows an entirely empty 2012.02.10 column); every column in
+   the 2026-07-27 sheet has at least one measure. INFERRED: a long-term
+   medication's start or end does not add a column of its own. The heavier
+   rule where the year turns over is from the help-site images (2014.12.02 |
+   2015.01.27, 2010.12.14 | 2011.05.10); the 2026-07-27 columns never cross
+   a year.
+
+   The grid is a PB crosstab report rather than an editable DataWindow — the
+   kit's PBDataWindow has neither a split pane nor per-column rules — so it
+   is a plain table, drawn once per pane, styled in flow-sheet.css.
    ========================================================================= */
-type Element =
-  | { kind: 'measure'; label: string; codes?: string[]; match?: RegExp }
-  | { kind: 'med'; label: string; atc?: RegExp; name?: RegExp }
-  | { kind: 'form'; label: string }
-  | { kind: 'sep'; label: '----' }
 
-const m = (label: string, codes: string[], match?: RegExp): Element => ({ kind: 'measure', label, codes, match })
-const d = (label: string, match: RegExp): Element => ({ kind: 'measure', label, match })
-const rx = (label: string, atc?: RegExp, name?: RegExp): Element => ({ kind: 'med', label, atc, name })
-const q = (label: string): Element => ({ kind: 'form', label })
-const SEP: Element = { kind: 'sep', label: '----' }
+/** element column, the gap after it, and date column widths (2026-07-27 captures) */
+const ELEMENT_W = 252
+const ELEMENT_GAP = 5
+const DATE_W = 104
+/** the element cell's text box: the column less its 3px left inset */
+const ELEMENT_TEXT_W = ELEMENT_W - 3
+/** a medication bar's fill, the same eight equals signs in every cell */
+const BAR = '========'
 
-const LDL = d('LDL (mmole/L)', /CHOLESTEROL - LDL|\bLDL\b/)
-const TRIG = d('Triglycerides (mmole/L)', /TRIGLYCERIDE/)
-const CHOL_HDL = d('Chol/HDL Ratio', /CHOL.*HDL.*RATIO|CHOLEST\/HDLC/)
-const CREATININE = d('Creatinine (mmole/L)', /^CREATININE\b/)
-const ACR = d('Albumin/Creatinine Ratio', /MICROALB\/CREAT|ALBUMIN\/CREATININE/)
-const GFR = d('GFR', /\bGFR\b/)
-const POTASSIUM = d('Potassium', /^POTASSIUM\b/)
-const BP = m('Blood Pressure (mm Hg)', ['1950'])
-const WEIGHT = m('Weight (kg)', ['22732'])
-const HEIGHT = m('Height (cm)', ['1948'])
-const BMI = m('BMI', ['951'])
-const WAIST = m('Waist Circumference (cm)', ['1984'], /WAIST CIRCUMFERENCE/)
-const SMOKING = m('Cigarettes Smoked (Packs/Day)', ['34494', '61868'])
-const ACE = rx('ACE Inhibitor', /^C09[AB]/)
-const BETA = rx('Beta Blocker', /^C07/)
-const ICS = rx('Inhaled Corticosteroid', /^R03BA/)
+type SheetRow =
+  | { kind: 'element'; el: FlowSheetElement; index: number }
+  | { kind: 'ltm-rule' }
+  | { kind: 'ltm-head' }
+  | { kind: 'ltm-gap' }
+  | { kind: 'med'; med: Med }
 
-const FLOWSHEET_ELEMENTS: Record<string, Element[]> = {
-  /* transcribed from 570bfeac, top to bottom */
-  DIABETES: [
-    q('Review BS Records?'),
-    m('HGBA1C', ['HBA1C', '128'], /HEMOGLOBIN A1C|HBA1C/),
-    q('Hypo/Hyperglycemia'),
-    SEP,
-    BP,
-    WAIST,
-    BMI,
-    d('Cardiac Risk (Framingham)%', /FRAMINGHAM/),
-    q('Lower Extremity Exam'),
-    q('Lifestyle Counseling'),
-    SEP,
-    LDL,
-    TRIG,
-    CHOL_HDL,
-    q('Meter/Lab BS Comparison'),
-    CREATININE,
-    ACR,
-    SEP,
-    ACE,
-    rx('Metformin', /^A10BA02/, /METFORMIN/),
-    rx('ASA', /^(B01AC06|N02BA01)/, /ACETYLSALICYLIC|\bASA\b/),
-    rx('Insulin', /^A10A/, /INSULIN/),
-  ],
-  /* not in the manual — see above */
-  ASTHMA: [
-    m('Peak Expiratory Flow', ['39951']),
-    d('FEV1 % Predicted', /FEV1 %/),
-    d('FEV1/FVC', /FEV1\/FVC/),
-    m('Oxygen Saturation', ['34683']),
-    SMOKING,
-    SEP,
-    ICS,
-    rx('Short Acting Beta Agonist', /^R03AC0[234]/),
-  ],
-  CHF: [
-    WEIGHT,
-    BP,
-    m('Pulse Rate / Min', ['2011']),
-    SEP,
-    CREATININE,
-    GFR,
-    POTASSIUM,
-    d('Ejection Fraction', /EJECTION FRACTION/),
-    SEP,
-    ACE,
-    BETA,
-    rx('Diuretic', /^C03/),
-  ],
-  COPD: [
-    d('Spirometry', /^SPIROMETRY/),
-    d('FEV1 % Predicted Post Bronchodilator', /FEV1 % PREDICTED POST/),
-    d('FEV1/FVC Post Bronchodilator', /FEV1\/FVC POST/),
-    WEIGHT,
-    HEIGHT,
-    SMOKING,
-    m('Physical Activity (Minutes/Week)', ['39959']),
-    SEP,
-    rx('Anticholinergic', /^R03BB/),
-    rx('Long Acting Beta Agonist', /^R03AC1[23]|^R03AK|^R03AL/),
-    ICS,
-  ],
-  HEPC: [
-    d('ALT', /ALANINE AMINOTRANSFERASE|^ALT\b/),
-    d('AST', /ASPARTATE AMINOTRANSFERASE|^AST\b/),
-    d('Bilirubin', /BILIRUBIN/),
-    d('Albumin', /^ALBUMIN\b/),
-    d('Platelets', /PLATELET/),
-    d('INR', /\bINR\b/),
-    d('HCV RNA', /\bHCV\b/),
-  ],
-  HTN: [
-    BP,
-    WEIGHT,
-    BMI,
-    WAIST,
-    SEP,
-    CREATININE,
-    GFR,
-    POTASSIUM,
-    LDL,
-    CHOL_HDL,
-    ACR,
-    SEP,
-    ACE,
-    rx('ARB', /^C09[CD]/),
-    rx('Thiazide Diuretic', /^C03A/),
-    rx('Calcium Channel Blocker', /^C08/),
-    BETA,
-  ],
-}
-
-function measureMatches(el: Extract<Element, { kind: 'measure' }>, r: MoisRecord) {
+function measureMatches(el: Extract<FlowSheetElement, { kind: 'measure' }>, r: MoisRecord) {
   if (el.codes?.includes(r.str_code ?? '')) return true
   return !!el.match && el.match.test((r.str_description ?? '').toUpperCase())
-}
-
-function medMatches(el: Extract<Element, { kind: 'med' }>, r: MoisRecord) {
-  if (el.atc?.test(r.str_atc_code ?? '')) return true
-  const name = `${r.str_medication ?? ''} ${r.str_generic_name ?? ''}`.toUpperCase()
-  return !!el.name && el.name.test(name)
 }
 
 /** `8.9 LL`, `132 H`, `148/80` — the value and its abnormal flag, as the grid prints them. */
 const cellText = (r: MoisRecord) => [r.str_value, r.str_abnormal].filter(Boolean).join(' ')
 
-/* ============================================================================
-   The flow sheet window.
+/** Was this long-term medication current on `day`? Start and End are both
+    inclusive: in the 12.11.27 capture the first APO-WARFARIN row's bar ends
+    on 2024.08.26 and the renewal's starts in the same column. */
+const onMed = (med: Med, day: string) => !!med.order && med.order <= day && (!med.end || day <= med.end)
 
-   Layout from `570bfeac` (4) and `5be0ba8b`: a toolbar strip with a printer
-   glyph + "Print" and "Close/Exit"; a white identity strip "Chart: … Patient:
-   … DoB: … Sex: … Insurance: BC 9151252098"; a rule; then "FLOW SHEET AS OF
-   <to>" and "DATE RANGE: <from> TO <to>"; then the Element / Date crosstab.
-   Date columns run ascending left to right (`Flow Sheet Order` = A); the
-   captures draw a heavier rule where the year changes (2014.12.02 |
-   2015.01.27, 2010.12.14 | 2011.05.10, 2011.08.12 | 2012.02.10), carried all
-   the way down the empty body. The first element row is the current row,
-   painted salmon. `5be0ba8b` shows an entirely empty date column
-   (2012.02.10), so a column exists for every date an element has a record
-   on, valued or not. The grid is a PB crosstab report rather than an
-   editable DataWindow — the kit's PBDataWindow has no per-column rule
-   styling, so it is a plain table styled in flow-sheet.css.
+/** The order the 12.11.27 capture lists them in: by name — a leading `*`
+    ignored, *GEN-METOPROLOL sits between GABAPENTIN and *LORAZEPAM — then
+    by start date (the three LORAZEPAM SUBLINGUAL and five METFORMIN rows
+    step later down the page). */
+const medKey = (med: Med) => med.med.replace(/^\*/, '').toUpperCase()
+function byNameThenStart(a: Med, b: Med) {
+  return medKey(a).localeCompare(medKey(b)) || a.order.localeCompare(b.order)
+}
 
-   Long term medications: the chart export carries no tdt_medication_lt
-   rows (see data/charts/to-rows.ts), so the list at the bottom — and the
-   medication rows of the grid — read the chart's unvoided prescriptions as
-   the nearest source. What a medication *row* prints in a date cell is not
-   visible in any capture; here it is the dose on the date it was ordered.
-   The LONG TERM MEDICATIONS block itself is below the bottom edge of every
-   capture, so its caption and layout are from the article text alone.
-   ========================================================================= */
 export function FlowSheetWindow({ params, onClose }: { params: FlowSheetParams; onClose: () => void }) {
   const patient = usePatient()
   const measures = useChartRecords('measure')
-  const prescriptions = useChartRecords('prescription', 'dtm_order')
+  const ltm = useMedRows('ltm')
   const [current, setCurrent] = useState(0)
+  const left = useRef<HTMLDivElement>(null)
+  const right = useRef<HTMLDivElement>(null)
 
-  const elements = FLOWSHEET_ELEMENTS[params.type.toUpperCase()] ?? []
-  const meds = useMemo(() => prescriptions.filter((r) => r.str_void !== 'Y'), [prescriptions])
+  const elements = useMemo(() => FLOWSHEET_ELEMENTS[params.type.toUpperCase()] ?? [], [params.type])
+  /* INFERRED: a voided long-term medication is not listed */
+  const meds = useMemo(() => ltm.filter((med) => !med.voided).sort(byNameThenStart), [ltm])
 
   const { from, to } = params
   const { dates, cells } = useMemo(() => {
-    const inRange = (day: string) => day >= from && day <= to
-    const cells = new Map<string, string>() // `${row}|${date}` → text
+    const cells = new Map<string, string>() // `${element}|${date}` → text
     const days = new Set<string>()
     elements.forEach((el, i) => {
-      if (el.kind === 'measure') {
-        for (const r of measures) {
-          const day = date(r.dtm_collect_date)
-          if (!day || !inRange(day) || !measureMatches(el, r)) continue
-          days.add(day)
-          const key = `${i}|${day}`
-          /* two readings on one day: the later-listed record wins, as a
-             crosstab cell can only hold one */
-          cells.set(key, cellText(r) || cells.get(key) || '')
-        }
-      } else if (el.kind === 'med') {
-        for (const r of meds) {
-          const day = date(r.dtm_order)
-          if (!day || !inRange(day) || !medMatches(el, r)) continue
-          days.add(day)
-          cells.set(`${i}|${day}`, r.str_dose_freq ?? '')
-        }
+      if (el.kind !== 'measure') return
+      for (const r of measures) {
+        const day = date(r.dtm_collect_date)
+        if (!day || day < from || day > to || !measureMatches(el, r)) continue
+        days.add(day)
+        const key = `${i}|${day}`
+        /* two readings on one day: the later-listed record wins, as a
+           crosstab cell can only hold one */
+        cells.set(key, cellText(r) || cells.get(key) || '')
       }
     })
     return { dates: [...days].sort(), cells }
-  }, [elements, measures, meds, from, to])
+  }, [elements, measures, from, to])
+
+  const rows = useMemo<SheetRow[]>(() => [
+    ...elements.map((el, index) => ({ kind: 'element' as const, el, index })),
+    { kind: 'ltm-rule' }, { kind: 'ltm-head' }, { kind: 'ltm-gap' },
+    ...meds.map((med) => ({ kind: 'med' as const, med })),
+  ], [elements, meds])
+
+  /* the right pane opens past the element column, the left one at 0 */
+  useEffect(() => {
+    if (right.current) right.current.scrollLeft = ELEMENT_W
+  }, [])
+
+  /* one vertical position for both panes; the scroll bar is the right pane's */
+  const onRightScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (left.current) left.current.scrollTop = e.currentTarget.scrollTop
+  }
+  const onLeftWheel = (e: WheelEvent<HTMLDivElement>) => {
+    if (right.current && e.deltaY) right.current.scrollTop += e.deltaY
+  }
 
   const yearStart = (i: number) => i > 0 && dates[i].slice(0, 4) !== dates[i - 1].slice(0, 4)
-  const insurance = [patient.insuranceBy, patient.bchn].filter(Boolean).join('   ')
+  const name = `${patient.last}, ${[patient.first, patient.middle].filter(Boolean).join(' ')}`.toUpperCase()
+  const healthNo = [patient.insuranceBy, patient.insurance ?? patient.bchn].filter(Boolean).join(' ')
+
+  const grid = (pane: 'left' | 'right') => {
+    const anchored = pane === 'left'
+    const dateCells = (fill: (day: string) => string) => dates.map((day, i) => {
+      const bar = fill(day)
+      return (
+        <td key={day} className={yearStart(i) ? 'is-year' : undefined}>
+          {bar === BAR ? <span className="pb-flowsheet__bar">{BAR}</span> : bar}
+        </td>
+      )
+    })
+    return (
+      <table
+        className="pb-flowsheet__grid"
+        style={{
+          width: ELEMENT_W + ELEMENT_GAP + dates.length * DATE_W,
+          /* INFERRED: the right pane always opens past the element column,
+             so it has room to scroll that far even when the dates fit (both
+             captures overflow, so neither shows the short case) */
+          minWidth: pane === 'right' ? `calc(100% + ${ELEMENT_W}px)` : undefined,
+        }}
+      >
+        <colgroup>
+          <col style={{ width: ELEMENT_W + ELEMENT_GAP }} />
+          {dates.map((day) => <col key={day} style={{ width: DATE_W }} />)}
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th className="pb-flowsheet__el"><span style={{ width: ELEMENT_TEXT_W }}>Element / Date</span></th>
+            {dates.map((day, i) => (
+              <th key={day} className={yearStart(i) ? 'is-year' : undefined}>{day}</th>
+            ))}
+            <th className="pb-flowsheet__rest" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, r) => {
+            const label =
+              row.kind === 'element' ? row.el.label
+                : row.kind === 'ltm-rule' ? LTM_RULE
+                  : row.kind === 'ltm-head' ? LTM_HEADING
+                    : row.kind === 'med' ? row.med.med : ''
+            const ltmBlock = row.kind !== 'element'
+            return (
+              <tr
+                key={row.kind === 'med' ? row.med.id : row.kind === 'element' ? `el-${row.index}` : row.kind}
+                className={[r === current && 'is-current', ltmBlock && 'is-ltm'].filter(Boolean).join(' ') || undefined}
+                onClick={() => setCurrent(r)}
+                data-tutorial-id={anchored ? `host.mois.row.flow-sheet-${r}` : undefined}
+              >
+                <td
+                  className="pb-flowsheet__el"
+                  /* "Hover your mouse over the medication to view the dosage" (303789) */
+                  title={row.kind === 'med' ? row.med.dose : undefined}
+                >
+                  <span style={{ width: ELEMENT_TEXT_W }}>{label}</span>
+                </td>
+                {dateCells((day) =>
+                  row.kind === 'element' ? cells.get(`${row.index}|${day}`) ?? ''
+                    : row.kind === 'med' && onMed(row.med, day) ? BAR : '')}
+                <td className="pb-flowsheet__rest" />
+              </tr>
+            )
+          })}
+          {/* the column rules carry on down the empty body */}
+          <tr className="pb-flowsheet__filler">
+            <td className="pb-flowsheet__el" />
+            {dates.map((day, i) => <td key={day} className={yearStart(i) ? 'is-year' : undefined} />)}
+            <td className="pb-flowsheet__rest" />
+          </tr>
+        </tbody>
+      </table>
+    )
+  }
 
   return (
     <ModalWindow
@@ -365,7 +350,9 @@ export function FlowSheetWindow({ params, onClose }: { params: FlowSheetParams; 
       zIndex={96}
       layerStyle={{ position: 'fixed', padding: 8 }}
       windowClassName="pb-flowsheet"
-      windowStyle={{ width: 'min(1000px, 100%)', height: 'min(720px, 100%)' }}
+      /* INFERRED: the 2026-07-27 client is ≈1622 × 926 CSS px — the window
+         fills the screen — so it takes what the desktop offers */
+      windowStyle={{ width: 'min(1640px, 100%)', height: 'min(980px, 100%)' }}
     >
       <div className="pb-flowsheet__toolbar">
         <PBButton bare className="pb-flowsheet__tool" command="flow-sheet-print">
@@ -379,73 +366,29 @@ export function FlowSheetWindow({ params, onClose }: { params: FlowSheetParams; 
       </div>
 
       <div className="pb-flowsheet__ident">
-        <span>Chart:<b>{patient.chart}</b></span>
-        <span>Patient:<b>{`${patient.first} ${patient.last}`.toUpperCase()}</b></span>
-        <span>DoB:<b>{patient.dob}</b></span>
-        <span>Sex:<b>{patient.sex}</b></span>
-        <span>Insurance:<b>{insurance}</b></span>
+        <span style={{ left: 9 }}>Chart:</span><b style={{ left: 60 }}>{patient.chart}</b>
+        <span style={{ left: 158 }}>Patient:</span><b style={{ left: 204 }}>{name}</b>
+        <span style={{ left: 436 }}>DoB:</span><b style={{ left: 466 }}>{patient.dob}</b>
+        <span style={{ left: 569 }}>Sex:</span><b style={{ left: 596 }}>{patient.sex}</b>
+        <span style={{ left: 659 }}>BC Health No.:</span><b style={{ left: 745 }}>{healthNo}</b>
       </div>
       <div className="pb-flowsheet__asof">
-        <span>FLOW SHEET AS OF <b>{params.to}</b></span>
-        <span>DATE RANGE: <b>{params.from}</b>&nbsp;&nbsp; TO &nbsp;&nbsp;<b>{params.to}</b></span>
+        <span style={{ left: 9 }}>FLOW SHEET AS OF</span><b style={{ left: 129 }}>{to}</b>
+        <span style={{ left: 381 }}>DATE RANGE:</span><b style={{ left: 469 }}>{from}</b>
+        <span style={{ left: 552 }}>TO</span><b style={{ left: 581 }}>{to}</b>
       </div>
 
-      <div className="pb-flowsheet__scroll">
-        <table className="pb-flowsheet__grid">
-          <colgroup>
-            <col style={{ width: 230 }} />
-            {dates.map((day) => <col key={day} style={{ width: 88 }} />)}
-            <col />
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="pb-flowsheet__el">Element / Date</th>
-              {dates.map((day, i) => (
-                <th key={day} className={yearStart(i) ? 'is-year' : undefined}>{day}</th>
-              ))}
-              <th className="pb-flowsheet__rest" />
-            </tr>
-          </thead>
-          <tbody>
-            {elements.map((el, r) => (
-              <tr
-                key={r}
-                className={r === current ? 'is-current' : undefined}
-                onClick={() => setCurrent(r)}
-                data-tutorial-id={`host.mois.row.flow-sheet-${r}`}
-              >
-                <td className="pb-flowsheet__el">{el.label}</td>
-                {dates.map((day, i) => (
-                  <td key={day} className={yearStart(i) ? 'is-year' : undefined}>{cells.get(`${r}|${day}`) ?? ''}</td>
-                ))}
-                <td className="pb-flowsheet__rest" />
-              </tr>
-            ))}
-            {elements.length === 0 && (
-              <tr><td className="pb-flowsheet__el" colSpan={dates.length + 2}>No elements are defined for this flow sheet.</td></tr>
-            )}
-            {/* the column rules carry on down the empty body */}
-            <tr className="pb-flowsheet__filler">
-              <td className="pb-flowsheet__el" />
-              {dates.map((day, i) => <td key={day} className={yearStart(i) ? 'is-year' : undefined} />)}
-              <td className="pb-flowsheet__rest" />
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="pb-flowsheet__ltm">
-          <div className="pb-flowsheet__ltm-head">LONG TERM MEDICATIONS</div>
-          {meds.length === 0 && <div className="pb-flowsheet__ltm-row">&nbsp;</div>}
-          {meds.map((r, i) => (
-            <div
-              key={r.id_prescription ?? i}
-              className="pb-flowsheet__ltm-row"
-              /* "Hover your mouse over the medication to view the dosage" */
-              title={r.str_dose_freq ?? ''}
-            >
-              {r.str_medication ?? r.str_generic_name ?? ''}
-            </div>
-          ))}
+      <div className="pb-flowsheet__panes">
+        <div
+          ref={left}
+          className="pb-flowsheet__pane pb-flowsheet__pane--left"
+          style={{ width: ELEMENT_W }}
+          onWheel={onLeftWheel}
+        >
+          {grid('left')}
+        </div>
+        <div ref={right} className="pb-flowsheet__pane pb-flowsheet__pane--right" onScroll={onRightScroll}>
+          {grid('right')}
         </div>
       </div>
     </ModalWindow>

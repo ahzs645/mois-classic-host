@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { MOIS_TODAY } from '../data/clock'
 import { PBMessageBox } from '../pb'
 import { LAYER, ModalWindow } from './dialogKit'
@@ -37,23 +37,24 @@ import { PrintPreviewFrame } from './printKit'
 /** Autofocus the default button the way a Win32 message box does, hand the
     cursor back to the field afterwards, and close on Esc. */
 function AuditBox({ onEscape, children }: { onEscape: () => void; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
-    ref.current?.querySelector<HTMLElement>('.pb-btn--default')?.focus()
+    /* the box is portalled onto the desktop, so it is found by its layer's
+       marker (AUDIT_LAYER), not inside this wrapper */
+    const boxes = document.querySelectorAll<HTMLElement>('[data-field-audit] .pb-btn--default')
+    boxes[boxes.length - 1]?.focus()
     return () => { if (previous?.isConnected) previous.focus() }
   }, [])
   return (
-    <div
-      ref={ref}
-      data-field-audit=""
-      style={{ display: 'contents' }}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onEscape() } }}
-    >
+    /* React carries the key events up from the portal to this wrapper */
+    <div style={{ display: 'contents' }} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onEscape() } }}>
       {children}
     </div>
   )
 }
+
+/** Marks a box's layer so the frame's Ctrl+Shift+A leaves its controls alone. */
+const AUDIT_LAYER = { 'data-field-audit': '' } as const
 
 const ROW = { display: 'grid', gridTemplateColumns: '96px 1fr', margin: '0 0 0 48px' } as const
 
@@ -61,6 +62,7 @@ export function AuditNotAvailableBox({ table, column, onOk }: { table: string; c
   return (
     <AuditBox onEscape={onOk}>
       <PBMessageBox
+        layerAttrs={AUDIT_LAYER}
         title="Audit Information Not Available"
         icon="warn"
         zIndex={LAYER.topmost + 1}
@@ -86,6 +88,7 @@ export function RegisterTableFieldBox({ onAnswer }: { onAnswer: (register: boole
   return (
     <AuditBox onEscape={() => onAnswer(false)}>
       <PBMessageBox
+        layerAttrs={AUDIT_LAYER}
         title="Register Table - Field"
         icon="info"
         zIndex={LAYER.topmost + 1}
@@ -115,6 +118,7 @@ export function ChangeAuditReportWindow({ onClose }: { onClose: () => void }) {
   return (
     <AuditBox onEscape={onClose}>
       <ModalWindow
+        layerAttrs={AUDIT_LAYER}
         id="change-audit-report"
         title="Print Preview"
         onClose={onClose}

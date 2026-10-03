@@ -9,12 +9,12 @@ import { argStr } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
 import {
   PBButton, PBCommandRow, PBDataWindow, PBInput, PBMessageBox, PBRadio, PBSelect, PBTextArea, PBViewHeader,
-  PBWindow, pbSlug, usePBInstrumentation,
+  pbSlug, usePBInstrumentation,
 } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { DialogFooter } from './formKit'
 import { useColumnFilters, useRecordList } from './listKit'
-import { DesktopLayer } from './StageWindow'
+import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    Administration ▸ Designer Section ▸ Care Plan Templates (art. 303115).
@@ -188,10 +188,10 @@ function TemplateDetailWindow({ args, close }: AreaWindowProps) {
   const sections = (e: TemplateElement) => [...TEMPLATE_SECTIONS, ...(TEMPLATE_SECTIONS.includes(e.section as never) ? [] : [e.section])]
 
   return (
-    <DesktopLayer>
-      <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 60, gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}>
-        <div data-tutorial-id={host?.anchor('dialog', pbSlug(title))} style={{ maxWidth: '100%', maxHeight: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <PBWindow child controls={false} title={title} onClose={close} style={{ width: 1019, height: 866, maxWidth: '100%', flex: '0 1 auto', minHeight: 0 }}>
+    <ModalWindow title={title} onClose={close} zIndex={60}
+      layerStyle={{ gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}
+      wrap={{ tutorialId: host?.anchor('dialog', pbSlug(title)), style: { maxWidth: '100%', maxHeight: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 } }}
+      windowStyle={{ width: 1019, height: 866, maxWidth: '100%', flex: '0 1 auto', minHeight: 0 }}>
             <div className="pb-viewhead"><span className="pb-viewhead__title">Care Plan Tag Template</span></div>
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)', overflow: 'hidden' }}>
               <div style={{ flex: 'none', background: '#f0f0f0', padding: '5px 8px', height: 113 }}>
@@ -290,10 +290,7 @@ function TemplateDetailWindow({ args, close }: AreaWindowProps) {
               { label: 'Save Changes (F2)', command: 'template-save-changes', wide: true, onClick: save },
               { label: 'Cancel', command: 'template-cancel', wide: true, onClick: close },
             ]} />
-          </PBWindow>
-        </div>
-      </div>
-    </DesktopLayer>
+    </ModalWindow>
   )
 }
 

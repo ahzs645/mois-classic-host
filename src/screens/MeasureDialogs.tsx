@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   bmiClassification, calculatorMeasureCode, encounterWindowMeasures, measureCalculators,
   measureFlags, measureTemplates, type MeasureSlot, type MeasureTemplate,
@@ -8,7 +8,7 @@ import { useScreenReport } from '../host/screen-state'
 import { BloodPressureFormWindow } from './BloodPressureFormWindow'
 import { Phq9FormWindow } from './Phq9FormWindow'
 import { MeasureCalculatorBody } from './MeasureCalculatorBodies'
-import { ModalWindow } from './dialogKit'
+import { FACE, ModalWindow } from './dialogKit'
 import { PatientFieldRow } from './patientKit'
 import { MEASURE_FORMS, type Phq9Answers } from '../data/measureEntry'
 import { usePatient } from '../data/patient-context'
@@ -261,11 +261,82 @@ function RefRanges({ row }: { row: MeasurementRow }) {
 }
 
 /* ---------------------------------------------------------------------------
+   Geometry shared by the four dialogs below.
+
+   PROVENANCE: Drive `Mois/` 2026-09-20 11.42.15 (ENCOUNTER WINDOW), 11.42.22
+   (Measure Template / Panel Selection), 11.42.28 (Measure Calculators) and
+   11.42.35 (Measure Calculator, BMI), all on chart 3924 in the current
+   build. Those captures are 2.34 device px to a CSS px: the DataWindow cap
+   height (21 px against the 2026-09-29 TRAINING captures' 18 px at 2x) and
+   the 66 px title bar (ours is 28.5) both give it. Every number below is a
+   capture measurement divided by 2.34, measured from the window face (the
+   pixel under the title bar), so they carry about ±0.5 px of error.
+
+   What the captures show that the kit has no prop for, kept here as scoped
+   CSS (kit-prop candidates):
+     - `mea-vbar`: the vertical scroll bar both grids paint even when every
+       row fits (PB's VScrollBar = yes);
+     - `mea-clip`: a cell too narrow for its text is cut, not ellipsed (the
+       Template List's "… 3Q SCREENEF");
+     - `mea-grid`: the ENCOUNTER WINDOW caption row is 19.3 px over 18.36 px
+       rows, where the kit makes the header the row height;
+     - `mea-calc`: an empty numeric box reads "-" until it takes focus — the
+       BMI capture shows "-" in every box but Height, which has the caret.
+   ------------------------------------------------------------------------ */
+const MEASURE_DIALOG_CSS = `
+.mea-vbar .pb-dw__scroll { overflow-y: scroll; }
+.mea-clip .pb-dw__table > tbody > tr > td { text-overflow: clip; }
+.mea-grid .pb-dw__table > thead > tr > th { height: 19.3px; }
+.mea-calc .pb-field::placeholder { color: var(--pb-text); opacity: 1; }
+.mea-calc .pb-field:focus::placeholder { color: transparent; }
+`
+
+/** A DataWindow's band row in these four captures is 17.5 px (41 device px). */
+const LIST_ROW_H = '17.5px'
+
+/** Absolute placement on a window face, from capture measurements. */
+const at = (left: number, top: number, width?: number, height?: number): CSSProperties => ({
+  position: 'absolute', left, top, width, height,
+})
+
+/** The face under the title bar, as a positioning context. */
+const FACE_ABS: CSSProperties = { ...FACE, position: 'relative' }
+
+/** A bordered group: the grey caption band, ruled off, over a white body. */
+function BandBox({ title, band, style, children }: {
+  title: string
+  /** the band's height inside the box's top border */
+  band: number
+  style: CSSProperties
+  children: ReactNode
+}) {
+  return (
+    <div
+      style={{
+        ...style, display: 'flex', flexDirection: 'column', border: '1px solid #7b7b7b',
+        background: '#fff', ['--pb-band-h' as string]: `${band}px`,
+      }}
+    >
+      <div className="pb-band--ruled"><PBBand>{title}</PBBand></div>
+      {children}
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------------------------
    The measure template grid — `Template`, and what `Other Template` opens.
 
    One row per measure in the template, each with an empty Value box and a
    Flag drop-down. Nothing is a record until `Save Changes (F2)`, and MOIS
    files only the rows that were given a value.
+
+   2026-09-20 11.42.15 (the window 648 x 627): the grid is ruled off at
+   8.9 / 7.3 on the face, 627 x 538, its rows on the window face rather than
+   white, no hairlines, a bold caption row with a 1px black rule under it,
+   and a scroll bar. Code text sits 7 px in, Test Name at 58, the Value box
+   (120 x 16) at 317.5, the Flag drop-down (70) at 439, Units at 513; rows
+   18.36 px apart. Save Changes (F2) and Close w/o Save are 118 x 20,
+   centred, 9 px apart, 13 px under the grid.
    ------------------------------------------------------------------------ */
 export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClose }: {
   /** the template's own name, which is what MOIS puts in the caption */
@@ -279,45 +350,57 @@ export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClo
   onClose: () => void
 }) {
   const [values, setValues] = useState<Record<string, { value: string; flag: string }>>(() => initial ?? {})
-  const at = (code: string) => values[code] ?? { value: '', flag: '' }
+  const cell = (code: string) => values[code] ?? { value: '', flag: '' }
   const set = (code: string, patch: Partial<{ value: string; flag: string }>) => (
-    setValues((v) => ({ ...v, [code]: { ...at(code), ...patch } }))
+    setValues((v) => ({ ...v, [code]: { ...cell(code), ...patch } }))
   )
 
   const save = () => onSave(slots
-    .filter((s) => at(s.code).value.trim() !== '')
-    .map((s) => ({ ...s, value: at(s.code).value, flag: at(s.code).flag || '-', fresh: true })))
+    .filter((s) => cell(s.code).value.trim() !== '')
+    .map((s) => ({ ...s, value: cell(s.code).value, flag: cell(s.code).flag || '-', fresh: true })))
 
+  /* each column's text inset, since the grid's own cell padding is zeroed */
+  const pad = (left: number, children: ReactNode) => <span style={{ paddingLeft: left }}>{children}</span>
   return (
     <ModalWindow
       tutorialId="host.mois.dialog.measure-template"
       title={title}
       onClose={onClose}
       zIndex={96}
-      windowStyle={{ width: 'min(760px, 100%)', height: 'min(700px, 100%)' }}
+      windowStyle={{ width: 'min(648px, 100%)', height: 'min(627px, 100%)' }}
     >
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 8 }}>
+      <style>{MEASURE_DIALOG_CSS}</style>
+      <div style={FACE_ABS}>
+        <div className="mea-vbar mea-grid" style={{ ...at(8.9, 7.3, 627, 538.4), display: 'flex' }}>
           <PBDataWindow
-            /* the template grid is a data-entry form, not a list: no current
-               row, no zebra, and the header is the plain ruled one */
+            /* a data-entry form, not a list: no current row, no zebra, no
+               hairlines, and the header is the plain ruled one */
             gutter={false}
             zebra={false}
+            rules={false}
             head="grey"
-            /* a data-entry grid has no current row: nothing is salmon until
-               the user picks one, and MOIS never picks one here */
             current={-1}
+            style={{
+              flex: '1 1 auto', minHeight: 0,
+              ['--pb-dw-row-h' as string]: '18.36px',
+              ['--pb-dw-row' as string]: '#f0f0f0',
+              ['--pb-dw-pad-x' as string]: '0px',
+              ['--pb-row-h' as string]: '16px',
+            }}
             columns={[
-              { key: 'code', header: 'Code', width: 72 },
-              { key: 'name', header: 'Test Name', width: 300 },
+              { key: 'code', header: pad(7, 'Code'), width: 52.6, render: (s) => pad(5, s.code) },
+              { key: 'name', header: pad(7.5, 'Test Name'), width: 263, render: (s) => pad(5.5, s.name) },
               {
                 key: 'value',
-                header: 'Value',
-                width: 180,
+                header: pad(2.5, 'Value'),
+                width: 122,
                 render: (s) => (
                   <PBInput
-                    w="100%"
-                    value={at(s.code).value}
+                    w={120}
+                    value={cell(s.code).value}
                     onChange={(e) => set(s.code, { value: e.target.value })}
+                    /* the box hangs 2.2 px under the row's top, not centred */
+                    style={{ display: 'block', margin: '2.2px 0 0 1.5px' }}
                     data-tutorial-id={`host.mois.field.measure-${s.code}`}
                   />
                 ),
@@ -325,31 +408,28 @@ export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClo
               {
                 key: 'flag',
                 header: 'Flag',
-                width: 96,
+                headAlign: 'center',
+                width: 72.6,
                 render: (s) => (
                   <PBSelect
-                    w="100%"
+                    w={70}
                     options={measureFlags}
-                    value={at(s.code).flag}
+                    value={cell(s.code).flag}
                     onChange={(e) => set(s.code, { flag: e.target.value })}
+                    style={{ display: 'inline-flex', verticalAlign: 'top', margin: '2.2px 0 0 1px' }}
                   />
                 ),
               },
-              { key: 'units', header: 'Units', width: 90 },
+              { key: 'units', header: pad(3, 'Units'), render: (s) => pad(3, s.units) },
             ]}
             rows={slots}
           />
         </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 18, padding: '6px 0 10px', flex: 'none' }}>
-          <PBButton
-            style={{ minWidth: 168 }}
-            command="save-changes"
-            onClick={save}
-          >
-            Save Changes (F2)
-          </PBButton>
-          <PBButton style={{ minWidth: 168 }} onClick={onClose}>Close w/o Save</PBButton>
-        </div>
+        <PBButton style={{ ...at(195.7, 559.8, 118, 20.1), minWidth: 0 }} command="save-changes" onClick={save}>
+          Save Changes (F2)
+        </PBButton>
+        <PBButton style={{ ...at(323, 559.8, 118, 20.1), minWidth: 0 }} onClick={onClose}>Close w/o Save</PBButton>
+      </div>
     </ModalWindow>
   )
 }
@@ -359,6 +439,15 @@ export function MeasureTemplateGridDialog({ title, slots, initial, onSave, onClo
 
    Templates and panels share one list: a TEMPLATE opens the measure grid, a
    PANEL is a scored instrument MOIS opens its own window for.
+
+   2026-09-20 11.42.22: the Template List group at 11 / 12.4 on the face,
+   849.5 x 543, its band 21 px and ruled off; gutter 16, Name 285 and
+   Description 426 with centred captions, Type the rest, and a scroll bar.
+   Open and Cancel are 70 x 19.5, 17 px apart, 18.7 px under the group. The
+   capture cuts the window at its right and foot; 873 x 642 assumes the
+   right margin matches the left (11) and the foot the Measure Calculators'
+   (20.5 under the buttons) — INFERRED. The scroll thumb shows the list goes
+   on past POCT URINALYSIS MANUAL READ; those rows were not captured.
    ------------------------------------------------------------------------ */
 export function MeasureTemplateSelectionDialog({ onOpen, onClose }: {
   onOpen: (template: MeasureTemplate) => void
@@ -372,18 +461,22 @@ export function MeasureTemplateSelectionDialog({ onOpen, onClose }: {
       title="Measure Template / Panel Selection"
       onClose={onClose}
       zIndex={96}
-      windowStyle={{ width: 'min(1000px, 100%)', height: 'min(690px, 100%)' }}
+      windowStyle={{ width: 'min(873px, 100%)', height: 'min(642px, 100%)' }}
     >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            <div className="pb-band--ruled"><PBBand>Template List</PBBand></div>
+      <style>{MEASURE_DIALOG_CSS}</style>
+      <div style={FACE_ABS}>
+        <BandBox title="Template List" band={21} style={at(11, 12.4, 849.5, 543)}>
+          <div className="mea-vbar mea-clip" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
             <PBDataWindow
               flush
-              style={{ flex: '1 1 auto', minHeight: 0 }}
+              style={{
+                flex: '1 1 auto', minHeight: 0,
+                ['--pb-dw-row-h' as string]: LIST_ROW_H, ['--pb-dw-gutter-width' as string]: '16px',
+              }}
               columns={[
-                { key: 'name', header: 'Name', width: 340, headAlign: 'center' },
-                { key: 'description', header: 'Description', headAlign: 'center' },
-                { key: 'type', header: 'Type', width: 120, headAlign: 'center' },
+                { key: 'name', header: 'Name', width: 285, headAlign: 'center' },
+                { key: 'description', header: 'Description', width: 426, headAlign: 'center' },
+                { key: 'type', header: 'Type', headAlign: 'center' },
               ]}
               rows={measureTemplates}
               current={cur}
@@ -391,23 +484,24 @@ export function MeasureTemplateSelectionDialog({ onOpen, onClose }: {
               onActivate={(r) => onOpen(r)}
             />
           </div>
-        </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 18, padding: '2px 0 10px', flex: 'none' }}>
-          <PBButton
-            style={{ minWidth: 132 }}
-            command="open-template"
-            onClick={() => row && onOpen(row)}
-          >
-            Open
-          </PBButton>
-          <PBButton style={{ minWidth: 132 }} onClick={onClose}>Cancel</PBButton>
-        </div>
+        </BandBox>
+        <PBButton style={{ ...at(365.5, 574.1, 70.2, 19.5), minWidth: 0 }} command="open-template" onClick={() => row && onOpen(row)}>
+          Open
+        </PBButton>
+        <PBButton style={{ ...at(452.7, 574.1, 70.2, 19.5), minWidth: 0 }} onClick={onClose}>Cancel</PBButton>
+      </div>
     </ModalWindow>
   )
 }
 
 /* ---------------------------------------------------------------------------
    Measure Calculators — the picker, then the calculator.
+
+   2026-09-20 11.42.28 (the window 268 x 308, captured whole): the Select
+   Calculator group at 15.5 / 15.4 on the face, 232 x 213, its band 19 px;
+   inside it the DataWindow is only 212 wide (gutter 15, Calculator 197),
+   leaving the group's white body to its right; five rows, BMI current.
+   Open (F2) and Cancel are 88 x 19 at 34.6 and 141.4, 240.2 down.
    ------------------------------------------------------------------------ */
 export function MeasureCalculatorsDialog({ onOpen, onClose }: {
   onOpen: (calculator: string) => void
@@ -420,40 +514,52 @@ export function MeasureCalculatorsDialog({ onOpen, onClose }: {
       title="Measure Calculators"
       onClose={onClose}
       zIndex={96}
-      windowStyle={{ width: 320, height: 300 }}
+      windowStyle={{ width: 268, height: 308 }}
     >
-        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, border: '1px solid var(--pb-border)' }}>
-            <div className="pb-band--ruled"><PBBand>Select Calculator</PBBand></div>
-            <PBDataWindow
-              flush
-              style={{ flex: '1 1 auto', minHeight: 0 }}
-              columns={[{ key: 'name', header: 'Calculator', headAlign: 'center' }]}
-              rows={measureCalculators.map((name) => ({ name }))}
-              current={cur}
-              onCurrentChange={setCur}
-              onActivate={(r) => onOpen(String(r.name))}
-              empty=""
-            />
-          </div>
-        </div>
-        <div className="pb-row" style={{ justifyContent: 'center', gap: 14, padding: '0 0 10px', flex: 'none' }}>
-          <PBButton
-            style={{ minWidth: 118 }}
-            command="open-calculator"
-            onClick={() => onOpen(measureCalculators[cur]!)}
-          >
-            Open (F2)
-          </PBButton>
-          <PBButton style={{ minWidth: 118 }} onClick={onClose}>Cancel</PBButton>
-        </div>
+      <div style={FACE_ABS}>
+        <BandBox title="Select Calculator" band={19} style={at(15.5, 15.4, 232, 213)}>
+          <PBDataWindow
+            flush
+            style={{
+              width: 212, flex: '1 1 auto', minHeight: 0,
+              ['--pb-dw-row-h' as string]: LIST_ROW_H, ['--pb-dw-gutter-width' as string]: '15px',
+            }}
+            columns={[{ key: 'name', header: 'Calculator', headAlign: 'center' }]}
+            rows={measureCalculators.map((name) => ({ name }))}
+            current={cur}
+            onCurrentChange={setCur}
+            onActivate={(r) => onOpen(String(r.name))}
+            empty=""
+          />
+        </BandBox>
+        <PBButton style={{ ...at(34.6, 240.2, 87.6, 19), minWidth: 0 }} command="open-calculator" onClick={() => onOpen(measureCalculators[cur]!)}>
+          Open (F2)
+        </PBButton>
+        <PBButton style={{ ...at(141.4, 240.2, 88, 19), minWidth: 0 }} onClick={onClose}>Cancel</PBButton>
+      </div>
     </ModalWindow>
   )
 }
 
 /* The BMI calculator, which is the one the training database opens on. It
    really calculates: MOIS converts as you type and `Populate` is what carries
-   the result out to the measure grid. */
+   the result out to the measure grid.
+
+   2026-09-20 11.42.35 (the window 462 wide; the capture cuts its foot, so
+   465 tall assumes the Measure Calculators' 20.5 px under the buttons —
+   INFERRED): one group at 10.6 / 10.2 on the face, 437.6 x 371.8, banded
+   BODY MASS INDEX (BMI) CALCULATOR (19 px). Under the band it is ten
+   sections ruled off from each other — the first two by a dark rule, the
+   classification table's by a light one — with these heights: 45.6 (Height
+   / Weight), 52.4 (BMI / Ideal Weight Range), 28.5 (Classification), 54.5
+   (Underweight), 24.2, 24.3, 55.4 (Obese), 28 (Based on…), 29 (Measure
+   Code). Every box is white and 16 px tall: Height, Weight, BMI and Measure
+   Code 58.5 wide at 88, (ft)/(lb) 33 at 258, (in)/(oz) 33.4 at 337, the two
+   Ideal Weight boxes 59 at 147 and 237.6. Empty boxes read "-", right-set in
+   the unit boxes and centred in BMI and Ideal; Height has the caret. The
+   four buttons are 92.7 x 20.6, 395 down, Save (F2) enabled with nothing in
+   it. The `< OVERWEIGHT >` badge and the yellow band come from the older
+   help-site image (302837 `ff51e56c…`), not this capture. */
 export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
   calculator: string
   onSave: (row: MeasurementRow) => void
@@ -484,13 +590,51 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
   const klass = !bmi ? '' : Number(bmi) < 18.5 ? 'Underweight' : Number(bmi) < 25 ? 'Normal Weight'
     : Number(bmi) < 30 ? 'Overweight' : 'Obese'
   useScreenReport({ bmiClass: klass ? pbSlug(klass) : 'none' })
-  const imperial = (value: number, per: number) => (value > 0 ? String(Math.floor(value / per)) : '-')
-  const rule = { borderTop: '1px solid var(--pb-border)' }
+  const imperial = (value: number, per: number) => (value > 0 ? String(Math.floor(value / per)) : '')
   const code = calculatorMeasureCode[calculator] ?? ''
 
   /* BSA, Cardiac Risk, Predicted PEF and Gestational Age are their own
      layouts (302837 `27fd978b…`, `4d69f496…`, `eb9d27d7…`, `14e8d18a…`) */
   if (calculator !== 'BMI') return <MeasureCalculatorBody calculator={calculator} onSave={onSave} onClose={onClose} />
+
+  /* one ruled section of the group; `light` is the classification table's
+     grey rule, otherwise the dark one */
+  const section = (height: number, children: ReactNode, light = false, last = false) => (
+    <div style={{ position: 'relative', height, flex: 'none', borderBottom: last ? 0 : `1px solid ${light ? '#ababaf' : '#262626'}` }}>
+      {children}
+    </div>
+  )
+  /* a computed box: white like the typed ones, "-" while it has nothing */
+  const shown = (left: number, top: number, width: number, value: string, align: 'center' | 'right') => (
+    <PBInput style={{ ...at(left, top, width), background: '#fff' }} align={align} value={value} placeholder="-" readOnly tabIndex={-1} />
+  )
+  const label = (left: number, text: ReactNode, top?: number) => (
+    <span style={{ position: 'absolute', left, ...(top === undefined ? { top: 0, bottom: 0, display: 'flex', alignItems: 'center' } : { top }) }}>{text}</span>
+  )
+  /* a classification row: label, range, and the sub-classes beside it,
+     15.7 px a line */
+  const classRow = (c: (typeof bmiClassification)[number], height: number, first: number) => {
+    const hit = !!klass && c.label.startsWith(klass)
+    return section(height, (
+      <div style={{ position: 'absolute', inset: 0, lineHeight: '15.7px', ...(hit ? { background: 'var(--pb-yellow)', fontWeight: 700 } : {}) }}>
+        {c.detail ? (
+          <>
+            <span style={at(c.label === 'Underweight:' ? 8.6 : 9.8, first)}>{c.label}</span>
+            <span style={at(130.8, first)}>{c.range}</span>
+            {c.detail.map(([name, range], i) => (
+              <span key={name}>
+                <span style={at(216.2, first + i * 15.7)}>{name}</span>
+                <span style={at(314.6, first + i * 15.7)}>{range}</span>
+              </span>
+            ))}
+          </>
+        ) : (
+          <>{label(9.8, c.label)}{label(130.8, c.range)}</>
+        )}
+      </div>
+    ), true)
+  }
+  const [under, normal, over, obese] = bmiClassification
 
   return (
     <ModalWindow
@@ -498,113 +642,93 @@ export function MeasureCalculatorDialog({ calculator, onSave, onClose }: {
       title="Measure Calculator"
       onClose={onClose}
       zIndex={97}
-      windowStyle={{ width: 'min(560px, 100%)', height: 'min(660px, 100%)' }}
+      windowStyle={{ width: 'min(462px, 100%)', height: 'min(465px, 100%)' }}
     >
-        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
-          <div style={{ border: '1px solid var(--pb-border)', flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: 'var(--pb-face)' }}>
-            {/* the BMI calculator (302837 `ff51e56c…`); the BSA, Cardiac Risk,
-                Predicted PEF and Gestational Age windows are their own layouts
-                and return above (MeasureCalculatorBodies.tsx) */}
-            <PBBand>BODY MASS INDEX (BMI) CALCULATOR</PBBand>
-            <>
+      <style>{MEASURE_DIALOG_CSS}</style>
+      <div className="mea-calc" style={{ ...FACE_ABS, ['--pb-row-h' as string]: '16.2px' }}>
+        {/* the BMI calculator; the BSA, Cardiac Risk, Predicted PEF and
+            Gestational Age windows are their own layouts and return above
+            (MeasureCalculatorBodies.tsx) */}
+        <div
+          style={{
+            ...at(10.6, 10.2, 437.6, 371.8), display: 'flex', flexDirection: 'column',
+            border: '1px solid #7b7b7b', ['--pb-band-h' as string]: '19px',
+          }}
+        >
+          <div className="pb-band--ruled"><PBBand>BODY MASS INDEX (BMI) CALCULATOR</PBBand></div>
+          {section(45.6, <>
+            {label(8.6, 'Height (cms):', 3.5)}
+            <PBInput
+              style={at(88.1, 2.2, 58.5)}
+              align="right"
+              autoFocus
+              placeholder="-"
+              value={cms}
+              onChange={(e) => setCms(e.target.value)}
+              data-tutorial-id="host.mois.field.calculator-height"
+            />
+            {label(239.8, '(ft):', 3.5)}
+            {shown(258.2, 2.2, 33, imperial(Number(cms) / 30.48 || 0, 1), 'right')}
+            {label(313.2, '(in):', 3.5)}
+            {shown(336.8, 2.2, 33.4, imperial((Number(cms) / 2.54) % 12 || 0, 1), 'right')}
 
-            <div style={{ padding: '5px 8px' }}>
-              <div className="pb-row" style={{ gap: 6, marginBottom: 4 }}>
-                <span style={{ width: 96 }}>Height (cms):</span>
-                <PBInput
-                  w={122}
-                  value={cms}
-                  onChange={(e) => setCms(e.target.value)}
-                  data-tutorial-id="host.mois.field.calculator-height"
-                />
-                <span style={{ marginLeft: 20 }}>(ft):</span>
-                <PBInput w={72} align="center" value={imperial(Number(cms) / 30.48 || 0, 1)} readOnly />
-                <span style={{ marginLeft: 12 }}>(in):</span>
-                <PBInput w={72} align="center" value={imperial((Number(cms) / 2.54) % 12 || 0, 1)} readOnly />
-              </div>
-              <div className="pb-row" style={{ gap: 6 }}>
-                <span style={{ width: 96 }}>Weight (kgs):</span>
-                <PBInput
-                  w={122}
-                  value={kgs}
-                  onChange={(e) => setKgs(e.target.value)}
-                  data-tutorial-id="host.mois.field.calculator-weight"
-                />
-                <span style={{ marginLeft: 20 }}>(lb):</span>
-                <PBInput w={72} align="center" value={imperial(Number(kgs) * 2.20462 || 0, 1)} readOnly />
-                <span style={{ marginLeft: 12 }}>(oz):</span>
-                <PBInput w={72} align="center" value={imperial((Number(kgs) * 35.274) % 16 || 0, 1)} readOnly />
-              </div>
-            </div>
-
-            <div style={{ ...rule, padding: '5px 8px' }}>
-              <div className="pb-row" style={{ gap: 6, marginBottom: 4 }}>
-                <span style={{ width: 96 }}>BMI (kg/m2):</span>
-                <PBInput w={122} align="center" value={bmi || '-'} readOnly />
-                {/* the classification badge beside the index, `< OVERWEIGHT >` */}
-                {klass && (
-                  <span data-tutorial-id="host.mois.field.bmi-class" style={{ marginLeft: 8, padding: '1px 8px', background: 'var(--pb-yellow)' }}>
-                    {`< ${klass.toUpperCase()} >`}
-                  </span>
-                )}
-              </div>
-              <div className="pb-row" style={{ gap: 6 }}>
-                <span>Ideal Weight Range (kgs):</span>
-                <PBInput w={132} align="center" value={ideal[0] || '-'} readOnly />
-                <span>to</span>
-                <PBInput w={132} align="center" value={ideal[1] || '-'} readOnly />
-              </div>
-            </div>
-
-            <div style={{ ...rule, padding: '4px 8px', display: 'flex' }}>
-              <span style={{ width: 132 }}>Classification</span>
-              <span>BMI (kg/m2)</span>
-            </div>
-            {bmiClassification.map((c) => (
-              /* the band the computed index falls in is painted yellow and bold */
-              <div key={c.label} style={{ ...rule, padding: '4px 8px', display: 'flex', ...(klass && c.label.startsWith(klass) ? { background: 'var(--pb-yellow)', fontWeight: 700 } : {}) }}>
-                <span style={{ width: 132 }}>{c.label}</span>
-                <span style={{ width: 118 }}>{c.range}</span>
-                <span>
-                  {c.detail?.map(([name, range]) => (
-                    <span key={name} style={{ display: 'flex', gap: 10 }}>
-                      <span style={{ width: 132 }}>{name}</span>
-                      <span>{range}</span>
-                    </span>
-                  ))}
-                </span>
-              </div>
-            ))}
-            <div style={{ ...rule, padding: '4px 8px' }}>Based on Health Canada Guidelines, 2004 &amp; WHO</div>
-            <div style={{ ...rule, padding: '5px 8px' }} className="pb-row">
-              <span>Measure Code:</span>
-              <PBInput w={122} defaultValue={code} />
-            </div>
-            </>
-          </div>
+            {label(8.6, 'Weight (kgs):', 26.1)}
+            <PBInput
+              style={at(88.1, 24.8, 58.5)}
+              align="right"
+              placeholder="-"
+              value={kgs}
+              onChange={(e) => setKgs(e.target.value)}
+              data-tutorial-id="host.mois.field.calculator-weight"
+            />
+            {label(237.6, '(lb):', 26.1)}
+            {shown(258.2, 24.8, 33, imperial(Number(kgs) * 2.20462 || 0, 1), 'right')}
+            {label(313.2, '(oz):', 26.1)}
+            {shown(336.8, 24.8, 33.4, imperial((Number(kgs) * 35.274) % 16 || 0, 1), 'right')}
+          </>)}
+          {section(52.4, <>
+            {label(8.6, 'BMI (kg/m2):', 7.2)}
+            {shown(88.1, 5.9, 58.5, bmi, 'center')}
+            {/* the classification badge beside the index, `< OVERWEIGHT >`
+                (help-site 302837; the 2026-09-20 capture is empty) */}
+            {klass && (
+              <span data-tutorial-id="host.mois.field.bmi-class" style={{ ...at(154.6, 5.9), padding: '1px 8px', background: 'var(--pb-yellow)' }}>
+                {`< ${klass.toUpperCase()} >`}
+              </span>
+            )}
+            {label(9.8, 'Ideal Weight Range (kgs):', 31.2)}
+            {shown(147, 29.9, 59, ideal[0], 'center')}
+            {label(218.4, 'to', 31.2)}
+            {shown(237.6, 29.9, 58.5, ideal[1], 'center')}
+          </>)}
+          {section(28.5, <>{label(8.6, 'Classification')}{label(130.8, 'BMI (kg/m2)')}</>, true)}
+          {classRow(under!, 54.5, 5.6)}
+          {classRow(normal!, 24.2, 0)}
+          {classRow(over!, 24.3, 0)}
+          {classRow(obese!, 55.4, 7.8)}
+          {section(28, label(9.8, 'Based on Health Canada Guidelines, 2004 & WHO'), true)}
+          {section(29, <>
+            {label(8.6, 'Measure Code:')}
+            <PBInput style={{ ...at(88.1, 6.4, 58.5), background: '#fff' }} defaultValue={code} />
+          </>, true, true)}
         </div>
 
-        <div className="pb-row" style={{ justifyContent: 'space-between', padding: '0 8px 10px', flex: 'none' }}>
-          <PBButton
-            style={{ minWidth: 132 }}
-            /* Populate pulls the chart's last height and weight in; Save (F2)
-               is what files the index as a measure row */
-            command="populate"
-            onClick={populate}
-          >
-            Populate (Ctrl+P)
-          </PBButton>
-          <PBButton
-            style={{ minWidth: 132 }}
-            command="calculator-save"
-            disabled={!bmi}
-            onClick={() => onSave({ code, name: 'BODY MASS INDEX', value: Number(bmi).toFixed(1), flag: '-', units: '', fresh: true })}
-          >
-            Save (F2)
-          </PBButton>
-          <PBButton style={{ minWidth: 132 }} onClick={onClose}>Cancel</PBButton>
-          <PBButton style={{ minWidth: 132 }} onClick={() => { setCms(''); setKgs('') }}>Clear (F5)</PBButton>
-        </div>
+        {/* Populate pulls the chart's last height and weight in; Save (F2)
+            is what files the index as a measure row (nothing to file until
+            there is an index — INFERRED, the capture shows it enabled) */}
+        <PBButton style={{ ...at(11.9, 395.2, 92.7, 20.6), minWidth: 0 }} command="populate" onClick={populate}>
+          Populate (Ctrl+P)
+        </PBButton>
+        <PBButton
+          style={{ ...at(131.6, 395.2, 92.7, 20.6), minWidth: 0 }}
+          command="calculator-save"
+          onClick={() => { if (bmi) onSave({ code, name: 'BODY MASS INDEX', value: Number(bmi).toFixed(1), flag: '-', units: '', fresh: true }) }}
+        >
+          Save (F2)
+        </PBButton>
+        <PBButton style={{ ...at(235.4, 395.2, 92.7, 20.6), minWidth: 0 }} onClick={onClose}>Cancel</PBButton>
+        <PBButton style={{ ...at(354.2, 395.2, 92.7, 20.6), minWidth: 0 }} onClick={() => { setCms(''); setKgs('') }}>Clear (F5)</PBButton>
+      </div>
     </ModalWindow>
   )
 }

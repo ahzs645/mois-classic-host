@@ -81,3 +81,7 @@
 }
 .pb-opening-reminder__footer { display: flex; justify-content: center; }
 .pb-opening-reminder__footer .pb-btn { min-width: 94px; }
+/* rows without a note print regular, and a reminder not yet due is black
+   (Desktop 2026-10-02 11.43.48 PM, Reminder: Opening Encounter Detail) */
+.pb-opening-reminder__row.pb-opening-reminder__row--plain { font-weight: 400; }
+.pb-opening-reminder__row.pb-opening-reminder__row--later { color: #111; }

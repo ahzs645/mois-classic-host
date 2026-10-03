@@ -485,11 +485,13 @@ export function MarDrugCodeLookupWindow({ initial = '', onPick, onClose }: {
 }
 
 /* --- Multi-Value Selection (Record Status "…") ----------------------------
-   2026-09-29 TRAINING capture c22 (chart 2429), measured at 2x: a 484 × 452
-   window; a white grid box 5px in from the left and 11px from the right,
-   366px tall, whose DataWindow is only as wide as its columns (an 18px
-   gutter, Select 47, Code 142, Description 241) with 20px rows; twelve
-   statuses; Continue · Cancel (74 × 22) centred on the face below. */
+   2026-09-29 TRAINING capture c22 (chart 2429), measured at 2x: a 485 × 454
+   window (outer edge); a white grid box 6px in from the left and 7px from
+   the right, ~369px tall, whose DataWindow sits 2px inside it and is only
+   as wide as its columns (an 18px gutter, Select 48, Code 143, Description
+   241) under a 16px head, with 20px rows; twelve statuses;
+   a 47px strip under the box with Continue · Cancel (74 × 22) 169px in,
+   right of centre (screens/mar.css). */
 export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
   selected: string[]
   onOk: (codes: string[]) => void
@@ -499,25 +501,23 @@ export function MarStatusSelectionWindow({ selected, onOk, onClose }: {
   const [cur, setCur] = useState(0)
   const rows = MAR_STATUSES.map(([code, description]) => ({ code, description }))
   return (
-    <StageWindow id={MAR_ACTION_WINDOWS.status} title="Multi-Value Selection" width={484} height={452} onClose={onClose}
-      bodyStyle={{ padding: '5px 11px 0 5px' }}
+    <StageWindow id={MAR_ACTION_WINDOWS.status} title="Multi-Value Selection" width={485} height={454} onClose={onClose}
+      bodyStyle={{ padding: '5px 6px 0 4px' }}
       footer={<>
-        <span className="pb-footer__spacer" />
         <FooterButton primary wide={false} onClick={() => onOk([...picked.ticked])} tutorialId="host.mois.command.mar-status-ok">Continue</FooterButton>
         <FooterButton wide={false} onClick={onClose}>Cancel</FooterButton>
-        <span className="pb-footer__spacer" />
       </>}>
       <div className="pb-mar-mvs">
       {/* c22 paints the current row only with its arrow: no fill, no zebra */}
-      <PBDataWindow flush zebra={false} style={{ width: 448, ['--pb-dw-row-h' as string]: '20px', ['--pb-dw-gutter-width' as string]: '18px', ['--pb-dw-select' as string]: '#fff' }} rows={rows} current={cur} onCurrentChange={setCur}
+      <PBDataWindow flush zebra={false} style={{ width: 450, margin: '1px 0 0 2px', ['--pb-dw-row-h' as string]: '20px', ['--pb-dw-gutter-width' as string]: '18px', ['--pb-dw-select' as string]: '#fff' }} rows={rows} current={cur} onCurrentChange={setCur}
         rowTutorialId={(r) => `host.mois.row.mar-status-${pbSlug(r.code)}`}
         columns={[
           {
-            key: 'select', header: 'Select', width: 47, align: 'center',
+            key: 'select', header: 'Select', width: 48, align: 'center',
             render: (r) => <PBCheckbox checked={picked.has(r.code)} tutorialId={`host.mois.cell.mar-status-${pbSlug(r.code)}`}
               onChange={(on) => picked.set(r.code, on)} />,
           },
-          { key: 'code', header: 'Code', width: 142 },
+          { key: 'code', header: 'Code', width: 143 },
           { key: 'description', header: 'Description', width: 241 },
         ]} />
       </div>

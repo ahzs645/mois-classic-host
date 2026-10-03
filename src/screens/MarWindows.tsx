@@ -96,7 +96,17 @@ function Mnemonic({ text, letter, at }: { text: string; letter: string; at?: num
    the face below. INFERRED: that TRAINING runs with MAR Ordering OFF — its
    chooser has no order choices, while its MAR list (c20) still offers Group
    by Parent Order, so this is the OFF chooser of the build the stage shows
-   (v02.31.23); the ON chooser keeps `70e81e88…`'s eight. */
+   (v02.31.23); the ON chooser keeps `70e81e88…`'s eight. Against that: c20
+   also leaves Open Parent Order enabled, which MOIS DEV (MAR Ordering OFF,
+   evidence/MATRIX-R0758) greys, so TRAINING may be ON and v02.31.23's
+   chooser five either way — unresolved; the lessons teach the eight.
+
+   Re-measured at 2x against the window's outer edge: 512 × 270; the
+   first radio's circle 39px in and 52px below the top edge, the rows 30px
+   apart; the white face ends 215px down and the grey strip under it is
+   54px, with Continue (F2) 161px in (84 × 24) and Cancel 14px after it
+   (82 × 24) — the pair sits 5px left of centre. Continue (F2) is enabled
+   before a choice is made (c25 opens with none). */
 const C25_CHOICES: { i: number; label?: string; at?: number }[] = [
   { i: 4, at: 'Administer an Immuni'.length },
   { i: 0 },
@@ -134,21 +144,22 @@ export function MarChooserWindow({ onContinue, onClose, ordering = true }: {
   })
   if (!ordering) {
     return (
-      <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={508} height={267} onClose={onClose}
-        bodyStyle={{ background: '#fff', padding: '13px 0 0 31px' }}
+      <StageWindow id={MAR_WINDOWS.chooser} title="New Medication Administration Information" width={512} height={270} onClose={onClose}
+        bodyStyle={{ background: '#fff', padding: '15px 0 0 38px' }}
         footer={<>
-          <span className="pb-footer__spacer" />
-          <FooterButton primary wide={false} disabled={choice < 0} onClick={() => onContinue(choice)} tutorialId="host.mois.command.mar-continue">Continue (F2)</FooterButton>
+          {/* INFERRED: Continue with nothing chosen leaves the window up */}
+          <FooterButton primary wide={false} onClick={() => { if (choice >= 0) onContinue(choice) }} tutorialId="host.mois.command.mar-continue">Continue (F2)</FooterButton>
           <FooterButton wide={false} onClick={onClose}>Cancel</FooterButton>
-          <span className="pb-footer__spacer" />
         </>}>
+        <span className="pb-mar-c25" hidden />
         {C25_CHOICES.map(({ i, label, at }) => {
           const c = MAR_CHOICES[i]!
           return (
-            <div key={i} className="pb-row" style={{ height: 30, gap: 0 }} data-tutorial-id={`host.mois.field.mar-choice-${i}`}>
+            <div key={i} className="pb-row" style={{ height: 30, gap: 0, position: 'relative' }} data-tutorial-id={`host.mois.field.mar-choice-${i}`}>
               <PBRadio name="mar-new" label={<Mnemonic text={label ?? c.label} letter={c.key} at={at} />} checked={choice === i} onChange={() => setChoice(i)}
                 tutorialId={`host.mois.field.mar-choice-${c.kind}`} />
-              {c.sub && <span style={{ color: '#a0a0a0', marginLeft: 24 }}>{c.sub}</span>}
+              {/* c25: "(Other Provider)" starts 284px into the window, wherever the caption ends */}
+              {c.sub && <span style={{ color: '#a0a0a0', position: 'absolute', left: 284 - 39 }}>{c.sub}</span>}
             </div>
           )
         })}
@@ -218,8 +229,10 @@ export function MarBanner({ children }: { children?: ReactNode }) {
    measured at 2x — a 751 × 633 window on white; every field 17px tall and
    110px in (labels 9px in), rules at 114 · 192 · 246 · 509px under the
    banner and a divider at 359px between Details / Other and the three
-   notes (441px in, 226 × 54). Given By opens on the signed-in user
-   (JALIL, AHMAD), Ordered By on the desktop provider, Created on the user.
+   notes (441px in, 226 × 54). Given By opens on the signed-in user,
+   Ordered By on the desktop provider, Created on the user. The rule under
+   the order line is dark (#6c6c6c), and a #6a6a6a line tops the 47px
+   button strip (screens/mar.css).
    The blue "*" beside Route, Site, Reason, Informed Consent, Form of Consent
    and Consented By is c27's (an immunization); INFERRED: they are the MAR
    Immunization Validation fields and mark an immunization only.
@@ -234,7 +247,9 @@ function At({ x, y, w, h = 17, right, children }: { x: number; y: number; w?: nu
     </div>
   )
 }
-const Req = ({ y }: { y: number }) => <At x={343} y={y}><span style={{ color: '#3140ff', fontWeight: 700 }}>*</span></At>
+/* c27 at 2x: a pure-blue (#0000ff) star 6px wide, 347px into the window,
+   centred a little above its field's middle */
+const Req = ({ y }: { y: number }) => <At x={346} y={y + 3}><span style={{ color: '#0000ff', fontWeight: 700, fontSize: 13 }}>*</span></At>
 
 export function MarRecordWindow({ event, order, action = '', kind, prefill, picked, onLookup, onSave, onDelete, onClose }: {
   /** omitted for a new record */
@@ -350,7 +365,9 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
             <At x={264} y={31.5} w={200} right>Scheduled End:</At>
           </div>
         )}
-        <hr className="pb-mar-rec__rule" style={{ top: 114 }} />
+        {/* c27: the rule under a new record's order line is dark (#6c6c6c),
+            the others light */}
+        <hr className="pb-mar-rec__rule" style={{ top: 114, ...(isNew ? { borderTopColor: '#6c6c6c' } : null) }} />
 
         {L(127, 'Action:')}
         <At x={110} y={127}><PBInput w={226} value={act} onChange={(e) => setAct(e.target.value)} data-tutorial-id="host.mois.field.mar-action" /></At>

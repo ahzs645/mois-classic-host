@@ -60,7 +60,7 @@ export type RSDisabledIf = { field: string; is: string | boolean }
    output reads the value under. `label` is the caption in the left column;
    `hint` the grey text after the control.                                  */
 export type RSField =
-  /** a navy section heading, ruled above and below; `right` puts a control on
+  /** a navy section heading, ruled below; `right` puts a control on
       the heading line (`CSV Output  ☐ Direct Output to Excel`) */
   | { kind: 'section'; label: string; right?: RSField }
   /** an edit field; `dots` adds the "…" picker; `required` paints it salmon */
@@ -147,6 +147,8 @@ export type ReportSpec = {
   height?: number
   /** the label column's width (default 90) */
   labelW?: number
+  /** how far in the label column starts (default 10, ParamLine's padding) */
+  labelIndent?: number
   /** article id + image hash prefixes: window, then page */
   provenance: string
   /** what was reconstructed without a capture */
@@ -161,6 +163,8 @@ export type ReportSpec = {
   navigatorLabel?: string
   /** full control over the pages, for reports that are not one table */
   pages?: (ctx: RSContext) => string[]
+  /** the page is printed landscape (Print Preview draws an 11in-wide page) */
+  landscape?: boolean
   /** the report only ever goes to Excel (the Clinical - Audits "(Excel)" rows) */
   excelOnly?: boolean
   /** the row opens a hand-built window registered under this id instead of

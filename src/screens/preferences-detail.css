@@ -1,58 +1,120 @@
 /* Preferences uses a two-by-two form on the window face, not the generic
-   clinical report's white canvas. Geometry follows the supplied MOIS capture. */
+   clinical report's white canvas.
+
+   Geometry is the DEV field audit's 1:1 capture of v02.31.23
+   (~/github/Mois/outputs/019ff32b…/evidence/MATRIX-R0909-form/ui-original,
+   frame 1006px wide, tree pitch 16px), confirmed at 1.5× by the current
+   build's Drive Mois 2026-09-22 8.01.33. From the tab line, 815px pane:
+     Subject block   labels x 9, values x 86 (radios x 88, 91px pitch), Code
+                     Desc. box y 57-74, Subject Detail box y 98-134, right
+                     edge 405; the column rule at x 415.
+     Other block     label x 420, fields x 474: Start / End 76px boxes 12px
+                     apart (y 36-53), Form 474-640 and By 645-798 (y 79-96),
+                     the check boxes at x 646, centres y 25 and 45.
+     lower blocks    the row rule at y 141; Instruction / Reason fields y
+                     148-165, "Detail:" ~y 176, Detail boxes y 188-224, the
+                     Created rule at y 231 — 90px under the row rule. Reason
+                     sits on Other's columns (field x 474-793).
+   Our controls are 19px where MOIS's are 17px, so they are centred on
+   MOIS's centre lines rather than top-aligned. The columns keep the 415 : 400
+   split as fractions so the form follows a resized window. */
 .pb-preference-detail {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(138px, 1fr) minmax(84px, auto);
+  grid-template-columns: minmax(0, 411fr) minmax(0, 396fr);
+  grid-template-rows: minmax(141px, 1fr) 90px;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 2px 4px;
+  padding: 0 4px;
   background: var(--pb-face);
 }
-.pb-preference-detail > div { min-width: 0; padding: 8px 6px; }
+.pb-preference-detail > div { min-width: 0; }
 .pb-preference-detail__subject,
-.pb-preference-detail__instruction,
-.pb-preference-detail__reason {
+.pb-preference-detail__instruction {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 71px minmax(0, 1fr);
   align-content: start;
   align-items: center;
   gap: 4px 6px;
+  border-right: 1px solid #ccc;
+  padding: 14px 9px 0 5px;
 }
-.pb-preference-detail__subject { border-right: 1px solid #ccc; }
-/* the three radios sit on a 91px pitch (Concept x 567, Code x 658, Free
-   Text x 749 in evidence/MATRIX-R0889-start, DEV v02.31.23 at 100%) */
-.pb-preference-detail__radios { gap: 0; }
+.pb-preference-detail__instruction,
+.pb-preference-detail__reason { border-top: 1px solid #ccc; padding-top: 5px; }
+.pb-preference-detail__reason {
+  display: grid;
+  grid-template-columns: 49px minmax(0, 1fr);
+  align-content: start;
+  align-items: center;
+  gap: 4px 5px;
+  padding: 5px 22px 0 4px;
+}
+/* the three radios sit on a 91px pitch, 2px in from the value column
+   (Concept x 88, Code x 179, Free Text x 270 from the pane) */
+.pb-preference-detail__radios { gap: 0; padding-left: 2px; }
 .pb-preference-detail__radios > * { width: 91px; flex: none; }
+/* Code Desc. is display-only: white, its text the disabled grey (#6d6d6d
+   measured on FEEDING TUBE / MOST), not the kit's read-only face */
+.pb-preference-detail .pb-preference-detail__code { background: var(--pb-field-bg); color: #6d6d6d; }
 .pb-preference-detail__other {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px 6px;
+  grid-template-columns: 49px minmax(0, 167fr) minmax(0, 154fr);
+  gap: 4px 5px;
   align-content: start;
+  align-items: start;
+  padding: 18px 17px 0 4px;
 }
-.pb-preference-detail label { display: grid; gap: 5px; }
-.pb-preference-detail__dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.pb-preference-detail__flags { display: grid; align-content: start; gap: 4px; }
+.pb-preference-detail label { display: grid; }
+.pb-preference-detail__other > label { gap: 5px; }
+.pb-preference-detail__dates { display: grid; grid-template-columns: repeat(2, minmax(0, 76px)); gap: 12px; }
+.pb-preference-detail__dates label { gap: 3px; }
+.pb-preference-detail__flags { display: grid; align-content: start; gap: 0; margin: -2px 0 0 1px; }
 .pb-preference-detail .pb-check { display: inline-flex; gap: 4px; }
-.pb-preference-detail__instruction,
-.pb-preference-detail__reason { border-top: 1px solid #ccc; }
-.pb-preference-detail__instruction { border-right: 1px solid #ccc; }
 .pb-preference-detail textarea { height: 36px; min-height: 36px; }
 .pb-preference-choice { width: 100%; min-width: 0; }
-.pb-preference-choice__popup { z-index: 95; border: 1px solid #777; background: white; color: #000; max-height: 310px; overflow: auto; }
-.pb-preference-choice__popup [role="option"] { min-height: 20px; padding: 1px 3px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; cursor: default; }
+/* the dropped DDDW: 19px rows, sixteen before it scrolls (Reason, 8.13.16);
+   `white-space: pre` keeps the leading space Reason's first entry carries */
+.pb-preference-choice__popup { z-index: 95; box-sizing: border-box; border: 1px solid #777; background: white; color: #000; max-height: 306px; overflow: auto; }
+.pb-preference-choice__popup [role="option"] { box-sizing: border-box; height: 19px; line-height: 18px; padding: 0 3px; border-bottom: 1px solid #f0f0f0; white-space: pre; overflow: hidden; cursor: default; }
 .pb-preference-choice__popup [role="option"]:hover,
 .pb-preference-choice__popup .is-current { background: var(--pb-dw-current, #e99b82); }
-.pb-preference-choice__popup .is-empty { min-height: 110px; }
+/* an empty list still drops, as a blank box 114px deep (Instruction on a
+   preference with no type, 8.13.20) */
+.pb-preference-choice__popup .is-empty { min-height: 114px; }
+
+/* --- Encounter ID ------------------------------------------------------
+   With an encounter, off the 2026-09-29 Baby Birth Event capture (0.89 of
+   the stage's scale, by the form window around it): 415 × 300, 25px bands
+   from under the title bar, labels 42px in, values at 134px, Appt Length /
+   Appt Status at 290px, all on white (the window face, not the kit's
+   #efefef).
+   Empty, off Drive Mois 2026-09-22 8.13.29 (1.5×): 416 × 306 with a 32px
+   title bar (ours is the kit's 27.5px, so the body keeps MOIS's heights and
+   the window comes out 300). The message sits on a #f0f0f0 face 209px deep,
+   three lines 26px apart, the first glyphs 27px down and 14px in; the
+   buttons on a white band 62px deep, 104 × 24, 10px apart, centred, 19px
+   from the band's top. */
 .pb-preference-encounter__body { flex: 1; min-height: 0; overflow: auto; }
-.pb-preference-encounter__empty { padding: 16px; }
-/* Encounter ID, off the 2026-09-29 Baby Birth Event capture (0.89 of the
-   stage's scale, by the form window around it): 415 × 300, 25px bands from
-   under the title bar, labels 42px in, values at 134px, Appt Length / Appt
-   Status at 290px, two 104 × 25 buttons centred 28px under the last band,
-   all on white (the window face, not the kit's #efefef) */
+.pb-preference-encounter__empty { height: 209px; box-sizing: border-box; padding: 13px 13px 0; background: #f0f0f0; }
+.pb-preference-encounter__empty p { margin: 11px 0 0; line-height: 15px; }
 .pb-preference-encounter__row { display: grid; grid-template-columns: 91px 156px auto; align-items: center; padding: 0 8px 0 42px; background: #fff; height: 25px; white-space: nowrap; }
 .pb-preference-encounter__row:nth-child(even) { background: #d9d9db; }
-.pb-row.pb-preference-encounter__buttons { justify-content: center; gap: 9px; padding: 0 16px 17px; }
-.pb-preference-encounter__buttons .pb-btn { min-width: 104px; height: 25px; padding: 0 6px; }
+.pb-row.pb-preference-encounter__buttons { flex: none; justify-content: center; gap: 10px; height: 62px; box-sizing: border-box; padding: 19px 16px 0; align-items: flex-start; background: #fff; }
+.pb-preference-encounter__buttons .pb-btn { min-width: 104px; height: 24px; padding: 0 6px; }
+
+/* --- Encounter List ----------------------------------------------------
+   Drive Mois 2026-09-22 8.13.40 (1.5×): 865 × 615 over the frame, centred.
+   The "Select Encounter" band is 24px deep with a dark 1px frame, 16px under
+   the title bar, 14px in from the left and 19px from the right; the grid
+   hangs under it to 61px above the window's foot. Buttons 22px tall, 20px
+   under the grid: Clear Encounter (92) flush left with the grid, Continue
+   and Cancel (75 each, 7px apart) centred on the window, New Encounter (92)
+   flush right with the grid. */
+.pb-preference-encounter-list__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 16px 19px 0 14px; }
+.pb-preference-encounter-list__body > .pb-band { flex: none; min-height: 24px; border: 1px solid #646464; font-weight: bold; }
+.pb-preference-encounter-list__body > .pb-dw { flex: 1 1 auto; min-height: 0; }
+.pb-row.pb-preference-encounter-list__buttons { flex: none; position: relative; height: 61px; box-sizing: border-box; padding: 20px 19px 0 14px; align-items: flex-start; }
+.pb-preference-encounter-list__buttons .pb-btn { height: 22px; padding: 0 6px; }
+.pb-preference-encounter-list__side { min-width: 92px; }
+.pb-preference-encounter-list__middle { position: absolute; left: 50%; top: 20px; transform: translateX(-50%); display: flex; gap: 7px; }
+.pb-preference-encounter-list__middle .pb-btn { min-width: 75px; }

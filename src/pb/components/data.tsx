@@ -23,7 +23,8 @@ export type PBColumn<T> = {
   auditId?: string
   width?: number | string
   align?: 'left' | 'center' | 'right'
-  /** caption alignment, when it differs from the cells' */
+  /** caption alignment, when it differs from the cells'. `left` is never
+      inferred from `align` — the blue band centres captions by default */
   headAlign?: 'left' | 'center' | 'right'
   italic?: boolean
   /** narrow "…" lookup column */
@@ -295,6 +296,9 @@ export function PBDataWindow<T extends Record<string, any>>({
                   className={cx(
                     (c.headAlign ?? c.align) === 'center' && 'pb-dw__c--center',
                     (c.headAlign ?? c.align) === 'right' && 'pb-dw__c--num',
+                    /* only an explicit headAlign: the blue band centres a
+                       caption over left-set cells unless the column says so */
+                    c.headAlign === 'left' && 'pb-dw__c--left',
                     c.headClassName,
                   )}
                   {...(onSort ? {

@@ -41,7 +41,7 @@ export function PatientDetailSlide({ row }: { row: DayRow | undefined }) {
   const expanded = mode === 'detail'
 
   const link = (id: string, label: string, onClick: () => void) => (
-    <PBButton bare className="pb-link" command={id} onClick={() => onClick()}>
+    <PBButton bare className="pb-link" command={id} onClick={() => onClick()} style={{ fontSize: 13 }}>
       {label}
     </PBButton>
   )
@@ -90,7 +90,11 @@ export function PatientDetailSlide({ row }: { row: DayRow | undefined }) {
           )}
         </div>
       )}
-      <div className="pb-summaryband">
+      {/* v02.31.23 TRAINING (Desktop 11.43.34 PM, 12.05.48 AM): a 29 px band in
+          #99b4d1 under an etched rule, the caption bold at 14 px and the
+          links at 13 px, Hide 22 px in from the edge. The kit band is the
+          older 18 px strip (kit-prop candidate: a band height / tone). */}
+      <div className="pb-summaryband" style={{ height: 29, background: '#99b4d1', borderTop: '1px solid #8c8c8c', fontSize: 14, gap: 26, padding: '0 22px 0 9px' }}>
         <span>Patient - {summary}</span>
         <span className="pb-summaryband__spacer" />
         {link('change-view', 'Change View', () => { openWindow('daybook-select-summary') })}

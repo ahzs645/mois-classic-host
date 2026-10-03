@@ -1,5 +1,5 @@
 import { MONTH_NAMES } from '../clock'
-import { MOIS_TODAY, rsAge, rsDaysAgo, rsName, type ReportSpec, type RSContext, type RSField } from './types'
+import { MOIS_TODAY, RS_FACILITIES, rsAge, rsDaysAgo, rsName, type ReportSpec, type RSContext, type RSField } from './types'
 
 /* ============================================================================
    Report specs transcribed from manual article 304051 (Dynamic Forms).
@@ -8,9 +8,27 @@ import { MOIS_TODAY, rsAge, rsDaysAgo, rsName, type ReportSpec, type RSContext, 
 
    Every window is the same shape: one navy date-range heading (Reported /
    Delivery Date Range (INCLUSIVE)) over a From line and a To line, each on
-   its own row with the hint after To. Three of them keep the caption their
-   DataWindow was cloned from, "Patient Procedure Report" (AEFI Duration
-   Summary, Number of Births by Maternal Age, Number of Births by Month).
+   its own row with the hint after To. The labels start 19px into the pane
+   and the 80px date boxes 66px in, their dates centred (304051 `3c0bc2a2`,
+   `2e4ff9ba` 1:1; the v02.31.23 captures Drive `MOIS Screenshot/`
+   2026-08-11 3.38.53 PM and 3.41.22 PM show 2025.01.01 / 2026.01.01 and
+   2026.00.00 centred in theirs).
+
+   Captions. In v02.17.20 three windows kept the caption their DataWindow was
+   cloned from, "Patient Procedure Report" (AEFI Duration Summary, Number of
+   Births by Maternal Age, Number of Births by Month). v02.31.23 captions two
+   of them like every other report — "Report: Dynamic Forms - Number of
+   Births by Month" (3.38.53 PM), "Report: Dynamic Forms - AEFI Duration
+   Summary" (3.41.22 PM). Number of Births by Maternal Age is not captured in
+   the current build and keeps the old caption (INFERRED either way).
+
+   AEFI Duration Summary's page in v02.31.23 (Drive `Bright Health
+   Presentation/` 2026-08-11 3.41.34 PM, the Print Preview 12 seconds after
+   the 3.41.22 window): a filled range prints "REPORT DATED BETWEEN <from>
+   AND <to>", and the rows group by health unit (none first, then each unit
+   A–Z) and under it by user, `USER:   (RN) <name>` — not the CHILDRENS /
+   ADULTS bands of 304051 `944978f0`. The units here are the emulator's;
+   the users fictional.
 
    The pages carry a conditional sub-title ("REPORT DATED RANGE NOT
    SPECIFIED" when a date is blank, "PERIOD <from> TO <to>" otherwise), so
@@ -23,8 +41,8 @@ const isDate = (s: string) => /^\d{4}\.\d{2}\.\d{2}$/.test(s)
 /** a From line and a To line under a navy heading */
 const dateRange = (heading: string, hint: string, requiredFrom = false, fromValue = ''): RSField[] => [
   { kind: 'section', label: heading },
-  { kind: 'text', id: 'from', label: 'From:', w: 80, value: fromValue, required: requiredFrom || undefined },
-  { kind: 'text', id: 'to', label: 'To:', w: 80, hint },
+  { kind: 'text', id: 'from', label: 'From:', w: 80, align: 'center', value: fromValue, required: requiredFrom || undefined },
+  { kind: 'text', id: 'to', label: 'To:', w: 80, align: 'center', hint },
 ]
 
 /** both dates, or null when either is blank ("the date parameter will be ignored") */
@@ -51,7 +69,9 @@ function page(title: string, sub: string, cols: string, th: string[], body: stri
 const insOf = (p: { insurance?: string; insuranceBy?: string }) => (p.insurance ? `${p.insurance} (${p.insuranceBy || 'BC'})` : '')
 
 /* --- AEFI (Adverse Events Following Immunization) samples ----------------- */
-type Aefi = { chart: string; group: 'CHILDRENS' | 'ADULTS'; user: string; episode: string; reported: string; out: string[]; signed: boolean }
+type Aefi = { chart: string; group: 'CHILDRENS' | 'ADULTS'; unit: string; user: string; episode: string; reported: string; out: string[]; signed: boolean }
+/** the health units the v02.31.23 page groups by: none first, then two of the emulator's */
+const AEFI_UNITS = ['', RS_FACILITIES[2]!, RS_FACILITIES[3]!]
 function aefiRows(ctx: RSContext): Aefi[] {
   const kids = ctx.patients.filter((p) => p.dob && Number(rsAge(p.dob)) < 18 && p.insurance).slice(0, 3)
   const adults = ctx.patients.filter((p) => p.dob && Number(rsAge(p.dob)) >= 18 && p.insurance).slice(6, 9)
@@ -59,13 +79,28 @@ function aefiRows(ctx: RSContext): Aefi[] {
   const users = ['ADMIN, MOIS', 'DUCHARME, AMARILYS']
   return [...kids.map((p) => ({ p, group: 'CHILDRENS' as const })), ...adults.map((p) => ({ p, group: 'ADULTS' as const }))]
     .map(({ p, group }, i) => ({
-      chart: p.chart, group, user: users[i % 2]!, episode: i % 3 === 2 ? '2' : '1',
+      chart: p.chart, group, unit: AEFI_UNITS[i % AEFI_UNITS.length]!, user: users[i % 2]!, episode: i % 3 === 2 ? '2' : '1',
       reported: rsDaysAgo(9 + i * 23), out: outs[i % outs.length]!, signed: i % 2 === 1,
     }))
     .filter((a) => inPeriod(ctx, a.reported))
 }
 
 /** CHILDRENS / USER bands over the rows, as 304051 `944978f0` groups them */
+/** v02.31.23: health-unit bands (none first, then A–Z) over `USER:   (RN) …`
+    bands — Drive `Bright Health Presentation/` 2026-08-11 3.41.34 PM */
+function aefiUnitBody(rows: Aefi[], cells: (a: Aefi) => string[], cols: string): string[] {
+  const out: string[] = []
+  for (const unit of [...new Set(rows.map((a) => a.unit))].sort()) {
+    const u = rows.filter((a) => a.unit === unit)
+    if (unit) out.push(`%S%${unit}`)
+    for (const user of [...new Set(u.map((a) => a.user))]) {
+      out.push(`%S%USER:   (RN) ${user}`, cols)
+      for (const a of u.filter((x) => x.user === user)) out.push(`%TR%${cells(a).join('|')}`)
+    }
+  }
+  return out
+}
+
 function aefiBody(rows: Aefi[], cells: (a: Aefi) => string[], cols: string): string[] {
   const out: string[] = []
   for (const group of ['CHILDRENS', 'ADULTS'] as const) {
@@ -85,9 +120,11 @@ function aefiIdentity(ctx: RSContext, a: Aefi): string[] {
   return [rsName(p), p.dob, p.gender, insOf(p), p.chart, a.episode, a.reported]
 }
 
+/* a filled range: "REPORT DATED BETWEEN 2026.06.01 AND 2026.08.11" (v02.31.23,
+   3.41.34 PM); a blank one: "REPORT DATED RANGE NOT SPECIFIED" (304051) */
 const reportedSub = (ctx: RSContext) => {
   const p = period(ctx)
-  return p ? `REPORTED DATE RANGE ${p.from} TO ${p.to}` : 'REPORT DATED RANGE NOT SPECIFIED'
+  return p ? `REPORT DATED BETWEEN ${p.from} AND ${p.to}` : 'REPORT DATED RANGE NOT SPECIFIED'
 }
 
 /* --- births --------------------------------------------------------------- */
@@ -107,13 +144,13 @@ export const specs: ReportSpec[] = [
     folder: 'Dynamic Forms',
     name: 'AEFI Duration Summary',
     id: 'aefi-duration',
-    title: 'Patient Procedure Report',
     width: 658,
     height: 530,
-    labelW: 44,
+    labelW: 40,
+    labelIndent: 19,
     provenance: '304051 2e4ff9ba (window), 944978f0 (page)',
-    inferred: 'The sub-title a filled date range prints ("REPORTED DATE RANGE <from> TO <to>") is inferred; the capture shows the blank-range wording. '
-      + 'The ADULTS group band is inferred beside the captured CHILDRENS band.',
+    landscape: true,
+    inferred: 'Which units and users the sample rows fall under is the emulator\'s own; the v02.31.23 capture (Bright Health Presentation 2026-08-11 3.41.34 PM) fixes only the band order and wording.',
     fields: dateRange('Reported Date Range (INCLUSIVE)', '(if either date is blank, the date parameter will be ignored)'),
     pages: (ctx) => {
       const cols = '%COLS:18,8,6,13,6,8,8,9,9,8,7%'
@@ -123,7 +160,7 @@ export const specs: ReportSpec[] = [
         cols,
         ['|||||||||OUTCOME RESPONSE|',
           'PATIENT NAME|DOB|GENDER|INSURANCE|CHART|EPISODE NO.|REPORTED DATE|9 A LOCAL REACTION|9 B ALLERGIC|9 C NEUROLOGIC|9 D OTHER'],
-        aefiBody(aefiRows(ctx), (a) => [...aefiIdentity(ctx, a), ...a.out], cols),
+        aefiUnitBody(aefiRows(ctx), (a) => [...aefiIdentity(ctx, a), ...a.out], cols),
       )
     },
   },
@@ -133,9 +170,11 @@ export const specs: ReportSpec[] = [
     id: 'aefi-recommendation',
     width: 660,
     height: 529,
-    labelW: 44,
+    labelW: 40,
+    labelIndent: 19,
     provenance: '304051 7fb43551 (window), a195c9aa (page)',
-    inferred: 'The sub-title for a filled date range and for UNSIGNED / SIGNED ("… UNSIGNED RECORDS") is inferred from the captured "REPORT DATED RANGE NOT SPECIFIED ALL RECORDS".',
+    inferred: 'The sub-title for a filled date range and for UNSIGNED / SIGNED ("… UNSIGNED RECORDS") is inferred from the captured "REPORT DATED RANGE NOT SPECIFIED ALL RECORDS" and, for the range, AEFI Duration Summary\'s v02.31.23 "REPORT DATED BETWEEN … AND …". '
+      + 'Its rows keep the v02.17.20 CHILDRENS / ADULTS bands; whether v02.31.23 regrouped this report by health unit too is not captured.',
     fields: [
       ...dateRange('Reported Date Range (INCLUSIVE)', '(if either date is blank, the date parameter will be ignored)'),
       { kind: 'radio', id: 'signed', label: 'Signed State:', options: ['ALL', 'UNSIGNED', 'SIGNED'], value: 'ALL', column: true },
@@ -159,7 +198,8 @@ export const specs: ReportSpec[] = [
     id: 'asq-line-list',
     width: 662,
     height: 530,
-    labelW: 44,
+    labelW: 40,
+    labelIndent: 19,
     provenance: '304051 8674395d (window), cc647362 (page)',
     inferred: 'The article\'s steps say to "Choose whether you want to report on unsigned, signed or all reports", but the captured window has no such option; none is drawn.',
     fields: dateRange('Delivery Date Range (INCLUSIVE)', '(dates are required)'),
@@ -189,7 +229,8 @@ export const specs: ReportSpec[] = [
     id: 'nob-client-list',
     width: 658,
     height: 530,
-    labelW: 44,
+    labelW: 40,
+    labelIndent: 19,
     provenance: '304051 411dd28a (window), none (page)',
     inferred: 'No Report Outcome capture exists: the page (title, PERIOD sub-title, mother / delivery / infant / facility columns) is inferred from the report name and its sister birth reports. '
       + 'From is salmon with a 0000.00.00 mask in the capture — the focused date field; kept as required, since "dates are required".',
@@ -217,7 +258,8 @@ export const specs: ReportSpec[] = [
     title: 'Patient Procedure Report',
     width: 662,
     height: 529,
-    labelW: 44,
+    labelW: 40,
+    labelIndent: 19,
     provenance: '304051 1c46d76c (window), 16cd0c72 (page)',
     fields: dateRange('Delivery Date Range (INCLUSIVE)', '(dates are required)'),
     pages: (ctx) => {
@@ -237,10 +279,10 @@ export const specs: ReportSpec[] = [
     folder: 'Dynamic Forms',
     name: 'Number of Births by Month',
     id: 'births-by-month',
-    title: 'Patient Procedure Report',
     width: 659,
     height: 529,
-    labelW: 44,
+    labelW: 40,
+    labelIndent: 19,
     provenance: '304051 3c0bc2a2 (window), 3f5de9c1 (page)',
     fields: dateRange('Delivery Date Range (INCLUSIVE)', '(dates are required)'),
     pages: (ctx) => {

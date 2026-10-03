@@ -22,9 +22,9 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 
    WHAT IT IS. Nearly every report in the catalogue opens the same window:
    caption `Report: <Folder> - <Name>`, a bordered pane with the grey
-   `Selection Parameter` band, navy section headings ruled above and below,
+   `Selection Parameter` band, navy section headings ruled below,
    label / control / grey-hint lines, and Ok / Cancel bottom-centre, 75px
-   wide and 19px apart. This component draws that window from a declarative
+   wide and 12px apart (screens/reportKit ParamFrame). This component draws that window from a declarative
    `ReportSpec` (data/reportSpecs), one registered area window per spec,
    `report-params-<spec.id>`, so the hundred-odd reports share one layout and
    differ only in their fields — each with its own title and parameters.
@@ -316,7 +316,10 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
       open('report-excel', { title: name, head: sheet.head, rows: sheet.rows })
       return
     }
-    open('print-preview', { title: name, pages: reportPages(spec, ctx) })
+    /* `bare`: the page is only what the report prints — no emulator
+       `title · Page n` line over it (v02.31.23 Print Preview, Drive `Bright
+       Health Presentation/` 2026-08-11 3.41.34 PM) */
+    open('print-preview', { title: name, pages: reportPages(spec, ctx), bare: true, landscape: spec.landscape })
   }
 
   const dots = (key: string, pick: RSPick | undefined, disabled?: boolean) => pick && (
@@ -407,7 +410,7 @@ function ReportSpecParams({ spec, args, close, open }: AreaWindowProps & { spec:
   }
 
   const line = (label: ReactNode, body: ReactNode, key: number | string) => (
-    <ParamLine key={key} label={label} w={labelW}>{body}</ParamLine>
+    <ParamLine key={key} label={label} w={labelW} style={spec.labelIndent !== undefined ? { paddingLeft: spec.labelIndent } : undefined}>{body}</ParamLine>
   )
 
   const render = (fields: RSField[]): ReactNode => fields.map((f, i) => {

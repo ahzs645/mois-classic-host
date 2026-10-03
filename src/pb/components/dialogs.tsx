@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { PBRaisedFrom, usePBDesktop, usePBLayerZ } from '../desktop'
 import { PBButton } from './controls'
 import { PBWindow } from './chrome'
 
@@ -52,7 +54,7 @@ export type PBMessageButton = {
 
 /* --- PBMessageBox -------------------------------------------------------- */
 export function PBMessageBox({
-  title, icon = 'info', children, buttons, onClose, zIndex = 70, plain, tutorialId, closeValue = 'cancel', textStyle,
+  title, icon = 'info', children, buttons, onClose, zIndex = 70, plain, tutorialId, closeValue = 'cancel', textStyle, layerAttrs,
 }: {
   title: string
   /** `null`: a box with no icon (Deacon's) */
@@ -69,9 +71,17 @@ export function PBMessageBox({
   /** what the title-bar × answers */
   closeValue?: string
   textStyle?: CSSProperties
+  /** further attributes on the layer: the box is portalled onto the desktop,
+      so a marker a caller wraps around it does not contain it */
+  layerAttrs?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>
 }) {
-  return (
-    <div className={plain ? 'pb-modal-layer pb-modal-layer--plain' : 'pb-modal-layer'} style={{ zIndex }}>
+  /* a message box centres over the frame, not the work area that raised it,
+     and over any window that raised it (pb/desktop) */
+  const desktop = usePBDesktop()
+  const z = usePBLayerZ(zIndex)
+  const box = (
+    <div {...layerAttrs} className={plain ? 'pb-modal-layer pb-modal-layer--plain' : 'pb-modal-layer'} style={{ zIndex: z }}>
+      <PBRaisedFrom.Provider value={z ?? 70}>
       <PBWindow child controls={false} title={title} onClose={() => onClose(closeValue)} className="pb-msgbox" tutorialId={tutorialId}>
         <div className="pb-msgbox__body">
           {icon && <span className="pb-msgbox__icon">{ICONS[icon]}</span>}
@@ -92,8 +102,10 @@ export function PBMessageBox({
           ))}
         </div>
       </PBWindow>
+      </PBRaisedFrom.Provider>
     </div>
   )
+  return desktop ? createPortal(box, desktop) : box
 }
 
 /* --- PBSection — a rule-separated block inside a form -------------------- */

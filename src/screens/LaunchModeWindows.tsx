@@ -14,10 +14,11 @@ import {
   PBButton, PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, PBWindow, pbSlug,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
-import { ModalLayer } from './dialogKit'
+import { FACE, ModalLayer, ModalWindow, clampTo } from './dialogKit'
 import { NAVY, ReadOnlyField } from './formKit'
 import { GRID_BOX, LookupBand, PickListWindow } from './lookupKit'
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
+import { UM_ACCESS_CSS } from './UserAccessTabs'
 
 /* ============================================================================
    The two alternate launch modes of the MOIS client — Encounter Lite
@@ -145,6 +146,7 @@ export function LaunchModeHost({ initial, mainShown, onLaunchMain }: {
         id="select-launch-mode" title="Select Launch Mode" header={['Launch Mode']}
         rows={[{ cells: ['Main Program'], mode: 'main' }, { cells: ['Encounter Lite'], mode: 'encounter-lite' }]}
         buttons="ok-cancel"
+        plain
         onPick={(mode) => { if (mode === 'main') { launchMain(); setStage('closed') } else setStage(mode) }}
         onCancel={() => setStage('closed')}
       />
@@ -189,35 +191,65 @@ export function LaunchModeHost({ initial, mainShown, onLaunchMain }: {
   )
 }
 
-function LaunchChooser({ id, title, header, rows, buttons, onPick, onCancel }: {
+/* The chooser in front of a launch mode. `Select Launch Mode` is also the
+   list Security Profile Settings ▸ Launch Mode ▸ Add Launch Mode raises, and
+   the 2026-10-02 TRAINING capture 12 shows it whole: 565 x 475 capture px
+   (496 x 417) on a WHITE face, a bordered list 8px in (480 x 331) headed
+   `Launch Mode` in the soft grey caption ink, 24px rows (27 capture px), the
+   selected row in the Windows highlight #0078D8 with white text, and Ok /
+   Cancel 75 x 21 centred under it. `plain` is that look; the Service Group
+   chooser (3103943) keeps the older detail-window frame. */
+const PLAIN_CHOOSER_CSS = `
+.pb-launch-pick .pb-dw { border: 1px solid #767676; }
+.pb-launch-pick .pb-dw__table > tbody > tr.is-current { background: #0078d8; }
+.pb-launch-pick .pb-dw__table > tbody > tr.is-current > td { color: #fff; }
+`
+
+export function LaunchChooser({ id, title, header, rows, buttons, onPick, onCancel, plain, zIndex = 40, initial }: {
   id: string; title: string; header: string[]
   rows: { cells: string[]; mode: MoisLaunchMode }[]
   buttons: 'ok-cancel' | 'continue'
-  onPick: (mode: MoisLaunchMode) => void
+  onPick: (mode: MoisLaunchMode, index: number) => void
   onCancel: () => void
+  /** capture 12's white Select Launch Mode window */
+  plain?: boolean
+  zIndex?: number
+  /** the row selected on open; the last one by default */
+  initial?: number
 }) {
-  const [cur, setCur] = useState(rows.length - 1)
-  const pick = () => onPick(rows[cur]!.mode)
+  const [cur, setCur] = useState(initial ?? rows.length - 1)
+  const pick = () => onPick(rows[cur]!.mode, cur)
+  const w = plain ? 75 : 96
   return (
     <PickListWindow<Record<string, string>>
-      frame={(content, footer) => (
-        <DetailWindow id={id} title={title} width={520} height={420} zIndex={40} onClose={onCancel} buttons={footer}>
-          {content}
-        </DetailWindow>
-      )}
-      gridBox={{ ...GRID_BOX, padding: 8 }}
+      frame={(content, footer) => (plain
+        ? (
+          <ModalWindow id={id} title={title} onClose={onCancel} portal="inline" report zIndex={zIndex}
+            windowStyle={{ ...clampTo(24, 496, 417), background: '#fff' }}>
+            <style>{UM_ACCESS_CSS}{PLAIN_CHOOSER_CSS}</style>
+            <div className="pb-um-access pb-launch-pick" style={{ ...FACE, background: '#fff' }}>{content}</div>
+            <div className="pb-row" style={{ justifyContent: 'center', gap: 8, padding: '12px 0 15px', flex: 'none', background: '#fff' }}>{footer}</div>
+          </ModalWindow>
+        )
+        : (
+          <DetailWindow id={id} title={title} width={520} height={420} zIndex={zIndex} onClose={onCancel} buttons={footer}>
+            {content}
+          </DetailWindow>
+        ))}
+      gridBox={plain ? { ...GRID_BOX, margin: '8px 9px 0' } : { ...GRID_BOX, padding: 8 }}
       grid={{
         rows: rows.map((r) => Object.fromEntries(r.cells.map((c, i) => [`c${i}`, c]))),
         current: cur,
         onCurrentChange: setCur,
-        onActivate: (_, i) => onPick(rows[i]!.mode),
+        onActivate: (_, i) => onPick(rows[i]!.mode, i),
         gutter: false,
+        ...(plain ? { rules: false, stretch: true, style: { ['--pb-dw-row-h' as string]: '24px', ['--pb-dw-pad-x' as string]: '7px' } } : null),
         rowTutorialId: (r) => `host.mois.row.launch-${pbSlug(Object.values(r).join(' '))}`,
         columns: header.map((h, i) => ({ key: `c${i}`, header: h, width: i === 0 ? 250 : 230, headAlign: 'left' as const })),
       }}
       footer={buttons === 'ok-cancel'
-        ? <><Btn id="launch-mode-ok" isDefault width={96} onClick={pick}>Ok</Btn><Btn id="launch-mode-cancel" width={96} onClick={onCancel}>Cancel</Btn></>
-        : <Btn id="service-group-continue" isDefault width={96} onClick={pick}>Continue</Btn>}
+        ? <><Btn id="launch-mode-ok" isDefault width={w} onClick={pick}>Ok</Btn><Btn id="launch-mode-cancel" width={w} onClick={onCancel}>Cancel</Btn></>
+        : <Btn id="service-group-continue" isDefault width={w} onClick={pick}>Continue</Btn>}
     />
   )
 }

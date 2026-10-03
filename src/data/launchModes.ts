@@ -96,3 +96,41 @@ export const ALL_PERMISSIONS: LitePermissions = {
 
 export const LITE_ENCOUNTERS_KEY = 'launch:encounters'
 export const LITE_CHARTS_KEY = 'launch:charts'
+
+/* ===========================================================================
+   A Security Profile's launch modes — Security Profile Settings ▸ Launch
+   Mode (2026-10-02 TRAINING captures 11–13).
+
+   The tab lists the modes a role may start in; Add Launch Mode raises the
+   same "Select Launch Mode" list the client shows at sign-in (Main Program,
+   Encounter Lite). The right pane is the selected mode's own settings:
+   capture 13 shows Main Program's, captioned `Core MOIS` over the grey line
+   `Not additional settings` (sic). Encounter Lite's pane is not captured;
+   its caption and its checkboxes — the seven "Setup - Admin" permissions of
+   3797326 that LitePermissions models — are INFERRED, labelled from that
+   article's wording.
+   ========================================================================= */
+
+export type ProfileLaunchMode = 'Main Program' | 'Encounter Lite'
+
+/** the Select Launch Mode rows, in the capture's order */
+export const PROFILE_LAUNCH_MODES: { label: ProfileLaunchMode; mode: MoisLaunchMode }[] = [
+  { label: 'Main Program', mode: 'main' },
+  { label: 'Encounter Lite', mode: 'encounter-lite' },
+]
+
+export const LAUNCH_MODE_SETTINGS: Record<ProfileLaunchMode, { caption: string; text?: string; permissions?: { key: keyof LitePermissions; label: string }[] }> = {
+  'Main Program': { caption: 'Core MOIS', text: 'Not additional settings' },
+  'Encounter Lite': {
+    caption: 'Encounter Lite',
+    permissions: [
+      { key: 'launchMain', label: 'Launch Main Program' },
+      { key: 'createChart', label: 'Create Chart' },
+      { key: 'quickRegistration', label: 'Quick Patient Registration' },
+      { key: 'createEncounter', label: 'Create Encounter' },
+      { key: 'updateChart', label: 'Update Chart Data' },
+      { key: 'sendTask', label: 'Send Task' },
+      { key: 'makePrivate', label: 'Make Note Private' },
+    ],
+  },
+}

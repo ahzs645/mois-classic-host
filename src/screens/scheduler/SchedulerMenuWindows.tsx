@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBTextArea, pbSlug,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBTextArea, pbSlug,
   usePBInstrumentation,
 } from '../../pb'
 import { daybookProviders } from '../../data/mois'
@@ -237,18 +237,27 @@ function PasteEncounterData({ close }: AreaWindowProps) {
 }
 
 /* --- Select Summary (Patient Detail Slide ▸ Change View) ------------------------- */
+/* 2026-10-03 TRAINING capture (Desktop 12.05.48 AM, ≈1.13× CSS px): a 246 ×
+   350 window; the list sits in a sunken box almost the window's width, its one
+   203 px "Chart Summaries" column (header and rows) stopping short of the box
+   and the run past it white; the zebra starts grey; ALLERGY/INTOLERANCES is
+   current on opening even with ENCOUNTER SUMMARY showing in the slide; Ok
+   and Cancel are 74 × 21, 11 px apart, centred. */
 function SelectSummary({ close }: AreaWindowProps) {
   const extras = useSchedulerExtras()
   const rows = CHART_SUMMARIES.map((summary) => ({ summary }))
-  const [cur, setCur] = useState(Math.max(0, CHART_SUMMARIES.indexOf(extras.slide.summary as typeof CHART_SUMMARIES[number])))
+  const [cur, setCur] = useState(0)
   const ok = (i = cur) => {
     const pick = rows[i]
     if (pick) schedulerExtras.setSlide({ summary: pick.summary, mode: extras.slide.mode === 'hidden' ? 'summary' : extras.slide.mode })
     close()
   }
+  const button = (id: string, label: string, onClick: () => void, isDefault?: boolean) => (
+    <PBButton command={id} className={isDefault ? 'pb-btn--default' : undefined} style={{ width: 74, minWidth: 0, height: 21 }} onClick={onClick}>{label}</PBButton>
+  )
   return (
-    <WorkspaceDialogFrame id="daybook-select-summary" title="Select Summary" width={300} height={434} onClose={close} controls={false} zIndex={85}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff' }}>
+    <WorkspaceDialogFrame id="daybook-select-summary" title="Select Summary" width={246} height={350} onClose={close} controls={false} zIndex={85}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: '#fff', margin: '1px 1px 0', border: '1px solid #8c8c8c', boxShadow: 'inset 1px 1px 0 #c8c8c8' }}>
         <PBDataWindow
           flush
           rows={rows}
@@ -256,12 +265,12 @@ function SelectSummary({ close }: AreaWindowProps) {
           onCurrentChange={setCur}
           onActivate={(_r, i) => ok(i)}
           rowTutorialId={(r) => `host.mois.row.summary-${pbSlug(r.summary)}`}
-          columns={[{ key: 'summary', header: 'Chart Summaries' }]}
+          columns={[{ key: 'summary', header: 'Chart Summaries', width: 203 }]}
         />
       </div>
-      <div className="pb-row" style={{ gap: 10, padding: '10px 0', justifyContent: 'center', flex: 'none' }}>
-        <DialogButton id="select-summary-ok" width={90} onClick={() => ok()} isDefault>Ok</DialogButton>
-        <DialogButton id="select-summary-cancel" width={90} onClick={close}>Cancel</DialogButton>
+      <div className="pb-row" style={{ gap: 11, padding: '12px 0 14px', justifyContent: 'center', flex: 'none' }}>
+        {button('select-summary-ok', 'Ok', () => ok(), true)}
+        {button('select-summary-cancel', 'Cancel', close)}
       </div>
     </WorkspaceDialogFrame>
   )

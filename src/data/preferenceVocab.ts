@@ -18,7 +18,10 @@
        Image, Intervention, Measure, Medication, Procedure, Other).
      · Form and By: art. 300925 step 9 (In person, Paper, Phone, Verbal;
        Client, Guardian, Mature Minor, Parent, Other), upper-cased the way
-       PreferencesDetail's captured drop lists print them.
+       PreferencesDetail's captured drop lists print them. The Form list is
+       confirmed row for row by the current build (Drive Mois 2026-09-22
+       8.13.09; DEV field audit evidence/MATRIX-R0909-form); no capture
+       drops By, so its list stays the article's.
    INFERRED: the Precaution instruction list ("scroll through it to select
    the appropriate one" — no capture opens it).
    ========================================================================= */
@@ -54,9 +57,16 @@ export const PREFERENCE_FORMS = ['IN PERSON', 'PAPER', 'PHONE', 'VERBAL']
 export const PREFERENCE_BY = ['CLIENT', 'GUARDIAN', 'MATURE MINOR', 'PARENT', 'OTHER']
 
 /* --- added for the New Preference dialog (screens/PreferenceWindows.tsx) ---
-   PROVENANCE: the Reason list is the one PreferencesDetail transcribed from
-   the supplied MOIS drop-down capture (2026-09-22); it moved here so the
-   folder's Detail tab and the New Preference dialog offer one list.
+   PROVENANCE: the Reason list is the Detail tab's Reason drop-down as the
+   current build drops it (Drive Mois 2026-09-22 8.13.16, v02.31.23): its
+   first sixteen rows exactly as painted — the leading space that sorts
+   " GUILLIAN BARRE SYNDROME" (sic) above ABORIGINAL ANCESTRY, the second,
+   correctly spelt GUILLAIN entry, and FAM HX CONGENITAL IMMUNO listed twice
+   (two codes, one description). The list goes on past the capture (its
+   scrollbar thumb is about half the track, so roughly thirty entries);
+   only SELF CHOICE is known from beyond, as the value the 8.01.33 capture
+   shows. The rest are not invented. The list is shared by the folder's
+   Detail tab, the New Preference dialog and the Quick Entry windows.
    The Concept / Code lists behind the `…` depend on the Subject (art. 300925
    step 6: "The list of available concepts and codes changes based on the
    selected Subject"). The OTHER codes are chart 87288's own exported
@@ -68,10 +78,11 @@ export const PREFERENCE_BY = ['CLIENT', 'GUARDIAN', 'MATURE MINOR', 'PARENT', 'O
    INFERRED: the codes given to the concepts, the Code lists outside OTHER,
    and which lists carry which term — no capture opens either lookup.
    ------------------------------------------------------------------------ */
-export const PREFERENCE_REASONS = ['GUILLAIN BARRE SYNDROME', 'ABORIGINAL ANCESTRY', 'ALREADY IMMUNE', 'FAM HX CONGENITAL IMMUNO',
-  'IMMUNITY LAB EVIDENCE', 'IMMUNITY PREVIOUS DISEASE', 'INELIGIBLE FOR VACCINE', 'INVALID DOSE',
-  'INVOLUNTARY ADMISSION', 'MATURE MINOR-SENSITIVE', 'NO VALID CONSENT', 'NOT SEXUALLY ACTIVE', 'OTHER',
-  'PARENT DIRECTED SCHEDULING', 'SELF CHOICE']
+export const PREFERENCE_REASONS = [' GUILLIAN BARRE SYNDROME', 'ABORIGINAL ANCESTRY', 'ALREADY IMMUNE',
+  'FAM HX CONGENITAL IMMUNO', 'FAM HX CONGENITAL IMMUNO', 'GUILLAIN BARRE SYNDROME', 'IMMUNITY LAB EVIDENCE',
+  'IMMUNITY PREVIOUS DISEASE', 'INELIGIBLE FOR VACCINE', 'INVALID DOSE', 'INVOLUNTARY ADMISSION',
+  'MATURE MINOR-SENSITIVE', 'NO VALID CONSENT', 'NOT SEXUALLY ACTIVE', 'OTHER', 'PARENT DIRECTED SCHEDULING',
+  'SELF CHOICE']
 
 export type PreferenceTerm = { code: string; description: string }
 const t = (code: string, description: string): PreferenceTerm => ({ code, description })
@@ -141,3 +152,11 @@ const TERM_INSTRUCTIONS: Record<string, string[]> = {
 /** the Instruction list: the concept / code's own, else the type's */
 export const preferenceInstructions = (type: string, term = ''): string[] =>
   TERM_INSTRUCTIONS[term.toUpperCase()] ?? PREFERENCE_INSTRUCTIONS[type as PreferenceType] ?? []
+
+/** the same list for a filed preference, whose type is stored upper-case
+    (`str_classification` CONSENT, ADVANCE DIRECTIVE …). A preference with no
+    type drops an empty list (Drive Mois 2026-09-22 8.13.20). */
+export const preferenceInstructionsFor = (classification = '', term = ''): string[] => {
+  const type = PREFERENCE_TYPES.find((t) => t.toUpperCase() === classification.trim().toUpperCase())
+  return type ? preferenceInstructions(type, term) : []
+}

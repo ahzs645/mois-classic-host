@@ -7,9 +7,8 @@ import {
   pbSlug, usePBInstrumentation, type PBColumn, type PBCommand,
 } from '../pb'
 import { dotsOf } from '../data/clock'
-import { daybookProviders } from '../data/mois'
 import {
-  APPOINTMENT_STATUSES, HIDDEN_BY_DEFAULT, RESOURCES, VISIT_CODE_FILL, weekdayOf,
+  APPOINTMENT_STATUSES, HIDDEN_BY_DEFAULT, VISIT_CODE_FILL, weekdayOf,
 } from '../data/daybook'
 import {
   dayRows, encounterOf, resourceRows, schedulerStore, setSchedulerBridge, useSchedulerStore,
@@ -22,6 +21,8 @@ import { useWorkspaceStore } from '../data/workspaceStore'
 import { useOpenWindow } from './areaWindowRegistry'
 import { commitDaybookMspLoc, DaybookMspLoc } from './billing/DaybookMspLoc'
 import { PatientDetailSlide } from './scheduler/PatientDetailSlide'
+import { hasDueReminder } from './scheduler/EncounterOpeningReminder'
+import { usePatientRoster } from '../data/patient-context'
 
 type Appt = DayRow & Record<string, string>
 
@@ -74,13 +75,15 @@ type Appt = DayRow & Record<string, string>
    lookup columns, not one — after Chart, Visit Reason, Health Issue and
    Services — blank in the header and dotted in every row (`74e88fd1…`; the
    DEV header shows the first two as 13 px / 15 px blank cells). */
+/* Code, Mode and Chart print left in their cells (Desktop 11.43.34 PM:
+   "R", "DE", "3424" against the left rule); HR, MN and # stay centred. */
 const identityColumns: PBColumn<Appt>[] = [
   { key: 'hr', header: 'HR', width: 23, align: 'center' },
   { key: 'mn', header: 'MN', width: 23, align: 'center' },
-  { key: 'code', header: 'Code', width: 39, align: 'center' },
-  { key: 'mode', header: 'Mode', width: 42, align: 'center' },
+  { key: 'code', header: 'Code', width: 39 },
+  { key: 'mode', header: 'Mode', width: 42 },
   { key: 'n', header: '#', width: 24, align: 'center' },
-  { key: 'chart', header: 'Chart', width: 59, align: 'center' },
+  { key: 'chart', header: 'Chart', width: 59 },
   { key: 'chartDots', header: '', width: 13, align: 'center', dots: true },
   { key: 'first', header: 'First Name', width: 74 },
   { key: 'last', header: 'Last Name', width: 92 },
@@ -141,6 +144,7 @@ function decorate(
   current: number,
   onStatus: (i: number, code: string) => void,
   onIssueDots: () => void,
+  onReasonDots: () => void,
 ): PBColumn<Appt>[] {
   return cols.map((c) => {
     if (c.key === 'as') {
@@ -179,6 +183,17 @@ function decorate(
           : '…'),
       }
     }
+    /* the Visit Reason "…" on the current row opens the Visit Reason Code
+       List (Desktop 11.43.39 PM) */
+    if (c.key === 'reasonDots') {
+      return {
+        ...c,
+        render: (row: Appt, n: number) => (n === current
+          /* painted as the plain "…" the other rows carry, not a face */
+          ? <span role="button" tabIndex={-1} style={{ display: 'block', cursor: 'default' }} data-tutorial-id={`host.mois.lookup.reason-${row.hr}${row.mn}`} onClick={onReasonDots}>…</span>
+          : '…'),
+      }
+    }
     if (ANCHORED.includes(c.key)) {
       return {
         ...c,
@@ -210,8 +225,38 @@ const SeriesGlyph = () => (
   </svg>
 )
 
-/** 0:00 to 20:00: the v02.30.22 time bar opens scrolled to the morning */
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 7)
+/* The time bar, from the 2026-10-02 / 10-03 TRAINING captures (Desktop
+   11.43.34 PM, 12.05.07–12.05.34 AM; ≈1.13× CSS px): a sunken white strip
+   56 px deep holding the whole day at a fixed 63 px an hour — 0:00 is the
+   first cell (12.05.16) — that opens scrolled to about 7:27, so 7:00 is cut
+   at the left edge and 8:00 is the first whole hour. Each hour is ruled at
+   its left edge top to bottom, its label bold and centred over a solid grey
+   half-hour rule, with dotted quarter-hour rules either side. The two Scroll
+   buttons pan this strip, not the grid (12.05.07 → 12.05.16 move the hours
+   while the grid stays put); the grid has its own scroll bar.
+   INFERRED: the strip ends at 23:00 (no capture scrolls past 21:00), and the
+   Scroll step is 56 px, the one consecutive pair (12.05.26 → 12.05.34). */
+const HOURS = Array.from({ length: 24 }, (_, i) => i)
+const HOUR_W = 63
+/** the day-book form's three option columns */
+const COL3 = 82
+const TIMEBAR_OPEN = Math.round(7.45 * HOUR_W)
+const TIMEBAR_STEP = 56
+
+/* Scoped rules the kit has no prop for (kit-prop candidates): the time bar's
+   rules, the warm-grey scroll strip and the 70 px gap before the count. */
+const DAYBOOK_CSS = `
+.sch-timebar { position: relative; flex: none; height: 57px; box-sizing: border-box; overflow: hidden; background: #fff;
+  border-top: 2px solid #808080; border-bottom: 1px solid #8a8a8a; box-shadow: inset 0 1px 0 #b4b4b4; }
+.sch-timebar__track { position: relative; display: flex; height: 100%; width: ${24 * HOUR_W}px; }
+.sch-timebar__hour { position: relative; flex: none; width: ${HOUR_W}px; height: 100%; border-left: 1px solid #2d2d2d;
+  box-sizing: border-box; font-size: 11px; font-weight: 700; text-align: center; padding-top: 3px; }
+.sch-timebar__rule { position: absolute; top: 16px; bottom: 0; width: 0; }
+.sch-timebar__rule--half { left: 50%; border-left: 1px solid #e0e0e0; }
+.sch-timebar__rule--quarter { border-left: 1px dotted #d0d0d0; }
+.sch-daybook-scroll.pb-scrollrow { background: #dcd7d2; min-height: 22px; }
+.sch-daybook-meta { font-size: 16px; font-weight: 400; letter-spacing: 0.8px; margin-left: 46px; }
+`
 
 /* The day the training day book opens on, and the moves the manual's "How to
    Change the Date on the Day Book" lists: F7/F8 a day either way, Page
@@ -277,6 +322,7 @@ export function SchedulerView({
   const extras = useSchedulerExtras()
   const ws = useWorkspaceStore()
   const openWindow = useOpenWindow()
+  const roster = usePatientRoster()
   const [view, setView] = useState('Scheduler')
   const [hide, setHide] = useState({ noshow: true, rebooked: true, cancelled: true, discharged: false })
   const daybookProviders = useProviderRoster()
@@ -344,6 +390,10 @@ export function SchedulerView({
     if (!enc || !row) return
     schedulerStore.openedEncounter(row.key)
     onOpenEncounter?.(enc, { appointment: `${row.hr}${row.mn}` })
+    /* a chart with a reminder due greets the Encounter Detail Window with
+       "Reminder: Opening Encounter Detail" (Drive Mois 2026-09-21 4.38.59 PM;
+       Desktop 2026-10-02 11.43.48 PM) — scheduler/EncounterOpeningReminder */
+    if (row.chart && hasDueReminder(roster, row.chart)) openWindow('encounter-opening-reminder', { chart: row.chart })
   }
 
   const moveButton = (move: DaybookMove, label: string, width?: number) => (
@@ -365,9 +415,12 @@ export function SchedulerView({
     if (hit) onApptRow?.(hit.i)
   }
 
-  const scroll = (dx: number) => {
-    const el = gridRef.current?.querySelector<HTMLElement>('.pb-dw__scroll')
-    if (el) el.scrollLeft += dx
+  /* < Scroll < / > Scroll > pan the time bar an hour-ish at a time */
+  const timeRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (timeRef.current) timeRef.current.scrollLeft = TIMEBAR_OPEN }, [])
+  const scroll = (dir: -1 | 1) => {
+    const el = timeRef.current
+    if (el) el.scrollLeft += dir * TIMEBAR_STEP
   }
 
   /* right-click: a row takes the current row and drops its menu; the blue
@@ -445,6 +498,9 @@ export function SchedulerView({
     : withItems(decorate(headed, shown, curRow, setStatus, () => {
       host?.report('openUtility', { window: 'daybook-health-issue' })
       openWindow('daybook-health-issue')
+    }, () => {
+      host?.report('openUtility', { window: 'daybook-visit-reason' })
+      openWindow('daybook-visit-reason')
     }))
   const form = schedulerExtras.daybookForm(provider, offset)
   useScreenReport({ daybookAliasPresent: Boolean(form.alias), resource: isResource ? pbSlug(resource) : null, resourceAppointments: isResource ? all.length : 0 })
@@ -483,7 +539,10 @@ export function SchedulerView({
     <>
       {isResource
         ? <PBViewHeader title={`Day Book: ${pbDate(LONG, day)}`} meta={`Appointment(s): ${count}`} right={`RESOURCE: ${resource}`} />
-        : <PBViewHeader title={pbDate(SHORT, day)} meta={`Appointment(s): ${count}`} right={provider} />}
+        /* 2026-10-02 TRAINING capture (Desktop 11.43.34 PM): the count in the
+           title's own weight, 70 px after the date, and the provider bold */
+        : <PBViewHeader title={pbDate(SHORT, day)} meta={<span className="sch-daybook-meta">Appointment(s): {count}</span>} right={<span className="pb-viewhead__chart">{provider}</span>} />}
+      <style>{DAYBOOK_CSS}</style>
       <PBCommandRow commands={commands} />
 
       {/* ---- filter form: three panels divided by hairlines ---- */}
@@ -505,14 +564,11 @@ export function SchedulerView({
             {moveButton('next-day', '>', 19)}
             {moveButton('next-week', '>>', 19)}
           </div>
-          {!isResource && (
-            <PBButton style={{ marginTop: 10, width: 118, height: 34, lineHeight: '13px', whiteSpace: 'normal' }}>
-              Launch Provider Virtual Room...
-            </PBButton>
-          )}
+          {/* the v02.30.22 manual captures (art. 303834) add a Launch
+              Provider Virtual Room... button here; the current v02.31.23
+              TRAINING build has none (Desktop 11.43.34 PM, 12.05.07 AM), and
+              no rule divides this panel from the filters */}
         </div>
-
-        <span className="pb-vrule" style={{ margin: 0 }} />
 
         {isResource ? (
           <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
@@ -555,18 +611,21 @@ export function SchedulerView({
                 onProvider?.(String(row.provider))
               }}
             />
-            <button className="pb-link">Members</button>
+            {/* Members opens the Daybook For's member list (Desktop
+                11.44.08 PM: "Members List: TECHNICAL SUPPORT") */}
+            <button className="pb-link" data-tutorial-id="host.mois.command.daybook-members" onClick={() => { host?.report('command', { command: 'daybook-members' }); openWindow('daybook-members', { provider }) }}>Members</button>
           </div>
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '14px' }}>Service<br />Location:</span>
-          <div className="pb-row" data-tutorial-id="host.mois.field.daybook-service-location">
+          <div className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.field.daybook-service-location">
             <PBSelect
-              w={157}
+              w={COL3 * 2 - 6}
               options={LOCATIONS}
               value={extras.serviceLocation}
               onChange={(e) => schedulerExtras.setServiceLocation(e.target.value, extras.showOnly)}
               data-tutorial-id="host.mois.field.daybook-location"
             />
+            <span style={{ width: 6, flex: 'none' }} />
             <PBCheckbox
               label="Show Only"
               checked={extras.showOnly}
@@ -575,34 +634,41 @@ export function SchedulerView({
             />
           </div>
 
+          {/* the radios, the Hide Status ticks and Show Only stand in three
+              82 px columns, and AS / DS sit in the control column after
+              "or Show Only:" (Desktop 11.43.34 PM) */}
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>View Type:</span>
-          <div className="pb-row pb-row--gap-lg" data-tutorial-id="host.mois.field.daybook-view-type">
+          <div className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.field.daybook-view-type">
             {['Scheduler', 'Provider', 'Biller'].map((v) => (
-              <PBRadio key={v} name="viewtype" label={v} checked={view === v} onChange={() => setView(v)} />
+              <span key={v} style={{ width: COL3, flex: 'none' }}><PBRadio name="viewtype" label={v} checked={view === v} onChange={() => setView(v)} /></span>
             ))}
           </div>
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>Hide Status:</span>
-          <div className="pb-row pb-row--gap-lg" data-tutorial-id="host.mois.field.daybook-hide-status">
-            <PBCheckbox label="No-Show" checked={hide.noshow} onChange={(v) => setHide({ ...hide, noshow: v })} tutorialId="host.mois.check.hide-no-show" />
-            <PBCheckbox label="Rebooked" checked={hide.rebooked} onChange={(v) => setHide({ ...hide, rebooked: v })} />
-            <PBCheckbox label="Cancelled" checked={hide.cancelled} onChange={(v) => setHide({ ...hide, cancelled: v })} tutorialId="host.mois.check.hide-cancelled" />
+          <div className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.field.daybook-hide-status">
+            <span style={{ width: COL3, flex: 'none' }}><PBCheckbox label="No-Show" checked={hide.noshow} onChange={(v) => setHide({ ...hide, noshow: v })} tutorialId="host.mois.check.hide-no-show" /></span>
+            <span style={{ width: COL3, flex: 'none' }}><PBCheckbox label="Rebooked" checked={hide.rebooked} onChange={(v) => setHide({ ...hide, rebooked: v })} /></span>
+            <span style={{ width: COL3, flex: 'none' }}><PBCheckbox label="Cancelled" checked={hide.cancelled} onChange={(v) => setHide({ ...hide, cancelled: v })} tutorialId="host.mois.check.hide-cancelled" /></span>
           </div>
 
           <span />
           <PBCheckbox label="Discharged" checked={hide.discharged} onChange={(v) => setHide({ ...hide, discharged: v })} />
 
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>or Show Only:</span>
-          <div className="pb-row pb-row--gap-lg">
-            <span className="pb-row">AS:<PBInput w={78} value={only.as} onChange={(e) => setOnly({ ...only, as: e.target.value })} data-tutorial-id="host.mois.field.daybook-only-as" /></span>
-            <span className="pb-row">DS:<PBInput w={78} value={only.ds} onChange={(e) => setOnly({ ...only, ds: e.target.value })} data-tutorial-id="host.mois.field.daybook-only-ds" /></span>
+          <div className="pb-row" style={{ gap: 0 }}>
+            <span className="pb-row" style={{ width: 140, flex: 'none', gap: 3 }}><span style={{ width: 20 }}>AS:</span><PBInput w={79} value={only.as} onChange={(e) => setOnly({ ...only, as: e.target.value })} data-tutorial-id="host.mois.field.daybook-only-as" /></span>
+            <span className="pb-row" style={{ gap: 3 }}><span style={{ width: 22 }}>DS:</span><PBInput w={76} value={only.ds} onChange={(e) => setOnly({ ...only, ds: e.target.value })} data-tutorial-id="host.mois.field.daybook-only-ds" /></span>
           </div>
         </div>
 
-        <span className="pb-vrule" style={{ margin: 0 }} />
+        {/* the MSP panel's rule is a faint etched pair (#dadada / #cacaca) */}
+        <span style={{ flex: 'none', width: 1, borderLeft: '1px solid #dadada', borderRight: '1px solid #cacaca' }} />
 
         {/* MSP / comment panel */}
-        <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: 'none', width: 296, alignItems: 'start' }}>
+        {/* five 19 px rows a pixel apart: MSP Loc., Comment, see more, the
+            call-list link, the tick (Desktop 11.43.34 PM, rows at 58 / 78 /
+            100 / 119 / 138 capture px) */}
+        <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', gridTemplateRows: 'repeat(5, 19px)', rowGap: 1, flex: 'none', width: 300, alignItems: 'center' }}>
           <span className="pb-form__label" style={{ lineHeight: '19px' }}>MSP Loc.:</span>
           <div className="pb-row">
             {/* 3295094: the Code | Description list, and Save makes the pick the
@@ -619,12 +685,16 @@ export function SchedulerView({
               `scheduler-provider-daybook-left.png`; v02.30.22 `74e88fd1…`) */}
           <span className="pb-form__label" style={{ lineHeight: '19px', gridColumn: 1, gridRow: 2 }}>Comment:</span>
           <span style={{ gridColumn: 2, gridRow: '2 / span 2', display: 'flex' }}>
-            <PBTextArea rows={2} w="100%" value={form.comment} onChange={(e) => setForm({ comment: e.target.value })} data-tutorial-id="host.mois.field.daybook-comment" />
+            {/* 39 px deep, its foot level with "see more" (Desktop 11.43.34 PM) */}
+            <PBTextArea rows={2} w="100%" style={{ height: 39, resize: 'none' }} value={form.comment} onChange={(e) => setForm({ comment: e.target.value })} data-tutorial-id="host.mois.field.daybook-comment" />
           </span>
           <button className="pb-link" style={{ gridColumn: 1, gridRow: 3, justifySelf: 'end', alignSelf: 'end' }} data-tutorial-id="host.mois.command.see-more" onClick={() => { host?.report('command', { command: 'see-more' }); openWindow('daybook-comment') }}>see more</button>
 
-          <button className="pb-link" style={{ gridColumn: 2, gridRow: 4, justifySelf: 'start' }} data-tutorial-id="host.mois.command.open-call-list" onClick={() => { host?.report('command', { command: 'open-call-list' }); openWindow('daybook-call-list') }}>
-            {form.noCallList || !all.some((r) => r.chart) ? 'Create Call List' : 'Open Call List'}
+          <button className="pb-link" style={{ gridColumn: 2, gridRow: 4, justifySelf: 'start' }} data-tutorial-id="host.mois.command.open-call-list" onClick={() => { host?.report('command', { command: 'open-call-list' }); if (!form.noCallList) setForm({ callListMade: true }); openWindow('daybook-call-list') }}>
+            {/* TRAINING reads Create Call List on a day with a charted
+                booking (Desktop 11.43.34 PM), so the link only turns to Open
+                once this day's list has been made */}
+            {form.noCallList || !form.callListMade ? 'Create Call List' : 'Open Call List'}
           </button>
 
           <span style={{ gridColumn: 1, gridRow: 5 }} />
@@ -636,56 +706,46 @@ export function SchedulerView({
         )}
       </div>
 
-      {/* ---- time bar: hour cells with quarter-hour rules, a bar per
-           booking, and the hours off shift painted grey ---- */}
-      <div style={{ display: 'flex', height: 42, borderBottom: '1px solid #c9c9c9', background: '#fff', flex: 'none' }} data-tutorial-id="host.mois.field.daybook-time-bar">
-        {HOURS.map((h) => {
-          const inHour = all.filter((r) => Number(r.hr) === h)
-          return (
-            <div
-              key={h}
-              style={{
-                position: 'relative', flex: '1 1 0', borderRight: '1px solid #c9c9c9',
-                fontSize: 11, fontWeight: 700, padding: '1px 0 0 4px',
-                background: offShift(h) ? '#8c8c8c' : undefined,
-              }}
-            >
-              {h}:00
-              {[25, 50, 75].map((pc) => (
-                <span key={pc} style={{ position: 'absolute', top: 15, bottom: 0, left: `${pc}%`, borderLeft: '1px dotted #b9b9b9' }} />
-              ))}
-              {inHour.map((r, k) => (
-                <span
-                  key={r.key}
-                  title={`${r.last}, ${r.first}`}
-                  style={{
-                    position: 'absolute', top: 17 + (k % 4) * 6, height: 4,
-                    left: `${(Number(r.mn) / 60) * 100}%`,
-                    width: `${Math.min(100, ((Number(r.n) || 3) * 5 / 60) * 100)}%`,
-                    background: VISIT_CODE_FILL[r.code] ?? '#808080', border: '1px solid #000',
-                  }}
-                />
-              ))}
-            </div>
-          )
-        })}
-      </div>
-      {!isResource && (
-        /* the green LFP strip the v02.30.22 captures carry under the bar */
-        <div className="pb-row" style={{ height: 18, background: '#ccf5c4', borderBottom: '1px solid #9bd29a', padding: '0 8px', gap: 18, color: '#555', flex: 'none' }}>
-          <span>LFP Time:</span><span>Direct: -</span><span>Indirect: -</span><span>Clinical: -</span><span>Total:</span>
-          <span style={{ marginLeft: 140 }}>Time Claims Billing Status:</span>
-          <button className="pb-link" style={{ marginLeft: 120 }}>Edit</button>
+      {/* ---- time bar: the whole day at 63 px an hour, a bar per booking,
+           and the hours off shift painted grey (art. 303843) ---- */}
+      <div ref={timeRef} className="sch-timebar" data-tutorial-id="host.mois.field.daybook-time-bar">
+        <div className="sch-timebar__track">
+          {HOURS.map((h) => {
+            const inHour = all.filter((r) => Number(r.hr) === h)
+            return (
+              <div key={h} className="sch-timebar__hour" style={offShift(h) ? { background: '#8c8c8c' } : undefined}>
+                {h}:00
+                <span className="sch-timebar__rule sch-timebar__rule--quarter" style={{ left: '25%' }} />
+                <span className="sch-timebar__rule sch-timebar__rule--half" />
+                <span className="sch-timebar__rule sch-timebar__rule--quarter" style={{ left: '75%' }} />
+                {inHour.map((r, k) => (
+                  <span
+                    key={r.key}
+                    title={`${r.last}, ${r.first}`}
+                    style={{
+                      position: 'absolute', top: 20 + (k % 4) * 8, height: 5,
+                      left: `${(Number(r.mn) / 60) * 100}%`,
+                      width: `${Math.min(100, ((Number(r.n) || 3) * 5 / 60) * 100)}%`,
+                      background: VISIT_CODE_FILL[r.code] ?? '#808080', border: '1px solid #000',
+                    }}
+                  />
+                ))}
+              </div>
+            )
+          })}
         </div>
-      )}
+      </div>
+      {/* The v02.30.22 manual captures carry a green LFP Time strip here
+          (art. 303834); the v02.31.23 TRAINING day book goes straight from
+          the time bar to the scroll strip (Desktop 11.43.34 PM). */}
 
-      {/* ---- the scroll strip: < Scroll < pans left, > Scroll > right, and
-           the two jump boxes sit over First Name and Last Name ---- */}
+      {/* ---- the scroll strip: < Scroll < pans the time bar left, > Scroll >
+           right, and the two jump boxes sit over First Name and Last Name ---- */}
       {/* the resource book keeps the strip and its two boxes but has no
-          Scroll buttons, so the strip holds its own 21 px height
+          Scroll buttons, so the strip holds its own height
           (`scheduler-resource-daybook-left.png`) */}
-      <div className="pb-scrollrow" style={{ position: 'relative', minHeight: 21 }}>
-        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(-320)} command="scroll-left">&lt; Scroll &lt;</PBButton>}
+      <div className="pb-scrollrow sch-daybook-scroll" style={{ position: 'relative' }}>
+        {!isResource && <PBButton size="sm" style={{ width: 55 }} onClick={() => scroll(-1)} command="scroll-left">&lt; Scroll &lt;</PBButton>}
         <span className="pb-scrollrow__spacer" />
         <span style={{ position: 'absolute', left: NAME_LEFT, top: 2, display: 'flex', gap: 2 }}>
           <PBInput
@@ -703,7 +763,7 @@ export function SchedulerView({
             data-tutorial-id="host.mois.field.daybook-filter-last"
           />
         </span>
-        {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(320)} command="scroll-right">&gt; Scroll &gt;</PBButton>}
+        {!isResource && <PBButton size="sm" style={{ width: 55 }} onClick={() => scroll(1)} command="scroll-right">&gt; Scroll &gt;</PBButton>}
       </div>
 
       <div

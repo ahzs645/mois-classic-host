@@ -592,9 +592,9 @@ const NO_SETS: string[] = []
 /** A grid column caption: the disabled-label grey on the band, set 3px
     left of the cells under it (c11). */
 function UswCaption({ children }: { children: ReactNode }) {
-  /* a block, so the caption sits left although the blue header centres
-     (the kit's headAlign only reaches the grey header) */
-  return <span style={{ display: 'block', textAlign: 'left', color: USW.caption, marginLeft: -2 }}>{children}</span>
+  /* left-set by the column's headAlign; the span carries the ink and the
+     2px pull towards the column's edge */
+  return <span style={{ color: USW.caption, marginLeft: -2 }}>{children}</span>
 }
 
 /** One of the two checkbox panes across the top of the Universal Search Window. */

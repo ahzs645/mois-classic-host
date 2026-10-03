@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { MoisDesktopProvider } from '../screens/dialogKit'
 import { basketFolders } from '../data/basket'
 import { resetSessionStores } from '../data/sessionStore'
 import { billingAdminViews } from '../data/billingAdmin'
@@ -798,6 +799,10 @@ function Frame({
   const screen = useMemo(() => mergeScreenReports(screenReports), [screenReports])
   const rootRef = useRef<HTMLDivElement>(null)
   const desktopRef = useRef<HTMLDivElement>(null)
+  /* the desktop element for MoisDesktopProvider: dialogs portal onto it on
+     their first render (screens/dialogKit) */
+  const [desktopEl, setDesktopEl] = useState<HTMLDivElement | null>(null)
+  const attachDesktop = useCallback((el: HTMLDivElement | null) => { desktopRef.current = el; setDesktopEl(el) }, [])
   const frame = useFrameGeometry(desktopRef, windowSize)
 
 
@@ -1662,13 +1667,14 @@ function Frame({
     <AreaWindowProvider open={(id, args) => openWindowRef.current(id, args)}>
     <ScreenWindowProvider window={screenWindow} onOpen={openScreenWindow} onClose={closeScreenWindow}>
     <ActiveEncounterProvider>
+    <MoisDesktopProvider value={desktopEl}>
     <div ref={rootRef} className={cx('pb-root', 'pb-host', theme, textMode, scaleMode, className)}>
       {/* host.screen.lockout: whether System Settings' LOCKOUT band has a lock set */}
       <LockoutStatusReporter />
       <div
         className="pb-desktop"
         data-tutorial-id="host.mois.desktop"
-        ref={desktopRef}
+        ref={attachDesktop}
         /* the move/resize drag is captured by the window, but the pointer
            travels across the desktop while it runs */
         onPointerMove={frame.onPointerMove}
@@ -2009,6 +2015,7 @@ function Frame({
         <PBScaleOverlay />
       </div>
     </div>
+    </MoisDesktopProvider>
     </ActiveEncounterProvider>
     </ScreenWindowProvider>
     </AreaWindowProvider>

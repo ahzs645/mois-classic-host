@@ -12,6 +12,8 @@ import { DESKTOP_PROVIDER_DEFAULT, SESSION_USER } from '../data/session'
 import { nextEncounterId, useEncounterSession } from '../host/encounterArea'
 import { useScreenReport } from '../host/screen-state'
 import { useChartSession } from '../data/chartSession'
+import { ENCOUNTER_SUMMARY_SHUT } from '../data/encounterForms'
+import { BAND_GAP, ENCOUNTER_SUMMARY_CSS, SUMMARY_BAND_ACCENT, SUMMARY_ROW_ALT, SummaryCheckGlyph } from './EncounterWindow'
 import { DESKTOP_PROVIDER, setCurrentOrder } from '../data/letterFlow'
 import { SEED_DISTRIBUTIONS } from '../data/letterDocs'
 import { VISIT_MODE_CONCEPTS } from '../data/clinicManagement'
@@ -610,6 +612,8 @@ type EncounterListRow = typeof encounterRows[number]
 /** A row of the lower pane's Report list, when a chart's export carries one. */
 type EncounterReportRow = {
   date?: string; description?: string; detail?: string; link?: string
+  /** an ENCOUNTER NOTES row's note, printed under its description */
+  note?: string
   /** the band the row hangs under, which Expand All / Collapse All work on */
   section?: string
 }
@@ -853,15 +857,39 @@ function readRowList<T>(row: EncounterListRow | undefined, key: 'report' | 'dist
    The times the visit was worked through, then the encounter's own record
    list: the Date / Description / Detail / Hyperlink grid MOIS uses wherever
    it rolls a chart up, under its Expand All / Collapse All pair.           */
+/* The bands are the Encounter Summary tab's (Drive Mois 2026-09-20
+   11.43.56 is this pane: ENCOUNTER NOTES [2] open, MEASURES [1] and WEB
+   FORMS [2] shut, DOCUMENTS [2] open), drawn with that tab's band and row
+   colours. A note row reads `Appt w/:<provider>`, then `Note:` and the note
+   in Courier. INFERRED: a chart export's legacy encounter forms
+   (form_header) keep an ENCOUNTER FORMS band after the four, since no
+   capture shows an encounter that has one. */
 function EncounterReportPage({ row }: { row?: EncounterListRow }) {
   const data = useChartExport()
   const record = row ? data?.encounter.find((r) => r.id_encounter === row.id) : undefined
+  const documents = row ? (data?.document ?? []).filter((r) => r.id_encounter === row.id) : []
+  const documentRow = (section: string, r: (typeof documents)[number]): EncounterReportRow => ({
+    section,
+    date: date(r.dtm_date ?? r.stp_date_create),
+    description: `${r.str_doc_type ?? ''}${r.str_author ? ` [ ${r.str_author} ]` : ''}`,
+    detail: r.str_note ?? '',
+  })
   const rows: EncounterReportRow[] = row ? [
-    ...(data?.encounter_note ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'PROGRESS NOTES', date: date(r.dtm_note_create), description: r.str_author ?? '', detail: r.str_note ?? '' })),
-    ...(data?.measure ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'MEASUREMENTS', date: date(r.dtm_collect_date), description: r.str_description ?? '', detail: [r.str_value, r.str_units].filter(Boolean).join(' ') })),
+    ...(data?.encounter_note ?? []).filter(r => r.id_encounter === row.id).map((r): EncounterReportRow => ({
+      section: 'ENCOUNTER NOTES',
+      date: date(r.dtm_note_create),
+      description: `Appt w/:${row.provider}`,
+      note: (r.str_note ?? '').replace(/\r\n?/g, '\n'),
+      detail: '',
+    })),
+    ...(data?.measure ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'MEASURES', date: date(r.dtm_collect_date), description: r.str_description ?? '', detail: [r.str_value, r.str_units].filter(Boolean).join(' ') })),
+    ...documents.filter((r) => r.str_source === 'tdt_webform_definition' || r.str_doc_type === 'WEBFORM').map((r) => documentRow('WEB FORMS', r)),
+    ...documents.map((r) => documentRow('DOCUMENTS', r)),
     ...(data?.form_header ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'ENCOUNTER FORMS', date: date(r.dtm_created), description: r.str_form_window ?? '', detail: '' })),
   ] : []
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(ENCOUNTER_SUMMARY_SHUT))
+  /* nothing is current until a row is clicked (11.43.56 paints no salmon row) */
+  const [cur, setCur] = useState(-1)
   const banded = rows.some((r) => r.section)
 
   return (
@@ -899,7 +927,8 @@ function EncounterReportPage({ row }: { row?: EncounterListRow }) {
         </button>
       </div>
 
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+      <div className="pb-encounter-summary" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <style>{ENCOUNTER_SUMMARY_CSS}</style>
         <PBDataWindow
           head="grey"
           /* the captions sit 8px into their columns, which is what puts them
@@ -908,17 +937,39 @@ function EncounterReportPage({ row }: { row?: EncounterListRow }) {
           gutter={false}
           rules={false}
           rows={rows}
+          current={cur}
+          onCurrentChange={setCur}
           groupBy={banded ? (r) => r.section ?? '' : undefined}
+          groupLabel={(band, inBand) => `${band}${BAND_GAP}[${inBand.length}]`}
+          groupAccent={() => SUMMARY_BAND_ACCENT}
           collapsed={collapsed}
           onCollapsedChange={setCollapsed}
+          wrap
+          rowFill={(r, i) => (r.section === 'ENCOUNTER NOTES' || i % 2 === 1 ? SUMMARY_ROW_ALT : '#fff')}
+          rowClassName={(r) => (r.section === 'ENCOUNTER NOTES' ? 'pb-encounter-summary__multi' : undefined)}
           columns={[
             { key: 'date', header: 'Date', width: 70 },
-            { key: 'description', header: 'Description', width: 348 },
+            {
+              key: 'description', header: 'Description', width: 348,
+              render: (r) => (r.note === undefined ? r.description : (
+                <>{r.description}<div className="pb-encounter-summary__note">{`Note:\n${r.note}`}</div></>
+              )),
+            },
             { key: 'detail', header: 'Detail', width: 255 },
             /* the caption is left in the column, the glyph centred in it —
                the width is Patient Summary's, since the capture's window
                clips this column rather than finishing it */
-            { key: 'link', header: 'Hyperlink', width: 109, align: 'center', headAlign: 'left' },
+            /* the two glyphs every row carries (11.43.56); what they open
+               from this pane is not captured, so the first is inert here */
+            {
+              key: 'link', header: 'Hyperlink', width: 109, headAlign: 'left',
+              render: () => (
+                <span className="pb-encounter-summary__glyphs">
+                  <button type="button" className="pb-link pb-link--mois" aria-label="Go to record" title="Go to record" disabled />
+                  <SummaryCheckGlyph />
+                </span>
+              ),
+            },
             { key: '_pad', header: '' },
           ]}
           /* an encounter with nothing on it shows the grid's bare white body,

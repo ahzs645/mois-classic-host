@@ -1,10 +1,15 @@
 /* ============================================================================
    The Measurements command row's four dialogs.
 
-   Transcribed from captures of MOIS: TRAINING on chart 3924 — `Template`
-   (the ENCOUNTER WINDOW measure grid), `Other Template` (Measure Template /
-   Panel Selection) and `Calculator` (Measure Calculators, then the calculator
-   itself).
+   Transcribed from captures of MOIS on chart 3924 — `Template` (the
+   ENCOUNTER WINDOW measure grid, Drive `Mois/` 2026-09-20 11.42.15),
+   `Other Template` (Measure Template / Panel Selection, 11.42.22) and
+   `Calculator` (Measure Calculators, 11.42.28, then the BMI calculator,
+   11.42.35). Rechecked against those captures 2026-10-03: the 27 measures
+   and their units, the 28 template rows, the five calculators and the BMI
+   classification table match them word for word. The template list scrolls
+   on past POCT URINALYSIS MANUAL READ in the capture; the rows after it were
+   not captured, so the list stops there.
    ========================================================================= */
 
 export type MeasureSlot = {

@@ -13,6 +13,59 @@ export type PBResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
 const RESIZE_EDGES: PBResizeEdge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
+/* --- dialog dragging -------------------------------------------------------
+   Every Win32 dialog moves by its title bar. The MDI frame brings its own
+   geometry (onMovePointerDown); a window raised on a modal layer moves here,
+   by an offset from where the layer centres it. The title bar is kept on the
+   layer so a window can never be dragged out of reach — Windows would let it
+   leave the screen, but there is no taskbar here to bring it back. A sheet
+   window docked in a work area is not on a modal layer and stays put. */
+const DRAG_KEEP_VISIBLE = 60
+
+function useDialogDrag(enabled: boolean) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null)
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!enabled || event.button !== 0) return
+    if ((event.target as HTMLElement).closest('button')) return
+    const win = ref.current
+    const layer = win?.closest<HTMLElement>('.pb-modal-layer')
+    if (!win || !layer) return
+    event.preventDefault()
+    const bar = event.currentTarget
+    const start = { x: event.clientX, y: event.clientY }
+    const base = offset ?? { x: 0, y: 0 }
+    const rect = win.getBoundingClientRect()
+    const bounds = layer.getBoundingClientRect()
+    const barHeight = bar.getBoundingClientRect().height
+    /* how far the window may travel from where it starts this drag */
+    const minX = bounds.left - rect.right + DRAG_KEEP_VISIBLE
+    const maxX = bounds.right - rect.left - DRAG_KEEP_VISIBLE
+    const minY = bounds.top - rect.top
+    const maxY = bounds.bottom - rect.top - barHeight
+    const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi))
+    bar.setPointerCapture(event.pointerId)
+    const move = (e: PointerEvent) => {
+      setOffset({
+        x: base.x + clamp(e.clientX - start.x, minX, maxX),
+        y: base.y + clamp(e.clientY - start.y, minY, maxY),
+      })
+    }
+    const end = () => {
+      bar.removeEventListener('pointermove', move)
+      bar.removeEventListener('pointerup', end)
+      bar.removeEventListener('pointercancel', end)
+    }
+    bar.addEventListener('pointermove', move)
+    bar.addEventListener('pointerup', end)
+    bar.addEventListener('pointercancel', end)
+  }
+
+  const style: CSSProperties | undefined = enabled && offset ? { translate: `${offset.x}px ${offset.y}px` } : undefined
+  return { ref, onPointerDown, style }
+}
+
 /* --- PBWindow ------------------------------------------------------------ */
 export function PBWindow({
   title, sub, icon, child, onClose, controls = true, style, className, children,
@@ -45,15 +98,17 @@ export function PBWindow({
    *  Ring the window. */
   tutorialId?: string
 }) {
+  const dialogDrag = useDialogDrag(!onMovePointerDown && !maximized)
   return (
     <div
+      ref={dialogDrag.ref}
       className={cx('pb-window', child && 'pb-window--child', className)}
-      style={style}
+      style={dialogDrag.style ? { ...style, ...dialogDrag.style } : style}
       data-tutorial-id={tutorialId}
     >
       <div
         className="pb-titlebar"
-        onPointerDown={onMovePointerDown}
+        onPointerDown={onMovePointerDown ?? dialogDrag.onPointerDown}
         /* double-clicking the title bar maximises and restores */
         onDoubleClick={onMaximize}
       >

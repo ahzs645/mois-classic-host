@@ -14,10 +14,13 @@ import { DialogButton } from './WorkspaceDialogFrame'
    differently, so the rail keeps one item order and three skins — one per
    copy — that reproduce each copy's markup exactly:
 
-   `skin="report"` — PrintPreviewWindow.tsx 100-140 (the Reports module's
-     `print-preview`): everything inside one fieldset (legend in black,
-     `margin: 0`), labels `pb-form__label`, DialogButtons 84 wide anchored
-     `preview-*`, the range box 86, the hint 11px, Printer Type a PBSelect 88.
+   `skin="report"` — PrintPreviewWindow.tsx (the Reports module's
+     `print-preview`) and FieldAuditWindows' Change Audit Report: everything
+     inside one full-height 104px fieldset (legend black, regular weight),
+     each control absolutely placed at its 303518 `8fec3b9c` offset (2026-10-03
+     re-measure, v02.31.23 Fax slot from Drive `Bright Health Presentation/`
+     2026-08-11 3.41.34 PM), buttons 84 × 22 anchored `preview-*`, the range
+     box 94 × 22, the hint 11px, Printer Type a PBSelect 92.
      Props: `zooms={['200', '100', '75', '50', '25']} zoomLabel={(z) => \`${z}%\`}
      zoomName="preview-zoom" zoom={zoom} onZoom={pickZoom} fax
      percent={{ value: percent, onChange: (e) => setPercent(e.target.value) }}
@@ -162,39 +165,59 @@ export function PrintPreviewRail({
     )
   }
 
+  /* `report`: one `Zoom To` group the window's full height, every control
+     placed where 303518 `8fec3b9c` (1:1, v02.17.20) puts it, measured from
+     the group's top rule and left edge; v02.31.23 (Drive `Bright Health
+     Presentation/` 2026-08-11 3.41.34 PM, ≈1.19×) is the same rail with Fax
+     dropped into the gap under Sort — Sort→Fax as Apply→Change Header (33),
+     Fax→Print All 25 — and everything under it 30px lower. The group is
+     104px wide; the legend is regular weight. */
+  const at = (top: number, left: number, node: ReactNode, key: string) => (
+    <div key={key} style={{ position: 'absolute', top: top - RAIL_TOP, left }}>{node}</div>
+  )
+  const drop = fax ? 0 : -25
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'stretch', width: 96, flex: 'none' }}>
-      <fieldset className="pb-fieldset" style={{ margin: 0 }}>
-        <legend className="pb-fieldset__legend" style={{ color: '#000' }}>Zoom To</legend>
-        <div className="pb-fieldset__body" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {radios(false)}
-          <span className="pb-form__label" style={{ marginTop: 6 }}>Percent:</span>
-          <PBInput w={38} {...percent} />
-          <span className="pb-form__label">Copies:</span>
-          <PBInput w={38} {...copies} />
-          <DialogButton id={id.apply} width={84} onClick={onApply}>Apply</DialogButton>
-          <DialogButton id={id.changeHeader} width={84} disabled>Change Header</DialogButton>
-          <DialogButton id={id.sort} width={84}>Sort</DialogButton>
-          <span style={{ height: 14 }} />
-          {/* v02.31.23 adds Fax above Print All (user capture 2026-09-25 #23, #31) */}
-          {fax && <DialogButton id={id.fax} width={84}>Fax</DialogButton>}
-          <DialogButton id={id.printAll} width={84} onClick={onPrintAll}>Print All</DialogButton>
-          <DialogButton id={id.printRange} width={84} onClick={onPrintRange}>Print Range</DialogButton>
-          <PBInput w={86} {...range} />
-          <span style={{ fontSize: 11 }}>{HINT}</span>
-          <DialogButton id={id.cancel} width={84} onClick={onCancel}>Cancel</DialogButton>
-          <DialogButton id={id.saveAs} width={84}>Save As</DialogButton>
-          <span className="pb-form__label">Printer Type</span>
-          <PBSelect w={88} options={printerTypes} />
-        </div>
-      </fieldset>
-    </div>
+    <fieldset className="pb-fieldset" style={{ margin: 0, padding: 0, width: 104, flex: 'none', alignSelf: 'stretch', position: 'relative', boxSizing: 'border-box' }}>
+      <legend className="pb-fieldset__legend" style={{ color: '#000', fontWeight: 400, marginLeft: 5, padding: '0 3px' }}>Zoom To</legend>
+      {zooms.map((z, i) => at(16 + i * 18, 11,
+        <PBRadio name={zoomName} label={zoomLabel(z)} checked={zoom === z} onChange={() => onZoom(z)} />, `z${z}`))}
+      {at(114, 11, <span className="pb-form__label">Percent:</span>, 'pl')}
+      {at(132, 11, <PBInput w={40} style={{ height: 18 }} {...percent} />, 'pb')}
+      {at(156, 11, <span className="pb-form__label">Copies:</span>, 'cl')}
+      {at(171, 11, <PBInput w={40} style={{ height: 18 }} {...copies} />, 'cb')}
+      {at(195, 11, <RailButton id={id.apply} onClick={onApply}>Apply</RailButton>, 'apply')}
+      {at(228, 11, <RailButton id={id.changeHeader} disabled>Change Header</RailButton>, 'ch')}
+      {at(253, 11, <RailButton id={id.sort}>Sort</RailButton>, 'sort')}
+      {/* v02.31.23 adds Fax above Print All (user capture 2026-09-25 #23, #31) */}
+      {fax && at(286, 11, <RailButton id={id.fax}>Fax</RailButton>, 'fax')}
+      {at(311 + drop, 11, <RailButton id={id.printAll} onClick={onPrintAll}>Print All</RailButton>, 'pa')}
+      {at(336 + drop, 11, <RailButton id={id.printRange} onClick={onPrintRange}>Print Range</RailButton>, 'pr')}
+      {at(362 + drop, 5, <PBInput w={94} style={{ height: 22 }} {...range} />, 'range')}
+      {at(386 + drop, 11, <span style={{ fontSize: 11 }}>{HINT}</span>, 'hint')}
+      {at(410 + drop, 11, <RailButton id={id.cancel} onClick={onCancel}>Cancel</RailButton>, 'cancel')}
+      {at(435 + drop, 11, <RailButton id={id.saveAs}>Save As</RailButton>, 'save')}
+      {at(461 + drop, 10, <span className="pb-form__label">Printer Type</span>, 'ptl')}
+      {at(477 + drop, 7, <PBSelect w={92} options={printerTypes} />, 'pt')}
+    </fieldset>
+  )
+}
+
+/** where the fieldset's content box starts below its top rule: the legend's
+    half-height (Chrome draws the rule through the legend's middle) */
+const RAIL_TOP = 9
+
+/** a rail button: 84 × 22 (303518 `8fec3b9c`) — DialogButton is 24 tall */
+function RailButton({ id, children, onClick, disabled }: { id: string; children: ReactNode; onClick?: () => void; disabled?: boolean }) {
+  return (
+    <PBButton command={id} style={{ width: 84, minWidth: 0, height: 22 }} disabled={disabled} onClick={() => onClick?.()}>
+      {children}
+    </PBButton>
   )
 }
 
 /**
  * The row that sets the rail beside the window's page pane (`children`).
- * `report`: `gap: 8, padding: '4px 6px 6px'` (PrintPreviewWindow 97);
+ * `report`: `gap: 8, padding: '2px 10px 6px'` (303518 `8fec3b9c`);
  * `group` and `split`: `gap: 6, padding: 6` (CarePlanWindows 151, ExchangeKit 162).
  * The page pane itself — a fieldset, a PBGroup, a grey-backed fieldset body —
  * and the Printer line are each copy's own and go in as `children`.
@@ -203,8 +226,10 @@ export function PrintPreviewFrame({ children, style, ...rail }: Parameters<typeo
   children: ReactNode
   style?: CSSProperties
 }) {
+  /* `report`: the rail 10px in, 8px before the Preview group, 9px down
+     (303518 `8fec3b9c`) */
   const row: CSSProperties = rail.skin === 'report'
-    ? { display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 8, padding: '4px 6px 6px' }
+    ? { display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 8, padding: '2px 10px 6px' }
     : { display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 6, padding: 6 }
   return (
     <div style={{ ...row, ...style }}>
