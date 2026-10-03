@@ -6,6 +6,7 @@ import { SESSION_LOGIN } from '../data/session'
 import {
   LOCKOUT_ENDS_ROW, LOCKOUT_MESSAGE_ROW, LOCKOUT_RELEASED_KEY,
   SETTING_BANDS, SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, mirrorSystemSettings, settingRowId, settingSlug, type SystemSetting,
+  defaultSettingValue,
 } from '../data/systemSettings'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
@@ -71,7 +72,7 @@ export function SystemSettingsView({ onClose }: { onClose?: () => void }) {
   const selected = curId ? SYSTEM_SETTINGS.find((s) => settingRowId(s) === curId) ?? null : null
   const valueOf = (s: SystemSetting) => {
     const id = settingRowId(s)
-    return edits[id] ?? committed[id] ?? s.value
+    return edits[id] ?? committed[id] ?? defaultSettingValue(id)
   }
   const dirty = Object.keys(edits).length > 0
   const currentValue = selected ? valueOf(selected) : ''

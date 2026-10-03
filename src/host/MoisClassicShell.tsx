@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { MoisDesktopProvider } from '../screens/dialogKit'
+import { currentEnvironment, requestedEnvironment, setMoisEnvironment } from '../data/environment'
 import { attachConfirmBadges, confirmCurrentCss, confirmCurrentShown } from './confirmCurrent'
 import { basketFolders } from '../data/basket'
 import { resetSessionStores } from '../data/sessionStore'
@@ -646,9 +647,13 @@ function rememberTextMode(mode: PBTextMode) {
 }
 
 export function MoisClassicShell(props: MoisClassicShellProps) {
+  /* the environment is set before any screen renders, and a change of it
+     opens a fresh frame (data/environment) */
+  const env = requestedEnvironment(props.environment)
+  setMoisEnvironment(env)
   return (
     <PBMdiProvider>
-      <Frame {...props} />
+      <Frame key={env} {...props} />
     </PBMdiProvider>
   )
 }
@@ -1692,7 +1697,7 @@ function Frame({
         onPointerCancel={frame.endDrag}
       >
         <PBWindow
-          title="MOIS: MOIS DEV"
+          title={currentEnvironment().title}
           /* PB windows do not reflow — they have a minimum size and the
              desktop scrolls underneath them. */
           style={mainShown ? frame.style : { ...frame.style, display: 'none' }}

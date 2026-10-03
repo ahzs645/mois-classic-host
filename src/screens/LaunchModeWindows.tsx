@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { currentEnvironment } from '../data/environment'
 import {
   ALL_PERMISSIONS, APPT_STATUSES, DEFAULT_FEE_CODE, LITE_CHARTS_KEY, LITE_ENCOUNTERS, LITE_ENCOUNTERS_KEY, LITE_PROVIDERS,
   NOTE_TEMPLATES, SERVICE_LOCATIONS, VISIT_REASONS, dayOffset,
@@ -489,7 +490,7 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
     <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(1074px, calc(100% - 24px))', height: 'min(787px, calc(100% - 24px))', pointerEvents: 'auto', display: 'flex' }}>
       <PBWindow
         tutorialId={`host.mois.dialog.${mode}`}
-        title={lite ? 'MOIS: MOIS DEV - Encounter Lite' : 'My Encounters'}
+        title={lite ? `${currentEnvironment().title} - Encounter Lite` : 'My Encounters'}
         onClose={() => (mainShown ? onClose() : onClose())}
         style={{ width: '100%', height: '100%' }}
       >

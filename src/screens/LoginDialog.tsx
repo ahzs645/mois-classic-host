@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { currentEnvironment } from '../data/environment'
 import { SESSION_LOGIN } from '../data/session'
 import { PBButton, PBInput } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -59,11 +60,10 @@ export function LoginDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <ModalWindow
-      /* The capture this panel was transcribed from was taken on the
-         TRAINING site; the frame it locks is the MOIS DEV capture's
-         ("MOIS: MOIS DEV"), and MOIS titles the sign-in panel after the
-         site you are on, so it follows the frame here. */
-      tutorialId="host.mois.dialog.login" title="MOIS: MOIS DEV" onClose={onClose} windowStyle={{ width: 752 }}
+      /* MOIS titles the sign-in panel after the site you are on, so it
+         takes the environment's caption, as the frame does
+         (data/environment: "MOIS: TRAINING" by default). */
+      tutorialId="host.mois.dialog.login" title={currentEnvironment().title} onClose={onClose} windowStyle={{ width: 752 }}
       zIndex={80} layerClassName="pb-modal-layer" layerStyle={{ background: 'rgba(0,0,0,.18)' }}>
         <div className="pb-login__splash">
           <SplashArt />

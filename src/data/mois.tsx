@@ -1,3 +1,4 @@
+import { currentEnvironment } from './environment'
 /* Mock content transcribed from the MOIS training-environment screenshots. */
 import type { PBTreeNode } from '../pb'
 import type { PBMenuItem } from '../pb/components/chrome'
@@ -774,8 +775,9 @@ export const makeStatusCells = (
     fill: items?.messages ? '#ffc0c8' : undefined, slug: 'msg-item',
   },
   { label: 'User: ', value: 'JALA2', width: 147 },
-  { label: 'Site ID: ', value: '_dev', width: 98 },
-  { text: 'v02.31.23 b250508', width: 123 },
+  /* the environment's site and build (data/environment) */
+  { label: 'Site ID: ', value: currentEnvironment().siteId, width: 98 },
+  { text: `v${currentEnvironment().build} ${currentEnvironment().stamp}`, width: 123 },
 ]
 
 /* --- Order ----------------------------------------------------------------

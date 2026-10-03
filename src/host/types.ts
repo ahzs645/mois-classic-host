@@ -162,6 +162,13 @@ export interface HostEncounterFormSlot {
 }
 
 export interface HostShellProps {
+  /**
+   * The environment the frame stands in for (data/environment): `training`
+   * (the default, v02.31.23), `dev` or `manual`. Decides the caption, Site
+   * ID, build, the site's System Settings and which later-build features
+   * show. The standalone viewer also takes `?env=<id>`.
+   */
+  environment?: string
   loadEncounterForms?: () => Promise<HostEncounterForm[]>
   encounterFormSlot?: (slot: HostEncounterFormSlot) => ReactNode
   /**

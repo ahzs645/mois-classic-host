@@ -1,5 +1,5 @@
 import { useSessionState } from '../host/screen-windows'
-import { SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, settingRowId } from './systemSettings'
+import { SYSTEM_SETTINGS, SYSTEM_SETTINGS_KEY, defaultSettingValue, settingRowId } from './systemSettings'
 import { SPECIAL_FUNCTION_ROWS } from './userManagement'
 
 /* ============================================================================
@@ -24,12 +24,12 @@ import { SPECIAL_FUNCTION_ROWS } from './userManagement'
    Neither store is a database: both live as long as the frame does.
    ========================================================================= */
 
-/** A System Settings row's value: the saved one, else the shipped one. */
+/** A System Settings row's value: the saved one, else the one the site ships. */
 export function useSystemSetting(name: string): string {
   const [saved] = useSessionState<Record<string, string>>(SYSTEM_SETTINGS_KEY, {})
   const row = SYSTEM_SETTINGS.find((s) => s.name === name)
   if (!row) return ''
-  return (saved[settingRowId(row)] ?? row.value).trim()
+  return (saved[settingRowId(row)] ?? defaultSettingValue(settingRowId(row))).trim()
 }
 
 /** Session key: the Special Functions Execute ticks, by function name. */

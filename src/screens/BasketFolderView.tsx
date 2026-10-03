@@ -7,6 +7,7 @@ import {
   basketFolders, rowOwners, rowsForView, type BasketFolder, type BasketMoreRow, type BasketRow,
 } from '../data/basket'
 import { SUMMARY_DEFAULT_ACCENT, SUMMARY_SELECTED_ROW } from '../data/summary'
+import { buildAtLeast } from '../data/environment'
 import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useChartRecords } from '../data/chart-records'
 import { date as chartDate } from '../data/charts/relations'
@@ -613,7 +614,13 @@ export function BasketFolderView({
   const panelCount = folder.id === 'ws-measures' && current?.panel
     ? (BASKET_PANELS[`${String(current.patient)}|${String(current.panel)}`]?.results.length ?? 0)
     : 0
-  const tabs = folder.tabs.map((t) => (t.startsWith('Panel') ? `Panel (${panelCount})` : t))
+  /* More, Records: and the Results-for strip arrived in v02.31.41
+     (303492); an earlier environment's build (TRAINING, v02.31.23) keeps
+     the older Showing Records: strip and no More tab */
+  const v23141 = buildAtLeast('02.31.41')
+  const tabs = folder.tabs
+    .filter((t) => v23141 || t !== 'More')
+    .map((t) => (t.startsWith('Panel') ? `Panel (${panelCount})` : t))
   /* Panel (0) is greyed — 303492 `4d6a5577…` (v2.31.41), and the chart's
      own Measures in the current build (evidence/MATRIX-R0480) — so a row
      with no panel falls back to Report */
@@ -681,7 +688,7 @@ export function BasketFolderView({
         <span style={{ width: 1, alignSelf: 'stretch', background: '#646464', margin: '0 8px' }} />
         {/* CONFIRM-CURRENT: "Records:" — 303492 `4d6a5577…` (v2.31.41); the
             v02.21 captures and 1802749's text say "Showing Records:" */}
-        <span className="pb-form__label">Records:</span>
+        <span className="pb-form__label">{v23141 ? 'Records:' : 'Showing Records:'}</span>
         <PBSelect
           w={113}
           options={SHOWING}
@@ -713,17 +720,19 @@ export function BasketFolderView({
           all results does are INFERRED: here the total is the folder's rows
           for this view before Search For and Records narrow them, and the
           box is kept but changes nothing. */}
-      <div className="pb-row" style={{ gap: 6, padding: '2px 6px 3px', background: '#f0f0f0', flex: 'none', alignItems: 'center' }} data-tutorial-id="host.mois.group.basket-results">
-        <span className="pb-form__label pb-form__label--dim">Results for:</span>
-        <b style={{ fontSize: '1.08em', marginLeft: 4 }}>ALL RESULTS</b>
-        <span className="pb-row__spacer" />
-        <span className="pb-form__label pb-form__label--dim">Showing</span>
-        <span style={{ minWidth: 40, textAlign: 'right' }} data-tutorial-id="host.mois.field.basket-showing">{shown.length}</span>
-        <span className="pb-form__label pb-form__label--dim" style={{ margin: '0 4px 0 14px' }}>of</span>
-        <span style={{ minWidth: 30, textAlign: 'right' }}>{total}</span>
-        <span className="pb-form__label pb-form__label--dim" style={{ margin: '0 18px 0 12px' }}>total results</span>
-        <PBCheckbox label="Show all results" checked={showAll} onChange={setShowAll} tutorialId="host.mois.field.basket-show-all" />
-      </div>
+      {v23141 && (
+        <div className="pb-row" style={{ gap: 6, padding: '2px 6px 3px', background: '#f0f0f0', flex: 'none', alignItems: 'center' }} data-tutorial-id="host.mois.group.basket-results">
+          <span className="pb-form__label pb-form__label--dim">Results for:</span>
+          <b style={{ fontSize: '1.08em', marginLeft: 4 }}>ALL RESULTS</b>
+          <span className="pb-row__spacer" />
+          <span className="pb-form__label pb-form__label--dim">Showing</span>
+          <span style={{ minWidth: 40, textAlign: 'right' }} data-tutorial-id="host.mois.field.basket-showing">{shown.length}</span>
+          <span className="pb-form__label pb-form__label--dim" style={{ margin: '0 4px 0 14px' }}>of</span>
+          <span style={{ minWidth: 30, textAlign: 'right' }}>{total}</span>
+          <span className="pb-form__label pb-form__label--dim" style={{ margin: '0 18px 0 12px' }}>total results</span>
+          <PBCheckbox label="Show all results" checked={showAll} onChange={setShowAll} tutorialId="host.mois.field.basket-show-all" />
+        </div>
+      )}
 
       <div style={{ flex: '1 1 auto', minHeight: 110, display: 'flex', padding: 3 }} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
         <PBDataWindow

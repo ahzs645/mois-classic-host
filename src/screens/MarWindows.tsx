@@ -99,7 +99,10 @@ function Mnemonic({ text, letter, at }: { text: string; letter: string; at?: num
    (v02.31.23); the ON chooser keeps `70e81e88…`'s eight. Against that: c20
    also leaves Open Parent Order enabled, which MOIS DEV (MAR Ordering OFF,
    evidence/MATRIX-R0758) greys, so TRAINING may be ON and v02.31.23's
-   chooser five either way — unresolved; the lessons teach the eight.
+   chooser five either way. Settled by environment (data/environment): the
+   TRAINING and DEV environments run MAR Ordering OFF (five), the manual's
+   reference environment ships it ON (eight); System Settings can switch
+   either.
 
    Re-measured at 2x against the window's outer edge: 512 × 270; the
    first radio's circle 39px in and 52px below the top edge, the rows 30px

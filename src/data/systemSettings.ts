@@ -1,3 +1,4 @@
+import { currentEnvironment } from './environment'
 /* ============================================================================
    Administration ▸ Configuration ▸ System Settings — every band and its rows.
 
@@ -553,9 +554,13 @@ export const BILLING_ENC_TIMES_ROW = 'billing-include-enc-times'
 export const ALTERNATE_LAUNCH_ROW = 'alternate-launch-enabled'
 
 const DEFAULTS = new Map(SYSTEM_SETTINGS.map((s) => [settingRowId(s), s.value]))
+const NAMES = new Map(SYSTEM_SETTINGS.map((s) => [settingRowId(s), s.name]))
 
-/** The transcribed value of a row, before any Save. */
-export const defaultSettingValue = (rowId: string): string => DEFAULTS.get(rowId) ?? ''
+/** A row's value before any Save: what the environment's site ships
+    (data/environment — TRAINING runs MAR Ordering OFF), else the value the
+    articles transcribe. */
+export const defaultSettingValue = (rowId: string): string =>
+  currentEnvironment().settings[NAMES.get(rowId) ?? ''] ?? DEFAULTS.get(rowId) ?? ''
 
 /** A row's value in a committed-settings record (SYSTEM_SETTINGS_KEY). */
 export const settingValueIn = (saved: Record<string, string>, rowId: string): string =>
