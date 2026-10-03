@@ -6,6 +6,7 @@ import { SESSION_USER } from '../data/chartSession'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { CLINIC } from '../data/printPages'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBButton, PBCheckbox, PBTabs, PBWindow, pbSlug } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
@@ -48,16 +49,38 @@ import './health-maintenance-review.css'
      the "SMOKER For 17 Year(s)" / "EX-SMOKER For 2 Year(s)" line MOIS derives
      from a TOBACCO DEPENDENCE (3051) condition.
 
-   Gaps, deliberately: the review is driven by the clinic's Concept Mapping,
-   which the manual does not print whole. The GENERAL items and their order
-   are the union of the 35F and 66F captures; the age/sex gates that decide
-   which of them a chart gets are inferred from which capture shows them and
-   are marked below. Only measures are looked up — vaccines, imaging,
-   procedures and consults print "Not Found". The STI/BBP and INCENTIVE CLAIM
-   sections are omitted (their preconditions are undocumented), as are
-   Care Plan goals on the report lines. The Care Plan and Patient Summary
-   tabs are never shown open in the manual; what they list here is a plain
-   reading of their names, not a transcription.
+   - art. 304722's "Concept Mapping Preconditions and Screening Elements"
+     table (text) — the age/sex precondition of every GENERAL item and the
+     screening elements of each condition section, in the order the
+     captures print them (5be0ba8b: HYPERLIPIDEMIA › DIABETES › CHF;
+     8117c454: HYPERTENSION's lipids as CHOL/HDL RATIO, CHOLEST, HDL, LDL,
+     TRIGLYCERIDES). Its "Additional Tips": Framingham in GENERAL and
+     HYPERLIPIDEMIA between 29 and 79; Cannabis Use in GENERAL; a
+     Preference with a past stop date is not shown. `adb0d27e` adds the
+     Not Found wording "FRAMINGHAM CARDIAC RISK ASSESSMENT" and GFR
+     printed after HIV Screening when present (the table's "If present…").
+   - art. 303366 — the CHF concept: include string "CHF", and the rule it
+     adds (include "Heart" + "Failure", exclude "Acute").
+
+   CONFIRM-CURRENT: all of the report's content above is help-site
+   evidence (v2012–2022 builds and article text); it is registered below
+   for a current-build capture to confirm. The concept table names its
+   elements by concept ("CIGARETTES SMOKED PACKS PER DAY"), not by what the
+   review prints ("SMOKING STATUS" / "CIGARETTES SMOKED.CURRENT (PACK/DAY"),
+   so where no capture shows an element printed, its "Not Found" wording is
+   the table's.
+
+   Gaps, deliberately: only measures are looked up — vaccines, imaging,
+   procedures and consults print "Not Found", and the procedure sub-lines
+   the 66F capture shows ("NOT INDICATED as of", "COLONOSCOPY Was Done")
+   are not reproduced. The STI/BBP and INCENTIVE CLAIM sections are
+   omitted, as are the table's FRAILTY, HIV, DEPRESSION, PSYCHOTIC MENTAL
+   DISORDER, UNSAFE DRUG / ALCOHOL USE, SPLENECTOMY and HEPC sections (their
+   "Last Encounter" / calculated / procedure lines have no captured print
+   form), ASTHMA's two calculated Peak Flow lines, and the Care Plan goals
+   ("GOAL: …") on the report lines. INFERRED: the Care Plan and Patient
+   Summary tabs are never shown open in the manual; what they list here is
+   a plain reading of their names, not a transcription.
 
    The four buttons (art. 304722's definitions table):
    · Flow Sheet — opens the Flow Sheet parameters (303225).
@@ -66,16 +89,22 @@ import './health-maintenance-review.css'
    · Tear Off — "Will open the tab/information in a new MOIS viewer window.
      Only available in the 'Care Plan' or 'Patient Summary' tabs": a
      separate, non-modal text window over this one, closed on its own.
+     CONFIRM-CURRENT: art. 303741 (text) describes every folder's Tear Off
+     the same way — "a movable window" that "remains open while you
+     navigate" — so it moves by its title bar here.
    · Clipboard — "Creates a copy of the information that is within the
      chosen tab, with the option to add Clinic or Provider details (in
      addition to the patient details) at the top": a small options window,
      then the text goes to the system clipboard. The stage names what was
      copied under the buttons, as Print Preview names what was printed.
-   INFERRED: neither the torn-off window nor the Clipboard options window is
-   captured — their titles, the two tick boxes' wording and the layout are
-   read off the definitions. A resolved condition's section states its
-   resolve date ("If resolve date - State it", the concept table) as
-   "RESOLVED as of <date>" — that wording is inferred too.
+   CONFIRM-CURRENT: what each of the two windows holds — the tab's text;
+   patient details always, Clinic and Provider details on request — is the
+   definitions' text. INFERRED: neither window is captured, so their
+   titles beyond "MOIS viewer", the two tick boxes' wording, the buttons and
+   the layout are not evidenced. A resolved condition's section states its
+   resolve date ("If resolve date - State it", the concept table); MOIS
+   prints a preference that way ("NOT INDICATED as of 2013.05.02",
+   `8117c454`), but "RESOLVED as of <date>" itself is INFERRED.
 
    Anchors: each item line is `host.mois.row.hmr-<item>`, each heading
    `host.mois.group.hmr-<heading>`, the first red and first blue line also
@@ -101,91 +130,175 @@ type Item = {
   maxAge?: number
   /** HIV Screening stays blue when it is missing */
   blueWhenMissing?: boolean
+  /** printed only when the chart has it — the table's "If present…" (GFR) */
+  onlyIfFound?: boolean
 }
 
 const other = (name: string, gate: Partial<Item> = {}): Item => ({ name, measure: false, ...gate })
 
-/* GENERAL AND AGE/SEX SPECIFIC SCREENING, in the captures' order. Gates
-   marked "inferred" are read off which capture (35F / 66F) has the item. */
+/* The elements more than one section prints. Names are what the captures
+   print: the Not Found wording where a capture shows it missing, else the
+   found record's own description. */
+const PHYSICAL_ACTIVITY: Item = { name: 'PHYSICAL ACTIVITY', codes: ['39959'] }
+const ALCOHOL: Item = { name: 'ALCOHOL INTAKE', codes: ['39957', '3553'], match: /^ALCOHOL/ }
+/* art. 303111: the smoking concept, most recent of the two codes */
+const SMOKING: Item = { name: 'SMOKING STATUS', codes: ['34494', '61868'] }
+const CIGARETTES: Item = { name: 'CIGARETTES SMOKED.CURRENT (PACK/DAY)', codes: ['34494', '61868'] }
+const ACTIVITY_PER_WEEK: Item = { name: 'PHYSICAL ACTIVITY MINUTES PER WEEK', codes: ['39959'] }
+/* `adb0d27e` prints it missing as "FRAMINGHAM CARDIAC RISK ASSESSMENT" */
+const FRAMINGHAM: Item = { name: 'FRAMINGHAM CARDIAC RISK ASSESSMENT', match: /FRAMINGHAM/ }
+const GLUCOSE: Item = { name: 'GLUCOSE (FASTING)', match: /GLUCOSE \(FASTING\)|GLUCOSE FASTING/ }
+const GFR: Item = { name: 'GFR SERPL-VRATE', codes: ['27540'], match: /\bGFR\b/ }
+const CREATININE: Item = { name: 'CREATININE', match: /^CREATININE\b/ }
+const BLOOD_PRESSURE: Item = { name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', codes: ['1950'] }
+const UALB_CR: Item = { name: 'URINE MICROALB/CREAT RATIO', match: /MICROALB\/CREAT/ }
+const WEIGHT: Item = { name: 'WEIGHT', codes: ['22732'] }
+const HEIGHT: Item = { name: 'HEIGHT', codes: ['1948'] }
+const INR: Item = { name: 'INR', match: /\bINR\b/ }
+const SPIROMETRY: Item = { name: 'SPIROMETRY', match: /^SPIROMETRY/ }
+const FEV1_POST: Item = { name: 'FEV1 % PREDICTED POST BRONCHODILATO', match: /FEV1 % PREDICTED POST/ }
+const PNEUMOCOCCAL = other('PNEUMOCOCCAL VACCINE')
+const INFLUENZA = other('INFLUENZA VACCINE')
+
+const LDL: Item = { name: 'CHOLESTEROL - LDL', match: /CHOLESTEROL - LDL/ }
+const HDL: Item = { name: 'CHOLESTEROL - HDL', match: /CHOLESTEROL - HDL/ }
+const SERUM_CHOLESTEROL: Item = { name: 'CHOLEST SERPL-SCNC', match: /CHOLEST SERPL-SCNC/ }
+const CHOL_HDL_RATIO: Item = { name: 'CHOL/HDL RATIO', match: /CHOL.*HDL.*RATIO|CHOLEST\/HDLC/ }
+const TRIGLYCERIDES: Item = { name: 'TRIGLYCERIDES', match: /TRIGLYCERIDE/ }
+/* the two orders the table and captures give the lipids in: DIABETES's
+   (`82ded285`), and every other section's (8117c454's HYPERTENSION,
+   5be0ba8b's HYPERLIPIDEMIA) */
+const LIPIDS_DIABETES = [LDL, HDL, SERUM_CHOLESTEROL, CHOL_HDL_RATIO, TRIGLYCERIDES]
+const LIPIDS = [CHOL_HDL_RATIO, SERUM_CHOLESTEROL, HDL, LDL, TRIGLYCERIDES]
+
+/* GENERAL AND AGE/SEX SPECIFIC SCREENING, in the captures' order (66F
+   `8117c454`, 35F `2a5a6971`, 50F `5be0ba8b`).
+   CONFIRM-CURRENT: every gate is art. 304722's precondition table
+   ("Age >11" = 12 and over, "M – Age 35> to <60" = 36–59, …); the
+   table's FRAMINGHAM is 29> to <79, though the 2016 35F capture does not
+   print it, and its Cannabis Use is "Age >12" where the tips say "+10".
+   SERUM CHOLESTEROL / CHOL/HDL RATIO / ABDOMINAL IMAGING (male) and
+   CANNABIS USE take the table's place in the order (5be0ba8b prints
+   CHOLEST SERPL-SCNC after PAPANICOLAU SMEAR); ABDOMINAL IMAGING and
+   CANNABIS USE are printed with the table's wording. */
 const GENERAL: Item[] = [
-  other('SCREENING MAMMOGRAPHY', { sex: 'F', minAge: 50, maxAge: 74 }), // inferred
-  { name: 'PAPANICOLAU SMEAR', codes: ['1917'], match: /PAPANICOL/, sex: 'F', minAge: 21, maxAge: 69 },
-  { name: 'FRAX WHO FRACTURE RISK ASSESSMENT T', match: /FRAX/, minAge: 65 }, // inferred
-  other('PNEUMOCOCCAL VACCINE', { minAge: 65 }), // inferred
-  other('INFLUENZA VACCINE', { minAge: 65 }), // inferred
-  other('ADVANCE DIRECTIVE DOCUMENTED', { minAge: 65 }), // inferred
-  { name: 'GLUCOSE (FASTING)', match: /GLUCOSE \(FASTING\)|GLUCOSE FASTING/, minAge: 40 }, // inferred
-  { name: 'OCCULT BLD STL QL IMM', match: /OCCULT BLD/, minAge: 50, maxAge: 74 }, // inferred
-  { name: 'PHYSICAL ACTIVITY', codes: ['39959'] },
-  { name: 'ALCOHOL INTAKE', codes: ['39957', '3553'], match: /^ALCOHOL/ },
-  /* art. 303111: the smoking concept, most recent of the two codes */
-  { name: 'SMOKING STATUS', codes: ['34494', '61868'] },
-  { name: 'WEIGHT', codes: ['22732'], minAge: 65 }, // inferred
-  { name: 'WAIST CIRCUMFERENCE', codes: ['1984'] },
-  { name: 'BMI', codes: ['951'] },
-  other('TETANUS VACCINE'),
-  { name: 'BP', codes: ['1950'] },
-  { name: 'CARDIAC RISK FRAMINGHAM', match: /FRAMINGHAM/, minAge: 40 }, // inferred
+  other('SCREENING MAMMOGRAPHY', { sex: 'F', minAge: 50, maxAge: 70 }),
+  { name: 'PAPANICOLAU SMEAR', codes: ['1917'], match: /PAPANICOL/, sex: 'F', minAge: 25, maxAge: 70 },
+  /* the table's OSTEOPOROSIS SCREENING: the FRAX measure or a bone density image */
+  { name: 'FRAX WHO FRACTURE RISK ASSESSMENT T', match: /FRAX|BONE DENSITY/, sex: 'F', minAge: 60, maxAge: 79 },
+  { ...SERUM_CHOLESTEROL, sex: 'M', minAge: 36, maxAge: 59 },
+  { ...CHOL_HDL_RATIO, sex: 'M', minAge: 36, maxAge: 59 },
+  other('ABDOMINAL IMAGING', { sex: 'M', minAge: 66, maxAge: 79 }),
+  other('PNEUMOCOCCAL VACCINE', { minAge: 65 }),
+  other('INFLUENZA VACCINE', { minAge: 65 }),
+  /* the table's LEVEL OF INTERVENTION, or an Advance Directive preference */
+  other('ADVANCE DIRECTIVE DOCUMENTED', { minAge: 65 }),
+  { ...GLUCOSE, minAge: 45 },
+  { name: 'OCCULT BLD STL QL IMM', match: /OCCULT BLD/, minAge: 50, maxAge: 74 },
+  { ...PHYSICAL_ACTIVITY, minAge: 12 },
+  { ...ALCOHOL, minAge: 12 },
+  { ...SMOKING, minAge: 12 },
+  { ...WEIGHT, minAge: 65 }, // INFERRED: the table has no WEIGHT in GENERAL; the 66F capture prints it, the 35F one does not
+  { name: 'WAIST CIRCUMFERENCE', codes: ['1984'], minAge: 12 },
+  { name: 'BMI', codes: ['951'], minAge: 12 },
+  { name: 'CANNABIS USE', match: /CANNABIS/, minAge: 13 },
+  other('TETANUS VACCINE', { minAge: 26 }),
+  { name: 'BP', codes: ['1950'], minAge: 19 },
+  { ...FRAMINGHAM, minAge: 30, maxAge: 78 },
 ]
 
-const HIV: Item = { name: 'HIV Screening', match: /^HIV/, blueWhenMissing: true }
+const HIV: Item = { name: 'HIV Screening', match: /^HIV/, blueWhenMissing: true, minAge: 19 }
+/* `adb0d27e`: after HIV Screening and its Not Desired line, when present */
+const GENERAL_GFR: Item = { ...GFR, onlyIfFound: true }
 
-const LIPIDS: Item[] = [
-  { name: 'CHOLESTEROL - LDL', match: /CHOLESTEROL - LDL/ },
-  { name: 'CHOLESTEROL - HDL', match: /CHOLESTEROL - HDL/ },
-  { name: 'CHOLEST SERPL-SCNC', match: /CHOLEST SERPL-SCNC/ },
-  { name: 'CHOL/HDL RATIO', match: /CHOL.*HDL.*RATIO|CHOLEST\/HDLC/ },
-  { name: 'TRIGLYCERIDES', match: /TRIGLYCERIDE/ },
-]
-
-/* Condition sections: heading is the chart's own problem name. The COPD list
-   is the art. 304722 concept table; HYPERTENSION is `8117c454`; DIABETES is
-   `5be0ba8b` + `82ded285`; CHF shows only CREATININE before the capture
-   cuts it. */
-const CONDITIONS: { when: RegExp; items: Item[] }[] = [
+/* Condition sections, in the table's order (which 5be0ba8b keeps). The
+   heading is the chart's own problem name. CONFIRM-CURRENT: the element
+   lists are art. 304722's concept table, with the captured order where a
+   capture shows one (HYPERTENSION `8117c454`/`4d87f036`, DIABETES
+   `5be0ba8b`/`82ded285`, COPD `133dbc7f`, HYPERLIPIDEMIA `5be0ba8b`).
+   Which problem names open a section is each clinic's Concept Mapping:
+   COPD's strings are 304722's, CHF's are 303366's, HYPERTENSION /
+   DIABETES / HYPERLIPIDEMIA match the captured headings; INFERRED: the
+   ANTICOAGULATION, CEREBROVASCULAR, CARDIOVASCULAR, ASTHMA and CKD
+   patterns are the table's section names. */
+const CONDITIONS: { when: (problem: string) => boolean; items: Item[] }[] = [
+  { when: (p) => /ANTICOAG/.test(p), items: [INR] },
   {
-    when: /DIABETES/,
+    when: (p) => /HYPERLIPID/.test(p),
+    items: [...LIPIDS, { ...FRAMINGHAM, minAge: 30, maxAge: 78 }],
+  },
+  {
+    when: (p) => /CEREBROVASC/.test(p),
+    items: [BLOOD_PRESSURE, ...LIPIDS, CIGARETTES, ACTIVITY_PER_WEEK],
+  },
+  {
+    when: (p) => /CARDIOVASCULAR/.test(p),
+    items: [BLOOD_PRESSURE, ...LIPIDS, CIGARETTES, ACTIVITY_PER_WEEK, { name: 'CANNABIS USE', match: /CANNABIS/ }],
+  },
+  {
+    when: (p) => /DIABETES/.test(p),
     items: [
-      ...LIPIDS,
-      { name: 'URINE MICROALB/CREAT RATIO', match: /MICROALB\/CREAT/ },
-      { name: 'GFR SERPL-VRATE', codes: ['27540'], match: /\bGFR\b/ },
+      ...LIPIDS_DIABETES, UALB_CR, GFR,
       { name: 'HEMOGLOBIN A1C', codes: ['HBA1C', '128'], match: /HEMOGLOBIN A1C/ },
-      { name: 'GLUCOSE (FASTING)', match: /GLUCOSE \(FASTING\)|GLUCOSE FASTING/ },
-      { name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', codes: ['1950'] },
-      other('PNEUMOCOCCAL VACCINE'),
-      other('INFLUENZA VACCINE'),
+      GLUCOSE, BLOOD_PRESSURE, PNEUMOCOCCAL, INFLUENZA,
+      /* 5be0ba8b prints two "CONSULT FOR DIABETIC …" lines here, cut off
+         by the window over them; the wording is the table's */
+      other('OPHTHALMOLOGY ASSESSMENT'),
+      other('DIABETES EDUCATION ASSESSMENT'),
     ],
   },
   {
-    when: /HYPERTENSION/,
+    when: (p) => /HYPERTENSION/.test(p),
     items: [
-      { name: 'CREATININE', match: /^CREATININE\b/ },
-      { name: 'GLUCOSE (FASTING)', match: /GLUCOSE \(FASTING\)|GLUCOSE FASTING/ },
-      { name: 'GFR SERPL-VRATE', codes: ['27540'], match: /\bGFR\b/ },
-      { name: 'BLOOD PRESSURE (SYSTOLIC/DIASTOLIC)', codes: ['1950'] },
+      CREATININE, GLUCOSE, GFR, BLOOD_PRESSURE,
       other('ECG'),
-      ...LIPIDS,
-      { name: 'URINE MICROALB/CREAT RATIO', match: /MICROALB\/CREAT/ },
-      { name: 'CIGARETTES SMOKED.CURRENT (PACK/DAY)', codes: ['34494', '61868'] },
+      ...LIPIDS, UALB_CR, CIGARETTES,
+      /* the table's tail, past where 8117c454 is cut */
+      ACTIVITY_PER_WEEK, ALCOHOL,
+      { ...FRAMINGHAM, minAge: 30, maxAge: 74 },
     ],
   },
   {
-    when: /COPD|C\.O\.P\.D\.|CHRONIC OBSTRUC/,
+    when: (p) => /COPD|C\.O\.P\.D\.|CHRONIC OBSTRUC/.test(p),
     items: [
-      { name: 'SPIROMETRY', match: /^SPIROMETRY/ },
-      { name: 'FEV1 % PREDICTED POST BRONCHODILATO', match: /FEV1 % PREDICTED POST/ },
+      SPIROMETRY, FEV1_POST,
       { name: 'FEV1/FVC POST BRONCHODILATOR', match: /FEV1\/FVC POST/ },
-      { name: 'WEIGHT', codes: ['22732'] },
-      { name: 'HEIGHT', codes: ['1948'] },
-      { name: 'CIGARETTES SMOKED.CURRENT (PACK/DAY)', codes: ['34494', '61868'] },
-      { name: 'PHYSICAL ACTIVITY MINUTES PER WEEK', codes: ['39959'] },
-      other('PNEUMOCOCCAL VACCINE'),
-      other('INFLUENZA VACCINE'),
+      WEIGHT, HEIGHT, CIGARETTES, ACTIVITY_PER_WEEK, PNEUMOCOCCAL, INFLUENZA,
     ],
   },
   {
-    when: /HEART FAILURE/,
-    items: [{ name: 'CREATININE', match: /^CREATININE\b/ }],
+    when: (p) => /ASTHMA/.test(p),
+    items: [
+      SPIROMETRY,
+      { name: 'PEAK EXPIRATORY FLOW', match: /PEAK EXPIRATORY FLOW|PEAK FLOW/ },
+      { name: 'FEV1PREB', match: /FEV1.*PRE BRONCHODILAT/ },
+      FEV1_POST, CIGARETTES, PNEUMOCOCCAL, INFLUENZA,
+    ],
+  },
+  {
+    when: (p) => /CHRONIC KIDNEY|CHRONIC RENAL|\bCKD\b/.test(p),
+    items: [
+      BLOOD_PRESSURE, WEIGHT, HEIGHT, GFR, UALB_CR, LDL, HDL, SERUM_CHOLESTEROL, CHOL_HDL_RATIO,
+      { name: 'HEMOGLOBIN', match: /^HEMOGLOBIN\b(?! A1C)/ },
+      { name: 'IRON SATURATION', match: /IRON SAT/ },
+      { name: 'SERUM CALCIUM', match: /^CALCIUM\b/ },
+      { name: 'PO4', match: /^PHOSPHATE|\bPO4\b/ },
+      { name: 'IPTH', match: /\bPTH\b/ },
+      PNEUMOCOCCAL, INFLUENZA, other('HEP B VACCINE'), other('RENAL IMAGING'), other('NEPHROLOGY ASSESSMENT'),
+    ],
+  },
+  {
+    /* 303366: "CHF", or "Heart" and "Failure" but not "Acute" */
+    when: (p) => /CHF/.test(p) || (/HEART/.test(p) && /FAILURE/.test(p) && !/ACUTE/.test(p)),
+    items: [
+      CREATININE,
+      { name: 'SERUM SODIUM', match: /^SODIUM\b/ },
+      { name: 'SERUM POTASSIUM', match: /^POTASSIUM\b/ },
+      { name: 'PRO BNP', match: /BNP/ },
+      { name: 'NYHA CLASS', match: /NYHA/ },
+      { name: 'CARDIAC EJECTION FRACTION', match: /EJECTION FRACTION/ },
+      BLOOD_PRESSURE, WEIGHT, other('CHEST IMAGING'), PNEUMOCOCCAL, INFLUENZA,
+    ],
   },
 ]
 
@@ -228,6 +341,7 @@ const anchorOf = (marks: Marks | undefined, kind: keyof Marks, at: string | unde
 
 function ItemLine({ item, measures, marks, at }: { item: Item; measures: MoisRecord[]; marks?: Marks; at?: string }) {
   const r = mostRecent(item, measures)
+  if (!r && item.onlyIfFound) return null
   if (!r) {
     const kind = item.blueWhenMissing ? 'found' : 'missing'
     return <div className={`pb-hmr__${kind}`} data-hm-state={kind} data-tutorial-id={anchorOf(marks, kind, at, item.name)}>{item.name} Not Found</div>
@@ -255,6 +369,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 const HMR_TAB_KEYS: Record<string, string | undefined> = { 1: 'Health Maintenance', 2: 'Care Plan', 3: 'Patient Summary' }
+
+/* CONFIRM-CURRENT: no capture of the current build shows any of these three
+   windows; each is laid out from the help site (see PROVENANCE). */
+registerConfirmCurrent([
+  {
+    target: { anchor: 'host.mois.dialog.health-maintenance-review' },
+    source: 'help-site art. 304722 img 8117c454 (2018), bc77da00 (2022) + concept table; 303225 img 5be0ba8b (2012); 303111 img 2a5a6971 (2016)',
+    check: 'header and buttons, which report lines print at which age/sex, section order, Care Plan / Patient Summary tabs',
+  },
+  {
+    target: { anchor: 'host.mois.dialog.hmr-tear-off' },
+    source: 'art. 304722 + 303741 (text only)',
+    check: 'whole window: is it the PDF MOIS Viewer or a text window; title, layout, Close button; does it outlive the review',
+  },
+  {
+    target: { anchor: 'host.mois.dialog.hmr-clipboard' },
+    source: 'art. 304722 (text only)',
+    check: 'whole window: title, tick-box wording, buttons',
+  },
+])
 
 export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
   onFlowSheet: () => void
@@ -289,28 +423,35 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
     const n = end ? years(end) : years(start)
     return end ? `EX-SMOKER For ${n ?? 0} Year(s)` : `SMOKER For ${n ?? 0} Year(s)`
   })()
+  /* CONFIRM-CURRENT (304722's tips): "When a Preference has a stop date
+     (in the past) do not show the Preference in the CTRL+H" */
   const hivDeclined = (data?.chart_preference ?? []).find((r) =>
     /HIV SCREENING/.test((r.str_description ?? r.str_preference ?? '').toUpperCase())
-    && /NOT DESIRED/.test((r.str_instruction_code ?? '').toUpperCase()))
+    && /NOT DESIRED/.test((r.str_instruction_code ?? '').toUpperCase())
+    && !(r.dtm_end && date(r.dtm_end) < MOIS_TODAY))
 
   /* "If resolve date - State it / Else - <the items>" (the concept table):
      an open issue lists its items, a resolved one only its resolve date */
   const conditions = CONDITIONS.flatMap((c) => {
-    const hits = issues.filter((r) => c.when.test((r.str_problem_name ?? '').toUpperCase()))
+    const hits = issues.filter((r) => c.when((r.str_problem_name ?? '').toUpperCase()))
     const hit = hits.find((r) => !r.dtm_end) ?? hits[0]
-    return hit ? [{ title: (hit.str_problem_name ?? '').toUpperCase(), items: c.items, resolved: hit.dtm_end ? date(hit.dtm_end) : '' }] : []
+    const items = c.items.filter((it) => applies(it, sex, age))
+    return hit ? [{ title: (hit.str_problem_name ?? '').toUpperCase(), items, resolved: hit.dtm_end ? date(hit.dtm_end) : '' }] : []
   })
 
   const careTab = tab !== 'Health Maintenance'
   const general = GENERAL.filter((it) => applies(it, sex, age))
+  const hiv = applies(HIV, sex, age)
   const marks: Marks = (() => {
     const seq: [string, Item][] = [
       ...general.map((it): [string, Item] => [`general:${it.name}`, it]),
-      [`general:${HIV.name}`, HIV],
+      ...(hiv ? [[`general:${HIV.name}`, HIV] as [string, Item]] : []),
+      [`general:${GENERAL_GFR.name}`, GENERAL_GFR],
       ...conditions.filter((c) => !c.resolved).flatMap((c) => c.items.map((it): [string, Item] => [`${c.title}:${it.name}`, it])),
     ]
     const found = (it: Item) => !!mostRecent(it, measures) || !!it.blueWhenMissing
-    return { missing: seq.find(([, it]) => !found(it))?.[0], found: seq.find(([, it]) => found(it))?.[0] }
+    /* an "If present…" element that is absent prints nothing, so it is never the first red line */
+    return { missing: seq.find(([, it]) => !found(it) && !it.onlyIfFound)?.[0], found: seq.find(([, it]) => found(it))?.[0] }
   })()
 
   const openWindow = useOpenWindow()
@@ -391,10 +532,11 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
                 <Section title="GENERAL AND AGE/SEX SPECIFIC SCREENING">
                   {general.map((it) => <ItemLine key={it.name} item={it} measures={measures} marks={marks} at={`general:${it.name}`} />)}
                   {smokerLine && <div className="pb-hmr__found">{smokerLine}</div>}
-                  <ItemLine item={HIV} measures={measures} marks={marks} at={`general:${HIV.name}`} />
-                  {hivDeclined && (
+                  {hiv && <ItemLine item={HIV} measures={measures} marks={marks} at={`general:${HIV.name}`} />}
+                  {hiv && hivDeclined && (
                     <div className="pb-hmr__found">{` NOT DESIRED FURTHER MEASURE as of ${date(hivDeclined.dtm_start)}`}</div>
                   )}
+                  <ItemLine item={GENERAL_GFR} measures={measures} marks={marks} at={`general:${GENERAL_GFR.name}`} />
                 </Section>
                 {conditions.map((c) => (
                   <Section key={c.title} title={c.title}>
@@ -445,8 +587,15 @@ export function HealthMaintenanceReviewWindow({ onFlowSheet, onClose }: {
   )
 }
 
-/* Tear Off (INFERRED layout): the tab's text in its own window, left open
-   beside the review — offset so both title bars show. */
+/* Tear Off. CONFIRM-CURRENT: the tab's text in a separate "MOIS viewer"
+   window that moves by its title bar (304722, 303741 text). INFERRED: the
+   " - <tab>" in the title, the patient lines heading the text, the Close
+   button, and the offset that keeps both title bars in view. MOIS's own
+   "MOIS Viewer" is the PDF viewer (MoisViewerWindow.tsx); whether the
+   review's text opens there is not evidenced. The window closes with the
+   review here, though 303741 says a torn-off window "remains open while
+   you navigate" — that needs a frame-level slot the area-window switch
+   does not have (one window at a time). */
 function TearOffWindow({ tab, lines, identity, onClose }: { tab: string; lines: string[]; identity: string[]; onClose: () => void }) {
   return (
     <PBWindow child controls title={`MOIS Viewer - ${tab}`} onClose={onClose} tutorialId="host.mois.dialog.hmr-tear-off"
@@ -459,8 +608,9 @@ function TearOffWindow({ tab, lines, identity, onClose }: { tab: string; lines: 
   )
 }
 
-/* Clipboard (INFERRED layout): patient details always, clinic and provider
-   details on request, then OK copies the tab. */
+/* Clipboard. CONFIRM-CURRENT: patient details always, Clinic and Provider
+   details on request (304722's definition). INFERRED: the window itself —
+   title, band, tick-box wording, OK / Cancel. */
 function ClipboardWindow({ tab, onCopy, onClose }: { tab: string; onCopy: (clinic: boolean, provider: boolean) => void; onClose: () => void }) {
   const [clinic, setClinic] = useState(false)
   const [provider, setProvider] = useState(false)

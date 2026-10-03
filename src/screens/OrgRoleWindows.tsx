@@ -7,6 +7,7 @@ import { MOIS_TODAY } from '../data/patients'
 import { SESSION_USER } from '../data/session'
 import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useSessionState } from '../host/screen-windows'
 import { useStoredList } from './adminSession'
 import { ButtonBand, CentredFooter, Cmd, Line, PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
@@ -124,6 +125,19 @@ import { StageMessageBox } from './StageWindow'
    ========================================================================= */
 
 export const ORG_WINDOWS = ['new-org-role-profile', 'new-organization-profile', 'org-role', 'organization'] as const
+
+/* CONFIRM-CURRENT: the windows here no capture of the current build shows —
+   their layout is 2069798's (help site, v02.30.11) or INFERRED. The
+   Organization window and both New … Profile dialogs are matched to the
+   2026-09-29 TRAINING captures and are not flagged. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.org-role' }, source: 'help-site art. 2069798 imgs c8213c6fc680, 6b135a614ce4, 18112eeaddf0, v02.30.11', check: 'the Org Role header (Friendly Name?) and its tabs; only the Organization window is captured at v02.31' },
+  { target: { anchor: 'host.mois.dialog.provider-team-member' }, source: 'help-site art. 2069798 img dbc903ba594e, v02.30.11' },
+  { target: { anchor: 'host.mois.dialog.select-event' }, source: 'help-site art. 2069798 img f85b61dad74a, v02.30.11' },
+  { target: { anchor: 'host.mois.dialog.event-subscriber' }, source: 'help-site art. 2069798 img 154f388d709b, v02.30.11' },
+  { target: { anchor: 'host.mois.dialog.member-search' }, source: 'art. 2069798 (text only)', check: 'the whole window (INFERRED layout)' },
+  { target: { anchor: 'host.mois.dialog.change-org-name' }, source: 'art. 2069798 (text only)', check: 'the whole window (INFERRED layout)' },
+])
 
 type Kind = 'org-role' | 'organization'
 const nodeOf = (kind: Kind) => (kind === 'org-role' ? 'ad-org-role-list' : 'ad-org-list')

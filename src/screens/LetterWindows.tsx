@@ -14,6 +14,7 @@ import { usePatient } from '../data/patient-context'
 import { PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBMessageBox, PBRadio, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { useScreenReport } from '../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
 import { DialogFooter } from './formKit'
 import { PatientFieldRow, patientPhn } from './patientKit'
@@ -607,6 +608,16 @@ function CreateDistributionWindow({ close }: AreaWindowProps) {
     </WorkspaceDialogFrame>
   )
 }
+
+/* CONFIRM-CURRENT: all four windows are laid out from help-site images of
+   older builds (303589, 2961349, 2616562); none is in a capture of the
+   current build. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.select-consultation-order' }, source: 'help-site art. 303589 img 4ac477c4cebf, older build' },
+  { target: { anchor: 'host.mois.dialog.order-detail' }, source: 'help-site art. 303589 imgs b767f85a7927, 2301b4485330, older builds', check: 'Standard Mode footer, Appointment Booking' },
+  { target: { anchor: 'host.mois.dialog.send-information-request' }, source: 'help-site art. 2961349 imgs b6c1e819e42a, dbab69f943a6, older builds' },
+  { target: { anchor: 'host.mois.dialog.create-distribution' }, source: 'help-site art. 303589 imgs 87ae0c732a13, 4464d8dfddf7; 2961349 img 24dd02c9c347, older builds', check: 'Preview pane toolbar' },
+])
 
 registerAreaWindow('select-consultation-order', SelectConsultationOrderWindow)
 registerAreaWindow('order-detail', OrderDetailWindow)

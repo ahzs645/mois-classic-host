@@ -87,7 +87,8 @@ export type BasketFolder = {
   abnormalCells?: string[]
   /** folders whose command row differs from the shared nine buttons */
   commands?: string[]
-  /** the tabs under the grid */
+  /** the tabs under the grid — every folder ends on More as of 2.31.41
+      (303492 `4d6a5577…`; BasketFolderView's MoreTab) */
   tabs: string[]
   /** the Report tab's form — see `BasketReportLayout` */
   report: BasketReportLayout
@@ -156,7 +157,7 @@ export const basketFolders: BasketFolder[] = [
     id: 'ws-measures',
     label: 'Measures',
     header: 'Acknowledge - Measures',
-    tabs: ['Report', 'Detail', 'Panel (0)'],
+    tabs: ['Report', 'Detail', 'Panel (0)', 'More'],
     recordType: 'Measurement',
     extra: { header: 'Ordered By Provider', key: 'orderedBy' },
     report: {
@@ -201,14 +202,26 @@ export const basketFolders: BasketFolder[] = [
     label: 'Imaging',
     /* the tree says Imaging; the banner says Images */
     header: 'Acknowledge - Images',
-    tabs: ['Report', 'Detail'],
+    tabs: ['Report', 'Detail', 'More'],
     recordType: 'Image',
     extra: { header: 'Ordered By Provider', key: 'orderedBy' },
     report: {
-      left: [['Test Name:', 'test'], ['Region:', 'region'], ['Laterality:', 'laterality'], ['Flag:', 'flag'], ['Modality:', 'modality'], ['Status:', 'status']],
+      /* CONFIRM-CURRENT: Contrast is in 1802757's Report Tab field list
+         (text only — the page's images are not in the supplemented manual),
+         between Modality and Status, as listed */
+      left: [['Test Name:', 'test'], ['Region:', 'region'], ['Laterality:', 'laterality'], ['Flag:', 'flag'], ['Modality:', 'modality'], ['Contrast:', 'contrast'], ['Status:', 'status']],
       right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
       memo: 'Report',
       orderLink: true,
+      /* CONFIRM-CURRENT: the Detail tab's fields are 1802757's Detail Tab list
+         (text only). Which column each sits in is INFERRED — the record's own
+         fields left, where it came from right, the split Measures' capture
+         shows — and Key Word is the memo, as in Consults */
+      detail: {
+        left: [['Test Name:', 'test'], ['Region:', 'region'], ['Laterality:', 'laterality'], ['Flag:', 'flag'], ['Modality:', 'modality'], ['Contrast:', 'contrast'], ['Status:', 'status'], ['Exam Reason:', 'examReason']],
+        right: [['Facility:', 'facility'], ['Facility Location:', 'facilityLoc'], ['Facility Reference:', 'facilityRef'], ['Performed By:', 'performedBy'], ['Report By & Date:', 'reportBy'], ['Transcribed & Date:', 'transcribed'], ['Diagnostic Code:', 'diagCode'], ['Diagnostic Desc.:', 'diagDesc']],
+        memo: 'Key Word',
+      },
     },
     abnormalCells: ['test', 'flag'],
     columns: [
@@ -231,7 +244,7 @@ export const basketFolders: BasketFolder[] = [
     id: 'ws-consults',
     label: 'Consults',
     header: 'Acknowledge - Consults',
-    tabs: ['Report', 'Detail'],
+    tabs: ['Report', 'Detail', 'More'],
     recordType: 'Consult',
     extra: { header: 'Referred By', key: 'referredBy' },
     report: {
@@ -268,7 +281,7 @@ export const basketFolders: BasketFolder[] = [
     id: 'ws-procedures',
     label: 'Procedures',
     header: 'Acknowledge - Procedures',
-    tabs: ['Report', 'Detail'],
+    tabs: ['Report', 'Detail', 'More'],
     recordType: 'Procedure',
     extra: { header: 'Ordered By Provider', key: 'orderedBy' },
     report: {
@@ -276,6 +289,13 @@ export const basketFolders: BasketFolder[] = [
       right: [['Order Date:', 'orderDate'], ['Order #:', 'orderNo'], ['Ordered By:', 'orderedBy'], ['Copies To:', 'copiesTo']],
       memo: 'Report',
       orderLink: true,
+      /* CONFIRM-CURRENT: 1802759's Detail Tab list (text only), laid out the
+         way Facility Admissions' sibling Detail tab is (INFERRED split) */
+      detail: {
+        left: [['Description:', 'description'], ['Facility:', 'facility'], ['Facility Location:', 'facilityLoc'], ['Facility Reference:', 'facilityRef']],
+        right: [['Performed By:', 'by'], ['Report By & Date:', 'reportBy'], ['Transcribed & Date:', 'transcribed'], ['Diagnostic Code:', 'diagCode'], ['Diagnostic Desc.:', 'diagDesc']],
+        memo: 'Key Word',
+      },
     },
     columns: [
       ...head(153),
@@ -299,7 +319,7 @@ export const basketFolders: BasketFolder[] = [
     header: 'Acknowledge - Documents',
     /* the only folder with three content columns, and the only one with no
        Detail tab */
-    tabs: ['Report'],
+    tabs: ['Report', 'More'],
     recordType: 'Document',
     extra: { header: 'Recipient', key: 'recipient' },
     report: {
@@ -328,7 +348,7 @@ export const basketFolders: BasketFolder[] = [
     id: 'ws-admissions',
     label: 'Facility Admissions',
     header: 'Acknowledge - Facility Admissions',
-    tabs: ['Report', 'Detail'],
+    tabs: ['Report', 'Detail', 'More'],
     recordType: 'Facility Admission',
     extra: { header: 'Attending', key: 'attending' },
     report: {
@@ -366,7 +386,7 @@ export const basketFolders: BasketFolder[] = [
     /* the one folder the shared skeleton does not fit: no Status, no IR, no
        paperclip, Check is terminal and a pixel wider, and its Report tab has
        no record-source footer */
-    tabs: ['Report'],
+    tabs: ['Report', 'More'],
     recordType: 'Progress Note',
     extra: { header: 'Author', key: 'author' },
     report: {
@@ -394,7 +414,9 @@ export const basketFolders: BasketFolder[] = [
     header: 'Acknowledge - Orders',
     /* a later build than the rest: ten buttons, with Respond inserted before
        Close Window, and the only folder with a Src. column */
-    tabs: ['Report', 'Detail'],
+    /* CONFIRM-CURRENT: 1802763's text describes a Report tab only; the
+       Detail tab here is the shared fallback (BasketFolderView ReportForm) */
+    tabs: ['Report', 'Detail', 'More'],
     recordType: 'Order',
     extra: { header: 'Referred To', key: 'referredTo' },
     report: {
@@ -562,4 +584,63 @@ export const ACK_HISTORY_SEED: Record<string, { at: string; action: string; by: 
     { at: '2026.03.11 09:15', action: 'CREATED', by: 'SMITH, DALENE', to: 'SMITH, DALENE' },
     { at: '2026.03.12 10:02', action: 'REASSIGNED', by: 'SMITH, DALENE', to: 'ADMINISTRATOR', note: 'Automatically reassigned according to inbox forwarding rule.' },
   ],
+}
+
+/* ----------------------------------------------------------------------------
+   The More tab (MOIS 2.31.41, art. 303492 "Update the Workspace to Display
+   Additional Patient Information"; image `4d6a5577…`): the lower detail
+   section's fourth tab draws the instance's "Workspace Summary" chart
+   summary for the row's patient — by default its last five encounters
+   (`5e0c9979…`: "dtm_appoint <= current_date … order by dtm_appoint desc
+   limit 5") and its connections, under ENCOUNTER [n] / CONNECTIONS [n] bands.
+   "If a record is not associated with a patient chart (e.g. task, message)
+   then the More tab is blank."
+
+   The basket's patients are synthetic and carry no chart of their own, so
+   their summary rows are seeded here, by patient, in the capture's shape:
+   an encounter's Description is its provider and Detail its visit reason; a
+   connection's Description is its kind and Detail who it is to.
+   ------------------------------------------------------------------------- */
+export type BasketMoreRow = { date: string; description: string; detail: string }
+
+export const BASKET_MORE: Record<string, { encounters: BasketMoreRow[]; connections: BasketMoreRow[] }> = {
+  'BROWN, FARMER': {
+    encounters: [
+      { date: '2026.03.16', description: 'HALLIWELL, A.', detail: 'DIABETES FOLLOW UP' },
+      { date: '2025.12.10', description: 'HALLIWELL, A.', detail: 'Rx' },
+      { date: '2025.09.02', description: 'RESIDENT, R1', detail: 'DIABETES FOLLOW UP' },
+    ],
+    connections: [{ date: '2025.01.24', description: 'BUSINESS UNIT', detail: 'PRIMARY CARE BU' }],
+  },
+  'ADAM, GEORGE': {
+    encounters: [
+      { date: '2026.03.18', description: 'RESIDENT, R1', detail: 'SAME DAY - SORE THROAT' },
+      { date: '2025.10.01', description: 'HALLIWELL, A.', detail: 'Rx' },
+    ],
+    connections: [],
+  },
+  'HALE, MARGARET': {
+    encounters: [
+      { date: '2026.03.04', description: 'HALLIWELL, A.', detail: 'POST DISCHARGE' },
+      { date: '2026.01.20', description: 'HALLIWELL, A.', detail: 'PALPITATIONS' },
+      { date: '2025.11.20', description: 'HALLIWELL, A.', detail: 'Rx' },
+    ],
+    connections: [{ date: '2024.06.11', description: 'FAMILY PHYSICIAN', detail: 'HALLIWELL, A.' }],
+  },
+  'RAO, PRIYA': {
+    encounters: [{ date: '2026.03.16', description: 'RESIDENT, R1', detail: 'URGENT - CHEST PAIN' }],
+    connections: [],
+  },
+  'OKONKWO, SAM': {
+    encounters: [{ date: '2026.03.02', description: 'HALLIWELL, A.', detail: 'HERNIA' }],
+    connections: [{ date: '2025.01.24', description: 'BUSINESS UNIT', detail: 'PRIMARY CARE BU' }],
+  },
+  'FONTAINE, DALE': {
+    encounters: [{ date: '2026.03.14', description: 'RESIDENT, R1', detail: 'WOUND CHECK' }],
+    connections: [],
+  },
+  'CASTILLO, JUNE': {
+    encounters: [{ date: '2026.03.10', description: 'HALLIWELL, A.', detail: 'COUGH' }],
+    connections: [],
+  },
 }

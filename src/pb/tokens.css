@@ -13,7 +13,10 @@
   --pb-face:            #efefef;  /* dialog + form background (Win10 3DFACE) */
   --pb-window:          #ffffff;  /* client / content area                   */
   --pb-mdi:             #c8c8c8;  /* the MDI client behind the two panels    */
-  --pb-band:            #dad5d1;  /* group-box + section header band         */
+  /* the section header band: #dcd7d2 in every 2026-10-02 TRAINING capture
+     (New User, New Security Profile, User Account, Function Access bands,
+     sRGB from the monitor profile) */
+  --pb-band:            #dcd7d2;
   --pb-band-alt:        #e4e0dd;  /* nested / secondary band                 */
 
   /* --- MOIS identity colours ------------------------------------------- */

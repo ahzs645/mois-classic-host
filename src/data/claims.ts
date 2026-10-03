@@ -230,6 +230,9 @@ export const MSP_EXPLANATORY_CODES: Record<string, string> = {
 /** Session key: the sent claim a Prompt - Recon / Prompt - Chart pick loaded
     into the Sent To MSP window (host/screen-windows `useSessionState`). */
 export const SENT_CLAIM_KEY = 'billing:sent-claim'
+/** the chart Prompt Sent for Chart / Prompt Sent to MSP lists claims for:
+    the opening view's claim's chart (screens/ClaimPromptDialog.tsx) */
+export const CHART_PROMPT_KEY = 'billing:chart-prompt'
 
 /** The explanatory codes on a sent claim, in E1, E2, E3 order. */
 export const explanatoryCodes = (c: SentClaim | null | undefined): string[] =>

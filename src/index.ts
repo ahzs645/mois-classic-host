@@ -18,6 +18,7 @@ export { MeasurementGraphWindow, graphForCode } from './screens/MeasurementGraph
 /* a Dynamic Form's Select Flowsheet... / Open Flowsheet open the same flow sheet */
 export { FlowSheetWindow, FLOWSHEET_TYPES, type FlowSheetParams } from './screens/FlowSheetWindows'
 export { SESSION_USER } from './data/chartSession'
+export { confirmCurrentEntries, type ConfirmCurrent } from './host/confirmCurrent'
 /* MOIS - Search Window, the provider / organization directory a Provider field opens */
 export { DirectorySearchWindow } from './screens/DirectorySearchWindow'
 export { directoryEntries, type DirectoryEntry } from './data/providers'

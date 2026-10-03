@@ -5,6 +5,7 @@ import {
   sentClaims, unsentClaims, type ClaimForm, type SentClaim, type UnsentClaim,
 } from './claims'
 import { MSP_LOCATION_ROWS } from './mspLocations'
+import { SERVICE_CODE_WINDOW } from './adminLists'
 import { MOIS_TODAY, type Patient } from './patients'
 import { dayRows, stampOf, useSchedulerStore, type SchedulerState } from './schedulerStore'
 import { SYSTEM_SETTINGS_KEY } from './systemSettings'
@@ -81,8 +82,16 @@ export const CONTINUING_CARE_FEES = ['01205', '01206', '01207']
 
 /** Fee items the claim's Fee Item "…" offers besides the Master Service Code
     List: the time-dependent ones, and the codes the captures bill. INFERRED
-    descriptions and amounts (training values, not an MSP schedule). */
-export const CLAIM_FEE_ROWS: { code: string; desc: string; fee: string; time?: 'received' | 'start-finish' }[] = [
+    descriptions and amounts (training values, not an MSP schedule).
+
+    `diag` is the fee code's Default Health Condition from the Service Code
+    prompt list (Administration ▸ Prompt Lists ▸ Service Code): "when a fee
+    code is entered, the diagnostic code is automatically populated"
+    (303219). CONFIRM-CURRENT: 14540 → V2510 is the record of
+    `3eb6a249` (data/adminLists SERVICE_CODE_WINDOW) and the claim of
+    `45defc38` (v02.2x, an Unsent MSP claim billing 14540 with Diag Code 1
+    V2510 filled in). */
+export const CLAIM_FEE_ROWS: { code: string; desc: string; fee: string; time?: 'received' | 'start-finish'; diag?: string }[] = [
   { code: '00100', desc: 'VISIT IN OFFICE (AGE 2 - 59)', fee: '29.97' },
   { code: '00101', desc: 'HOME VISIT', fee: '52.80' },
   { code: '00109', desc: 'SUBSEQUENT HOSPITAL VISIT', fee: '31.26' },
@@ -98,6 +107,7 @@ export const CLAIM_FEE_ROWS: { code: string; desc: string; fee: string; time?: '
   { code: '14033', desc: 'ANNUAL COMPLEX CARE MANAGEMENT FEE', fee: '315.00' },
   { code: '14070', desc: 'GP ATTACHMENT PARTICIPATION', fee: '125.00' },
   { code: '14091', desc: 'OFFICE VISIT FOR MSP-INSURED NEWBORN', fee: '27.90' },
+  { code: SERVICE_CODE_WINDOW.code, desc: SERVICE_CODE_WINDOW.description, fee: SERVICE_CODE_WINDOW.amounts[0][1], diag: SERVICE_CODE_WINDOW.defaultHealthCondition },
   { code: '15130', desc: 'URINALYSIS - SCREENING', fee: '4.97' },
   { code: '16100', desc: 'OFFICE VISIT (AGE 60 - 69)', fee: '35.55' },
   { code: '98000', desc: 'PANEL REPORT - LFP', fee: '0.00' },

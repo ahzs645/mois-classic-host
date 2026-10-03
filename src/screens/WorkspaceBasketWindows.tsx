@@ -12,9 +12,10 @@ import { useWorkspaceExtras, workspaceExtras } from '../data/workspaceExtras'
 import type { AdvancedSearchField } from '../data/workspaceSearch'
 import { argStr } from '../data/text'
 import { basketKey, useWorkspaceStore } from '../data/workspaceStore'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBInput, PBPatientBannerYellow,
+  PBBand, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroup, PBInput, PBPatientBannerYellow,
   PBRadio, PBSelect, PBTextArea, pbSlug, type PBMenuItem,
 } from '../pb'
 import { MeasurementGraphWindow } from './MeasurementGraphWindow'
@@ -44,14 +45,18 @@ import { WorkflowSummary, type WorkflowLine } from './RecordOptionWindows'
                                 cursor in Report, twice opens it.
    · basket-print               Print — 1802749 `59b0cc32…` / `3be2852e…`:
                                 a record with an attachment asks which to
-                                print (INFERRED wording: "MOIS will prompt you
-                                to print either the MOIS Report, the
-                                attachment, or the electronic interface
-                                report"); the MOIS report opens the Richtext
-                                Report (Print, Print and Attach, Fax,
-                                Cancel). An Order without an Order Type first
-                                asks for one: Print Order ▸ Please Select an
-                                Order Type (1802763 `d86d53f9…`).
+                                print ("MOIS will prompt you to print either
+                                the MOIS Report, the attachment, or the
+                                electronic interface report"); the options'
+                                wording is 303741's ("Print Electronic
+                                Interface Report", "Print Electronic
+                                Interface Attachments", "Print MOIS Report",
+                                each shown only when the record has it); the
+                                MOIS report opens the Richtext Report (Print,
+                                Print and Attach, Fax, Cancel) on a page laid
+                                out as `3be2852e…`. An Order without an Order
+                                Type first asks for one: Print Order ▸ Please
+                                Select an Order Type (1802763 `d86d53f9…`).
    · basket-order-link          Order Linking Service — 1802749 `a31c8698…`
                                 (the Report tab's Order # "…") and
                                 `6a620b43…`: Chart / Patient / DoB / Sex /
@@ -95,7 +100,27 @@ import { WorkflowSummary, type WorkflowLine } from './RecordOptionWindows'
                                 Alt+Z opens a note; "the Modified By details
                                 … at the bottom of the opened Note window").
                                 INFERRED window layout.
+
+   None of these windows has a capture of the current build: each is
+   registered below for confirmation against it.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: the Basket's windows, laid out from help-site captures of
+   v02.21–v02.28 (and art. text where no image exists). */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.menu.basket' }, source: 'help-site art. 1802749 `2805acd3…`, v02.21' },
+  { target: { anchor: 'host.mois.dialog.zoom-text' }, source: 'help-site art. 1802749 `137d7d56…`, v02.21' },
+  { target: { anchor: 'host.mois.dialog.print-order' }, source: 'help-site art. 1802763 `d86d53f9…`, v02.28' },
+  { target: { anchor: 'host.mois.dialog.print-choice' }, source: 'help-site art. 1802749 + 303741 (text only)', check: 'whole window: no image of the prompt exists' },
+  { target: { anchor: 'host.mois.dialog.basket-order-link' }, source: 'help-site art. 1802749 `a31c8698…` / `6a620b43…`, v02.21' },
+  { target: { anchor: 'host.mois.dialog.basket-measure-history' }, source: 'help-site art. 1802749 `5bb2702c…`, v2.22' },
+  { target: { anchor: 'host.mois.dialog.basket-workflow-summary' }, source: 'help-site art. 1802768 `13dd06a5…` and 10 more, v02.21' },
+  { target: { anchor: 'host.mois.dialog.advanced-search' }, source: 'help-site art. 1802744 `79f934dc…`' },
+  { target: { anchor: 'host.mois.dialog.clean-list' }, source: 'help-site art. 303599 (text only)', check: 'the message is INFERRED' },
+  { target: { anchor: 'host.mois.dialog.report-ack-forwarding' }, source: 'help-site art. 303599 (text only)', check: 'layout INFERRED' },
+  { target: { anchor: 'host.mois.dialog.report-ack-intended-recipient' }, source: 'help-site art. 303599 (text only)', check: 'layout INFERRED' },
+  { target: { anchor: 'host.mois.dialog.follow-up-note' }, source: 'help-site art. 1802744 `d5b7a079…` (text)', check: 'layout INFERRED' },
+])
 
 /** Every basket record's patient, as the basket prints them (`LAST, FIRST`). */
 function patientOf(name: string, roster: Patient[], chart?: string): Patient {
@@ -134,15 +159,21 @@ function ZoomText({ args, close }: AreaWindowProps) {
   useScreenReport({ lineBreaks: /\n/.test(text) })
   return (
     <WorkspaceDialogFrame id="zoom-text" title="Text Capture Window" width={1000} height={760} onClose={close} controls={false} zIndex={88}>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 10px 0', border: '1px solid #c8c8c8', padding: '0 8px 8px' }}>
-        <div className="pb-row" style={{ gap: 30, padding: '4px 0', fontWeight: 700, flex: 'none' }}><span>Zoom Text</span><span>READ ONLY</span></div>
+      {/* CONFIRM-CURRENT: `137d7d56…` captions the box in its frame line —
+          a group box titled "Zoom Text      READ ONLY", bold */}
+      <PBGroup
+        fill
+        title={<b className="pb-row" style={{ gap: 30, display: 'inline-flex' }}><span>Zoom Text</span><span>READ ONLY</span></b>}
+        style={{ flex: '1 1 auto', minHeight: 0, margin: '6px 10px 0', display: 'flex', flexDirection: 'column' }}
+        bodyStyle={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '4px 8px 8px' }}
+      >
         <textarea
           readOnly
           value={text}
           data-tutorial-id="host.mois.field.zoom-text"
           style={{ flex: '1 1 auto', resize: 'none', fontSize: 17, lineHeight: 1.35, padding: 10, fontFamily: 'Segoe UI, Tahoma, sans-serif', border: '1px solid #b8b8b8' }}
         />
-      </div>
+      </PBGroup>
       <DialogFooter justify={false} gap={0} padding="10px">
         <DialogButton id="zoom-remove-line-breaks" width={150} onClick={() => setText((t) => t.replace(/\s*\n\s*/g, ' '))}>Remove Line Breaks...</DialogButton>
         <span className="pb-row__spacer" />
@@ -172,17 +203,29 @@ const REPORT_TITLES: Record<string, [string, string]> = {
   'ws-orders': ['Patient Order', 'ORDER'],
 }
 
+/** pad a page line to a column, counting what prints, not the `**` marks */
+const padTo = (s: string, col: number) => s + ' '.repeat(Math.max(1, col - s.replace(/\*\*/g, '').length))
+
+/* CONFIRM-CURRENT: the page head is `3be2852e…` (Richtext Report: Patient
+   Procedure Record, v02.21): the clinic and "Page 1" on one line, the
+   "… RECORD AS OF yyyy-mm-dd" title under it, a rule, then PATIENT / DOB /
+   SEX and INS NO. / BCHN / CHART with the values bold. Which fields a
+   folder's page lists, and one to a line, is INFERRED — the capture shows
+   only Procedures' (PERFORMED BY … ORDERED BY / CODE:). */
 function reportPage(folderId: string, r: BasketRow, p: Patient, orderType: string): string {
   const folder = basketFolderById(folderId)
   const [, heading] = REPORT_TITLES[folderId] ?? ['', 'RECORD']
   const fields = [...(folder?.report.left ?? []), ...(folder?.report.right ?? [])]
     .map(([label, key]) => [label.replace(/:$/, '').toUpperCase(), key === 'valueUnits' ? [r.value, r.units].filter(Boolean).join(' ') : key === 'orderType' ? orderType : String(r[key] ?? '')] as const)
     .filter(([, v]) => v)
+  const dob = p.dob ? toDashes(p.dob) : ''
   return [
-    `%G%HALLIWELL MEDICAL CLINIC                                   ${heading} AS OF ${toDashes(MOIS_TODAY)}`,
+    /* columns read off `3be2852e…` against its 93-character rule */
+    `%G%${padTo('HALLIWELL MEDICAL CLINIC', 84)}Page **1**`,
+    `%G%${' '.repeat(30)}${heading} AS OF ${toDashes(MOIS_TODAY)}`,
     '%RULE%',
-    `**PATIENT : ${r.patient}**                         DOB: **${p.dob}**  SEX: **${p.gender}**`,
-    `INS NO. : ${p.insuranceBy ?? 'BC'}  ${p.insurance ?? ''}          CHART: **${p.chart}**`,
+    `${padTo(`PATIENT : **${r.patient}**`, 63)}DOB: **${dob}** SEX: **${p.gender}**`,
+    `${padTo(`INS NO. : **${p.insuranceBy ?? 'BC'}  ${p.insurance ?? ''}**`, 37)}${padTo(`BCHN : **${p.bchn ?? ''}**`, 21)}CHART: **${p.chart}**`,
     '',
     `**${heading.replace(' RECORD', '')} REPORT:**`,
     '%RULE%',
@@ -200,9 +243,12 @@ function BasketPrint({ args, close }: AreaWindowProps) {
   const key = row ? basketKey(folderId, String(row.patient)) : ''
   const needsType = folderId === 'ws-orders' && !!row && !row.orderType && !extras.orderTypes[key]
   const hasAttachment = Number(args.attachments ?? 0) > 0
-  const [stage, setStage] = useState<'type' | 'choose' | 'report' | 'attachment'>(needsType ? 'type' : hasAttachment ? 'choose' : 'report')
+  /* a record that came in over an interface carries its facility reference
+     (INFERRED test for "this record has an electronic interface report") */
+  const fromInterface = !!row?.facilityRef
+  const [stage, setStage] = useState<'type' | 'choose' | 'report' | 'attachment' | 'interface'>(needsType ? 'type' : hasAttachment ? 'choose' : 'report')
   const [type, setType] = useState(ORDER_TYPES[0]!)
-  useScreenReport({ window: stage === 'type' ? 'print-order' : stage === 'choose' ? 'print-choice' : stage === 'attachment' ? 'attachment-viewer' : 'richtext-report' })
+  useScreenReport({ window: stage === 'type' ? 'print-order' : stage === 'choose' ? 'print-choice' : stage === 'attachment' ? 'attachment-viewer' : stage === 'interface' ? 'interface-report' : 'richtext-report' })
   if (!row) return null
   const p = patientOf(String(row.patient), roster, argStr(args.chart))
   if (stage === 'type') {
@@ -222,17 +268,30 @@ function BasketPrint({ args, close }: AreaWindowProps) {
     )
   }
   if (stage === 'choose') {
+    /* CONFIRM-CURRENT: art. 303741 (text only) — "a Print dialog where you
+       click one option that's shown, depending on what items are available
+       for that record": Print Electronic Interface Report, Print Electronic
+       Interface Attachments, Print MOIS Report. The stacked buttons, their
+       order and the window's size are INFERRED; no image of it exists. */
     return (
-      <WorkspaceDialogFrame id="print-choice" title="Print" width={420} height={190} onClose={close} controls={false} zIndex={88}>
-        <div style={{ padding: '20px 20px 0', flex: '1 1 auto', background: '#fff' }}>
-          This record has an attachment. What would you like to print?
+      <WorkspaceDialogFrame id="print-choice" title="Print" width={340} onClose={close} controls={false} zIndex={88}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 20px 6px' }}>
+          {fromInterface && <DialogButton id="print-interface-report" width={280} onClick={() => setStage('interface')}>Print Electronic Interface Report</DialogButton>}
+          {hasAttachment && <DialogButton id="print-attachment" width={280} onClick={() => setStage('attachment')}>Print Electronic Interface Attachments</DialogButton>}
+          <DialogButton id="print-mois-report" width={280} onClick={() => setStage('report')} isDefault>Print MOIS Report</DialogButton>
         </div>
-        <DialogFooter justify="flex-end" gap={8} padding="12px" background="#fff">
-          <DialogButton id="print-mois-report" width={110} onClick={() => setStage('report')} isDefault>MOIS Report</DialogButton>
-          <DialogButton id="print-attachment" width={110} onClick={() => setStage('attachment')}>Attachment</DialogButton>
+        <DialogFooter gap={8} padding="8px 0 12px">
           <DialogButton id="print-choice-cancel" width={80} onClick={close}>Cancel</DialogButton>
         </DialogFooter>
       </WorkspaceDialogFrame>
+    )
+  }
+  if (stage === 'interface') {
+    /* INFERRED: the interface's own report would print here */
+    return (
+      <RaisedMessageBox title="MOIS" icon="info" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'msgbox-ok' }]} onClose={close}>
+        <span data-tutorial-id="host.mois.dialog.interface-report-sent">The electronic interface report was sent to the printer.</span>
+      </RaisedMessageBox>
     )
   }
   if (stage === 'attachment') {
@@ -308,10 +367,11 @@ function BasketOrderLink({ args, close }: AreaWindowProps) {
           empty="This patient has no outstanding orders."
         />
       </div>
-      <div style={{ margin: '4px 30px 0', border: '1px solid #c8c8c8', padding: '2px 8px 8px', flex: 'none' }}>
-        <span>Comment</span>
+      {/* CONFIRM-CURRENT: `6a620b43…` frames Comment as a group box with its
+          caption in the frame line */}
+      <PBGroup title="Comment" style={{ margin: '4px 30px 0', flex: 'none' }} bodyStyle={{ padding: '2px 8px 8px' }}>
         <PBTextArea readOnly rows={9} w="100%" value={rows[cur]?.comment ?? ''} />
-      </div>
+      </PBGroup>
       <DialogFooter gap={12} padding="12px">
         <DialogButton id="order-link" width={90} disabled={!rows.length} onClick={link} isDefault>Link</DialogButton>
         <DialogButton id="order-link-cancel" width={90} onClick={close}>Cancel</DialogButton>
@@ -600,10 +660,12 @@ function CleanList({ close }: AreaWindowProps) {
     <RaisedMessageBox
       title="Clean List"
       icon="question"
+      tutorialId="host.mois.dialog.clean-list"
       buttons={[{ label: 'Yes', value: 'yes', default: true, command: 'msgbox-yes' }, { label: 'No', value: 'no', command: 'msgbox-no' }]}
       onClose={(v) => { if (v === 'yes') workspaceExtras.clean(); close() }}
     >
-      <span data-tutorial-id="host.mois.dialog.clean-list">
+      {/* INFERRED wording: 303599 names Action ▸ Clean List, no capture */}
+      <span>
         Remove orphaned acknowledgement records from your Basket and Workspace Summary? The summary will be recounted from the Basket folders.
       </span>
     </RaisedMessageBox>

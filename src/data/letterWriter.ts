@@ -160,6 +160,22 @@ export const TEMPLATE_DESIGN_COMMANDS: LetterCommand[] = [
    names are INFERRED. `Action` is never described anywhere: it carries the
    command row's six commands (INFERRED).
 
+   CONFIRM-CURRENT: the seven captions and their order (File Edit View Insert
+   Format Table Action) are in every help-site capture of the window
+   (304687/cc487e1801e4, 303101/d273caae2fcd, 303099/4bb2668b1b7f), template
+   mode included. The items of Edit … Table, their order and their wording
+   are 304687's prose (its menu images are missing from the manual), checked
+   2026-10-03 item for item: Edit 11, View 4, Insert 8, Format 10, Table 8 —
+   all present, none added, none out of order. Settled from that prose:
+     - Table ▸ Delete reads "a table, a column or a row", so Table / Column /
+       Row, singular, in that order;
+     - Table ▸ Insert reads "rows above and below, columns above and below";
+       the column pair keeps Left / Right, since a column cannot sit above
+       another — the prose's wording is the one thing not followed here;
+     - the ellipses on dialog items, the separators, and View ▸ Zoom's steps
+       between the prose's 10% and 400% remain INFERRED.
+   (Registered for the ?confirm=1 overlay in screens/LetterWriterWindow.tsx.)
+
    A `window` names what the item opens (screens/LetterEditorDialogs.tsx);
    `act` names what it does to the page (screens/LetterWriterWindow.tsx). */
 export type LetterMenuItem = {
@@ -275,8 +291,8 @@ export const LETTER_MENUS: LetterMenu[] = [
         label: 'Delete',
         menu: [
           { label: 'Table', act: 'delete-table' },
-          { label: 'Columns', act: 'delete-column' },
-          { label: 'Rows', act: 'delete-row' },
+          { label: 'Column', act: 'delete-column' },
+          { label: 'Row', act: 'delete-row' },
         ],
       },
       SEP,

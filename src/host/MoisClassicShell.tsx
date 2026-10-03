@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { MoisDesktopProvider } from '../screens/dialogKit'
+import { attachConfirmBadges, confirmCurrentCss, confirmCurrentShown } from './confirmCurrent'
 import { basketFolders } from '../data/basket'
 import { resetSessionStores } from '../data/sessionStore'
 import { billingAdminViews } from '../data/billingAdmin'
@@ -802,6 +803,15 @@ function Frame({
   /* the desktop element for MoisDesktopProvider: dialogs portal onto it on
      their first render (screens/dialogKit) */
   const [desktopEl, setDesktopEl] = useState<HTMLDivElement | null>(null)
+  const [showConfirm] = useState(confirmCurrentShown)
+  /* ?confirm=1: caption every flagged window as it opens */
+  useEffect(() => {
+    if (!showConfirm || !desktopEl) return
+    attachConfirmBadges(desktopEl)
+    const observer = new MutationObserver(() => attachConfirmBadges(desktopEl))
+    observer.observe(desktopEl, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [showConfirm, desktopEl])
   const attachDesktop = useCallback((el: HTMLDivElement | null) => { desktopRef.current = el; setDesktopEl(el) }, [])
   const frame = useFrameGeometry(desktopRef, windowSize)
 
@@ -1740,7 +1750,8 @@ function Frame({
             {/* keyed on the chart and folder only: the export arriving must not
                 remount the work area, or a window open in it — an Administration
                 designer, a half-made record — vanishes when a lazy chunk lands */}
-            <div key={`${chart}:${selected}`} className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea">
+            <div key={`${chart}:${selected}`} className="pb-panel" style={{ flex: '1 1 auto', position: 'relative' }} data-tutorial-id="host.mois.workarea"
+              data-node={showConfirm ? selected : undefined}>
               {view === 'summary' && (
                 <PatientSummaryView
                   key={chart}
@@ -2013,6 +2024,8 @@ function Frame({
         />
         {/* the 200% stretch, laid over everything the desktop holds */}
         <PBScaleOverlay />
+        {/* ?confirm=1: badge the windows laid out from older-build evidence */}
+        {showConfirm && <style>{confirmCurrentCss()}</style>}
       </div>
     </div>
     </MoisDesktopProvider>

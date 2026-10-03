@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { PBCommandRow, PBMessageBox, PBViewHeader } from '../../pb'
+import { PBCommandRow, PBMessageBox, PBTextArea, PBViewHeader } from '../../pb'
 import { useBillingCommands } from '../../data/billingCommands'
 import { plusDays, sequenceOf, unsentFromSent, useSentClaims, useUnsentClaims } from '../../data/billingStore'
-import { claimFromRow, SENT_CLAIM_KEY, sentClaimPatient, sentClaims, UNSENT_CLAIM_KEY, type ClaimForm, type SentClaim } from '../../data/claims'
+import { CHART_PROMPT_KEY, claimFromRow, SENT_CLAIM_KEY, sentClaimPatient, sentClaims, UNSENT_CLAIM_KEY, type ClaimForm, type SentClaim } from '../../data/claims'
 import { billingNavigate } from '../../data/menus/billing'
 import { usePatientRoster } from '../../data/patient-context'
 import { MOIS_TODAY } from '../../data/patients'
 import { useScreenReport } from '../../host/screen-state'
 import { useSessionState } from '../../host/screen-windows'
 import { useOpenWindow } from '../areaWindowRegistry'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 import { Prompt } from '../ExchangeKit'
 import { At, Band, Body, Dots, Field, G, Hair, LL, Line, Radios, RL, SALMON } from './claimLayout'
 
@@ -60,6 +61,16 @@ import { At, Band, Body, Dots, Field, G, Hair, LL, Line, Radios, RL, SALMON } fr
    debit-claim while those questions are up.
    ========================================================================= */
 
+/* CONFIRM-CURRENT: no capture of the current build's Billing exists; the
+   layout is the help site's cloud captures (v02.31.23–41), its styling the
+   kit's. */
+registerConfirmCurrent([
+  { target: { node: 'bl-sent' }, source: 'help-site 3786544 `86eedb19` v02.31.41, 303602 `8b55e226` v02.31.23, `e0d70551`' },
+  { target: { anchor: 'host.mois.dialog.confirmation-resubmit-claim' }, source: 'help-site 3786544 `e0d70551` (cloud build)' },
+  { target: { anchor: 'host.mois.dialog.confirmation-debit-claim' }, source: 'INFERRED: worded as Resubmit\'s; not captured' },
+  { target: { anchor: 'host.mois.dialog.claim-duplicated' }, source: 'INFERRED: 303602 text only ("marked \'Hold\'")' },
+])
+
 const fallback = sentClaims[0]!
 
 type Ask = 'resubmit' | 'debit' | 'duplicated' | null
@@ -68,6 +79,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
   const [ask, setAsk] = useState<Ask>(null)
   const [picked] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)
   const [, setUnsentClaim] = useSessionState<ClaimForm | null>(UNSENT_CLAIM_KEY, null)
+  const [, setChartAsked] = useSessionState<string | null>(CHART_PROMPT_KEY, null)
   const roster = usePatientRoster()
   const sent = useSentClaims()
   const unsent = useUnsentClaims(roster)
@@ -77,6 +89,8 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
   const edit = sent.edit(c.id)
   const who = sentClaimPatient(c)
   const paid = c.paid === '-' ? '' : c.paid
+  /** Prompt - Chart / Alt+F1: the claims sent for this claim's chart */
+  const promptChart = () => { setChartAsked(who?.chart ?? ''); onPrompt?.('chart') }
 
   const toggle = (patch: (row: SentClaim) => Parameters<typeof sent.patch>[1]) => sent.patch([c.id], patch(c))
   /** a sent claim copied back into Unsent Claims, loaded there */
@@ -104,7 +118,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
 
   useBillingCommands((cmd) => {
     if (cmd === 'prompt-recon') onPrompt?.('recon')
-    else if (cmd === 'prompt-chart') onPrompt?.('chart')
+    else if (cmd === 'prompt-chart') promptChart()
     else if (cmd === 'resubmit-claim') commands.resubmit()
     else if (cmd === 'debit-claim') commands.debit()
     else if (cmd === 'duplicate-sent') commands.duplicate()
@@ -136,7 +150,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
         { label: 'Debit Claim', onClick: commands.debit },
         { label: 'Duplicate Claim', onClick: commands.duplicate },
         { label: 'Prompt - Recon', onClick: () => onPrompt?.('recon') },
-        { label: 'Prompt - Chart', onClick: () => onPrompt?.('chart') },
+        { label: 'Prompt - Chart', onClick: () => promptChart() },
         { label: 'Close Window' },
       ]} />
       {/* keyed on the claim: the read-only boxes take their values afresh
@@ -158,7 +172,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             <RL end={838}>Last Name:</RL>
             {/* "You can press F4 in the patient Last Name field to find other
                 claims for the same patient" (303602) */}
-            <At x={840}><Dots w={112} value={c.last} readOnly style={G} id="sent-last" onDots={() => onPrompt?.('chart')} /></At>
+            <At x={840}><Dots w={112} value={c.last} readOnly style={G} id="sent-last" onDots={() => promptChart()} /></At>
           </Line>
         </Band>
 
@@ -191,18 +205,20 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             </At>
             <RL end={578}>Write Off:</RL>
             <At x={580}>{ro(18, c.wo, 'sent-write-off', 'center')}{ro(76, edit.woDate ?? '', 'sent-write-off-date')}</At>
-            <RL end={712}>Sent:</RL>
-            <At x={714}>{ro(68, c.sent)}</At>
-            <RL end={838}>Paid:</RL>
-            <At x={840}>{ro(68, paid ? plusDays(c.sent, 14) : '')}</At>
+            {/* CONFIRM-CURRENT: Sent and Paid sit in the third column, Paid
+                after Sent's box (`86eedb19`, `8b55e226`, `e0d70551`) */}
+            <RL end={838}>Sent:</RL>
+            <At x={840}>{ro(68, c.sent, 'sent-sent-date')}</At>
+            <RL end={946}>Paid:</RL>
+            <At x={948}>{ro(68, paid ? plusDays(c.sent, 14) : '', 'sent-paid-date')}</At>
           </Line>
           <Line>
             <LL>Billed:</LL>
             <At x={346}>{ro(84, c.billed, 'sent-billed', 'right')}</At>
             <RL end={578}>Net Paid:</RL>
             <At x={580}>{ro(76, paid || '0.00', 'sent-net-paid', 'right')}</At>
-            <RL end={778}>Expl Code(s):</RL>
-            <At x={780}>
+            <RL end={838}>Expl Code(s):</RL>
+            <At x={840}>
               {/* Action ▸ Detail Expl Code (Ctrl+E) explains these in Sent Claim
                   Detail (screens/SentClaimDetailWindow.tsx) */}
               <span className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.field.expl-codes">
@@ -228,9 +244,9 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             <At x={346}>{ro(84, '1.0000', undefined, 'right')}</At>
             <RL end={578}>Diag Code(s) 1:</RL>
             <At x={580}>{ro(76, c.diag, 'sent-diag-1')}</At>
-            <RL end={712}>Time(s)</RL>
+            <At x={722} top={3}><span className="pb-form__label">Time(s)</span></At>
             <RL end={838}>Received:</RL>
-            <At x={846} top={3}><span>:</span></At>
+            <At x={856} top={3}><span>:</span></At>
           </Line>
           <Line>
             <LL>Fee Item:</LL>
@@ -238,7 +254,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             <RL end={578}>2:</RL>
             <At x={580}>{ro(76, '')}</At>
             <RL end={838}>Start:</RL>
-            <At x={846} top={3}><span>:</span></At>
+            <At x={856} top={3}><span>:</span></At>
           </Line>
           <Line>
             <LL>Unit Amount:</LL>
@@ -246,7 +262,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             <RL end={578}>3:</RL>
             <At x={580}>{ro(76, '')}</At>
             <RL end={838}>Finish:</RL>
-            <At x={846} top={3}><span>:</span></At>
+            <At x={856} top={3}><span>:</span></At>
           </Line>
           <Hair />
           <Line>
@@ -294,11 +310,35 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             <RL end={578}>Claim Note:</RL>
             <At x={580}>{ro(220, edit.note ?? '')}</At>
           </Line>
-          <Line>
+          {/* CONFIRM-CURRENT: Office / MSP Note is a two-line box, and the
+              Address 1–4 / Postal Code block under the rule (`86eedb19`,
+              `8b55e226`, `e0d70551`, v02.31.23–41); no DoB / Sex row here,
+              unlike Unsent MSP */}
+          <Line h={38}>
             <LL>Ext. Sub Cd:</LL>
             <At x={346}>{ro(96, '')}</At>
             <RL end={578}>Office / MSP Note:</RL>
-            <At x={580}>{ro(400, '')}</At>
+            <At x={579}>
+              <PBTextArea rows={2} w={410} readOnly value="" style={{ ...G, height: 35, resize: 'none' }} data-tutorial-id="host.mois.field.sent-msp-note" />
+            </At>
+          </Line>
+          <Hair />
+          <Line>
+            <LL>Address</LL>
+            <RL end={343}>1:</RL>
+            <At x={346}>{ro(196, '', 'sent-address-1')}</At>
+            <RL end={578}>3:</RL>
+            <At x={580}>{ro(196, '')}</At>
+          </Line>
+          <Line>
+            <RL end={343}>2:</RL>
+            <At x={346}>{ro(196, '')}</At>
+            <RL end={578}>4:</RL>
+            <At x={580}>{ro(196, '')}</At>
+          </Line>
+          <Line>
+            <LL>Postal Code:</LL>
+            <At x={346}>{ro(64, '')}</At>
           </Line>
         </Band>
 
@@ -309,6 +349,18 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
             <RL end={578}>Date of Injury:</RL>
             <At x={580}>{ro(76, '')}</At>
             <RL end={838}>WCB Form:</RL>
+          </Line>
+          {/* CONFIRM-CURRENT: Area of Inj., Anatomic Position and Nature of
+              Inj. (`86eedb19`, `8b55e226`, `e0d70551`) */}
+          <Line>
+            <LL>Area of Inj.:</LL>
+            <At x={346}>{ro(96, '')}</At>
+            <RL end={578}>Anatomic Position:</RL>
+            <At x={580}>{ro(30, '')}</At>
+          </Line>
+          <Line>
+            <LL>Nature of Inj.:</LL>
+            <At x={346}>{ro(96, '')}</At>
           </Line>
         </Band>
 
@@ -345,6 +397,7 @@ export function SentMspView({ onPrompt }: { onPrompt?: (prompt: 'recon' | 'chart
       {ask === 'duplicated' && (
         <PBMessageBox
           title="Duplicate Claim"
+          tutorialId="host.mois.dialog.claim-duplicated"
           buttons={[{ label: 'OK', value: 'ok', default: true, command: 'duplicate-ok' }]}
           onClose={() => setAsk(null)}
         >

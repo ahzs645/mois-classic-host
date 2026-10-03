@@ -3,9 +3,11 @@ import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTabs, PBTextArea, pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
-  BASKET_CHARTS, BASKET_COMMAND_WIDTH, BASKET_PANELS, CHART_FOLDER_FOR_BASKET, basketCommands, basketFolderById,
-  rowOwners, rowsForView, type BasketFolder, type BasketRow,
+  BASKET_CHARTS, BASKET_COMMAND_WIDTH, BASKET_MORE, BASKET_PANELS, CHART_FOLDER_FOR_BASKET, basketCommands, basketFolderById,
+  basketFolders, rowOwners, rowsForView, type BasketFolder, type BasketMoreRow, type BasketRow,
 } from '../data/basket'
+import { SUMMARY_DEFAULT_ACCENT, SUMMARY_SELECTED_ROW } from '../data/summary'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useChartRecords } from '../data/chart-records'
 import { date as chartDate } from '../data/charts/relations'
 import { usePatient } from '../data/patient-context'
@@ -77,7 +79,43 @@ import { WorkspaceBanner } from './WorkspaceBanner'
        Notes are only entered into the Workspace if a note is created and
        then the author is explicitly changed to another user" (1802762;
        the resident → preceptor routing of art. 304078).
+
+   Added for MOIS 2.31.41 (art. 303492, image `4d6a5577…` — a Measures
+   folder, the newest capture of this screen there is):
+     · the filter strip's drop-down reads "Records:", and a second strip
+       under it carries "Results for: ALL RESULTS", "Showing n of m total
+       results" and a "Show all results" box;
+     · a fourth tab, More, draws the Workspace Summary chart summary for the
+       row's patient (MoreTab below);
+     · Panel (0) is greyed when the result has no panel.
+
+   No capture of the current build exists for any Basket folder: every one
+   is registered for confirmation below, by its navigator node.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: each Basket folder's layout — the grid's columns, the
+   command row, the Report / Detail fields — comes from the help site's
+   per-folder pages (older builds; their images are not in the supplemented
+   manual, so what the folder files transcribe is the earlier pass) and
+   1802749's shared-chrome images, v02.21–v02.28; More, Records: and the
+   Results-for strip from 303492 `4d6a5577…`, v2.31.41. */
+const FOLDER_EVIDENCE: Record<string, string> = {
+  'ws-measures': 'art. 1802756 + 1802749 `48b5b4a7…` (v02.21–2.24); 303492 `4d6a5577…` (v2.31.41)',
+  'ws-imaging': 'art. 1802757 (text; images missing) + 1802749 (v02.21)',
+  'ws-consults': 'art. 1802758 (text; images missing) + 303764 `22acb4da…` (v02.21)',
+  'ws-procedures': 'art. 1802759 (text; images missing) + 1802749 `2805acd3…` / `59b0cc32…` (v02.21)',
+  'ws-documents': 'art. 1802760 (text; images missing), v02.21',
+  'ws-admissions': 'art. 1802761 (text; images missing), v02.21',
+  'ws-progress': 'art. 1802762 (text; images missing), v02.21',
+  'ws-orders': 'art. 1802763 `d86d53f9…` + text, v02.28',
+}
+registerConfirmCurrent(basketFolders.map((f) => ({
+  target: { node: f.id },
+  source: `help-site ${FOLDER_EVIDENCE[f.id] ?? 'art. 1802749'}`,
+  check: f.id === 'ws-measures'
+    ? 'columns and widths, Records: / Results for strip, More tab'
+    : 'columns, Report / Detail fields, Records: / Results for strip, More tab',
+})))
 
 /** Showing Records has exactly two entries in the capture. */
 const SHOWING = ['Not Checked', 'Checked']
@@ -264,6 +302,83 @@ function PanelTab({ r, onGraph }: { r: BasketRow | undefined; onGraph: (test: st
   )
 }
 
+/* ---------------------------------------------------------------------------
+   More (2.31.41): the "Workspace Summary" chart summary for the row's patient.
+   CONFIRM-CURRENT: 303492 `4d6a5577…` — "Expand All  Collapse All" links
+   over a Date | Description | Detail | Hyperlink grid with ENCOUNTER [5] and
+   CONNECTIONS [1] bands, the jump glyph in Hyperlink. The grid is the
+   Patient Summary's (same chart-summary engine), so its look is that
+   current-build screen's; the column widths are INFERRED to fit the tab.
+   The glyph opening the chart's Encounters / Demographics is INFERRED, after
+   Patient Summary's own Hyperlink column.
+   ------------------------------------------------------------------------ */
+type MoreRow = BasketMoreRow & { section: string; link: string }
+const MORE_BANDS = ['ENCOUNTER', 'CONNECTIONS']
+
+function MoreTab({ r, onOpen }: { r: BasketRow | undefined; onOpen: (node: string) => void }) {
+  const more = r ? BASKET_MORE[String(r.patient)] : undefined
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  /* the section's own filter: the last five encounters (`5e0c9979…`) */
+  const rows: MoreRow[] = more
+    ? [
+      ...more.encounters.slice(0, 5).map((x) => ({ ...x, section: 'ENCOUNTER', link: 'encounters' })),
+      ...more.connections.map((x) => ({ ...x, section: 'CONNECTIONS', link: 'demographic' })),
+    ]
+    : []
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, background: '#fff' }} data-tutorial-id="host.mois.field.basket-more">
+      {/* "If a record is not associated with a patient chart … the More tab
+          is blank" — and so is a row whose patient has no seeded summary */}
+      {more && (
+        <>
+          <div className="pb-row" style={{ gap: 21, padding: '3px 8px', flex: 'none' }}>
+            <button type="button" className="pb-link" onClick={() => setCollapsed(new Set())}>Expand All</button>
+            <button type="button" className="pb-link" onClick={() => setCollapsed(new Set(MORE_BANDS))}>Collapse All</button>
+          </div>
+          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+            <PBDataWindow
+              flush
+              style={{ ['--pb-dw-pad-x' as string]: '8px', ['--pb-dw-select' as string]: SUMMARY_SELECTED_ROW }}
+              head="grey"
+              gutter={false}
+              rules={false}
+              rows={rows}
+              rowTutorialId={(x) => `host.mois.row.more-${pbSlug(x.section)}-${x.date.replace(/\./g, '')}`}
+              groupBy={(x) => x.section}
+              groups={MORE_BANDS}
+              groupLabel={(g, inGroup) => `${g}  [${inGroup.length}]`}
+              groupAccent={() => SUMMARY_DEFAULT_ACCENT}
+              collapsed={collapsed}
+              onCollapsedChange={setCollapsed}
+              columns={[
+                /* `4d6a5577…`'s proportions, narrowed so Hyperlink stays in
+                   the tab beside the Acknowledgements panel */
+                { key: 'date', header: 'Date', width: 76 },
+                { key: 'description', header: 'Description', width: 250 },
+                { key: 'detail', header: 'Detail', width: 190 },
+                {
+                  key: 'link', header: 'Hyperlink', width: 70, align: 'center', headAlign: 'left',
+                  render: (x) => (
+                    <button
+                      type="button"
+                      className="pb-link pb-link--mois"
+                      title={`Open ${x.link === 'encounters' ? 'Encounters' : 'Demographics'} in MOIS`}
+                      aria-label={`Open ${x.link === 'encounters' ? 'Encounters' : 'Demographics'} in MOIS`}
+                      onClick={() => onOpen(x.link)}
+                    />
+                  ),
+                },
+                { key: '_pad', header: '' },
+              ]}
+              empty={false}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function SidePanels({ r, checked, review, tasks, messages, people, fill, onDetail }: {
   r: BasketRow | undefined; checked: boolean; review: boolean; tasks: number; messages: number
   /** whose workspace is on screen, and the banner colour their names take */
@@ -356,6 +471,8 @@ export function BasketFolderView({
   const [cur, setCur] = useState(0)
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null)
   const [tab, setTab] = useState('Report')
+  /* 2.31.41's "Show all results" (INFERRED: kept, inert) */
+  const [showAll, setShowAll] = useState(true)
   /* a record marked for review is a new Workspace item, and the folder only
      shows it once it is re-read — "If the item is not there, press
      'Refresh'" (art. 303764) */
@@ -384,16 +501,21 @@ export function BasketFolderView({
       }))
   }, [node, session.notes, session.saved, encounters, patient.first, patient.last, patient.age])
 
-  const all = useMemo(() => {
+  const unfiltered = useMemo(() => {
     if (!folder) return [] as BasketRow[]
     const base = rowsForView([...routed, ...folder.rows], peopleKey.split('|'))
       .filter((r) => !store.reassigned.includes(basketKey(folder.id, String(r.patient))))
     const reviews = folder.rows
       .filter((r) => r.t !== 'R' && seenReviews.includes(basketKey(folder.id, String(r.patient))))
       .map((r): BasketRow => ({ ...r, t: 'R', ra: '0', reviewOf: 'session' }))
-    const fields = SEARCH_FIELDS[folder.id] ?? []
-    return [...reviews, ...base].filter((r) => matchesSearch(r, search, criteria, fields))
-  }, [folder, store.reassigned, seenReviews, routed, peopleKey, search, criteria])
+    return [...reviews, ...base]
+  }, [folder, store.reassigned, seenReviews, routed, peopleKey])
+  const all = useMemo(() => {
+    const fields = folder ? SEARCH_FIELDS[folder.id] ?? [] : []
+    return unfiltered.filter((r) => matchesSearch(r, search, criteria, fields))
+  }, [folder, unfiltered, search, criteria])
+  /* "Showing n of m total results" (2.31.41) — m is INFERRED, see the strip */
+  const total = unfiltered.length
 
   const keyOf = (r: BasketRow) => `${r.t}:${String(r.patient)}:${String(r.test ?? r.description ?? r.note ?? r.reason ?? '')}`
   const wantChecked = showing === 'Checked'
@@ -492,7 +614,12 @@ export function BasketFolderView({
     ? (BASKET_PANELS[`${String(current.patient)}|${String(current.panel)}`]?.results.length ?? 0)
     : 0
   const tabs = folder.tabs.map((t) => (t.startsWith('Panel') ? `Panel (${panelCount})` : t))
-  const activeTab = tabs.find((t) => t === tab || (t.startsWith('Panel') && tab.startsWith('Panel'))) ?? tabs[0]!
+  /* Panel (0) is greyed — 303492 `4d6a5577…` (v2.31.41), and the chart's
+     own Measures in the current build (evidence/MATRIX-R0480) — so a row
+     with no panel falls back to Report */
+  const panelOff: string[] = tabs.filter((t) => t === 'Panel (0)')
+  const picked = tabs.find((t) => t === tab || (t.startsWith('Panel') && tab.startsWith('Panel')))
+  const activeTab = picked && !panelOff.includes(picked) ? picked : tabs[0]!
   const panelView = folder.id === 'ws-measures' && extras.measuresView === 'Panel View'
 
   const commandAction = (label: string): (() => void) | undefined => {
@@ -552,7 +679,9 @@ export function BasketFolderView({
           …
         </PBButton>
         <span style={{ width: 1, alignSelf: 'stretch', background: '#646464', margin: '0 8px' }} />
-        <span className="pb-form__label">Showing Records:</span>
+        {/* CONFIRM-CURRENT: "Records:" — 303492 `4d6a5577…` (v2.31.41); the
+            v02.21 captures and 1802749's text say "Showing Records:" */}
+        <span className="pb-form__label">Records:</span>
         <PBSelect
           w={113}
           options={SHOWING}
@@ -575,6 +704,25 @@ export function BasketFolderView({
             />
           </>
         )}
+      </div>
+
+      {/* CONFIRM-CURRENT: the second strip of 303492 `4d6a5577…` (v2.31.41):
+          "Results for: ALL RESULTS" on the left, "Showing 45 of 47 total
+          results" and a ticked "Show all results" on the right. What else
+          Results for can name, what the total counts and what unticking Show
+          all results does are INFERRED: here the total is the folder's rows
+          for this view before Search For and Records narrow them, and the
+          box is kept but changes nothing. */}
+      <div className="pb-row" style={{ gap: 6, padding: '2px 6px 3px', background: '#f0f0f0', flex: 'none', alignItems: 'center' }} data-tutorial-id="host.mois.group.basket-results">
+        <span className="pb-form__label pb-form__label--dim">Results for:</span>
+        <b style={{ fontSize: '1.08em', marginLeft: 4 }}>ALL RESULTS</b>
+        <span className="pb-row__spacer" />
+        <span className="pb-form__label pb-form__label--dim">Showing</span>
+        <span style={{ minWidth: 40, textAlign: 'right' }} data-tutorial-id="host.mois.field.basket-showing">{shown.length}</span>
+        <span className="pb-form__label pb-form__label--dim" style={{ margin: '0 4px 0 14px' }}>of</span>
+        <span style={{ minWidth: 30, textAlign: 'right' }}>{total}</span>
+        <span className="pb-form__label pb-form__label--dim" style={{ margin: '0 18px 0 12px' }}>total results</span>
+        <PBCheckbox label="Show all results" checked={showAll} onChange={setShowAll} tutorialId="host.mois.field.basket-show-all" />
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 110, display: 'flex', padding: 3 }} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
@@ -669,8 +817,10 @@ export function BasketFolderView({
       {/* Report / Detail beside Acknowledgements and Workflow Summary */}
       <div style={{ height: 262, flex: 'none', display: 'flex', padding: '0 3px 3px', minHeight: 0 }} data-tutorial-id="host.mois.field.basket-detail" onKeyDown={onKeyDown}>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <PBTabs tabs={tabs} active={activeTab} onChange={setTab} compact face>
-            {activeTab.startsWith('Panel')
+          <PBTabs tabs={tabs} active={activeTab} onChange={setTab} compact face disabled={panelOff}>
+            {activeTab === 'More'
+              ? <MoreTab r={current} onOpen={(n) => onOpenChart?.(n)} />
+              : activeTab.startsWith('Panel')
               ? <PanelTab key={current ? rowSlug(current) : ''} r={current} onGraph={graph} />
               : (
                 <ReportForm

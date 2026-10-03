@@ -15,6 +15,14 @@ import { daysFromToday } from './clock'
    FLO, 746 AARONSON FRANK, 1885 ADAMS SAMUEL, 712 ADAMSON SAM); their
    reasons and times are INFERRED. Charts created in a launch window live in
    the same session store under 90001 and up.
+
+   The third mode the older evidence names, Tracking Board (VMOA), appears
+   only as a row of MyEncounters' Select Service Group / Pathway chooser
+   (3103943 `b59a0d20…`); nothing shows the board itself, so it has no mode
+   here and that row opens the Main Program. The windows these modes open
+   are laid out from those older help-site images (CONFIRM-CURRENT, see
+   screens/LaunchModeWindows.tsx); only Select Launch Mode is matched to a
+   current-build capture.
    ========================================================================= */
 
 export type MoisLaunchMode = 'main' | 'encounter-lite' | 'my-encounters'
@@ -69,7 +77,6 @@ export const LITE_ENCOUNTERS: LiteEncounter[] = [
 ]
 
 export const LITE_PROVIDERS = ['TEST, TEST', 'HALLIWELL, A.', 'TRANSITION SERVICES']
-export const VISIT_CODES = ['R', 'C', 'F', 'TL', 'V', 'W']
 export const APPT_STATUSES: LiteEncounter['status'][] = ['', 'Booked', 'Arrived', 'Seen', 'Discharged', 'Cancelled']
 export const SERVICE_LOCATIONS = ['', 'MAIN OFFICE', 'FAMILY PRACTICE', 'UHNBC']
 export const VISIT_REASONS = ['Annual physical', 'Follow up', 'Medication review', 'Prenatal visit', 'Wound care & ABIs']

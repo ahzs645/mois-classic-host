@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import {
   ALL_PERMISSIONS, APPT_STATUSES, DEFAULT_FEE_CODE, LITE_CHARTS_KEY, LITE_ENCOUNTERS, LITE_ENCOUNTERS_KEY, LITE_PROVIDERS,
-  NOTE_TEMPLATES, SERVICE_LOCATIONS, VISIT_CODES, VISIT_REASONS, dayOffset,
+  NOTE_TEMPLATES, SERVICE_LOCATIONS, VISIT_REASONS, dayOffset,
   type LiteChart, type LiteEncounter, type LitePermissions, type MoisLaunchMode, type MoisLaunchStart,
 } from '../data/launchModes'
 import { pad2 } from '../data/clock'
 import { usePatientRoster } from '../data/patient-context'
-import { MOIS_TODAY, type Patient } from '../data/patients'
+import { MOIS_TODAY, ageOf, type Patient } from '../data/patients'
 import { BILLING_ENC_TIMES_ROW, isYes, useSystemSetting } from '../data/systemSettings'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import {
@@ -15,7 +16,7 @@ import {
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { FACE, ModalLayer, ModalWindow, clampTo } from './dialogKit'
-import { NAVY, ReadOnlyField } from './formKit'
+import { CaptionGroup, ReadOnlyField } from './formKit'
 import { GRID_BOX, LookupBand, PickListWindow } from './lookupKit'
 import { Btn, DetailWindow, FieldLabel, TopMessage, stampNow } from './AdminExchangeKit'
 import { UM_ACCESS_CSS } from './UserAccessTabs'
@@ -80,9 +81,22 @@ import { UM_ACCESS_CSS } from './UserAccessTabs'
      Patient, Visit Reason "…", Encounter Date / Time, Care Stop Date / Time
      (0000.00.00 until Continue fills it), Health Issue (optional) ×2,
      Service (optional) ×2, Continue / Cancel. The provider's Default Fee
-     Code (the article's "Bonus Function") is printed under Service.
+     Code (the article's "Bonus Function") is applied at billing; the image
+     prints nothing for it, so neither does this window.
    · The template list F4 opens, Make Private and the future-date prompt are
      described in 3797326's steps but have no capture: INFERRED.
+   · Tracking Board (VMOA): only its row in the Service Group chooser exists
+     anywhere (b59a0d20); no article or image shows the board, so it is not
+     built. No help-site article's title names it, Encounter Lite or
+     MyEncounters beyond these two (searched 2026-10-03).
+
+   CURRENT BUILD vs OLDER EVIDENCE (2026-10-03 pass). Only Select Launch Mode
+   is matched to a current-build capture (2026-10-02 TRAINING capture 12).
+   Everything else here is laid out from the help-site images above, which
+   come from older builds (the sample data is dated 2021 in 3103943 and 2025
+   in 3797326); their styling stays the existing kit look. Each such window is
+   registered below with registerConfirmCurrent and its code carries a
+   CONFIRM-CURRENT comment; `?confirm=1` badges them.
 
    Reported (host.screen.*): `launchMode` (encounter-lite / my-encounters /
    select-launch-mode / select-service-group / closed), `mainLaunched`,
@@ -93,6 +107,20 @@ import { UM_ACCESS_CSS } from './UserAccessTabs'
 
 type Stage = MoisLaunchStart | 'closed'
 
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.my-encounters' }, source: 'help-site art. 3103943 img 0b1ad375 (older build)', check: 'band caption placement, section depths, button row' },
+  { target: { anchor: 'host.mois.dialog.encounter-lite' }, source: 'help-site art. 3797326 inline imgs 1, 4–7, 12, 14 (older build)', check: 'Chart Data and Encounter Detail layout, Make Private placement' },
+  { target: { anchor: 'host.mois.dialog.select-service-group' }, source: 'help-site art. 3103943 img b59a0d20 (older build)', check: 'rows; Tracking Board is not built' },
+  { target: { anchor: 'host.mois.dialog.my-encounter-care-complete' }, source: 'help-site art. 3103943 img 7722ca57 (older build)' },
+  { target: { anchor: 'host.mois.dialog.confirm-chart-for-patient' }, source: 'help-site art. 3797326 inline img 8 (older build)', check: 'message wording' },
+  { target: { anchor: 'host.mois.dialog.chart-advance-search-list' }, source: 'help-site art. 3797326 inline img 9 (older build)', check: 'columns' },
+  { target: { anchor: 'host.mois.dialog.no-chart-found' }, source: 'help-site art. 3103943 img 46bd1494 / 3797326 inline img 11 (older build)' },
+  { target: { anchor: 'host.mois.dialog.permission-denied' }, source: 'help-site art. 3797326 inline img 10 (older build)' },
+  { target: { anchor: 'host.mois.dialog.quick-patient-registration-form' }, source: 'help-site art. 3797326 inline img 13 (older build)', check: 'required markers' },
+  { target: { anchor: 'host.mois.dialog.note-template-list' }, source: 'art. 3797326 (text only) + heart icons 1c9e2d3c / 7d6fa152', check: 'whole window' },
+  { target: { anchor: 'host.mois.dialog.make-note-private' }, source: 'art. 3797326 (text only)', check: 'whole window' },
+])
+
 const toLite = (p: Patient): LiteChart => ({
   chart: p.chart, first: p.first ?? '', middle: p.middle ?? '', last: p.last ?? '', dob: p.dob ?? '', gender: p.gender ?? '',
   insuranceBy: p.insuranceBy ?? 'BC', insurance: p.bchn ?? p.insurance ?? '', city: p.city ?? '', province: p.province ?? 'BC',
@@ -101,13 +129,23 @@ const toLite = (p: Patient): LiteChart => ({
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-function dayCaption(date: string): string {
-  if (date === MOIS_TODAY) return 'Today'
+/** "Sunday November 09, 2025" — 3797326 images 5 and 6 */
+function longDate(date: string): string {
   const [y, m, d] = date.split('.').map(Number)
   const t = new Date(Date.UTC(y!, m! - 1, d!))
   return `${WEEKDAYS[t.getUTCDay()]} ${MONTHS[t.getUTCMonth()]} ${pad2(d!)}, ${y}`
 }
+/** the patient list's day heading: "Today", then the long date (image 5) */
+const dayCaption = (date: string) => (date === MOIS_TODAY ? 'Today' : longDate(date))
 const nowHM = () => stampNow().slice(-5)
+const RULE = '-'.repeat(44)
+const mixedCase = (s: string) => s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase())
+/* "77 yr old Female" (image 8); the wording for M / X / U and for a child's
+   age (ageOf's MTH / WK / DAY captions) is INFERRED from that one line */
+const GENDER_WORD: Record<string, string> = { F: 'Female', M: 'Male', X: 'X', U: 'Unknown' }
+const ageLine = (c: LiteChart) => [ageOf(c.dob).toLowerCase(), GENDER_WORD[c.gender] ?? c.gender].filter(Boolean).join(' ')
+/* image 9: PHN beside Insurance No., filled for the BC row only */
+const phnOf = (c: LiteChart) => (c.insuranceBy === 'BC' ? c.insurance : '')
 const norm = (s: string) => s.replace(/[\s.-]/g, '').toLowerCase()
 
 /* ===========================================================================
@@ -162,6 +200,10 @@ export function LaunchModeHost({ initial, mainShown, onLaunchMain }: {
           { cells: ['My Encounters', '(VP)'], mode: 'my-encounters' },
         ]}
         buttons="continue"
+        /* b59a0d20 paints this chooser the way the current-build Select Launch
+           Mode capture paints its sibling: white face, Windows-blue selected
+           row, the button centred under the list. CONFIRM-CURRENT (rows). */
+        plain
         onPick={(mode) => { if (mode === 'main') { launchMain(); setStage('closed') } else setStage(mode) }}
         onCancel={() => setStage('closed')}
       />
@@ -197,8 +239,9 @@ export function LaunchModeHost({ initial, mainShown, onLaunchMain }: {
    (496 x 417) on a WHITE face, a bordered list 8px in (480 x 331) headed
    `Launch Mode` in the soft grey caption ink, 24px rows (27 capture px), the
    selected row in the Windows highlight #0078D8 with white text, and Ok /
-   Cancel 75 x 21 centred under it. `plain` is that look; the Service Group
-   chooser (3103943) keeps the older detail-window frame. */
+   Cancel 75 x 21 centred under it. `plain` is that look, and the Service
+   Group chooser (3103943 `b59a0d20…`, white with the same blue selection)
+   takes it too. */
 const PLAIN_CHOOSER_CSS = `
 .pb-launch-pick .pb-dw { border: 1px solid #767676; }
 .pb-launch-pick .pb-dw__table > tbody > tr.is-current { background: #0078d8; }
@@ -262,10 +305,15 @@ type Dialog =
   | { kind: 'no-chart' } | { kind: 'permission-denied' } | { kind: 'quick-registration' } | { kind: 'care-complete' }
   | { kind: 'templates' } | { kind: 'make-private' } | { kind: 'future-date' } | { kind: 'saved' } | { kind: 'reason' }
 
-const Band = ({ title, right, anchor }: { title: string; right?: ReactNode; anchor: string }) => (
-  <div className="pb-row" data-tutorial-id={anchor} style={{ background: '#a8cdf0', fontWeight: 700, padding: '3px 10px', flex: 'none', borderTop: '1px solid #8ab0d8' }}>
+/* A blue band. Its second caption is not right-aligned: 0b1ad375 prints
+   "Most Recent Encounter:" about 38% of the way across the right pane,
+   "Author:" at 73% and "Chart No.:" at 80%, and 3797326 images 7, 12 and 14
+   agree. `at` is that fraction. CONFIRM-CURRENT: the placements are from those
+   older images; the band colours are the existing ones, not the old images'. */
+const Band = ({ title, right, at, anchor }: { title: string; right?: ReactNode; at?: number; anchor: string }) => (
+  <div className="pb-row" data-tutorial-id={anchor} style={{ position: 'relative', background: '#a8cdf0', fontWeight: 700, padding: '3px 10px', flex: 'none', borderTop: '1px solid #8ab0d8' }}>
     <span style={{ flex: '1 1 auto' }}>{title}</span>
-    {right && <span style={{ fontWeight: 400, color: '#7a8aa0' }}>{right}</span>}
+    {right && <span style={{ fontWeight: 400, color: '#7a8aa0', ...(at != null ? { position: 'absolute', left: `${at * 100}%`, whiteSpace: 'pre' } : null) }}>{right}</span>}
   </div>
 )
 
@@ -286,11 +334,15 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
 
   const [provider, setProvider] = useState(LITE_PROVIDERS[0]!)
   const [frame, setFrame] = useState<'today' | 'yesterday' | 'last' | 'since' | 'between'>('today')
-  const [lastN, setLastN] = useState('7')
-  const [lastUnit, setLastUnit] = useState<'Days' | 'Weeks'>('Days')
-  const [since, setSince] = useState(dayOffset(-30))
-  const [betweenA, setBetweenA] = useState(dayOffset(-14))
-  const [betweenB, setBetweenB] = useState(MOIS_TODAY)
+  /* CONFIRM-CURRENT: 0b1ad375 and 26e902ef open with the In Last, Since and
+     Between boxes empty; 3797326 image 4 shows them filled once chosen
+     (7 Days, 2025.01.01, 2025.11.09 & 2025.11.19). An empty box counts as
+     today (INFERRED). */
+  const [lastN, setLastN] = useState('')
+  const [lastUnit, setLastUnit] = useState<'' | 'Days' | 'Weeks'>('')
+  const [since, setSince] = useState('')
+  const [betweenA, setBetweenA] = useState('')
+  const [betweenB, setBetweenB] = useState('')
   const [discharged, setDischarged] = useState(true)
   const [ins, setIns] = useState('')
   const [lastName, setLastName] = useState('')
@@ -306,8 +358,12 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
   const from = frame === 'today' ? MOIS_TODAY
     : frame === 'yesterday' ? dayOffset(-1)
       : frame === 'last' ? dayOffset(-(Number(lastN) || 0) * (lastUnit === 'Weeks' ? 7 : 1))
-        : frame === 'since' ? since : betweenA
-  const to = frame === 'between' ? betweenB : MOIS_TODAY
+        : frame === 'since' ? since || MOIS_TODAY : betweenA || MOIS_TODAY
+  const to = frame === 'between' ? betweenB || MOIS_TODAY : MOIS_TODAY
+  /* 3797326 "Tip! Use CTRL+T for today's date" */
+  const ctrlT = (fill: (v: string) => void) => (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.ctrlKey && e.key.toLowerCase() === 't') { e.preventDefault(); fill(MOIS_TODAY) }
+  }
   const listed = encounters
     .filter((e) => e.date >= from && e.date <= to && (discharged || e.status !== 'Discharged'))
     .sort((a, b) => (b.date.localeCompare(a.date)) || a.name.localeCompare(b.name))
@@ -403,13 +459,31 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
   )
   const cd = chartDraft
   const setCd = (patch: Partial<LiteChart>) => setChartDraft((c) => (c ? { ...c, ...patch } : c))
-  const cdField = (label: string, key: keyof LiteChart, w: number, req = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <span>{label}{req && <b style={{ color: '#000' }}> *</b>}</span>
-      <PBInput w={w} value={cd ? String(cd[key] ?? '') : ''} readOnly={!cd || (!!chart && !perms.updateChart)} onChange={(e) => setCd({ [key]: e.target.value } as Partial<LiteChart>)}
-        data-tutorial-id={`host.mois.field.chart-data-${pbSlug(String(key))}`} />
-    </div>
-  )
+  /* Chart Data — 3797326 image 12 (a new chart, Quick Registration off),
+     placed the way that image paints it: labels over boxes, three rows 44px
+     apart, and two blocks — the name, birth date and gender on the left; the
+     insurance, address and phones from about 60% across. Lefts and widths are
+     the image's, scaled from its 0.66 to CSS px.
+     CONFIRM-CURRENT: the whole band layout is from that older image. */
+  const chartLocked = !cd || (!!chart && !perms.updateChart)
+  const cdField = (label: ReactNode, key: keyof LiteChart, left: number, row: number, w: number, kind: 'edit' | 'select' | 'lookup' = 'edit', options: string[] = []) => {
+    const anchor = `host.mois.field.chart-data-${pbSlug(String(key))}`
+    const value = cd ? String(cd[key] ?? '') : ''
+    const put = (v: string) => setCd({ [key]: v } as Partial<LiteChart>)
+    return (
+      <div key={key} style={{ position: 'absolute', left, top: 4 + row * 44, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ whiteSpace: 'pre' }}>{label}</span>
+        {kind === 'select'
+          ? <PBSelect w={w} options={[...new Set(['', ...options, value])]} value={value} disabled={chartLocked} onChange={(e) => put(e.target.value)} data-tutorial-id={anchor} />
+          : kind === 'lookup'
+            ? <PBLookup w={w} value={value} readOnly={chartLocked} name={`chart-data-${pbSlug(String(key))}`} fieldId={anchor} onChange={put} />
+            : <PBInput w={w} value={value} readOnly={chartLocked} onChange={(e) => put(e.target.value)} data-tutorial-id={anchor} />}
+      </div>
+    )
+  }
+  const req = (label: string) => <>{label} <b style={{ color: '#000' }}>*</b></>
+  /* image 12 underlines the preferred number's caption, in bold */
+  const phoneLabel = (label: 'Home' | 'Work' | 'Cell') => (cd?.preferred === label ? <b style={{ textDecoration: 'underline' }}>{label}</b> : label)
 
   return (
     <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(1074px, calc(100% - 24px))', height: 'min(787px, calc(100% - 24px))', pointerEvents: 'auto', display: 'flex' }}>
@@ -438,9 +512,9 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
                   <PBInput w={28} value={lastN} onChange={(e) => { setLastN(e.target.value); setFrame('last') }} data-tutorial-id="host.mois.field.in-last-count" />
                   <PBSelect w={60} options={['Days', 'Weeks']} value={lastUnit} onChange={(e) => { setLastUnit(e.target.value as 'Days' | 'Weeks'); setFrame('last') }} data-tutorial-id="host.mois.field.in-last-unit" />
                 </>)}
-                {radio('since', 'Since', <PBInput w={76} value={since} onChange={(e) => { setSince(e.target.value); setFrame('since') }} data-tutorial-id="host.mois.field.since-date" />)}
-                {radio('between', 'Between', <PBInput w={76} value={betweenA} onChange={(e) => { setBetweenA(e.target.value); setFrame('between') }} data-tutorial-id="host.mois.field.between-from" />)}
-                <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 4 }}>&amp; <PBInput w={76} value={betweenB} onChange={(e) => { setBetweenB(e.target.value); setFrame('between') }} data-tutorial-id="host.mois.field.between-to" /></div>
+                {radio('since', 'Since', <PBInput w={76} value={since} onChange={(e) => { setSince(e.target.value); setFrame('since') }} onKeyDown={ctrlT((v) => { setSince(v); setFrame('since') })} data-tutorial-id="host.mois.field.since-date" />)}
+                {radio('between', 'Between', <PBInput w={76} value={betweenA} onChange={(e) => { setBetweenA(e.target.value); setFrame('between') }} onKeyDown={ctrlT((v) => { setBetweenA(v); setFrame('between') })} data-tutorial-id="host.mois.field.between-from" />)}
+                <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 4 }}>&amp; <PBInput w={76} value={betweenB} onChange={(e) => { setBetweenB(e.target.value); setFrame('between') }} onKeyDown={ctrlT((v) => { setBetweenB(v); setFrame('between') })} data-tutorial-id="host.mois.field.between-to" /></div>
               </fieldset>
               <fieldset className="pb-fieldset">
                 <legend className="pb-fieldset__legend">Include</legend>
@@ -480,46 +554,58 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
             </div>
             <div style={{ padding: '0 10px 4px', color: '#666', flex: 'none' }}>(at least one optional parameter is required )</div>
 
-            <Band title="Chart Data" right={<>Chart No.: <b>{chart?.chart ?? ''}</b></>} anchor="host.mois.group.chart-data" />
-            <div style={{ height: 90, flex: 'none', padding: '4px 10px', display: 'flex', gap: 10, flexWrap: 'wrap', alignContent: 'flex-start' }}>
+            <Band title="Chart Data" right={<>Chart No.: <b>{chart?.chart ?? ''}</b></>} at={0.8} anchor="host.mois.group.chart-data" />
+            {/* 0b1ad375 leaves the empty band 79px deep; image 12 grows it to 137 for the three rows */}
+            <div style={{ height: cd ? 137 : 79, flex: 'none', position: 'relative' }}>
               {cd && (<>
-                {cdField('First Name', 'first', 110, true)}{cdField('Middle Name', 'middle', 90)}{cdField('Last Name', 'last', 120, true)}
-                {cdField('Insurance by', 'insuranceBy', 50, true)}{cdField('Insurance No.', 'insurance', 110, true)}
-                {cdField('Birth Date', 'dob', 80, true)}{cdField('Gender', 'gender', 40, true)}
-                {cdField('City', 'city', 100, true)}{cdField('Province', 'province', 40, true)}{cdField('Postal Code', 'postal', 70, true)}
-                {cdField('Home', 'home', 100)}{cdField('Work', 'work', 100)}{cdField('Cell', 'cell', 100)}
+                {cdField(req('First Name'), 'first', 12, 0, 108)}{cdField('Middle Name', 'middle', 143, 0, 120)}{cdField(req('Last Name'), 'last', 273, 0, 165)}
+                {/* INFERRED: the Insurance by and Gender lists' entries (image 12 shows them closed) */}
+                {cdField(req('Insurance by'), 'insuranceBy', 510, 0, 118, 'select', ['BC', 'AB', 'IN', 'PP', 'WC'])}{cdField(req('Insurance No.'), 'insurance', 635, 0, 102)}
+                {cdField(req('Birth Date'), 'dob', 12, 1, 81)}{cdField(req('Gender'), 'gender', 143, 1, 83, 'select', ['M', 'F', 'X', 'U'])}
+                {cdField(req('City'), 'city', 510, 1, 118, 'lookup')}{cdField(req('Province'), 'province', 635, 1, 102)}{cdField(req('Postal Code'), 'postal', 743, 1, 98)}
+                <div style={{ position: 'absolute', left: 441, top: 4 + 2 * 44, width: 63, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                  <span style={{ whiteSpace: 'pre' }}><b style={{ color: '#000' }}>*</b> Preferred</span>
+                  <PBSelect w={63} options={['Home', 'Work', 'Cell']} value={cd.preferred || 'Home'} disabled={chartLocked} onChange={(e) => setCd({ preferred: e.target.value })} data-tutorial-id="host.mois.field.chart-data-preferred" />
+                </div>
+                {cdField(phoneLabel('Home'), 'home', 510, 2, 99)}{cdField(phoneLabel('Work'), 'work', 635, 2, 95)}{cdField(phoneLabel('Cell'), 'cell', 743, 2, 95)}
               </>)}
             </div>
 
-            <Band title="Encounter Detail" anchor="host.mois.group.encounter-detail"
-              right={<>Most Recent Encounter:&nbsp;&nbsp; {recent ? `${recent.date}  ${recent.hh}:${recent.mm}   ${recent.reason}` : ':'}</>} />
-            <div style={{ height: 118, flex: 'none', padding: '4px 10px' }}>
+            <Band title="Encounter Detail" anchor="host.mois.group.encounter-detail" at={0.38}
+              right={<>Most Recent Encounter:{recent ? `    ${recent.date}    ${recent.hh}:${recent.mm}    ${recent.reason}` : '              :'}</>} />
+            {/* 0b1ad375 leaves the empty band 94px deep; image 14 is 116 with the two rows and Billing Data... */}
+            <div style={{ height: enc ? 116 : 94, flex: 'none', padding: '4px 10px 4px 12px' }}>
               {enc && !billing && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto 1fr auto', gap: '2px 10px', alignItems: 'end' }}>
-                  <div><div>Scheduled Date / Time</div><span className="pb-row" style={{ gap: 2 }}>
-                    <PBInput w={76} value={enc.date} onChange={(e) => set({ date: e.target.value })} data-tutorial-id="host.mois.field.encounter-date" />
-                    <PBInput w={26} value={enc.hh} onChange={(e) => set({ hh: e.target.value })} />
-                    <PBInput w={26} value={enc.mm} onChange={(e) => set({ mm: e.target.value })} /></span></div>
-                  <div><div>Visit Code</div><PBSelect w={60} options={VISIT_CODES} value={enc.visitCode} onChange={(e) => set({ visitCode: e.target.value })} data-tutorial-id="host.mois.field.encounter-visit-code" /></div>
-                  <div style={{ gridColumn: 'span 2' }}><div>Reason</div>
-                    <PBLookup w={200} value={enc.reason} name="encounter-reason" fieldId="host.mois.field.encounter-reason" onChange={(v) => set({ reason: v })} onDots={() => setDialog({ kind: 'reason' })} /></div>
-                  <div style={{ gridRow: 'span 3' }}><div>General Note</div>
-                    <PBTextArea rows={4} value={enc.generalNote} onChange={(e) => set({ generalNote: e.target.value })} style={{ width: 170, resize: 'none' }} data-tutorial-id="host.mois.field.encounter-general-note" /></div>
+                /* 3797326 image 14, placed as it paints: row one Scheduled Date / Time,
+                   Visit Code, Reason "…", Start Time: (seen) + Start; row two Appt
+                   Status, Slots, Visit Mode, Service Location, Finished Time:
+                   (discharge) + Finish; General Note to the right of both, Billing
+                   Data... under it. Visit Code is a plain edit (no arrow, unlike
+                   Visit Mode) and the time one hh:mm box.
+                   CONFIRM-CURRENT: the whole layout is from that older image. */
+                <div style={{ display: 'grid', gridTemplateColumns: '96px 35px 79px 228px 188px 1fr', gridTemplateRows: 'auto auto auto', columnGap: 0, rowGap: 4, alignItems: 'end' }}>
+                  <div style={{ gridColumn: '1 / span 2' }}><div>Scheduled Date / Time</div><span className="pb-row" style={{ gap: 3 }}>
+                    <PBInput w={75} value={enc.date} onChange={(e) => set({ date: e.target.value })} onKeyDown={ctrlT((v) => set({ date: v }))} data-tutorial-id="host.mois.field.encounter-date" />
+                    <PBInput w={45} align="center" value={`${enc.hh}:${enc.mm}`} data-tutorial-id="host.mois.field.encounter-time"
+                      onChange={(e) => { const [h = '', m = ''] = e.target.value.split(':'); set({ hh: h.trim().slice(0, 2), mm: m.trim().slice(0, 2) }) }} /></span></div>
+                  <div><div>Visit Code</div><PBInput w={70} value={enc.visitCode} onChange={(e) => set({ visitCode: e.target.value.toUpperCase() })} data-tutorial-id="host.mois.field.encounter-visit-code" /></div>
+                  <div><div>Reason</div>
+                    <PBLookup w={215} value={enc.reason} name="encounter-reason" fieldId="host.mois.field.encounter-reason" onChange={(v) => set({ reason: v })} onDots={() => setDialog({ kind: 'reason' })} /></div>
+                  <div><div className="pb-row" style={{ gap: 0 }}><span style={{ width: 75 }}>Start Time:</span><span>(seen)</span></div>
+                    <span className="pb-row" style={{ gap: 3 }}><PBInput w={75} align="center" value={enc.start} placeholder=":" onChange={(e) => set({ start: e.target.value })} data-tutorial-id="host.mois.field.encounter-start" />
+                      <Btn id="encounter-start" width={52} onClick={() => set({ start: nowHM() })}>Start</Btn></span></div>
+                  <div style={{ gridColumn: 6, gridRow: '1 / span 2', alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}><div>General Note</div>
+                    <PBTextArea value={enc.generalNote} onChange={(e) => set({ generalNote: e.target.value })} style={{ width: '100%', flex: '1 1 auto', resize: 'none' }} data-tutorial-id="host.mois.field.encounter-general-note" /></div>
                   <div><div>Appt Status</div>
-                    <PBSelect w={100} options={APPT_STATUSES.map((s) => ({ value: s, label: s }))} value={enc.status} onChange={(e) => set({ status: e.target.value as LiteEncounter['status'] })} data-tutorial-id="host.mois.field.encounter-appt-status" /></div>
-                  <div><div>Slots</div><PBInput w={40} value={enc.slots} onChange={(e) => set({ slots: e.target.value })} data-tutorial-id="host.mois.field.encounter-slots" /></div>
-                  <div><div>Visit Mode</div><PBSelect w={60} options={['DE', 'TL', 'TM']} value={enc.mode} onChange={(e) => set({ mode: e.target.value as LiteEncounter['mode'] })} data-tutorial-id="host.mois.field.encounter-visit-mode" /></div>
-                  <div className="pb-row" style={{ gap: 4 }}>
-                    <span>Start Time: (seen)</span><PBInput w={50} value={enc.start} onChange={(e) => set({ start: e.target.value })} data-tutorial-id="host.mois.field.encounter-start" />
-                    <Btn id="encounter-start" width={50} onClick={() => set({ start: nowHM() })}>Start</Btn>
-                  </div>
-                  <div style={{ gridColumn: 'span 3' }}><div>Service Location</div>
+                    <PBSelect w={90} options={APPT_STATUSES.map((s) => ({ value: s, label: s }))} value={enc.status} onChange={(e) => set({ status: e.target.value as LiteEncounter['status'] })} data-tutorial-id="host.mois.field.encounter-appt-status" /></div>
+                  <div><div>Slots</div><PBInput w={30} align="center" value={enc.slots} onChange={(e) => set({ slots: e.target.value })} data-tutorial-id="host.mois.field.encounter-slots" /></div>
+                  <div><div>Visit Mode</div><PBSelect w={52} options={['DE', 'TL', 'TM']} value={enc.mode} onChange={(e) => set({ mode: e.target.value as LiteEncounter['mode'] })} data-tutorial-id="host.mois.field.encounter-visit-mode" /></div>
+                  <div><div>Service Location</div>
                     <PBSelect w={200} options={SERVICE_LOCATIONS} value={enc.location} onChange={(e) => set({ location: e.target.value })} data-tutorial-id="host.mois.field.encounter-location" /></div>
-                  <div className="pb-row" style={{ gap: 4 }}>
-                    <span>Finished Time: (discharge)</span><PBInput w={50} value={enc.finish} onChange={(e) => set({ finish: e.target.value })} data-tutorial-id="host.mois.field.encounter-finish" />
-                    <Btn id="encounter-finish" width={50} onClick={() => set({ finish: nowHM() })}>Finish</Btn>
-                  </div>
-                  <div style={{ gridColumn: '5', justifySelf: 'end' }}><Btn id="billing-data" onClick={() => setBilling(true)}>Billing Data...</Btn></div>
+                  <div><div>Finished Time: (discharge)</div>
+                    <span className="pb-row" style={{ gap: 3 }}><PBInput w={75} align="center" value={enc.finish} placeholder=":" onChange={(e) => set({ finish: e.target.value })} data-tutorial-id="host.mois.field.encounter-finish" />
+                      <Btn id="encounter-finish" width={52} onClick={() => set({ finish: nowHM() })}>Finish</Btn></span></div>
+                  <div style={{ gridColumn: 6, gridRow: 3, justifySelf: 'end', paddingRight: 4 }}><Btn id="billing-data" width={95} onClick={() => setBilling(true)}>Billing Data...</Btn></div>
                 </div>
               )}
               {enc && billing && (
@@ -540,7 +626,7 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
               )}
             </div>
 
-            <Band title="Encounter Note" right={<>Author:&nbsp;&nbsp; {enc?.author || (enc?.note.trim() ? provider : '')}</>} anchor="host.mois.group.encounter-note" />
+            <Band title="Encounter Note" right={<>Author:&nbsp;&nbsp; {enc?.author || (enc?.note.trim() ? provider : '')}</>} at={0.73} anchor="host.mois.group.encounter-note" />
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 2 }}>
               <textarea
                 ref={noteRef}
@@ -556,11 +642,15 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
           </div>
         </div>
 
+        {/* 0b1ad375: Launch Main Program under the patient list; Send Task starts
+            where the right pane does (x 224 of 1074), the rest at the right. */}
         <div className="pb-row" style={{ gap: 8, padding: '6px 10px 8px', flex: 'none' }}>
-          <Btn id="launch-main-program" width={140} disabled={!perms.launchMain || mainShown} onClick={onLaunchMain}>Launch Main Program</Btn>
-          <span style={{ width: 60 }} />
+          <span style={{ width: 212, flex: 'none' }}>
+            <Btn id="launch-main-program" width={140} disabled={!perms.launchMain || mainShown} onClick={onLaunchMain}>Launch Main Program</Btn>
+          </span>
           <Btn id="launch-send-task" width={80} disabled={!chart || !perms.sendTask}
             onClick={() => { if (chart) openWindow('create-task', { chart: chart.chart, patient: `${chart.last}, ${chart.first}`.toUpperCase(), linkedTo: enc ? 'Encounter' : '', recordId: enc ? `Encounter - ${enc.date}` : '' }) }}>Send Task</Btn>
+          {/* INFERRED: where Make Private sits (no image shows Encounter Lite's button row whole) */}
           {lite && <Btn id="launch-make-private" width={90} disabled={!enc || !saved?.note.trim() || !perms.makePrivate} onClick={() => setDialog({ kind: 'make-private' })}>{enc?.private ? 'View Access' : 'Make Private'}</Btn>}
           <span className="pb-row__spacer" />
           <Btn id="launch-new-encounter" width={100} disabled={!perms.createEncounter || (!chart && !enc)} onClick={() => { if (dirty) save(); reset() }}>New Encounter</Btn>
@@ -582,14 +672,20 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
         </div>
       </PBWindow>
 
+      {/* 3797326 image 6: an "Information" balloon, the five captions in one
+          column and their values aligned in a second; the date written out in
+          full even for a visit listed under Today ("Wednesday November 19,
+          2025"). CONFIRM-CURRENT (registered with the window). */}
       {hover && (
         <div style={{ position: 'fixed', left: hover.x + 12, top: hover.y + 12, zIndex: 60, background: '#fff', border: '1px solid #767676', boxShadow: '2px 2px 4px rgba(0,0,0,.25)', padding: '4px 8px', pointerEvents: 'none', minWidth: 220 }}>
           <div style={{ fontWeight: 700, marginBottom: 2 }}>ⓘ Information</div>
-          <div>Patient:&nbsp; {hover.e.name}</div>
-          <div>Date:&nbsp; {dayCaption(hover.e.date) === 'Today' ? hover.e.date : dayCaption(hover.e.date)}</div>
-          <div>Time:&nbsp; {hover.e.hh}:{hover.e.mm}</div>
-          <div>Reason:&nbsp; {hover.e.reason}</div>
-          <div>Status:&nbsp; {hover.e.status}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 8, paddingLeft: 16 }}>
+            <span>Patient:</span><span>{hover.e.name}</span>
+            <span>Date:</span><span>{longDate(hover.e.date)}</span>
+            <span>Time:</span><span>{hover.e.hh}:{hover.e.mm}</span>
+            <span>Reason:</span><span>{hover.e.reason}</span>
+            <span>Status:</span><span>{hover.e.status}</span>
+          </div>
         </div>
       )}
 
@@ -599,14 +695,19 @@ function LaunchWindow({ mode, mainShown, onLaunchMain, onClose }: {
         </TopMessage>
       )}
       {dialog?.kind === 'confirm-chart' && (
-        <TopMessage id="confirm-chart-for-patient" title={`Confirm Chart for Patient: ${dialog.chart.first} ${dialog.chart.last}`} icon="question" buttons={['Yes', 'No', 'Cancel']} prefix="confirm-chart-"
+        /* 3797326 image 8: the title names the patient in mixed case ("Sally
+           Cardio"); the body in capitals, then "77 yr old Female", the city and
+           province, and the PHN, between dashed rules. CONFIRM-CURRENT. */
+        <TopMessage id="confirm-chart-for-patient" title={`Confirm Chart for Patient: ${mixedCase(`${dialog.chart.first} ${dialog.chart.last}`)}`} icon="question" buttons={['Yes', 'No', 'Cancel']} prefix="confirm-chart-"
           onClose={(b) => (b === 'Yes' ? choose(dialog.chart, true) : b === 'No' ? choose(dialog.chart, false) : setDialog(null))}>
-          {`The following chart has been found:\n------------------------------------\n${dialog.chart.first} ${dialog.chart.last}\n${dialog.chart.gender}  ${dialog.chart.dob}\n${[dialog.chart.city, dialog.chart.province].filter(Boolean).join(' ')}\nPHN: ${dialog.chart.insurance}\n------------------------------------\nWould you like to create a new encounter for this patient?`}
+          {`The following chart has been found:\n${RULE}\n${`${dialog.chart.first} ${dialog.chart.last}`.toUpperCase()}\n${ageLine(dialog.chart)}\n${[mixedCase(dialog.chart.city), dialog.chart.province].filter(Boolean).join(' ')}\nPHN: ${phnOf(dialog.chart)}\n${RULE}\nWould you like to create a new encounter for this patient?`}
         </TopMessage>
       )}
       {dialog?.kind === 'multiple' && (
         <ChartAdvanceSearchList charts={dialog.charts} onClose={() => setDialog(null)} onPick={(c) => choose(c, true)} />
       )}
+      {/* CONFIRM-CURRENT: No Chart Found and Permission Denied — 3103943 `46bd1494…`,
+          3797326 images 10 and 11 (older build) */}
       {dialog?.kind === 'no-chart' && (
         <TopMessage id="no-chart-found" title="No Chart Found" icon="question" buttons={['Yes', 'No', 'Cancel']} prefix="no-chart-"
           onClose={(b) => {
@@ -663,7 +764,7 @@ function ChartAdvanceSearchList({ charts, onPick, onClose }: { charts: LiteChart
   return (
     <PickListWindow<LiteChart>
       frame={(content, footer) => (
-        <DetailWindow id="chart-advance-search-list" title="Chart Advance Search List" width={820} height={320} zIndex={45} onClose={onClose} buttons={footer}>
+        <DetailWindow id="chart-advance-search-list" title="Chart Advance Search List" width={900} height={320} zIndex={45} onClose={onClose} buttons={footer}>
           {content}
         </DetailWindow>
       )}
@@ -674,7 +775,9 @@ function ChartAdvanceSearchList({ charts, onPick, onClose }: { charts: LiteChart
         columns: [
           { key: 'chart', header: 'Chart', width: 60 }, { key: 'first', header: 'First Name', width: 100 }, { key: 'middle', header: 'Middle Name', width: 100 },
           { key: 'last', header: 'Last Name', width: 110 }, { key: 'dob', header: 'DoB', width: 80 }, { key: 'gender', header: 'Gender', width: 50, align: 'center' },
-          { key: 'insuranceBy', header: 'Inc.', width: 36 }, { key: 'insurance', header: 'Insurance No.', width: 100 }, { key: 'home', header: 'Home #', width: 110 },
+          { key: 'insuranceBy', header: 'Inc.', width: 36 }, { key: 'insurance', header: 'Insurance No.', width: 100 },
+          /* CONFIRM-CURRENT: image 9 has PHN between Insurance No. and Home # */
+          { key: 'phn', header: 'PHN', width: 100, render: (c) => phnOf(c) }, { key: 'home', header: 'Home #', width: 110 },
         ],
       }}
       footer={<><Btn id="advance-search-ok" isDefault width={80} onClick={() => onPick(charts[cur]!)}>OK</Btn><Btn id="advance-search-cancel" width={80} onClick={onClose}>Cancel</Btn></>}
@@ -682,29 +785,84 @@ function ChartAdvanceSearchList({ charts, onPick, onClose }: { charts: LiteChart
   )
 }
 
+/* Quick Patient Registration Form — 3797326 image 13: four groups, Patient
+   Identification (Chart No. greyed, Name (F/M/L), Alias (F/L), Birth Date and
+   Gender, Insurance by, Insurance No. and Dependant No. 00, Status Code A and
+   Status Date, BC Health No.), Contact Information (two Address lines, City
+   "…" and Province BC, Postal Code and Country Canada, Home / Work / Cell
+   with Leave Message, Ext., Pager, Preferred Phone and Fax, two eMails),
+   Office Information (Facility, Location, Service, Service Provider) and
+   Connections (Referring, Primary Care "…"), then Register (F2) / Cancel —
+   the same window the Scheduler's Quick Registration opens (art. 303855).
+   The image's yellow notes ("Click to search", "Add at least one") and red
+   marks are the article's annotations, not the window; its bold asterisks
+   are kept as the required markers (the one floating between the two eMail
+   rows is left out: which row it marks is unclear).
+   CONFIRM-CURRENT: the whole layout is from that older image. */
+const QR_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: '100px 120px 96px minmax(0, 1fr)', columnGap: 6, rowGap: 3, alignItems: 'center', padding: '2px 4px' }
+const QrGroup = ({ title, children }: { title: string; children: ReactNode }) => (
+  <CaptionGroup frame="fieldset" title={title} style={{ margin: '0 0 6px' }} bodyStyle={QR_GRID}>{children}</CaptionGroup>
+)
+const QrLabel = ({ children, req, right }: { children: ReactNode; req?: boolean; right?: boolean }) => (
+  <span style={{ whiteSpace: 'nowrap', textAlign: right ? 'right' : undefined }}>{children}{req && <b style={{ color: '#000' }}> *</b>}</span>
+)
+
 function QuickPatientRegistration({ initialLast, onClose, onRegister }: { initialLast: string; onClose: () => void; onRegister: (c: Omit<LiteChart, 'chart'>) => void }) {
-  const [c, setC] = useState<Omit<LiteChart, 'chart'>>({ first: '', middle: '', last: initialLast, dob: '', gender: '', insuranceBy: 'BC', insurance: '', city: '', province: 'BC', postal: '', preferred: 'Home', home: '', work: '', cell: '' })
-  const f = (key: keyof typeof c, w: number) => <PBInput w={w} value={c[key]} onChange={(e) => setC({ ...c, [key]: e.target.value })} data-tutorial-id={`host.mois.field.quick-reg-${pbSlug(key)}`} />
+  const [c, setC] = useState<Omit<LiteChart, 'chart'>>({ first: '', middle: '', last: initialLast, dob: '', gender: '', insuranceBy: 'BC', insurance: '', city: '', province: 'BC', postal: '', preferred: '', home: '', work: '', cell: '' })
+  /* the form's other fields: shown and editable, not carried into the chart the launch window keeps */
+  const [x, setX] = useState<Record<string, string>>({ dependant: '00', status: 'A', country: 'Canada' })
+  const [leave, setLeave] = useState({ home: false, work: false })
+  const f = (key: keyof typeof c, w: number | string) => <PBInput w={w} value={c[key]} onChange={(e) => setC({ ...c, [key]: e.target.value })} data-tutorial-id={`host.mois.field.quick-reg-${pbSlug(key)}`} />
+  const sel = (key: keyof typeof c, w: number, options: string[]) => <PBSelect w={w} options={options} value={c[key]} onChange={(e) => setC({ ...c, [key]: e.target.value })} data-tutorial-id={`host.mois.field.quick-reg-${pbSlug(key)}`} />
+  const o = (key: string, w: number | string, ro = false) => <PBInput w={w} value={x[key] ?? ''} readOnly={ro} style={ro ? { background: 'var(--pb-field-ro)' } : undefined} onChange={(e) => setX({ ...x, [key]: e.target.value })} data-tutorial-id={`host.mois.field.quick-reg-${key}`} />
+  const oSel = (key: string, w: number | string, options: string[]) => <PBSelect w={w} options={options} value={x[key] ?? ''} onChange={(e) => setX({ ...x, [key]: e.target.value })} data-tutorial-id={`host.mois.field.quick-reg-${key}`} />
+  const span3: CSSProperties = { gridColumn: '2 / span 3' }
   const ok = c.first && c.last && c.dob && c.gender && c.insurance && c.city && c.postal && (c.home || c.work || c.cell)
   return (
-    <DetailWindow id="quick-patient-registration-form" title="Quick Patient Registration Form" width={560} zIndex={45} onClose={onClose}
-      buttons={<><Btn id="quick-reg-register" isDefault width={100} disabled={!ok} onClick={() => onRegister(c)}>Register (F2)</Btn><Btn id="quick-reg-cancel" width={80} onClick={onClose}>Cancel</Btn></>}>
-      <div style={{ padding: '6px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <b style={{ color: NAVY.caption }}>Patient Identification</b>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Name (F/M/L): *</FieldLabel>{f('first', 110)}{f('middle', 90)}{f('last', 130)}</div>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Birth Date: *</FieldLabel>{f('dob', 90)}<FieldLabel w={60}>Gender: *</FieldLabel>
-          <PBSelect w={60} options={['', 'M', 'F', 'X', 'U']} value={c.gender} onChange={(e) => setC({ ...c, gender: e.target.value })} data-tutorial-id="host.mois.field.quick-reg-gender" /></div>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Insurance by: *</FieldLabel>{f('insuranceBy', 50)}<FieldLabel w={90}>Insurance No.: *</FieldLabel>{f('insurance', 120)}</div>
-        <b style={{ color: NAVY.caption, marginTop: 4 }}>Contact Information</b>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>City: *</FieldLabel>{f('city', 150)}<FieldLabel w={60}>Province:</FieldLabel>{f('province', 50)}</div>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Postal Code: *</FieldLabel>{f('postal', 90)}</div>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Home:</FieldLabel>{f('home', 110)}<FieldLabel w={40}>Work:</FieldLabel>{f('work', 110)}</div>
-        <div className="pb-row" style={{ gap: 4 }}><FieldLabel>Cell:</FieldLabel>{f('cell', 110)}<span style={{ background: '#ffffa0', padding: '0 4px' }}>Add at least one</span></div>
+    <DetailWindow id="quick-patient-registration-form" title="Quick Patient Registration Form" width={490} zIndex={45} onClose={onClose}
+      buttons={<><Btn id="quick-reg-register" isDefault width={90} disabled={!ok} onClick={() => onRegister(c)}>Register (F2)</Btn><Btn id="quick-reg-cancel" width={76} onClick={onClose}>Cancel</Btn></>}>
+      <div style={{ padding: '6px 10px 0' }}
+        onKeyDown={(e) => { if (e.key === 'F2' && ok) { e.preventDefault(); onRegister(c) } }}>
+        <QrGroup title="Patient Identification">
+          <QrLabel>Chart No.:</QrLabel><span style={span3}>{o('chart-no', 94, true)}</span>
+          <QrLabel req>Name (F/M/L):</QrLabel>{f('first', 120)}{f('middle', '100%')}{f('last', '100%')}
+          <QrLabel>Alias (F/L):</QrLabel>{o('alias-first', 120)}<span />{o('alias-last', '100%')}
+          <QrLabel req>Birth Date:</QrLabel>{f('dob', 120)}<QrLabel req right>Gender:</QrLabel>{sel('gender', 90, ['', 'M', 'F', 'X', 'U'])}
+          <QrLabel req>Insurance by:</QrLabel><span style={span3}>{sel('insuranceBy', 62, ['', 'BC', 'IN', 'PP', 'WC'])}</span>
+          <QrLabel req>Insurance No.:</QrLabel>{f('insurance', 120)}<QrLabel right>Dependant No.:</QrLabel>{o('dependant', 44)}
+          <QrLabel req>Status Code:</QrLabel>{oSel('status', 70, ['', 'A', 'I', 'D', 'M', 'LU'])}<QrLabel right>Status Date:</QrLabel>{o('status-date', '100%')}
+          <QrLabel>BC Health No.:</QrLabel><span style={span3}>{o('bc-health-no', 120)}</span>
+        </QrGroup>
+        <QrGroup title="Contact Information">
+          <QrLabel req>Address:</QrLabel><span style={span3}>{o('address-1', '100%')}</span>
+          <QrLabel>Address:</QrLabel><span style={span3}>{o('address-2', '100%')}</span>
+          <QrLabel req>City:</QrLabel><PBLookup w={120} value={c.city} name="quick-reg-city" fieldId="host.mois.field.quick-reg-city" onChange={(v) => setC({ ...c, city: v })} />
+          <QrLabel right>Province:</QrLabel>{f('province', '100%')}
+          <QrLabel req>Postal Code:</QrLabel>{f('postal', 98)}<QrLabel right>Country:</QrLabel>{o('country', '100%')}
+          <QrLabel req>Home:</QrLabel>{f('home', 98)}<span /><PBCheckbox label="Leave Message" checked={leave.home} onChange={(v) => setLeave({ ...leave, home: v })} tutorialId="host.mois.field.quick-reg-home-leave-message" />
+          <QrLabel>Work:</QrLabel>{f('work', 98)}<span className="pb-row" style={{ gap: 4, justifyContent: 'flex-end' }}>Ext.:{o('ext', 56)}</span><PBCheckbox label="Leave Message" checked={leave.work} onChange={(v) => setLeave({ ...leave, work: v })} tutorialId="host.mois.field.quick-reg-work-leave-message" />
+          <QrLabel>Cell:</QrLabel>{f('cell', 98)}<QrLabel right>Pager:</QrLabel>{o('pager', '100%')}
+          <QrLabel>Preferred Phone:</QrLabel>{sel('preferred', 98, ['', 'Home', 'Work', 'Cell'])}<QrLabel right>Fax:</QrLabel>{o('fax', '100%')}
+          <QrLabel>eMail (Home):</QrLabel><span style={span3}>{o('email-home', '100%')}</span>
+          <QrLabel>eMail (Work):</QrLabel><span style={span3}>{o('email-work', '100%')}</span>
+        </QrGroup>
+        {/* INFERRED: the four lists' entries (image 13 shows them closed and empty) */}
+        <QrGroup title="Office Information">
+          <QrLabel>Facility:</QrLabel><span style={span3}>{oSel('facility', 230, [''])}</span>
+          <QrLabel>Location:</QrLabel><span style={span3}>{oSel('location', 230, SERVICE_LOCATIONS)}</span>
+          <QrLabel>Service:</QrLabel><span style={span3}>{oSel('service', 230, [''])}</span>
+          <QrLabel>Service Provider:</QrLabel><span style={span3}>{oSel('service-provider', 230, ['', ...LITE_PROVIDERS])}</span>
+        </QrGroup>
+        <QrGroup title="Connections">
+          <QrLabel>Referring:</QrLabel><span style={span3}><PBLookup w="100%" value={x.referring ?? ''} name="quick-reg-referring" onChange={(v) => setX({ ...x, referring: v })} /></span>
+          <QrLabel>Primary Care:</QrLabel><span style={span3}><PBLookup w="100%" value={x['primary-care'] ?? ''} name="quick-reg-primary-care" onChange={(v) => setX({ ...x, 'primary-care': v })} /></span>
+        </QrGroup>
       </div>
     </DetailWindow>
   )
 }
 
+/* CONFIRM-CURRENT: laid out from 3103943 `7722ca57…` (older build). */
 function CareComplete({ enc, onClose, onContinue }: { enc: LiteEncounter; onClose: () => void; onContinue: (patch: Partial<LiteEncounter>) => void }) {
   const [reason, setReason] = useState(enc.reason)
   const [issues, setIssues] = useState(enc.healthIssues.slice(0, 2))
@@ -723,13 +881,17 @@ function CareComplete({ enc, onClose, onContinue }: { enc: LiteEncounter; onClos
             {issues.map((h, i) => <div key={i} style={{ marginTop: 3 }}><PBLookup w={90} value={h} name={`care-complete-health-issue-${i + 1}`} fieldId={`host.mois.field.care-complete-health-issue-${i + 1}`} onChange={(v) => setIssues(issues.map((x, j) => (j === i ? v : x)))} /></div>)}</div>
           <div><div style={{ color: '#666' }}>Service <span style={{ color: '#999' }}>(optional)</span></div>
             {services.map((s, i) => <div key={i} style={{ marginTop: 3 }}><PBLookup w={90} value={s} name={`care-complete-service-${i + 1}`} fieldId={`host.mois.field.care-complete-service-${i + 1}`} onChange={(v) => setServices(services.map((x, j) => (j === i ? v : x)))} /></div>)}
-            <div style={{ color: '#888', marginTop: 3 }}>Default: {DEFAULT_FEE_CODE}</div></div>
+            {/* 7722ca57 prints nothing under Service: the provider's default fee code
+                is applied when the visit is billed (3103943), not shown here */}
+          </div>
         </div>
       </div>
     </DetailWindow>
   )
 }
 
+/* CONFIRM-CURRENT: from 3797326's text (search Author / Name / Description
+   at the top, preview at the bottom, Select) and its two heart icons. */
 function TemplateList({ onClose, onSelect }: { onClose: () => void; onSelect: (text: string) => void }) {
   const [search, setSearch] = useState('')
   const [favs, setFavs] = useState<string[]>([])
@@ -786,6 +948,7 @@ function ReasonPicker({ onClose, onPick }: { onClose: () => void; onPick: (r: st
   )
 }
 
+/* CONFIRM-CURRENT: from 3797326's text only ("Make Note Private"). */
 function MakePrivate({ current, onClose, onContinue }: { current?: LiteEncounter['private']; onClose: () => void; onContinue: (p: NonNullable<LiteEncounter['private']>) => void }) {
   const [duration, setDuration] = useState(current?.duration ?? '')
   const [reason, setReason] = useState(current?.reason ?? '')

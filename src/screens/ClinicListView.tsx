@@ -14,6 +14,7 @@ import { useScreenWindow, useSessionState } from '../host/screen-windows'
 import { ClinicEditorLayer, EDIT_RECORD_WINDOW, FIND_REPLACE_WINDOW, NEW_RECORD_WINDOW, useClinicRows } from './ClinicEditorWindows'
 import { AdminExtraLayer, EXTRA_EDIT_RECORD, EXTRA_NEW_RECORD, adminOwnList } from './AdminExtraWindows'
 import { useRecordList } from './listKit'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 
 /* ============================================================================
    Administration ▸ Clinic Management — the twelve list screens.
@@ -34,12 +35,35 @@ import { useRecordList } from './listKit'
    → Master Provider, New Resource / Resource Detail, New Facility / Facility
    Detail and New Service Center → Service Center Detail, and the Service
    Center List's Find / Replace → Find and Replace: Service Center (user
-   capture 2026-09-25 #55–#60, v02.31.23). Computer Detail is captured
-   nowhere and is not built, so that list's Edit Record stays inert. A list's rows are this session's
+   capture 2026-09-25 #55–#60, v02.31.23), and Computer Detail, built from
+   303060's older image only (CONFIRM-CURRENT). A list's rows are this session's
    (`useClinicRows`): what a window creates or saves is there when the
    learner comes back to the list, and in the Master Provider List lookup the
    Letter Writer opens.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: the list screens here that only help-site captures of
+   older builds show — each node's `source` in data/clinicManagement.ts names
+   the image. Not flagged, because a capture of the current build shows them:
+   Provider List, Org Role List and Organization List (TRAINING 2026-09-29
+   13:32 / 13:38) and Service Centers (user capture 2026-09-25 #55). Clinic
+   Favourite Meds is drawn by FavouriteMedicationListView, and Contact List
+   and Organizations / Service Location by the Address Book and External
+   Service windows, which flag their own. */
+const OLDER_EVIDENCE_NODES: { node: string; check?: string }[] = [
+  { node: 'ad-resource-list' },
+  { node: 'ad-facility-list' },
+  { node: 'ad-computer', check: 'the Fax Device column (clipped in the image)' },
+  { node: 'ad-reminders' },
+  { node: 'ad-immunization' },
+  { node: 'ad-providers' },
+  { node: 'ad-clinics' },
+]
+registerConfirmCurrent(OLDER_EVIDENCE_NODES.map(({ node, check }) => ({
+  target: { node },
+  source: `help-site art. ${clinicListSpec(node)?.source ?? '(unknown)'}`,
+  ...(check ? { check } : null),
+})))
 
 /* A caption MOIS wraps itself. Only Service Location has one — its
    `Make Available on Scheduler` header band is 28px over two lines where

@@ -14,6 +14,7 @@ import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { ModalWindow } from '../dialogKit'
 import { FormLine, NAVY } from '../formKit'
 import { useTickSet } from '../listKit'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 
 /* ============================================================================
    Unsent Claims ▸ Utilities: the Claim Review Wizard and the Bulk Claim
@@ -71,6 +72,17 @@ import { useTickSet } from '../listKit'
    claims to create) in Unsent Claims, where the Claim Review Wizard can
    modify or delete them.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: both wizards are laid out from the help site's cloud
+   captures (303601, 2025–26 builds); no capture of the current build. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.unsent-claim-review-wizard' }, source: 'help-site 303601 `c379631e`, `e974131a`, `08c212b4`, `1580330d`' },
+  { target: { anchor: 'host.mois.dialog.unsent-review-delete-confirm' }, source: 'INFERRED: 303601 shows Delete Claims, not what it asks' },
+  { target: { anchor: 'host.mois.dialog.unsent-review-result' }, source: 'INFERRED: not captured' },
+  { target: { anchor: 'host.mois.dialog.batch-claim-wizard' }, source: 'help-site 303601 `a5aa3acb`, `24bd5844`, `8c056b46`, `76c14603`, `eccfcffc`, `58ca0ec4`', check: 'where Create Claims sits' },
+  { target: { anchor: 'host.mois.dialog.advanced-medical-report-builder' }, source: 'help-site 303601 `3ff4e8ca`' },
+  { target: { anchor: 'host.mois.dialog.batch-claim-result' }, source: 'INFERRED: not captured' },
+])
 
 const BLUE: CSSProperties = { background: '#c9daf8', color: '#555', padding: '3px 6px', flex: 'none' }
 
@@ -273,6 +285,7 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
       {ask === 'delete' && (
         <PBMessageBox
           title="Confirmation - Delete Claims"
+          tutorialId="host.mois.dialog.unsent-review-delete-confirm"
           icon="question"
           buttons={[
             { label: 'Yes', value: 'yes', default: true, command: 'review-delete-yes' },
@@ -288,6 +301,7 @@ export function UnsentClaimReviewWizard({ close }: AreaWindowProps) {
       {(ask === 'deleted' || ask === 'updated' || ask === 'nothing') && (
         <PBMessageBox
           title="Unsent Claim Review Wizard"
+          tutorialId="host.mois.dialog.unsent-review-result"
           buttons={[{ label: 'OK', value: 'ok', default: true, command: 'review-ok' }]}
           onClose={() => setAsk(null)}
         >
@@ -603,6 +617,7 @@ export function BatchClaimWizard({ close }: AreaWindowProps) {
       {(done !== null || problem) && (
         <PBMessageBox
           title="Batch Claim Wizard"
+          tutorialId="host.mois.dialog.batch-claim-result"
           icon={problem ? 'warn' : 'info'}
           buttons={[{ label: 'OK', value: 'ok', default: true, command: 'batch-ok' }]}
           onClose={() => { setProblem(null); setDone(null) }}

@@ -9,7 +9,7 @@ import {
   MSP_LOCATION_ROWS, rowFromForm, useClinicDefaultLocation, useDefaultLocation, useUnsentClaims,
 } from '../data/billingStore'
 import {
-  blankClaim, initialClaim, missingFields, UNSENT_CLAIM_KEY, type ClaimForm,
+  blankClaim, CHART_PROMPT_KEY, initialClaim, missingFields, UNSENT_CLAIM_KEY, type ClaimForm,
 } from '../data/claims'
 import { insuranceCarrierRows } from '../data/mois'
 import { usePatientRoster } from '../data/patient-context'
@@ -17,6 +17,8 @@ import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { pcpcClaimCheck } from '../data/billingPrograms'
 import { useReportDialog, useScreenWindow, useSessionState } from '../host/screen-windows'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
+import { rosterProvider } from '../data/clinicRoster'
 import type { ClaimPrompt } from './ClaimPromptDialog'
 import { registerBillingMenus } from '../data/menus/billing'
 import { registerChangeTeleplanPassword } from './ChangeTeleplanPasswordDialog'
@@ -39,6 +41,17 @@ registerBillingMenus()
 registerChangeTeleplanPassword()
 registerSentClaimDetail()
 registerBillingWindows()
+
+/* CONFIRM-CURRENT: no capture of the current build's Billing module exists.
+   Unsent MSP's layout is the help site's — `12299570` (v02.20.02), checked
+   against `fa0339f2` (v02.31.34) and `a1e4b898` (v02.31.41), which agree
+   with it field for field — and its styling is the kit's. */
+registerConfirmCurrent([
+  { target: { node: 'bl-unsent' }, source: 'help-site 303601 `12299570` v02.20.02, `fa0339f2` v02.31.34, `a1e4b898` v02.31.41' },
+  { target: { anchor: 'host.mois.dialog.confirmation-delete-record' }, source: 'help-site 303601 `dcf77aa9` (cloud build)' },
+  { target: { anchor: 'host.mois.dialog.claim-status' }, source: 'INFERRED: what the Claim Status … shows is not captured' },
+  { target: { anchor: 'host.mois.dialog.claim-pcpc' }, source: 'art. 1776677 (text only)', check: 'title and wording' },
+])
 
 /* ============================================================================
    The three captured Billing views: Unsent MSP (here), Sent To MSP
@@ -77,7 +90,8 @@ registerBillingWindows()
    marked as Incomplete … MOIS will indicate the reason by showing the field
    name in red" (303601). Chart, Insurance #, Service Date, Location, Fee
    Item, Unit Amount and Diag Code 1 always; and, INFERRED from the field
-   descriptions (the How-To pages they link to are not in the archive):
+   descriptions (the How-To pages they link to are not in the archive; no
+   help image shows a claim judged Incomplete with its labels red):
      · a call-out fee item (01200–01202) needs Time(s) Received, a
        continuing-care surcharge (01205–01207) Start and Finish — "This
        applies to out of office billing and some specific Fee Codes";
@@ -151,6 +165,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
   const roster = usePatientRoster()
   const store = useUnsentClaims(roster)
   const [stored, setStored] = useSessionState<ClaimForm | null>(UNSENT_CLAIM_KEY, null)
+  const [, setChartAsked] = useSessionState<string | null>(CHART_PROMPT_KEY, null)
   const [missing, setMissing] = useState<string[]>([])
   /* BC PCPC in-basket validation (1776677; data/billingPrograms.ts — A2) */
   const [pcpcIssue, setPcpcIssue] = useState('')
@@ -237,9 +252,16 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
     setStored({ ...blankClaim(MOIS_TODAY, c.doctor), location: defaultLoc || clinicLoc })
   }
 
-  const pickFee = (code: string) => {
+  /** A fee item typed, picked or hot-keyed: its amount, and — when Diag
+      Code 1 is still empty — its default diagnostic code. CONFIRM-CURRENT:
+      303219 "when a fee code is entered, the diagnostic code is
+      automatically populated" and `45defc38` (v02.2x: Fee Item 14540, Diag
+      Code 1 V2510); INFERRED that a typed Diag Code 1 is kept. */
+  const pickFee = (code: string, unit?: string) => {
     const f = claimFee(code)
-    set({ fee: code, ...(f ? { unit: f.fee } : {}) })
+    const amount = unit ?? f?.fee
+    const diag = f?.diag && !c.diag1.trim() ? billingDiagnosisPatch(f.diag) : {}
+    set({ fee: code, ...(amount && amount !== '-' ? { unit: amount } : {}), ...diag })
   }
 
   useBillingCommands((cmd) => {
@@ -249,7 +271,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
     else if (cmd === 'prompt-patient') onPrompt?.('patient')
     else if (cmd === 'prompt-doctor') onPrompt?.('doctor')
     else if (cmd === 'prompt-service') onPrompt?.('service')
-    else if (cmd === 'prompt-chart') onPrompt?.('chart')
+    else if (cmd === 'prompt-chart') { setChartAsked(c.chart.trim()); onPrompt?.('chart') }
     else if (cmd === 'fee-option-1') pickFee(FEE_OPTION_1)
     else if (cmd === 'fee-option-2') pickFee(FEE_OPTION_2)
     else if (cmd === 'duplicate-nos') duplicate('nos')
@@ -609,7 +631,12 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
         <Band caption="OTHER:">
           <Line>
             <LL>Pract. No.:</LL>
-            <At x={346} top={3}><span>963852</span></At>
+            {/* the claim's provider's numbers (data/clinicRoster), so Change
+                Claim Provider changes them — 303601 OTHER: "the information
+                that is being sent to MSP about the provider (e.g.
+                Practitioner Number, Payee Number …)". The capture's own
+                963852 / 54321 stand for a provider off the roster. */}
+            <At x={346} top={3}><span data-tutorial-id="host.mois.field.claim-pract-no">{rosterProvider(c.doctor)?.pract ?? '963852'}</span></At>
             <RL end={578}>Facility No.:</RL>
             <At x={580}><Field w={60} value={c.facility ?? '00000'} id="claim-facility" onChange={(v) => set({ facility: v })} /></At>
             <At x={660} top={3}><span className="pb-form__label">PBF Class.</span></At>
@@ -618,7 +645,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
           </Line>
           <Line>
             <LL>Payee No.:</LL>
-            <At x={346} top={3}><span>54321</span></At>
+            <At x={346} top={3}><span data-tutorial-id="host.mois.field.claim-payee-no">{rosterProvider(c.doctor)?.payee ?? '54321'}</span></At>
             <At x={400}><PBCheckbox label="Change Payee" /></At>
             <RL end={578}>Sub Facility:</RL>
             <At x={580}><Field w={60} value={c.subFacility ?? '00000'} onChange={(v) => set({ subFacility: v })} /></At>
@@ -647,6 +674,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
            cannot be billed for In-Basket items without fee code 96198" */
         <PBMessageBox
           title="BC PCPC"
+          tutorialId="host.mois.dialog.claim-pcpc"
           icon="warn"
           buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-pcpc-ok' }]}
           onClose={() => setPcpcIssue('')}
@@ -655,9 +683,11 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
         </PBMessageBox>
       )}
       {confirm === 'missing' && (
-        /* INFERRED: what the "…" beside Claim Status shows is not captured */
+        /* INFERRED: what the "…" beside Claim Status shows is not captured
+           (the button itself is: 12299570, fa0339f2, a1e4b898) */
         <PBMessageBox
           title="Claim Status"
+          tutorialId="host.mois.dialog.claim-status"
           icon={gapsNow.length ? 'warn' : 'info'}
           buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-status-ok' }]}
           onClose={() => setConfirm(null)}
@@ -669,7 +699,7 @@ export function UnsentMspView({ onPrompt }: { onPrompt?: (prompt: ClaimPrompt) =
       )}
 
       {win.is(UNSENT_WINDOWS.fee) && (
-        <FeeCodeLookupWindow onClose={win.close} onPick={(r) => { set({ fee: r.code, unit: r.fee }); win.close() }} />
+        <FeeCodeLookupWindow onClose={win.close} onPick={(r) => { pickFee(r.code, r.msp); win.close() }} />
       )}
       {win.is(UNSENT_WINDOWS.provider) && (
         <ProviderListWindow

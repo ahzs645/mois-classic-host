@@ -5,6 +5,7 @@ import {
   type ActivityEntry, type AliasRow, type RoutingConfig, type UnmatchedItem,
 } from '../data/unmatched'
 import { MOIS_TODAY } from '../data/patients'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useScreenReport } from '../host/screen-state'
 import { useSessionState } from '../host/screen-windows'
 import {
@@ -25,13 +26,16 @@ import { WorkspaceBanner } from './WorkspaceBanner'
      "<Action> on yyyy.mm.dd hh:mm / by: <user> / <reason or To:>". Drawn by
      `LabActivityPanel` in Patient Lab Detail (InterfaceExchangeViews.tsx),
      where "all action buttons have moved up in the window, in line with
-     the 'Lab Message List' heading" — `LabActionButtons`: Print, Ignore,
-     Fax, Reassign, Save as PDF (`3c17c435…` — its option list is not
-     legible; one Save as PDF button stands for it). Print / Ignore / Fax
-     ask for a reason (the log keeps "Date, time, user, reason"); the
-     Reason prompt is INFERRED. Reassign — "Manual Reassign can be to
-     another User or Org Role … Only one 'assigned' user … Reassignment is
-     logged" — opens Reassign Responsibility (INFERRED layout).
+     the 'Lab Message List' heading" — `LabActionButtons`, as `3c17c435…`
+     lines them up: Reassign, Reassign All, Print, Print All, Ignore,
+     Ingore All (sic), Fax All, Save as PDF. Print / Ignore / Fax ask for a
+     reason (the log keeps "Date, time, user, reason"); the Reason prompt
+     is INFERRED. Reassign — "Manual Reassign can be to another User or Org
+     Role … Only one 'assigned' user … Reassignment is logged" — opens
+     Reassign Responsibility (the User / Org Role choice is the article's;
+     the window's layout is INFERRED). The Inbound Messages detail offers
+     only Reassign, Print, Ignore, Print Preview (`b178453f…`) — that
+     window is drawn elsewhere (InterfaceExchangeViews.tsx).
    · User Alias Review — `5f32d5f5…`: Refresh, New, Edit, Delete, Print,
      Close Window; "User Parameter" (Name; Status Exclude Inactive / Include
      Inactive / Only Inactive) and "Alias Parameter" (Source, Value, Include
@@ -40,9 +44,12 @@ import { WorkspaceBanner } from './WorkspaceBanner'
      (select a User, Provider, Org, or Org Role; Source; Value; start / end
      date; Note; Save) — that window has no capture and is INFERRED. Delete
      asks first. Print opens the frame's print preview if registered.
-   · Unmatched Items — Workspace ▸ Basket ▸ Unmatched Items: the article's
-     filters (Date range; Status, default UNMATCHED; Patient name) over an
-     INFERRED grid; Open Detail and Reassign act on the current row.
+   · Unmatched Items — Workspace ▸ Basket ▸ Unmatched Items: the place is
+     the article's ("permission in the folder view: Workspace > Basket >
+     Unmatched Items") and `4d6a5577…`'s tree (v2.31.41: the last Basket
+     folder, after Orders); the article's filters (Date range; Status,
+     default UNMATCHED; Patient name) over an INFERRED grid; Open Detail and
+     Reassign act on the current row.
    · Routing — Setup / Registration's two new panes (drawn in
      InterfaceExchangeViews.tsx from `RoutingPanes` here): `59647e5a…` and
      `95dab64d…`.
@@ -52,7 +59,24 @@ import { WorkspaceBanner } from './WorkspaceBanner'
    Reported: `host.screen.rows`, `host.screen.row`, `host.screen.activity`
    (records in the open result's log), `host.screen.assigned`,
    `host.screen.filter`, `host.screen.saved`, `host.dialog`.
+
+   No capture of the current build exists for any of this: each window,
+   pane and folder is registered below for confirmation against it.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: the 2.31.41 unmatched-result surfaces, from help-site
+   art. 303492's images (v2.31.41) and, where it has none, its text. */
+registerConfirmCurrent([
+  { target: { node: 'dx-alias-review' }, source: 'help-site art. 303492 `5f32d5f5…`, v2.31.41' },
+  { target: { node: 'ws-unmatched' }, source: 'help-site art. 303492 (text) + `4d6a5577…` tree, v2.31.41', check: 'columns and command row INFERRED' },
+  { target: { anchor: 'host.mois.group.lab-actions' }, source: 'help-site art. 303492 `3c17c435…`, v2.31.41' },
+  { target: { anchor: 'host.mois.group.activity' }, source: 'help-site art. 303492 `e9610920…`, v2.31.41' },
+  { target: { anchor: 'host.mois.group.unmatched-routing' }, source: 'help-site art. 303492 `59647e5a…` / `95dab64d…`, v2.31.41' },
+  { target: { anchor: 'host.mois.dialog.lab-action-reason' }, source: 'help-site art. 303492 (text: "Date, time, user, reason")', check: 'whole prompt INFERRED' },
+  { target: { anchor: 'host.mois.dialog.reassign-responsibility' }, source: 'help-site art. 303492 (text only)', check: 'layout INFERRED' },
+  { target: { anchor: 'host.mois.dialog.new-user-alias' }, source: 'help-site art. 303492 (text: New steps 1–7)', check: 'layout INFERRED' },
+  { target: { anchor: 'host.mois.dialog.edit-user-alias' }, source: 'help-site art. 303492 (text: Edit steps)', check: 'layout INFERRED' },
+])
 
 const USER = 'administrator'
 
@@ -84,7 +108,9 @@ export function LabActivityPanel({ resultKey }: { resultKey: string }) {
   )
 }
 
-/* --- Reassign Responsibility (INFERRED) ------------------------------------------ */
+/* --- Reassign Responsibility ------------------------------------------------------
+   CONFIRM-CURRENT: 303492's text — "Manual Reassign can be to another User or
+   Org Role", one assignee at a time, logged. The window's layout is INFERRED. */
 export function ReassignWindow({ current, onAssign, onClose }: { current?: string; onAssign: (to: string, kind: string) => void; onClose: () => void }) {
   const [kind, setKind] = useState<'User' | 'Org Role'>('User')
   const [to, setTo] = useState('')
@@ -117,13 +143,21 @@ export function LabActionButtons({ resultKey, assigned, onAssigned }: { resultKe
   const [reassign, setReassign] = useState(false)
   const [pdf, setPdf] = useState(false)
   const ask = (k: 'Print' | 'Ignore' | 'Fax') => { setText(''); setReason(k) }
+  /* CONFIRM-CURRENT: the eight buttons of `3c17c435…` (v2.31.41), in its
+     order and spelling — "Ingore All" is the capture's. There is no single
+     Fax, only Fax All (its anchor stays `lab-fax`). The "All" buttons act on
+     every message in the Lab Message List; here, with one message, they do
+     what the single button does (INFERRED). */
   return (
-    <span className="pb-row" style={{ gap: 3 }} data-tutorial-id="host.mois.group.lab-actions">
-      <Btn id="lab-print" onClick={() => ask('Print')}>Print</Btn>
-      <Btn id="lab-ignore" onClick={() => ask('Ignore')}>Ignore</Btn>
-      <Btn id="lab-fax" onClick={() => ask('Fax')}>Fax</Btn>
-      <Btn id="lab-reassign" onClick={() => setReassign(true)}>Reassign</Btn>
-      <Btn id="lab-save-as-pdf" onClick={() => setPdf(true)}>Save as PDF</Btn>
+    <span className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.group.lab-actions">
+      <Btn id="lab-reassign" width={80} onClick={() => setReassign(true)}>Reassign</Btn>
+      <Btn id="lab-reassign-all" width={80} onClick={() => setReassign(true)}>Reassign All</Btn>
+      <Btn id="lab-print" width={80} onClick={() => ask('Print')}>Print</Btn>
+      <Btn id="lab-print-all" width={80} onClick={() => ask('Print')}>Print All</Btn>
+      <Btn id="lab-ignore" width={80} onClick={() => ask('Ignore')}>Ignore</Btn>
+      <Btn id="lab-ignore-all" width={80} onClick={() => ask('Ignore')}>Ingore All</Btn>
+      <Btn id="lab-fax" width={80} onClick={() => ask('Fax')}>Fax All</Btn>
+      <Btn id="lab-save-as-pdf" width={80} onClick={() => setPdf(true)}>Save as PDF</Btn>
       {reason && (
         <DetailWindow id="lab-action-reason" title={reason} width={380} zIndex={92} onClose={() => setReason(null)}
           buttons={<>
@@ -140,6 +174,7 @@ export function LabActionButtons({ resultKey, assigned, onAssigned }: { resultKe
         <ReassignWindow current={assigned} onClose={() => setReassign(false)}
           onAssign={(to) => { add({ kind: 'Assigned', text: `To: ${to}` }); onAssigned?.(to); setReassign(false) }} />
       )}
+      {/* INFERRED: the PDF's save step and this message have no capture */}
       {pdf && (
         <TopMessage id="lab-saved-as-pdf" title="Save as PDF" buttons={['OK']} prefix="lab-pdf-" onClose={() => setPdf(false)}>
           The report has been saved as a PDF.
@@ -152,6 +187,8 @@ export function LabActionButtons({ resultKey, assigned, onAssigned }: { resultKe
 /* ===========================================================================
    User Alias Review
    ======================================================================== */
+/* CONFIRM-CURRENT: `5f32d5f5…` (v2.31.41) — command row, the two parameter
+   groups, the grid's seven columns */
 function UserAliasReviewView({ close, open }: FolderViewProps) {
   const [rows, setRows] = useSessionState<AliasRow[]>(ALIAS_ROWS_KEY, ALIAS_ROWS)
   const [name, setName] = useState('')
@@ -245,6 +282,10 @@ function UserAliasReviewView({ close, open }: FolderViewProps) {
   )
 }
 
+/* CONFIRM-CURRENT: New / Edit's fields are 303492's steps, in their order —
+   a User, Provider, Org or Org Role; Source; Value; start / end date; Note;
+   Save — with its note "User / Provider accounts synchronize when
+   associated." No image of the window exists: its layout is INFERRED. */
 function AliasEditor({ row, onClose, onSave }: { row?: AliasRow; onClose: () => void; onSave: (r: AliasRow) => void }) {
   const [kind, setKind] = useState<AliasRow['kind']>(row?.kind ?? 'User')
   const [owner, setOwner] = useState(row?.user ?? '')
@@ -290,6 +331,9 @@ function AliasEditor({ row, onClose, onSave }: { row?: AliasRow; onClose: () => 
 
 /* ===========================================================================
    Workspace ▸ Basket ▸ Unmatched Items
+   CONFIRM-CURRENT: the folder's place (303492 text; `4d6a5577…` tree) and its
+   three filters (303492 text). The banner wording, the command row and the
+   grid's columns are INFERRED — no image of the folder exists.
    ======================================================================== */
 function UnmatchedItemsView({ close, openNode }: FolderViewProps) {
   const [items, setItems] = useSessionState<UnmatchedItem[]>(UNMATCHED_ITEMS_KEY, UNMATCHED_ITEMS)

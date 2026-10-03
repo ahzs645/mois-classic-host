@@ -14,6 +14,10 @@ import { LetterWriterWindow } from './LetterWriterWindow'
    templates). The window is LetterWriterWindow's `template` mode; the page
    is screens/LetterTemplateCanvas.tsx.
 
+   CONFIRM-CURRENT: every image above is a help-site capture of an older
+   build. The window is flagged for the ?confirm=1 overlay under its anchor
+   `host.mois.dialog.letter-template` in screens/LetterWriterWindow.tsx.
+
    Args (from the Letter Template Detail's New Letter): `template` (the
    template's name), `type` (its document type), `option` ('blank' |
    'template' | 'file'), `from` (the template picked), `file` (the .docx).

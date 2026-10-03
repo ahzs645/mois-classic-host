@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { LETTER_TEMPLATES } from '../data/letterSetup'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBRadio, PBSelect, PBTabs,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBGroup, PBInput, PBRadio, PBSelect, PBSpinner, PBTabs,
   pbSlug, usePBInstrumentation,
 } from '../pb'
 import { ModalWindow } from './dialogKit'
@@ -30,6 +31,16 @@ import { DialogFooter, FormLabel, NAVY } from './formKit'
      new-letter   303101 `01d1c6cc…` and `d4e452ef…` — New Letter: Options:
                   three radios; the third reveals a "Choose File" band with
                   File Name: and Browse; Continue / Cancel.
+     spelling     304741 `65935210…` — "MOIS Spell Checking": Change To,
+                  Suggestions (with its checkbox), Add Words To, and the
+                  Ignore / Ignore All / Add · Change / Change All · Cancel
+                  column. 304741 says the same spell checker serves "the
+                  Letter Writer page, and the Template Designer (Admin) page".
+
+   CONFIRM-CURRENT: every one of these is older evidence (help-site builds,
+   or the 304687 prose alone); none is in a capture of the current build.
+   Their layout is taken from that evidence and their look from the kit.
+   Each is registered below for the ?confirm=1 overlay.
 
    Every dialog is anchored `host.mois.dialog.<id>`, its buttons
    `host.mois.command.<id>-<button>`, and reports `host.dialog = <id>` while
@@ -52,6 +63,8 @@ type Spec = {
   height: number
   /** a tabbed dialog: one field list per tab */
   tabs?: Record<string, Field[]>
+  /** the tab a menu item opens the window on, when not the first */
+  initialTab?: string
   fields?: Field[]
   buttons?: string[]
 }
@@ -94,10 +107,20 @@ const BORDERS: Field[] = [
 ]
 const COLOR_FIELDS: Field[] = [{ kind: 'colors' }, { kind: 'text', label: 'Custom:', value: '#000000', w: 80 }]
 
+/* CONFIRM-CURRENT: Page Setup's tabs, in 304687's order ("Margins and
+   Paper, Headers and Footers, Columns and Borders"). Format ▸ Columns "Opens
+   the Columns tab in the 'Page Setup' window" and Format ▸ Header and Footer
+   "Opens the Headers and Footers tab": the same window, the same tab order,
+   opened on another tab — not a re-ordered copy. Whether "Columns and
+   Borders" is one tab or two is not settled by the prose (two, INFERRED). */
+const PAGE_SETUP_TABS: Record<string, Field[]> = {
+  'Margins and Paper': MARGINS, 'Headers and Footers': HEADERS_FOOTERS, Columns: COLUMNS, Borders: BORDERS,
+}
+
 export const EDITOR_DIALOGS: Record<string, Spec> = {
-  'page-setup': { title: 'Page Setup', width: 470, height: 420, tabs: { 'Margins and Paper': MARGINS, 'Headers and Footers': HEADERS_FOOTERS, Columns: COLUMNS, Borders: BORDERS } },
-  columns: { title: 'Page Setup', width: 470, height: 420, tabs: { Columns: COLUMNS, 'Margins and Paper': MARGINS, 'Headers and Footers': HEADERS_FOOTERS, Borders: BORDERS } },
-  'header-footer': { title: 'Page Setup', width: 470, height: 420, tabs: { 'Headers and Footers': HEADERS_FOOTERS, 'Margins and Paper': MARGINS, Columns: COLUMNS, Borders: BORDERS } },
+  'page-setup': { title: 'Page Setup', width: 470, height: 420, tabs: PAGE_SETUP_TABS },
+  columns: { title: 'Page Setup', width: 470, height: 420, tabs: PAGE_SETUP_TABS, initialTab: 'Columns' },
+  'header-footer': { title: 'Page Setup', width: 470, height: 420, tabs: PAGE_SETUP_TABS, initialTab: 'Headers and Footers' },
   find: {
     title: 'Find', width: 420, height: 190, buttons: ['Find Next', 'Cancel'],
     fields: [{ kind: 'text', label: 'Find what:', w: 240 }, { kind: 'check', label: 'Match case' }, { kind: 'check', label: 'Whole word only' }, { kind: 'radios', label: 'Direction:', options: ['Up', 'Down'] }],
@@ -199,13 +222,23 @@ export const EDITOR_DIALOGS: Record<string, Spec> = {
     title: 'Print Preview', width: 560, height: 560, buttons: ['Print...', 'Close'],
     fields: [{ kind: 'note', text: 'Page 1 of 1 — the letter at printing scale.' }],
   },
-  spelling: {
-    title: 'Spelling', width: 440, height: 300, buttons: ['Ignore', 'Ignore All', 'Change', 'Change All', 'Close'],
-    fields: [{ kind: 'text', label: 'Not in dictionary:', w: 240 }, { kind: 'list', label: 'Suggestions:', items: [] }, { kind: 'note', text: 'The spelling check is complete.' }],
-  },
 }
 
-export const isEditorDialog = (id: string) => id in EDITOR_DIALOGS || id === 'print' || id === 'new-letter'
+/* CONFIRM-CURRENT: every editor dialog is older evidence — the 304687 prose
+   for the word processor's own, a help-site image for Print, New Letter and
+   the spell checker. Flagged for the ?confirm=1 overlay. */
+registerConfirmCurrent([
+  ...Object.entries(EDITOR_DIALOGS).map(([id, spec]) => ({
+    target: { anchor: `host.mois.dialog.${id}` },
+    source: `art. 304687 (text only: "${spec.title}" in the menu glossary)`,
+    check: spec.tabs ? 'tabs, fields' : 'fields, buttons',
+  })),
+  { target: { anchor: 'host.mois.dialog.letter-print' }, source: 'help-site art. 303589 img 87ae0c732a13, older build', check: 'group order, Page Range columns' },
+  { target: { anchor: 'host.mois.dialog.new-letter' }, source: 'help-site art. 303101 imgs 01d1c6ccb84c, d4e452efb29c, older build' },
+  { target: { anchor: 'host.mois.dialog.spelling' }, source: 'help-site art. 304741 img 6593521038c6 (Progress Note), older build', check: 'caption suffix, dictionary list' },
+])
+
+export const isEditorDialog = (id: string) => id in EDITOR_DIALOGS || id === 'print' || id === 'new-letter' || id === 'spelling'
 
 function FieldRow({ f, name }: { f: Field; name: string }) {
   const [radio, setRadio] = useState(0)
@@ -289,8 +322,9 @@ function DialogShell({ id, title, width, height, onClose, children, buttons, onB
 export function LetterEditorDialog({ id, onClose, onOk }: { id: string; onClose: () => void; onOk?: () => void }) {
   const spec = EDITOR_DIALOGS[id]
   const tabs = spec?.tabs ? Object.keys(spec.tabs) : []
-  const [tab, setTab] = useState(tabs[0] ?? '')
+  const [tab, setTab] = useState(spec?.initialTab ?? tabs[0] ?? '')
   if (id === 'print') return <PrintDialog onClose={onClose} onPrint={() => { onOk?.(); onClose() }} />
+  if (id === 'spelling') return <SpellingDialog onClose={onClose} />
   if (!spec) return null
   const buttons = spec.buttons ?? ['OK', 'Cancel']
   return (
@@ -307,49 +341,85 @@ export function LetterEditorDialog({ id, onClose, onOk }: { id: string; onClose:
   )
 }
 
-/* --- Print (303589 `87ae0c73…`) ------------------------------------------ */
+/* --- Print (303589 `87ae0c73…`) ------------------------------------------
+   CONFIRM-CURRENT: laid out from 303589 `87ae0c73…` (an older build, raised
+   from Create Distribution). Left, four groups: Printer — right-aligned
+   Name: / Status: / Type: / Copies: labels, Properties... beside the
+   printer, Print to File level with Type and Duplex Mode level with Copies;
+   Page Range — All, Current Page, Current View and Pages: down the left,
+   Selected Pages and Selected Graphic (disabled) at the right, the page-
+   range hint, Subset with Reverse Order, and the Summary line; Page
+   Scaling — Scaling Type, a disabled Page zoom, three checkboxes; Print
+   Options — Print:, two checkboxes and Advanced.... Right: the Paper
+   preview with its Sheet / Page / Zoom readout, Print Sheets under it, and
+   Print / Cancel at the bottom right. The look is the kit's (PBGroup,
+   PBSpinner), not the capture's Windows 7 chrome. */
 function PrintDialog({ onClose, onPrint }: { onClose: () => void; onPrint: () => void }) {
   const [range, setRange] = useState('All')
+  const [copies, setCopies] = useState(1)
   useScreenReport({ dialog: 'letter-print' })
-  const group = (title: string, children: ReactNode) => (
-    <fieldset style={{ border: '1px solid #c8c8c8', margin: '0 0 6px', padding: '2px 8px 6px' }}>
-      <legend>{title}</legend>{children}
-    </fieldset>
-  )
+  const label = (text: string) => <span className="pb-form__label" style={{ width: 52, flex: 'none', textAlign: 'right' }}>{text}</span>
+  const row = (children: ReactNode, style?: CSSProperties) => <div className="pb-row" style={{ gap: 6, minHeight: 22, ...style }}>{children}</div>
+  const groupStyle: CSSProperties = { margin: '0 0 6px' }
   return (
     <ModalWindow id="letter-print" title="Print" onClose={onClose} zIndex={98}
       windowStyle={{ width: 830, height: 650, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
         <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 8, padding: 8, background: 'var(--pb-face)' }}>
           <div style={{ width: 410, flex: 'none', overflow: 'auto' }}>
-            {group('Printer', <>
-              <div className="pb-row" style={{ gap: 6 }}><span className="pb-form__label" style={{ width: 60 }}>Name:</span>
+            <PBGroup title="Printer" style={groupStyle}>
+              {row(<>{label('Name:')}
                 <PBSelect w={200} options={['HP LaserJet M1530 MFP Series', 'CutePDFWriter', 'SRFax']} data-tutorial-id="host.mois.field.print-printer" />
-                <PBButton>Properties...</PBButton></div>
-              <div>Status: Ready</div><div>Type: Remote Desktop Easy Print</div>
-              <div className="pb-row" style={{ gap: 6 }}><span className="pb-form__label" style={{ width: 60 }}>Copies:</span><PBInput w={40} defaultValue="1" /><PBCheckbox label="Collate" />
-                <span style={{ flex: 1 }} /><PBCheckbox label="Print to File" /></div>
-              <div style={{ textAlign: 'right' }}><PBCheckbox label="Duplex Mode" /></div>
-            </>)}
-            {group('Page Range', <>
-              {['All', 'Current Page', 'Current View', 'Pages:'].map((o) => (
-                <div key={o}><PBRadio name="letter-print-range" label={o} checked={range === o} onChange={() => setRange(o)} /></div>
-              ))}
-              <div className="pb-row" style={{ gap: 6, paddingLeft: 20 }}><PBInput w={140} disabled={range !== 'Pages:'} /><span>(total 1 pages)</span></div>
-              <div className="pb-row" style={{ gap: 6 }}><span className="pb-form__label">Subset:</span><PBSelect w={140} options={['All pages', 'Odd pages', 'Even pages']} /><PBCheckbox label="Reverse Order" /></div>
-            </>)}
-            {group('Page Scaling', <>
-              <div className="pb-row" style={{ gap: 6 }}><span className="pb-form__label">Scaling Type:</span><PBSelect w={240} options={['None', 'Fit to printer margins', 'Reduce to printer margins']} /></div>
-              <PBCheckbox label="Auto-rotate sheets" /><br /><PBCheckbox label="Auto-centre pages in sheets" /><br /><PBCheckbox label="Choose paper source by PDF-page size" />
-            </>)}
-            {group('Print Options', <>
-              <div className="pb-row" style={{ gap: 6 }}><span className="pb-form__label">Print:</span><PBSelect w={240} options={['Document and Markups', 'Document', 'Form fields only']} /></div>
-              <PBCheckbox label="Print as Images" /><br /><PBCheckbox label="Print as Grayscale" />
-            </>)}
+                <PBButton command="letter-print-properties">Properties...</PBButton></>)}
+              {row(<>{label('Status:')}<span>Ready</span></>)}
+              {row(<>{label('Type:')}<span style={{ flex: '1 1 auto' }}>Remote Desktop Easy Print</span><PBCheckbox label="Print to File" /></>)}
+              {row(<>{label('Copies:')}<PBSpinner w={44} value={copies} min={1} max={99} onChange={setCopies} /><PBCheckbox label="Collate" />
+                <span style={{ flex: '1 1 auto' }} /><PBCheckbox label="Duplex Mode" /></>)}
+            </PBGroup>
+            <PBGroup title="Page Range" style={groupStyle}>
+              <div style={{ display: 'flex' }}>
+                <div style={{ flex: '1 1 auto' }}>
+                  {['All', 'Current Page', 'Current View'].map((o) => (
+                    <div key={o}><PBRadio name="letter-print-range" label={o} checked={range === o} onChange={() => setRange(o)} /></div>
+                  ))}
+                </div>
+                <div style={{ width: 150, flex: 'none' }}>
+                  <div><PBRadio name="letter-print-range" label="Selected Pages" disabled /></div>
+                  <div><PBRadio name="letter-print-range" label="Selected Graphic" disabled /></div>
+                </div>
+              </div>
+              {row(<><PBRadio name="letter-print-range" label="Pages:" checked={range === 'Pages:'} onChange={() => setRange('Pages:')} />
+                <PBInput w={140} disabled={range !== 'Pages:'} /><span>(total 1 pages)</span></>)}
+              <div style={{ paddingLeft: 82, whiteSpace: 'normal', lineHeight: 1.3, margin: '2px 0 4px' }}>
+                Type page numbers and/or page ranges separated by commas counting from the start of the document. For example, type 1, 3, 5-12
+              </div>
+              {row(<>{label('Subset:')}<PBSelect w={120} options={['All pages', 'Odd pages', 'Even pages']} /><PBCheckbox label="Reverse Order" /></>, { paddingLeft: 30 })}
+              <div style={{ textAlign: 'right' }}>Summary: 1 selected of 1 pages</div>
+            </PBGroup>
+            <PBGroup title="Page Scaling" style={groupStyle}>
+              {row(<><span className="pb-form__label" style={{ width: 82, flex: 'none', textAlign: 'right' }}>Scaling Type:</span>
+                <PBSelect w={280} options={['None', 'Fit to printer margins', 'Reduce to printer margins']} /></>)}
+              {row(<><span className="pb-form__label" style={{ width: 82, flex: 'none', textAlign: 'right' }}>Page zoom:</span>
+                <PBSpinner w={70} value={100} disabled /></>)}
+              <div style={{ paddingLeft: 88 }}>
+                <PBCheckbox label="Auto-rotate sheets" /><br /><PBCheckbox label="Auto-centre pages in sheets" /><br /><PBCheckbox label="Choose paper source by PDF-page size" />
+              </div>
+            </PBGroup>
+            <PBGroup title="Print Options" style={groupStyle}>
+              {row(<><span className="pb-form__label" style={{ width: 82, flex: 'none', textAlign: 'right' }}>Print:</span>
+                <PBSelect w={280} options={['Document and Markups', 'Document', 'Form fields only']} /></>)}
+              {row(<><span style={{ width: 82, flex: 'none' }} /><div style={{ flex: '1 1 auto' }}><PBCheckbox label="Print as Images" /><br /><PBCheckbox label="Print as Grayscale" /></div>
+                <PBButton command="letter-print-advanced">Advanced...</PBButton></>)}
+            </PBGroup>
           </div>
-          <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', background: '#6d6d6d', color: '#fff', padding: 6 }}>
-            <div>Paper: &apos;Letter&apos;</div>
-            <div style={{ flex: '1 1 auto', margin: '8px auto', width: 250, background: '#fff', border: '1px solid #222' }} />
-            <div className="pb-row" style={{ gap: 6 }}><span>Print Sheets:</span><PBInput w={60} defaultValue="1" /><span>(1 total, 1 selected)</span></div>
+          <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', background: '#6d6d6d', color: '#fff', padding: 6 }}>
+              <div className="pb-row"><span>Paper: &apos;Letter&apos;</span><span style={{ flex: '1 1 auto' }} /><span>in</span></div>
+              <div style={{ flex: '1 1 auto', margin: '8px auto', width: 250, background: '#fff', border: '1px solid #222' }} />
+              <div className="pb-row"><span>Sheet: 1<br />Page: 1</span><span style={{ flex: '1 1 auto' }} /><span>Zoom: 100%</span></div>
+            </div>
+            <div className="pb-row" style={{ gap: 6, padding: '6px 0', justifyContent: 'center' }}>
+              <span>Print Sheets:</span><PBInput w={80} defaultValue="1" /><span>(1 total, 1 selected)</span>
+            </div>
           </div>
         </div>
         <div className="pb-footer">
@@ -361,7 +431,57 @@ function PrintDialog({ onClose, onPrint }: { onClose: () => void; onPrint: () =>
   )
 }
 
+/* --- MOIS Spell Checking (304741 `65935210…`) -----------------------------
+   CONFIRM-CURRENT: laid out from the only image of MOIS's spell checker,
+   304741 `65935210…`, taken on a Progress Note in an older build. Left:
+   Change To: over its box; Suggestions: with a checkbox at the right end of
+   the label row, over the suggestion list; Add Words To: over the
+   dictionary drop-down. Right: Ignore, Ignore All, Add — a gap — Change,
+   Change All, and Cancel alone at the foot. 304741's table describes the six
+   buttons; its prose places this checker on "the Letter Writer page".
+   INFERRED: the caption's suffix (the capture's reads "- Progress Note", the
+   field it checks; here it names this window), and the dictionary path —
+   the capture shows a site's own datastore, which is not copied. With no
+   word flagged, Change To and the list stay empty. */
+function SpellingDialog({ onClose }: { onClose: () => void }) {
+  const [suggest, setSuggest] = useState(true)
+  useScreenReport({ dialog: 'spelling' })
+  const btn = (b: string, extra?: CSSProperties) => (
+    <PBButton key={b} command={`spelling-${pbSlug(b)}`} style={{ width: 108, ...extra }} onClick={b === 'Cancel' ? onClose : undefined}>{b}</PBButton>
+  )
+  return (
+    <ModalWindow id="spelling" title="MOIS Spell Checking - Letter Writer" onClose={onClose} zIndex={98}
+      windowStyle={{ width: 384, height: 312, maxWidth: 'calc(100% - 16px)', maxHeight: 'calc(100% - 16px)' }}>
+        <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: 16, padding: '8px 10px', background: 'var(--pb-face)' }}>
+          <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <span className="pb-form__label">Change To:</span>
+            <PBInput w="100%" data-tutorial-id="host.mois.field.spelling-change-to" />
+            <div className="pb-row" style={{ marginTop: 10 }}>
+              <span className="pb-form__label" style={{ flex: '1 1 auto' }}>Suggestions:</span>
+              <PBCheckbox checked={suggest} onChange={setSuggest} tutorialId="host.mois.field.spelling-suggestions-on" />
+            </div>
+            <div data-tutorial-id="host.mois.field.spelling-suggestions"
+              style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fff', border: '1px solid var(--pb-border)' }} />
+            <span className="pb-form__label" style={{ marginTop: 10 }}>Add Words To:</span>
+            <PBSelect w="100%" options={['C:\\MOIS\\DATASTORE\\USER.TLX']} data-tutorial-id="host.mois.field.spelling-add-words-to" />
+          </div>
+          <div style={{ width: 108, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {btn('Ignore')}
+            {btn('Ignore All')}
+            {btn('Add')}
+            {btn('Change', { marginTop: 8 })}
+            {btn('Change All')}
+            <span style={{ flex: '1 1 auto' }} />
+            {btn('Cancel')}
+          </div>
+        </div>
+    </ModalWindow>
+  )
+}
+
 /* --- New Letter (303101 `01d1c6cc…`, `d4e452ef…`) --------------------------
+   CONFIRM-CURRENT: both images are older builds (Windows 7 and Windows 10
+   chrome); the layout below is theirs, the look the kit's.
    Options: three radios. "Create a new letter from a MOIS template" fills the
    empty list pane with the clinic's templates (INFERRED — the capture shows
    the pane empty with the first option picked); "Create a new letter from an

@@ -14,12 +14,15 @@ import { visitCodeRows } from '../data/daybook'
 import { MOIS_TODAY, stageStamp } from '../data/clock'
 import { S } from '../data/text'
 import { registerScreenWindows, useSessionState, type ScreenWindow } from '../host/screen-windows'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
+import { AVAILABLE_PRINTERS } from '../data/adminConfig'
+import { PrinterPickerWindow } from './ComputerSettingsWindow'
 import { SESSION_USER } from '../data/chartSession'
 import { CmdButton } from './CmdButton'
 import { DemographicModal } from './DemographicDialogs'
 import { CaptionGroup, DialogFooter, FormLine, ReadOnlyField, SectionCaption } from './formKit'
 import { useRecordList } from './listKit'
-import { PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection } from './adminKit'
+import { PROFILE_CONTROL_X, ProfileFooter, ProfileRow, ProfileSection, onF2 } from './adminKit'
 import {
   BillingServiceCodeLookup, ChangeAssociatedUserDialog, ServiceConceptSearchWindow, type AssociationChange,
 } from './AdminPickerWindows'
@@ -61,16 +64,38 @@ import { AliasIdGrid, InboxForwardingGrid, ScheduleAccessList, SharingWorkspaceG
    the pickers behind Change..., the Service cell's "…" and the Billing
    tab's Service Code "…" (screens/AdminPickerWindows.tsx).
 
-   NOT BUILT, because no capture shows it: the window behind the Scheduling
-   tab's Edit Display Settings. The button is drawn and raises nothing.
+   Two more are built from OLDER help-site evidence only, their layout from
+   it and their look from the current-build siblings above (see the
+   CONFIRM-CURRENT notes at each):
+     computer-detail       Computer List ▸ Edit Record, dbl   303060 `3e8383668656…`
+     display-settings      Scheduling tab ▸ Edit Display      303054 `8d4acd0d6254…`
+                           Settings (Provider and Org Role)   (older Scheduling tab);
+                                                               2069798 (text)
    ========================================================================= */
 
 export const CLINIC_WINDOWS = [
   'new-provider-profile', 'provider', 'new-provider', 'master-provider',
   'new-resource', 'resource-detail', 'new-facility', 'facility-detail', 'new-service-center',
-  'service-center-detail', 'find-replace-service-center',
+  'service-center-detail', 'find-replace-service-center', 'computer-detail',
 ] as const
 registerScreenWindows([...CLINIC_WINDOWS])
+
+/* CONFIRM-CURRENT: the windows here that only help-site captures of older
+   builds (v02.19 – v02.29) show. Every other window in this file (Provider,
+   New Provider Profile, New Service Center, Service Center Detail, Find and
+   Replace: Service Center) is matched to a capture of the current build and
+   is not flagged. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.computer-detail' }, source: 'help-site art. 303060 img 3e8383668656, older build' },
+  { target: { anchor: 'host.mois.dialog.display-settings' }, source: 'help-site art. 303054 img 8d4acd0d6254 (Display Settings group of the older Scheduling tab); art. 2069798 (text)', check: 'window title, buttons, and that these five fields are what the button opens' },
+  { target: { anchor: 'host.mois.dialog.change-provider-name' }, source: 'help-site art. 303054 img 7c657a8764ed, older build' },
+  { target: { anchor: 'host.mois.dialog.new-provider' }, source: 'help-site art. 303335 img 841a38580aae, v02.21' },
+  { target: { anchor: 'host.mois.dialog.master-provider' }, source: 'help-site art. 303335 img 1b2fbc9896a4, art. 303119 img 9f8b3110d3a4, v02.29' },
+  { target: { anchor: 'host.mois.dialog.new-resource' }, source: 'help-site art. 303204 img 436e6bd7f93d, older build' },
+  { target: { anchor: 'host.mois.dialog.resource-detail' }, source: 'help-site art. 303204 img 8a6d8780e14b, older build' },
+  { target: { anchor: 'host.mois.dialog.new-facility' }, source: 'help-site art. 303209 img 8a23610389d4, older build' },
+  { target: { anchor: 'host.mois.dialog.facility-detail' }, source: 'help-site art. 303209 img d84a442ab9f6, older build' },
+])
 
 /** the window New Record raises on each list that has one */
 export const NEW_RECORD_WINDOW: Record<string, string> = {
@@ -89,6 +114,8 @@ export const EDIT_RECORD_WINDOW: Record<string, string> = {
   'ad-facility-list': 'facility-detail',
   /* user capture 2026-09-25 #56 */
   'ad-service-centers': 'service-center-detail',
+  /* CONFIRM-CURRENT: 303060 "Edit Record: Computer Detail Window" */
+  'ad-computer': 'computer-detail',
 }
 
 /** the window a list's Find / Replace raises, where it is captured (#58) */
@@ -190,6 +217,7 @@ export function ClinicEditorLayer({ window: win, close, open, onAdded }: {
     case 'new-service-center': return <NewServiceCenterDialog close={close} open={open} onAdded={onAdded} />
     case 'service-center-detail': return <ServiceCenterDetailWindow key={key} rowKey={key} close={close} />
     case 'find-replace-service-center': return <FindReplaceServiceCenterDialog close={close} />
+    case 'computer-detail': return <ComputerDetailWindow key={key} rowKey={key} close={close} />
     default: return null
   }
 }
@@ -526,6 +554,7 @@ export function ProviderTab({ tab, draft, set, onChangeUser }: {
   tab: string; draft: Draft; set: (patch: Draft) => void; onChangeUser: () => void
 }) {
   const [lookup, setLookup] = useState<string | null>(null)
+  const [displaySettings, setDisplaySettings] = useState(false)
   const text = (label: string, key: string, w: number, extra?: Partial<Parameters<typeof PBInput>[0]>) => (
     <PBInput w={w} value={S(draft[key])} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={fieldId(label)} {...extra} />
   )
@@ -570,8 +599,8 @@ export function ProviderTab({ tab, draft, set, onChangeUser }: {
     )
 
     /* #62: Scheduler / Encounter Settings beside Mandatory Documentation
-       Settings, then Schedule Access. The window behind Edit Display
-       Settings is not captured; the button raises nothing. */
+       Settings, then Schedule Access. Edit Display Settings raises Display
+       Settings (DisplaySettingsDialog, below — older evidence only). */
     case 'Scheduling': return (
       <>
         <div className="pb-row" style={{ gap: 8, alignItems: 'stretch' }}>
@@ -586,7 +615,7 @@ export function ProviderTab({ tab, draft, set, onChangeUser }: {
             </Line>
             <Line label="Attending:" w={88}>{tick('Attending', 'attendingMandatory', 'Make attending mandatory for encounters with notes')}</Line>
             <div className="pb-row" style={{ justifyContent: 'flex-end', paddingTop: 2 }}>
-              <Btn command="edit-display-settings" w={110}>Edit Display Settings</Btn>
+              <Btn command="edit-display-settings" w={110} onClick={() => setDisplaySettings(true)}>Edit Display Settings</Btn>
             </div>
           </Group>
           <Group title="Mandatory Documentation Settings" style={{ flex: '1 1 0' }}>
@@ -615,6 +644,10 @@ export function ProviderTab({ tab, draft, set, onChangeUser }: {
           {/* the private list is 2069798 `b8ba256a…` (ProviderTabGrids.tsx) */}
           <ScheduleAccessList owner={S(draft.name)} isPrivate={draft.access === 'private'} />
         </Group>
+        {displaySettings && (
+          <DisplaySettingsDialog draft={draft} onClose={() => setDisplaySettings(false)}
+            onSave={(patch) => { set(patch); setDisplaySettings(false) }} />
+        )}
       </>
     )
 
@@ -943,6 +976,59 @@ function OnlineBookingTab({ draft, set }: { draft: Draft; set: (patch: Draft) =>
 }
 
 /* ===========================================================================
+   Display Settings                     303054 `8d4acd0d6254…` (older build)
+
+   CONFIRM-CURRENT: the window the Scheduling tab's Edit Display Settings
+   raises. No capture of any build opens it. 2069798 says the button "adjusts
+   the bar and box widths"; the older Scheduling tab (303054 `8d4acd0d…`,
+   before the button existed) drew those settings inline as a "Display
+   Settings" group, and that group's LAYOUT is what this window holds:
+   Daybook "(appointment block / row height)", then Single View, Week View,
+   Three Provider and Eight Provider, each "(appointment block / column
+   width)" — the same five the Resource Detail window keeps under Scheduler
+   Settings (303204). Its look is the Provider window's own caption groups.
+   INFERRED: the title "Display Settings", and Ok / Cancel (Ok hands the five
+   values to the Provider / Org Role window, whose Save keeps them).
+   ======================================================================== */
+
+const DISPLAY_SETTINGS = [
+  { label: 'Daybook', key: 'dispDaybook', note: '(appointment block / row height)' },
+  { label: 'Single View', key: 'dispSingle', note: '(appointment block / column width)' },
+  { label: 'Week View', key: 'dispWeek', note: '(appointment block / column width)' },
+  { label: 'Three Provider', key: 'dispThree', note: '(appointment block / column width)' },
+  { label: 'Eight Provider', key: 'dispEight', note: '(appointment block / column width)' },
+] as const
+
+function DisplaySettingsDialog({ draft, onSave, onClose }: {
+  draft: Draft
+  onSave: (patch: Draft) => void
+  onClose: () => void
+}) {
+  const [d, setD] = useState<Draft>(() => Object.fromEntries(DISPLAY_SETTINGS.map((f) => [f.key, S(draft[f.key])])))
+  const ok = () => onSave(d)
+  return (
+    <DemographicModal title="Display Settings" width={420} onClose={onClose} dialog="display-settings">
+      <div style={{ padding: '10px 12px 8px', background: 'var(--pb-face)' }} onKeyDown={(e) => { if (e.key === 'Enter') ok() }}>
+        <Group title="Display Settings">
+          {DISPLAY_SETTINGS.map((f, i) => (
+            <Line key={f.key} label={`${f.label}:`} w={88}>
+              <PBInput w={50} align="center" value={S(d[f.key])} autoFocus={i === 0}
+                onChange={(e) => setD((x) => ({ ...x, [f.key]: e.target.value.replace(/\D/g, '') }))}
+                data-tutorial-id={fieldId(`Display ${f.label}`)} />
+              <span>{f.note}</span>
+            </Line>
+          ))}
+        </Group>
+      </div>
+      <Footer>
+        <Btn command="display-settings-ok" w={75} onClick={ok}>Ok</Btn>
+        <Btn command="display-settings-cancel" w={75} onClick={onClose}>Cancel</Btn>
+      </Footer>
+    </DemographicModal>
+  )
+}
+
+/* ===========================================================================
    Change Provider Name                 303054 `7c657a8764ed…` (552x339, 1:1)
    ======================================================================== */
 
@@ -1106,7 +1192,7 @@ export function MasterProviderWindow({ rowKey, close }: { rowKey: string; close:
    the fields, Create Record / Cancel. Measured 1:1 off v02.19.04 captures.
    ======================================================================== */
 
-function NewRecordDialog({ title, dialog, width = 420, onCreate, onClose, children }: {
+export function NewRecordDialog({ title, dialog, width = 420, onCreate, onClose, children }: {
   title: string; dialog: string; width?: number; onCreate: () => void; onClose: () => void; children: ReactNode
 }) {
   return (
@@ -1125,7 +1211,7 @@ function NewRecordDialog({ title, dialog, width = 420, onCreate, onClose, childr
 }
 
 /* grey, as #55 draws it */
-const Required = () => <span style={HINT}>(required - unique)</span>
+export const Required = () => <span style={HINT}>(required - unique)</span>
 
 /** the facility codes this session's Facility List holds, and each one's locations */
 function useFacilities() {
@@ -1535,6 +1621,117 @@ function FacilityDetailWindow({ rowKey, close }: { rowKey: string; close: () => 
         <Btn command="save-changes-f2" w={108} onClick={save}>Save Changes (F2)</Btn>
         <Btn command="cancel" w={108} onClick={close}>Cancel</Btn>
       </Footer>
+    </DemographicModal>
+  )
+}
+
+/* ===========================================================================
+   Computer Detail                      303060 `3e8383668656…` (older build)
+
+   CONFIRM-CURRENT: the whole window. No capture of the current build opens
+   it, so its LAYOUT is 303060's "Edit Record: Computer Detail Window" and
+   its look is the current-build detail windows' (the navy title band and
+   navy section captions Service Center Detail #56 draws, the kit's fields,
+   the Save Changes (F2) / Cancel footer). From the old image:
+     · a navy "Computer" band;
+     · "Identication" [sic — the shipped caption, kept]: Computer Name and
+       Location at the left, Operating System and Retired Date at the right;
+     · "Printer Settings": a bold PRINTER TYPE · DEVICE header, then Report /
+       Label / Form / Rx / Fax Printer, each a field with "…", one per ruled
+       line; Label and Rx carry ☐ Character Based Printing at the right;
+     · "Other Settings": Scheduler Refresh "(time interval - in seconds - for
+       refreshing the scheduler window)."
+   INFERRED: the "…" opens the Select Printer list Computer Settings uses
+   (ComputerSettingsWindow.tsx), on the printers this stage knows plus the
+   one already named; Retired Date takes MOIS's yyyy.mm.dd date mask (as
+   Service Center Detail's dates do). Save Changes (F2) writes the window
+   back to the Computer List row; Cancel drops it.
+   ======================================================================== */
+
+const COMPUTER_PRINTERS = [
+  { label: 'Report Printer', key: 'report' },
+  { label: 'Label Printer', key: 'label', char: 'labelChar' },
+  { label: 'Form Printer', key: 'form' },
+  { label: 'Rx Printer', key: 'rx', char: 'rxChar' },
+  { label: 'Fax Printer', key: 'fax' },
+] as const
+
+function ComputerDetailWindow({ rowKey, close }: { rowKey: string; close: () => void }) {
+  const [rows, update] = useClinicRows('ad-computer')
+  const row = rows.find((r) => S(r.computer) === rowKey) ?? { computer: rowKey }
+  const [draft, setDraft] = useState<Draft>(() => ({ ...row }))
+  const [picking, setPicking] = useState<string | null>(null)
+  const set = (patch: Draft) => setDraft((d) => ({ ...d, ...patch }))
+  const text = (label: string, key: string, w: number, extra?: Partial<Parameters<typeof PBInput>[0]>) => (
+    <PBInput w={w} value={S(draft[key])} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={fieldId(label)} {...extra} />
+  )
+  const save = () => {
+    patchRow(update, 'ad-computer', rowKey, { ...draft, computer: S(draft.computer).trim() || rowKey })
+    close()
+  }
+  const L = 100
+  return (
+    <DemographicModal title="Computer Detail" width={864} onClose={close} dialog="computer-detail">
+      <div style={{ display: 'flex', flexDirection: 'column', background: 'var(--pb-face)' }} onKeyDown={onF2(save)}>
+        <NavyBand>Computer</NavyBand>
+        <Head>Identication</Head>
+        <div className="pb-row" style={{ alignItems: 'flex-start', padding: '4px 8px', gap: 0 }}>
+          <div style={{ flex: '1 1 0' }}>
+            <Line label="Computer Name:" w={L}>{text('Computer Name', 'computer', 254, { autoFocus: true })}</Line>
+            <Line label="Location:" w={L}>{text('Location', 'location', 254)}</Line>
+          </div>
+          <div style={{ flex: '0 0 488px' }}>
+            <Line label="Operating System:" w={100} right>{text('Operating System', 'os', 200)}</Line>
+            <Line label="Retired Date:" w={100} right>
+              <DateMaskInput value={S(draft.retired)} onChange={(v) => set({ retired: v })} tutorialId={fieldId('Retired Date')} />
+            </Line>
+          </div>
+        </div>
+        <Head>Printer Settings</Head>
+        <div data-tutorial-id="host.mois.group.computer-detail-printer-settings">
+          <div className="pb-row" style={{ gap: 0, padding: '3px 8px', fontWeight: 700, borderBottom: '1px solid #c8c8c8' }}>
+            <span style={{ width: L }}>PRINTER TYPE</span>
+            <span>DEVICE</span>
+          </div>
+          {COMPUTER_PRINTERS.map((p) => (
+            <div key={p.key} style={{ borderBottom: '1px solid #c8c8c8', padding: '1px 8px' }}>
+              <Line label={`${p.label}:`} w={L}>
+                <PBLookup
+                  w={380}
+                  value={S(draft[p.key])}
+                  name={`computer-${pbSlug(p.label)}`}
+                  fieldId={fieldId(p.label)}
+                  onChange={(v) => set({ [p.key]: v })}
+                  onDots={() => setPicking(p.key)}
+                />
+                {'char' in p && (
+                  <PBCheckbox label="Character Based Printing" checked={Boolean(draft[p.char])} onChange={(v) => set({ [p.char]: v })}
+                    tutorialId={fieldId(`${p.label} Character Based Printing`)} />
+                )}
+              </Line>
+            </div>
+          ))}
+        </div>
+        <Head>Other Settings</Head>
+        <div style={{ padding: '6px 8px 14px' }}>
+          <Line label="Scheduler Refresh:" w={L}>
+            {text('Scheduler Refresh', 'refresh', 76, { align: 'center' })}
+            <span>(time interval - in seconds - for refreshing the scheduler window).</span>
+          </Line>
+        </div>
+      </div>
+      <Footer>
+        <Btn command="save-changes-f2" w={112} onClick={save}>Save Changes (F2)</Btn>
+        <Btn command="cancel" w={108} onClick={close}>Cancel</Btn>
+      </Footer>
+      {picking && (
+        <PrinterPickerWindow
+          current={S(draft[picking])}
+          printers={[...new Set([...(S(draft[picking]) ? [S(draft[picking])] : []), ...AVAILABLE_PRINTERS])]}
+          onClose={() => setPicking(null)}
+          onSelect={(name) => { set({ [picking]: name }); setPicking(null) }}
+        />
+      )}
     </DemographicModal>
   )
 }

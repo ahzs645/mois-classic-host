@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { PBCheckbox, PBInput, type PBColumn } from '../pb'
 import {
-  claimFromRow, SENT_CLAIM_KEY, UNSENT_CLAIM_KEY,
+  CHART_PROMPT_KEY, claimFromRow, SENT_CLAIM_KEY, sentClaimPatient, sentClaims, UNSENT_CLAIM_KEY, unsentClaims,
   type ClaimForm, type SentClaim, type UnsentClaim,
 } from '../data/claims'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useSentClaims, useUnsentClaims } from '../data/billingStore'
 import { usePatientRoster } from '../data/patient-context'
 import { useSessionState } from '../host/screen-windows'
@@ -39,7 +40,29 @@ import {
      PgUp / Ok / Cancel / PgDwn / End.
    · "Click on the blue column headers to re-sort" is 303601/303602's note on
      the per-chart summary, so only that list sorts.
+   · The per-chart summary lists the claims sent for one chart — "Once a
+     chart is selected, use this option to review a list of all of the
+     previous claims for this patient" (303601 / 303602) — the chart on the
+     claim behind it (data/claims CHART_PROMPT_KEY, set by Unsent MSP and
+     Sent To MSP as they open it). Its identity row is that chart's: Chart,
+     Patient, DoB, Sex and Insurance, each value bold (`1f433175`,
+     `aa18a5fd`).
+
+   CONFIRM-CURRENT (all five; no capture of the current build): the cloud
+   build's prompts are `ca83fd70` (by Service Date) and `ca56c6a8` (by
+   Doctor), both with the Fee Code filter and "Service Date from … to" at
+   the band's right, and `af03126b` / `cac8fe41` (the Advanced Lookup
+   Service, unchanged from v02.20). The by-Patient list has only the v02.20
+   capture `0dc50190`; whether it carries the date range too is not shown.
    ========================================================================= */
+
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.claim-patient' }, source: 'help-site 303601 `0dc50190` v02.20', check: 'Service Date from … to (its siblings have it)' },
+  { target: { anchor: 'host.mois.dialog.claim-doctor' }, source: 'help-site 303601 `28562098` v02.20, `ca56c6a8` cloud' },
+  { target: { anchor: 'host.mois.dialog.claim-service' }, source: 'help-site 303601 `41ab0bf4` v02.20, `ca83fd70` cloud' },
+  { target: { anchor: 'host.mois.dialog.claim-chart' }, source: 'help-site 303601 `1f433175`, 303602 `aa18a5fd` (v02.2x)' },
+  { target: { anchor: 'host.mois.dialog.claim-recon' }, source: 'help-site 303602 `f2fa600c`, 3786544 `af03126b` / `cac8fe41` cloud' },
+])
 
 export type ClaimPrompt = 'patient' | 'doctor' | 'service' | 'chart' | 'recon'
 
@@ -130,10 +153,10 @@ NOTE: The Check Box in the FILTER section is used to include (if checked) or exc
 const TITLES: Record<ClaimPrompt, string> = {
   patient: 'MSP Unsent Claims - Ordered by Patient',
   doctor: 'MSP Unsent Claims - Ordered by Doctor',
-  /* the v02.20 build's own bug: the service-date ordering keeps the
-     "Ordered by Patient" caption (`41ab0bf4`); the cloud build fixed it
-     (`ca83fd70`). Kept so the window matches the older capture. */
-  service: 'MSP Unsent Claims - Ordered by Patient',
+  /* the v02.20 build captioned this one "Ordered by Patient" too
+     (`41ab0bf4`); the cloud build's own caption is "Ordered by Service
+     Date" (`ca83fd70`), and the later build wins */
+  service: 'MSP Unsent Claims - Ordered by Service Date',
   chart: 'Claim Summary: Sent to MSP',
   recon: 'Advanced Lookup Service',
 }
@@ -157,7 +180,8 @@ export function ClaimPromptDialog({
   const [includeR1, setIncludeR1] = useState(true)
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [, setClaim] = useSessionState<ClaimForm | null>(UNSENT_CLAIM_KEY, null)
-  const [, setSentClaim] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)
+  const [sentOnScreen, setSentClaim] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)
+  const [chartAsked] = useSessionState<string | null>(CHART_PROMPT_KEY, null)
   /* the live lists: the training rows with this session's saves, bulk
      claims, day-book bills, deletions and toggles (data/billingStore.ts) */
   const roster = usePatientRoster()
@@ -169,10 +193,26 @@ export function ClaimPromptDialog({
     ? UNSENT_ORDER[prompt].map((k) => U[k]!)
     : prompt === 'chart' ? CHART_COLUMNS : RECON_COLUMNS
 
+  /* the per-chart summary's chart: the one the opening view named, else
+     the patient of the sent claim on screen */
+  const chartNo = chartAsked ?? sentClaimPatient(sentOnScreen ?? sentClaims[0]!)?.chart ?? ''
+  /* who the chart is: the chart itself, else the training claim's own
+     patient fields */
+  const onRoster = roster.find((p) => p.chart === chartNo)
+  const onClaim = unsentClaims.find((u) => u.chart === chartNo)
+  const identity = {
+    name: onRoster ? `${onRoster.first} ${onRoster.last}` : onClaim ? `${onClaim.first}  ${onClaim.last}` : '',
+    dob: onRoster?.dob ?? onClaim?.dob ?? '',
+    sex: onRoster?.gender ?? '',
+    insurance: onRoster?.insurance ?? onClaim?.insrNbr ?? '',
+  }
+
   const rows = useMemo(() => {
     let source: Row[] = unsent
       ? [...unsentStore.rows].sort(SORT[prompt as 'patient' | 'doctor' | 'service'])
-      : (sentStore.rows as unknown as Row[])
+      : prompt === 'chart'
+        ? (sentStore.rows.filter((r) => chartNo && sentClaimPatient(r)?.chart === chartNo) as unknown as Row[])
+        : (sentStore.rows as unknown as Row[])
     if (sortKey) source = [...source].sort((a, b) => String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? '')))
     if (!filters) return source
     const active = Object.entries(filters).filter(([k, v]) => v.trim() || (k === 'r1' && prompt === 'recon'))
@@ -185,7 +225,7 @@ export function ClaimPromptDialog({
       if (k === 'r1' && prompt === 'recon') return includeR1 ? String(r.r1 ?? '').toLowerCase() === want : true
       return String(r[k] ?? '').toLowerCase().includes(want)
     }))
-  }, [unsentStore.rows, sentStore.rows, filters, includeR1, prompt, sortKey, unsent])
+  }, [unsentStore.rows, sentStore.rows, filters, includeR1, prompt, sortKey, unsent, chartNo])
 
   const cursor = usePagedCursor(rows.length, PAGE)
   useScreenReport({ rows: rows.length, row: `claim-${String(rows[cursor.at]?.last ?? '').toLowerCase()}` })
@@ -242,18 +282,24 @@ export function ClaimPromptDialog({
         },
       }}
       body={LOOKUP_BODY}
-      lead={prompt === 'chart' && (
-        <div className="pb-row" style={{ gap: 26, flex: 'none' }}>
-          <span>Chart: 10035</span><span>Patient: FARMER BROWN</span>
-          <span>DoB: 1990.10.23</span><span>Sex:</span><span>Insurance: 9151259051</span>
+      /* the identity row sits inside the panel, under the band and over
+         the list (`1f433175`, `aa18a5fd`) */
+      search={prompt === 'chart' && (
+        <div className="pb-row" style={{ gap: 26, flex: 'none', padding: '3px 6px', background: '#fff', borderBottom: '1px solid var(--pb-border)' }} data-tutorial-id="host.mois.field.claim-chart-identity">
+          <span>Chart: <b>{chartNo}</b></span>
+          <span>Patient: <b style={{ whiteSpace: 'pre' }}>{identity.name}</b></span>
+          <span>DoB: <b>{identity.dob}</b></span>
+          <span>Sex: <b>{identity.sex}</b></span>
+          <span>Insurance: <b>{identity.insurance}</b></span>
         </div>
       )}
       panel={LOOKUP_PANEL}
       band={(
         <LookupBand
           variant="ruled"
-          right={prompt === 'service' ? (
-            /* ca83fd70: "Service Date from [ ] to [ ]" at the band's right */
+          right={prompt === 'service' || prompt === 'doctor' ? (
+            /* "Service Date from [ ] to [ ]" at the band's right: ca83fd70
+               (by Service Date) and ca56c6a8 (by Doctor) */
             <span className="pb-row" style={{ gap: 6, fontWeight: 400 }}>
               <span>Service Date from</span>
               <PBInput w={100} value={draft['date-from'] ?? ''} onChange={(e) => type('date-from', e.target.value)} />

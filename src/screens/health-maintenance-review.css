@@ -72,8 +72,10 @@
 .pb-hmr__note { grid-column: 1 / -1; color: #404040; text-align: right; white-space: nowrap; }
 
 /* Tear Off: its own window over the review, offset so both title bars show
-   (INFERRED — the torn-off window is not captured) */
-.pb-hmr__tearoff {
+   (INFERRED — the torn-off window is not captured). Two classes, so the
+   ?confirm=1 badge's `position: relative` on the anchor cannot put it back
+   into the layer's flow. */
+.pb-hmr.pb-hmr__tearoff {
   position: absolute;
   left: 48px;
   top: 48px;

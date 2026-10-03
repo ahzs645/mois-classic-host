@@ -9,6 +9,7 @@ import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { FormLine } from '../formKit'
 import { useTickSet } from '../listKit'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 
 /* ============================================================================
    Sent Claims ▸ Utilities ▸ Claim Review Wizard: find a batch of sent claims
@@ -55,6 +56,21 @@ import { useTickSet } from '../listKit'
    sets); Write Off — WO = Y; Delete — R1 = D ("Mark for Delete"). U and H
    claims are skipped by all four.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: laid out from the help site's cloud captures (3786544,
+   2025–26 builds); no capture of the current build. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.msp-review-wizard' }, source: 'help-site 3786544 `989ee848`' },
+  { target: { anchor: 'host.mois.dialog.claim-review-window' }, source: 'help-site 3786544 `b83a4544`' },
+  { target: { anchor: 'host.mois.dialog.claim-review-accept-confirm' }, source: 'help-site 3786544 `6cd43398`' },
+  { target: { anchor: 'host.mois.dialog.claim-review-resubmit-confirm' }, source: 'INFERRED: worded as Accept (`6cd43398`); not captured' },
+  { target: { anchor: 'host.mois.dialog.claim-review-write-off-confirm' }, source: 'INFERRED: worded as Accept (`6cd43398`); not captured' },
+  { target: { anchor: 'host.mois.dialog.claim-review-delete-confirm' }, source: 'INFERRED: worded as Accept (`6cd43398`); not captured' },
+  { target: { anchor: 'host.mois.dialog.resubmission-wizard' }, source: 'help-site 3786544 `4e254b41`' },
+  { target: { anchor: 'host.mois.dialog.msp-review-none' }, source: 'INFERRED: not captured' },
+  { target: { anchor: 'host.mois.dialog.claim-review-result' }, source: 'INFERRED: not captured' },
+  { target: { anchor: 'host.mois.dialog.resubmission-result' }, source: 'INFERRED: not captured' },
+])
 
 const band: CSSProperties = {
   background: 'linear-gradient(#5aa9e6, #2f7fc8)', color: '#0a1f5c', fontWeight: 700, padding: '4px 8px', flex: 'none',
@@ -218,7 +234,7 @@ export function MspReviewWizard({ close, open }: AreaWindowProps) {
         <DialogButton id="review-wizard-cancel" width={110} onClick={close}>Cancel</DialogButton>
       </div>
       {none && (
-        <PBMessageBox title="MSP - Review Wizard" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'review-none-ok' }]} onClose={() => setNone(false)}>
+        <PBMessageBox title="MSP - Review Wizard" tutorialId="host.mois.dialog.msp-review-none" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'review-none-ok' }]} onClose={() => setNone(false)}>
           No claims match these parameters.
         </PBMessageBox>
       )}
@@ -312,6 +328,8 @@ export function ClaimReviewWindow({ args, close, open }: AreaWindowProps) {
 
       {action && (
         <>
+          {/* CONFIRM-CURRENT: the Accept box is `6cd43398`; the other three
+              reuse it with their own verb — INFERRED */}
           <WorkspaceDialogFrame id={`claim-review-${action}-confirm`} title={ACTION_TITLE[action][0]} width={530} height={500} controls={false} zIndex={90} onClose={() => setAction(null)}>
             <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', padding: '10px 14px', gap: 10 }}>
               <fieldset style={{ border: '1px solid #c8c8c8', padding: '6px 8px', flex: '1 1 auto' }}>
@@ -338,7 +356,7 @@ export function ClaimReviewWindow({ args, close, open }: AreaWindowProps) {
         </>
       )}
       {done && (
-        <PBMessageBox title="Claim Review Window" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-review-ok' }]} onClose={() => setDone(null)}>
+        <PBMessageBox title="Claim Review Window" tutorialId="host.mois.dialog.claim-review-result" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'claim-review-ok' }]} onClose={() => setDone(null)}>
           {done}
         </PBMessageBox>
       )}
@@ -434,6 +452,7 @@ export function ResubmissionWizard({ args, close }: AreaWindowProps) {
       {done !== null && (
         <PBMessageBox
           title="Resubmission Wizard"
+          tutorialId="host.mois.dialog.resubmission-result"
           buttons={[{ label: 'OK', value: 'ok', default: true, command: 'resubmit-ok' }]}
           onClose={() => { setDone(null); close() }}
         >

@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBSelect, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation,
+  PBCheckbox, PBCommandRow, PBDataWindow, PBGroupBox, PBInput, PBMessageBox, PBSelect, PBTextArea, PBViewHeader, pbSlug,
+  usePBInstrumentation,
 } from '../pb'
 import { clinicListSpec, clinicRowsKey, type ClinicRow } from '../data/clinicManagement'
 import { EXTERNAL_ORGANIZATION_TYPE, valueSetValues } from '../data/codesets'
 import { MOIS_TODAY } from '../data/patients'
 import { S } from '../data/text'
 import { useScreenReport } from '../host/screen-state'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { nowStamp, useStoredList, useValueSets } from './adminSession'
 import { CellSelect, CellText, CentredFooter, Cmd, Line, NavyBand, NavyHead, onF2 } from './adminKit'
 import { DemographicModal } from './DemographicDialogs'
+import { NewRecordDialog, Required } from './ClinicEditorWindows'
 import { useColumnFilters } from './listKit'
 import { LookupBand, PickListWindow, SearchForRow } from './lookupKit'
 
@@ -20,11 +23,15 @@ import { LookupBand, PickListWindow, SearchForRow } from './lookupKit'
      ad-organizations   Organization List         303121 `7eca3b91…`,
                                                   `0b83bdf1…`, `b178c4df…`
      ad-locations       Service Location List     303059 `93837c26…`
-     new-clinic         Clinics ▸ New Record      INFERRED
+     new-clinic         Clinics ▸ New Record      303117 (text), drawn as
+                                                  New Service Center (#55)
      clinic-detail      Clinics ▸ Edit Record     303117 `80ce364e…`
      add-external-organization
                         the Address Book's Other Options ▸ Add an External
-                        Organization ▸ Go (3179351) — INFERRED, see below
+                        Organization ▸ Go (3179351, text only) — see below
+
+   No capture of the current build shows any of these, so every one is
+   flagged CONFIRM-CURRENT (registerConfirmCurrent, below the header).
 
    Organization List (303121 "Editing an Organization"): pick the record,
    "Select the field where edits are required", change it (the fax number is
@@ -41,17 +48,25 @@ import { LookupBand, PickListWindow, SearchForRow } from './lookupKit'
    Northern Health Sites" — every cell edited in place and saved from the
    command row. The drop list of sites is INFERRED (no capture opens it).
 
-   New Clinic is INFERRED (Code, Description; Create Record opens Clinic
-   Detail on the new code, the way New Service Center does). Clinic Detail
+   New Clinic has no image in any build. It is drawn as the current build's
+   New Service Center (user capture 2026-09-25 #55, NewRecordDialog in
+   ClinicEditorWindows.tsx): a group box captioned "New Clinic", Code with
+   its "(required - unique)", Description, Create Record / Cancel. INFERRED:
+   the two fields (the Clinic List's own first two columns), and that Create
+   Record opens Clinic Detail on the new code, as New Service Center does
+   (303211). Clinic Detail
    is `80ce364e…`: navy "Clinic"; Clinic Identification (Code, Description,
    Detail); Contact Information (three address lines, City, Province,
    Country, Postal Code; Primary, Secondary, Fax); General (Note); Save
    Changes (F2) / Cancel.
 
    The quick-add window (add-external-organization) has no capture — 3179351's
-   screenshots are missing from the manual. It is built from the article's
-   words: "Fill out the Details (at minimum add the Name and Fax; adding Type
-   and City is also recommended). Click OK."
+   screenshots are missing from the manual. The article says only: "Fill out
+   the Details (at minimum add the Name and Fax; adding Type and City is
+   also recommended). Click OK." Its fields are therefore the record it
+   makes — an Organization List row, whose fields and order are 303121
+   `0b83bdf1…` (older build): Name and Organization Type, then Address (two
+   lines), City / Province, Postal Code / Country, Phone, Fax and Note.
 
    Anchors: rows host.mois.row.organization-<name>, location-<name>;
    fields host.mois.field.org-name-<n>, org-type-<n>, address, address-2,
@@ -63,6 +78,18 @@ import { LookupBand, PickListWindow, SearchForRow } from './lookupKit'
 
 export const useListRows = (node: string) => useStoredList<ClinicRow>(clinicRowsKey(node), clinicListSpec(node)?.rows ?? EMPTY)
 const EMPTY: ClinicRow[] = []
+
+/* CONFIRM-CURRENT: everything in this file is laid out from help-site
+   captures of older builds (or their text); nothing here has a capture of
+   the current build. */
+registerConfirmCurrent([
+  { target: { node: 'ad-organizations' }, source: 'help-site art. 303121 imgs 7eca3b910463, 0b83bdf1dc64, b178c4df0fc7, older build' },
+  { target: { node: 'ad-locations' }, source: 'help-site art. 303059 img 93837c26c76f, older build' },
+  { target: { anchor: 'host.mois.dialog.delivery-location-lookup' }, source: 'help-site art. 303059 (text only)', check: 'the whole window; the Northern Health site list' },
+  { target: { anchor: 'host.mois.dialog.new-clinic' }, source: 'help-site art. 303117 (text only); drawn as New Service Center, user capture 2026-09-25 #55', check: 'fields, and that Create Record opens Clinic Detail' },
+  { target: { anchor: 'host.mois.dialog.clinic-detail' }, source: 'help-site art. 303117 img 80ce364ee28c, older build' },
+  { target: { anchor: 'host.mois.dialog.add-external-organization' }, source: 'help-site art. 3179351 (text only, images missing); fields from art. 303121 img 0b83bdf1dc64', check: 'the whole window: title, fields, required-field message' },
+])
 
 /* ===========================================================================
    Organization List                     `7eca3b91…`, `0b83bdf1…`
@@ -251,9 +278,11 @@ function DeliveryLocationLookup({ initial, onPick, onClose }: { initial: string;
 }
 
 /* ===========================================================================
-   New Clinic (INFERRED) / Clinic Detail (`80ce364e…`)
+   New Clinic (CONFIRM-CURRENT) / Clinic Detail (`80ce364e…`)
    ======================================================================== */
 
+/* CONFIRM-CURRENT: New Clinic — 303117 names no window; drawn as the
+   current build's New Service Center (#55). */
 export function NewClinicDialog({ close, open, onAdded }: { close: () => void; open: (id: string, args?: Record<string, unknown>) => void; onAdded?: () => void }) {
   const [rows, update] = useListRows('ad-clinics')
   const [code, setCode] = useState('')
@@ -266,16 +295,10 @@ export function NewClinicDialog({ close, open, onAdded }: { close: () => void; o
     open('clinic-detail', { key: c })
   }
   return (
-    <DemographicModal title="New Clinic" width={430} onClose={close} dialog="new-clinic">
-      <div style={{ padding: '12px 18px', background: 'var(--pb-face)' }}>
-        <Line label="Code:" w={80}><PBInput w={140} value={code} onChange={(e) => setCode(e.target.value)} style={{ background: '#ffc09c' }} data-tutorial-id="host.mois.field.code" /><span style={{ color: '#808080' }}>(required - unique)</span></Line>
-        <Line label="Description:" w={80}><PBInput w={272} value={desc} onChange={(e) => setDesc(e.target.value)} data-tutorial-id="host.mois.field.description" /></Line>
-      </div>
-      <CentredFooter>
-        <Cmd id="create-record" w={96} onClick={create}>Create Record</Cmd>
-        <Cmd id="cancel" w={88} onClick={close}>Cancel</Cmd>
-      </CentredFooter>
-    </DemographicModal>
+    <NewRecordDialog title="New Clinic" dialog="new-clinic" onCreate={create} onClose={close}>
+      <Line label="Code:" w={80}><PBInput w={152} value={code} onChange={(e) => setCode(e.target.value)} autoFocus data-tutorial-id="host.mois.field.code" /><Required /></Line>
+      <Line label="Description:" w={80}><PBInput w={274} value={desc} onChange={(e) => setDesc(e.target.value)} data-tutorial-id="host.mois.field.description" /></Line>
+    </NewRecordDialog>
   )
 }
 
@@ -331,7 +354,15 @@ export function ClinicDetailWindow({ rowKey, close }: { rowKey: string; close: (
 
 /* ===========================================================================
    Add an External Organization — the Address Book's quick-add (3179351,
-   INFERRED: no capture survives in the manual)
+   text only; CONFIRM-CURRENT, see the header)
+
+   Laid out as the record it makes (303121 `0b83bdf1…`'s field order), in the
+   current build's New … dialog dress (a group box captioned with the title,
+   as New Service Center #55 draws it).
+   INFERRED: the title (the drop-down option's own words); the group box;
+   Update Current Record opening the same window on the chosen organization,
+   titled "Update External Organization"; and the message box OK raises when
+   Name or Fax is blank (3179351: "at minimum add the Name and Fax").
    ======================================================================== */
 
 export function AddExternalOrganizationDialog({ existing, onCreated, onClose }: {
@@ -343,13 +374,14 @@ export function AddExternalOrganizationDialog({ existing, onCreated, onClose }: 
   const [rows, commit] = useListRows('ad-organizations')
   const [valueSets] = useValueSets()
   const [d, setD] = useState<ClinicRow>(() => ({
-    name: '', orgType: '', address1: '', city: '', province: 'BC', postal: '', country: 'CANADA', phone: '', fax: '', note: '',
+    name: '', orgType: '', address1: '', address2: '', city: '', province: 'BC', postal: '', country: 'CANADA', phone: '', fax: '', note: '',
     ...(existing ? rows.find((r) => S(r.name) === existing) : null),
   }))
   const [missing, setMissing] = useState(false)
   const set = (patch: ClinicRow) => setD((x) => ({ ...x, ...patch }))
-  const box = (label: string, key: string, w: number) => (
-    <Line label={label} w={100}><PBInput w={w} value={S(d[key])} onChange={(e) => set({ [key]: e.target.value })} data-tutorial-id={`host.mois.field.new-org-${pbSlug(label)}`} /></Line>
+  /* anchors keep the window's first spelling: new-org-name, -address, -city … */
+  const box = (label: string, key: string, w: number, anchor = pbSlug(label), lw = 100) => (
+    <Line label={label} w={lw}><PBInput w={w} value={S(d[key])} onChange={(e) => set({ [key]: e.target.value })} autoFocus={key === 'name'} data-tutorial-id={`host.mois.field.new-org-${anchor}`} /></Line>
   )
   const ok = () => {
     const name = S(d.name).trim().toUpperCase()
@@ -359,24 +391,40 @@ export function AddExternalOrganizationDialog({ existing, onCreated, onClose }: 
     onCreated(name)
   }
   useScreenReport({ dialog: 'add-external-organization', missing })
+  const title = existing ? 'Update External Organization' : 'Add an External Organization'
   return (
-    <DemographicModal title={existing ? 'Update External Organization' : 'Add an External Organization'} width={520} onClose={onClose} dialog="add-external-organization">
-      <div style={{ padding: '10px 16px', background: 'var(--pb-face)' }}>
-        <div style={{ color: '#808080', paddingBottom: 6 }}>At minimum add the Name and Fax; adding Type and City is also recommended.</div>
-        {box('Name:', 'name', 330)}
-        <Line label="Type:" w={100}><PBSelect w={220} options={['', ...valueSetValues(valueSets, EXTERNAL_ORGANIZATION_TYPE)]} value={S(d.orgType)} onChange={(e) => set({ orgType: e.target.value })} data-tutorial-id="host.mois.field.new-org-type" /></Line>
-        {box('Address:', 'address1', 330)}
-        {box('City:', 'city', 200)}
-        {box('Province:', 'province', 60)}
-        {box('Postal Code:', 'postal', 100)}
-        {box('Phone:', 'phone', 140)}
-        {box('Fax:', 'fax', 140)}
-        {missing && <div style={{ color: '#c00000', paddingTop: 4 }}>Enter the organization&apos;s Name and Fax.</div>}
+    <DemographicModal title={title} width={560} onClose={onClose} dialog="add-external-organization">
+      <div style={{ padding: '14px 18px 4px', background: 'var(--pb-face)' }}>
+        <PBGroupBox title={title}>
+          <div style={{ padding: '4px 0 12px 6px' }}>
+            {box('Name:', 'name', 390)}
+            <Line label="Organization Type:" w={100}>
+              <PBSelect w={220} options={['', ...valueSetValues(valueSets, EXTERNAL_ORGANIZATION_TYPE)]} value={S(d.orgType)} onChange={(e) => set({ orgType: e.target.value })} data-tutorial-id="host.mois.field.new-org-type" />
+            </Line>
+            {box('Address:', 'address1', 390, 'address')}
+            {box('Address:', 'address2', 390, 'address-2')}
+            <div className="pb-row" style={{ gap: 18 }}>{box('City:', 'city', 108)}{box('Province:', 'province', 140, 'province', 70)}</div>
+            <div className="pb-row" style={{ gap: 18 }}>{box('Postal Code:', 'postal', 108, 'postal-code')}{box('Country:', 'country', 140, 'country', 70)}</div>
+            {box('Phone:', 'phone', 108)}
+            {box('Fax:', 'fax', 108)}
+            <Line label="Note:" w={100} style={{ alignItems: 'flex-start' }}>
+              <PBTextArea rows={3} w={390} value={S(d.note)} onChange={(e) => set({ note: e.target.value })} data-tutorial-id="host.mois.field.new-org-note" />
+            </Line>
+          </div>
+        </PBGroupBox>
       </div>
       <CentredFooter>
         <Cmd id="new-org-ok" w={74} onClick={ok}>OK</Cmd>
         <Cmd id="new-org-cancel" w={74} onClick={onClose}>Cancel</Cmd>
       </CentredFooter>
+      {missing && (
+        /* INFERRED wording: no capture shows the refusal */
+        <PBMessageBox title="Add an External Organization" icon="warn" zIndex={95} tutorialId="host.mois.dialog.new-org-missing"
+          buttons={[{ label: 'OK', value: 'ok', default: true, command: 'new-org-missing-ok' }]}
+          onClose={() => setMissing(false)}>
+          The Name and Fax must be entered.
+        </PBMessageBox>
+      )}
     </DemographicModal>
   )
 }

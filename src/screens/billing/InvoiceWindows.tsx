@@ -11,6 +11,7 @@ import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from '../area
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { useColumnFilters, useTickSet } from '../listKit'
 import { FILL_GRID, LOOKUP_BODY, LOOKUP_PANEL, LookupBand, PickButtons, PickListWindow, SIZE } from '../lookupKit'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 
 /* ============================================================================
    The Invoice window's own windows (303603).
@@ -454,6 +455,18 @@ export function InvoiceFeeLookupWindow({ args, close }: AreaWindowProps) {
     />
   )
 }
+
+/* CONFIRM-CURRENT: none of these windows is captured in any build; their
+   layouts are INFERRED from 303602 / 303603 text. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.receipt-for-services' }, source: 'INFERRED (build-A1): no capture' },
+  { target: { anchor: 'host.mois.dialog.invoice-payor' }, source: 'INFERRED (build-A1): no capture' },
+  { target: { anchor: 'host.mois.dialog.invoice-tax-rates' }, source: 'INFERRED (build-A1): no capture' },
+  { target: { anchor: 'host.mois.dialog.invoice-prompt' }, source: 'INFERRED (build-A1): no capture' },
+  { target: { anchor: 'host.mois.dialog.invoice-transaction-note' }, source: 'INFERRED (build-A1): no capture' },
+  { target: { anchor: 'host.mois.dialog.paste-msp-claim' }, source: 'INFERRED (build-A1): no capture' },
+  { target: { anchor: 'host.mois.dialog.invoice-fee-lookup' }, source: 'INFERRED (build-A1): no capture' },
+])
 
 export function registerInvoiceWindows() {
   registerAreaWindow('receipt-for-services', ReceiptForServicesWindow)

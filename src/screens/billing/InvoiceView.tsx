@@ -16,6 +16,7 @@ import { useOpenWindow } from '../areaWindowRegistry'
 import { AdvancedLookupDialog } from '../AdvancedLookupDialog'
 import { FormLabel, FormLine } from '../formKit'
 import { useInvoicePrint } from './InvoiceWindows'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 
 /* ============================================================================
    Invoice — Billing ▸ Invoices.
@@ -70,6 +71,13 @@ const PAYMENT_METHODS = ['Cash', 'Cheque', 'Interact', 'Mastercard', 'Other', 'V
 
 /** MOIS's money format prints zero as "-". */
 function money(n: number) { return Math.abs(n) < 0.005 ? '-' : n.toFixed(2) }
+
+/* CONFIRM-CURRENT: laid out from the help site (303603 `7726fa98`); no
+   capture of the current build's Billing exists. */
+registerConfirmCurrent([
+  { target: { node: 'bl-invoices' }, source: 'help-site 303603 `7726fa98`' },
+  { target: { anchor: 'host.mois.dialog.invoice-message' }, source: 'INFERRED: not captured' },
+])
 
 export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => void }) {
   const { state, setState, current: inv, patchCurrent } = useInvoices()
@@ -385,7 +393,7 @@ export function InvoiceView({ paid, onPaid }: { paid: boolean; onPaid: () => voi
         />
       )}
       {message && (
-        <PBMessageBox title="Invoice" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'invoice-ok' }]} onClose={() => setMessage(null)}>
+        <PBMessageBox title="Invoice" tutorialId="host.mois.dialog.invoice-message" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'invoice-ok' }]} onClose={() => setMessage(null)}>
           {message}
         </PBMessageBox>
       )}

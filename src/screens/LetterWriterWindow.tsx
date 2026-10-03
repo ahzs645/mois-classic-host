@@ -24,6 +24,7 @@ import {
   type ToolboxGroup
 } from '../data/letterWriter'
 import { usePatient } from '../data/patient-context'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useScreenReport } from '../host/screen-state'
 import {
   PBButton, PBCheckbox, PBGroup, PBInput, PBLookup, PBMenuBar, PBMessageBox, PBRadio, PBSelect, PBStatusBar,
@@ -39,6 +40,10 @@ import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
    MOIS Letter Writer — the CURRENT FLAT generation.
+
+   "Current" here means the newest of the help-site generations, not a
+   capture of the current build: none exists for this window. See the
+   CONFIRM-CURRENT notes below.
 
    Two modes out of one window, because MOIS really does open the same frame
    both ways:
@@ -69,19 +74,37 @@ import { ModalWindow } from './dialogKit'
    `data/letterWriter.ts`.
    ========================================================================= */
 
-/* The current generation's cyan caption, and the #f0f0f0 menu bar under it.
-   The kit paints a flat white Win10 title bar and a white menu bar, and
-   neither colour is a token, so this window carries its own rule rather than
-   the kit growing a variant for it. React 19 hoists and de-duplicates it by
-   `href`; React 18 leaves it in place, where it still applies. */
-const LETTER_CAPTION = `
-.pb-window--mois-letter > .pb-titlebar {
-  height: ${LW_BANDS.titleBar}px; background: ${LW.titleBar};
-}
-.pb-window--mois-letter .pb-menubar {
-  height: ${LW_BANDS.menuBar}px; background: ${LW.face};
-}
-`
+/* CONFIRM-CURRENT: the help-site captures paint this window's caption cyan
+   (#66cbea) over a #f0f0f0 menu bar. Both are the older builds' Windows
+   chrome — the accent colour of the Remote Desktop session they were taken
+   in, not MOIS's — so the window now takes the current build's title bar and
+   menu bar from the kit, like every other window measured off a current
+   capture. `LW.titleBar` stays in data/letterWriter.ts as the record of
+   what the old captures show. (The window keeps its `pb-window--mois-letter`
+   class for anything that needs to find it.) */
+
+/* CONFIRM-CURRENT: the whole window — command row, header panel, toolbox
+   rail, menus — is laid out from help-site captures of older builds
+   (304687, 303101, 304755) and the 304687 prose; no capture of the current
+   build shows it. Its menus are settled in data/letterWriter.ts
+   (LETTER_MENUS); the Selection Window from 304687/ba222444b2c6 and
+   304687/4b38950212f4. */
+registerConfirmCurrent([
+  {
+    target: { anchor: 'host.mois.dialog.letter-writer' },
+    source: 'help-site art. 304687 imgs fe7ad734ae59, cc487e1801e4; menus from 304687 text, older builds',
+    check: 'menus Edit-Action (items, separators), command row, header panel colours',
+  },
+  {
+    target: { anchor: 'host.mois.dialog.letter-template' },
+    source: 'help-site art. 303101 imgs d273caae2fcd, 57c549923ad1, a885b995b4e8, older builds',
+    check: 'rail groups, two-button command row',
+  },
+  {
+    target: { anchor: 'host.mois.dialog.selection-window' },
+    source: 'help-site art. 304687 imgs ba222444b2c6, 4b38950212f4, 0f2cd512f237, older builds',
+  },
+])
 
 const RULE = (colour: string) => (
   <div style={{ height: 1, background: colour, flex: 'none' }} />
@@ -1116,8 +1139,6 @@ export function LetterWriterWindow({
         height: 'min(768px, calc(100vh - 50px))',
       }}
       after={<>
-        {/* hoisted into the document head: its place here draws nothing */}
-        <style href="mois-classic/letter-writer" precedence="medium">{LETTER_CAPTION}</style>
         {selection && (
           <SelectionWindow
             list={selection.list}

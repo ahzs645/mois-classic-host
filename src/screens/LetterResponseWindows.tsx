@@ -15,6 +15,7 @@ import {
   PBBand, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroup, PBInput, PBLookup, PBRadio, PBTextArea, pbSlug,
 } from '../pb'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { DialogFooter } from './formKit'
 import { SendWindow } from './LetterWindows'
 import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
@@ -331,6 +332,16 @@ export function useRespondToOrder() {
     open(any ? 'respond-to-order' : 'send-document', { mode: 'response', orderId })
   }
 }
+
+/* CONFIRM-CURRENT: laid out from help-site images of older builds (303589,
+   2961349); none is in a capture of the current build. Report Letterhead,
+   which Send's Paste Care Plan raises here, is flagged by
+   screens/CarePlanWindows.tsx, whose window shares its anchor. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.attached-letters' }, source: 'help-site art. 303589 imgs e5cee8b0889a, 61160ce72d94, older builds' },
+  { target: { anchor: 'host.mois.dialog.respond-to-order' }, source: 'help-site art. 2961349 img 71ab5b8c723c, older build' },
+  { target: { anchor: 'host.mois.dialog.send-document' }, source: 'help-site art. 2961349 imgs 0480d2749c2c, 9a83e429bced, older builds', check: 'Document Type cell, Report pane' },
+])
 
 registerAreaWindow('attached-letters', AttachedLettersWindow)
 registerAreaWindow('respond-to-order', RespondToOrderWindow)

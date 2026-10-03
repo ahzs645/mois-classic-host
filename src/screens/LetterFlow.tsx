@@ -13,9 +13,10 @@ import {
 import { LW } from '../data/letterWriter'
 import { useTemplateMeta } from '../data/letterDocs'
 import { usePatient } from '../data/patient-context'
+import { registerConfirmCurrent } from '../host/confirmCurrent'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBRadio,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBLookup, PBMessageBox, PBRadio,
   pbSlug,
 } from '../pb'
 import { LetterWriterWindow } from './LetterWriterWindow'
@@ -64,16 +65,18 @@ export function startLetter(
       23px row pitch and its column widths are +/-25%, not measured.
    ========================================================================= */
 
-/* Letter Setup's cyan caption. The kit paints a flat white Win10 title bar
-   and its colour is not a token, so this one window carries its own rule
-   rather than the kit growing a variant. React 19 hoists and de-duplicates it
-   by `href`; React 18 leaves it in place, where it still applies.
+/* CONFIRM-CURRENT: Letter Setup's only image (304687 `08364fce…`) paints
+   its caption cyan — the older build's Windows chrome, not MOIS's — so the
+   window takes the kit's current-build title bar like every other. The
+   pb-window--mois-lettersetup class stays for anything that finds it.
 
-   The template picker's own caption colour was never measured, so it keeps
-   the kit's default rather than being guessed at. */
-const SETUP_CAPTION = `
-.pb-window--mois-lettersetup > .pb-titlebar { height: 30px; background: ${LW.titleBar}; }
-`
+   All three windows in this file are laid out from help-site images of
+   older builds; none is in a capture of the current build. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.select-letter-template' }, source: 'help-site art. 303589 img e3be72c6454f; 303099 img 79174325792a, older builds' },
+  { target: { anchor: 'host.mois.dialog.letter-setup' }, source: 'help-site art. 304687 imgs 08364fcebd64, de6a18e07304; 303101 img fc05f3506761, older builds', check: 'row pitch, column widths' },
+  { target: { anchor: 'host.mois.dialog.link-to-order' }, source: 'help-site art. 303099 img 4bb2668b1b7f, older build' },
+])
 
 const noop = () => {}
 
@@ -306,7 +309,6 @@ export function LetterSetupWindow({
       }}
       after={(
         <>
-          <style href="mois-classic/letter-setup" precedence="medium">{SETUP_CAPTION}</style>
           {lookup && (
             <MasterProviderListDialog
               onClose={() => setLookup(null)}
@@ -515,22 +517,23 @@ function LinkToOrderPrompt({
   return (
     <>
       <LetterWriterWindow raw onClose={onCancel} />
+      {/* CONFIRM-CURRENT: 303099 `4bb2668b…` — a standard question box over
+          the Letter Writer: "?" icon, the one sentence, Yes / No. Drawn
+          with the kit's message box rather than the old capture's chrome. */}
       {stage === 'ask' && (
-        <ModalWindow title="Link to Order" onClose={onCancel} zIndex={95} windowStyle={{ width: 347, height: 132 }}>
-            <div data-tutorial-id="host.mois.dialog.link-to-order" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', background: '#fff' }}>
-              <div className="pb-row" style={{ gap: 14, padding: '16px 18px', flex: '1 1 auto', alignItems: 'center' }}>
-                <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
-                  <circle cx="16" cy="16" r="14" fill="#1f5fbf" />
-                  <text x="16" y="23" textAnchor="middle" fontSize="20" fontWeight="700" fill="#fff">?</text>
-                </svg>
-                <span>Is this letter being created in fulfillment of an Order?</span>
-              </div>
-              <div className="pb-row" style={{ justifyContent: 'flex-end', gap: 8, padding: '8px 10px', background: 'var(--pb-face)', flex: 'none' }}>
-                <PBButton style={{ width: 75 }} command="letter-order-yes" onClick={() => onAnswer(true)}>Yes</PBButton>
-                <PBButton style={{ width: 75 }} command="letter-order-no" onClick={() => onAnswer(false)}>No</PBButton>
-              </div>
-            </div>
-        </ModalWindow>
+        <PBMessageBox
+          title="Link to Order"
+          icon="question"
+          zIndex={95}
+          tutorialId="host.mois.dialog.link-to-order"
+          buttons={[
+            { label: 'Yes', value: 'yes', default: true, command: 'letter-order-yes' },
+            { label: 'No', value: 'no', command: 'letter-order-no' },
+          ]}
+          onClose={(v) => (v === 'yes' ? onAnswer(true) : v === 'no' ? onAnswer(false) : onCancel())}
+        >
+          Is this letter being created in fulfillment of an Order?
+        </PBMessageBox>
       )}
       {stage === 'link' && (
         <div style={{ position: 'relative', zIndex: 95 }}>

@@ -5,6 +5,7 @@ import { DOCTORS } from '../../data/claims'
 import { usePatientRoster } from '../../data/patient-context'
 import { useScreenReport } from '../../host/screen-state'
 import type { FolderViewProps } from '../folderViewRegistry'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 
 /* ============================================================================
    Billing ▸ MSP Claims — the MSP Claim Summary page.
@@ -32,6 +33,12 @@ import type { FolderViewProps } from '../folderViewRegistry'
 
    REPORTED: `host.screen.row` (the current doctor), `host.screen.rows`.
    ========================================================================= */
+
+/* CONFIRM-CURRENT: transcribed from notes on the live DEV build, not from a
+   capture; the module has no capture of the current build. */
+registerConfirmCurrent([
+  { target: { node: 'bl-msp' }, source: '~/github/Mois/references/billing.md (DEV v02.31.23 notes, text only)', check: 'layout and column widths' },
+])
 
 type SummaryRow = { doctor: string; complete: number; incomplete: number; hold: number }
 

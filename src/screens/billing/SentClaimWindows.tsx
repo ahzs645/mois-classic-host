@@ -9,6 +9,7 @@ import { useSessionState } from '../../host/screen-windows'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogButton, WorkspaceDialogFrame } from '../WorkspaceDialogFrame'
 import { FormLine } from '../formKit'
+import { registerConfirmCurrent } from '../../host/confirmCurrent'
 
 /* ============================================================================
    The two Sent Claim Detail windows behind Sent Claims ▸ Action beside
@@ -41,6 +42,13 @@ import { FormLine } from '../formKit'
 
    Reported: `host.screen.adjustments` / `host.screen.remittances` (counts).
    ========================================================================= */
+
+/* CONFIRM-CURRENT: both are the help site's (303602); no capture of the
+   current build. */
+registerConfirmCurrent([
+  { target: { anchor: 'host.mois.dialog.sent-adjustment-summary' }, source: 'help-site 303602 `3acbf70b`' },
+  { target: { anchor: 'host.mois.dialog.sent-remittance-history' }, source: 'help-site 303602 `cb3b6af8`, `aec03531` (cloud)' },
+])
 
 function useCurrentSent(): SentClaim {
   const [picked] = useSessionState<SentClaim | null>(SENT_CLAIM_KEY, null)

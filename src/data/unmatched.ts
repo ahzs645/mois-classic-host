@@ -16,10 +16,11 @@
      ("Unidentified provider and patient connected to" COMMUNITY HEALTH NURSE
      → "will be routed to this inbox" COMMUNITY HEALTH, Add / Add BU /
      Delete).
-   · Unmatched Items (Workspace ▸ Basket) — no capture; filters are the
-     article's ("Date range; Status (e.g. All, Processed, Unmatched,
-     Printed, Ignored, etc.) Default is unmatched; Patient name"). Columns
-     and rows INFERRED.
+   · Unmatched Items (Workspace ▸ Basket) — no image of the folder; its
+     place is the article's ("Workspace > Basket > Unmatched Items") and
+     `4d6a5577…`'s tree (CONFIRM-CURRENT), its filters the article's ("Date
+     range; Status (e.g. All, Processed, Unmatched, Printed, Ignored, etc.)
+     Default is unmatched; Patient name"). Columns and rows INFERRED.
    ========================================================================= */
 
 export type AliasRow = { user: string; kind: 'User' | 'Provider' | 'Org' | 'Org Role'; active: string; expiry: string; code: string; value: string; start: string; stop: string; note: string }
