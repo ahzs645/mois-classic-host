@@ -148,3 +148,17 @@
 .pb-mar-rec__rule { position: absolute; left: 0; right: 0; margin: 0; border: 0; border-top: 1px solid #c8c8c8; pointer-events: none; }
 .pb-mar-rec__divider { position: absolute; left: 359px; top: 246px; height: 263px; border-left: 1px solid #c8c8c8; pointer-events: none; }
 .pb-mar-rec textarea.pb-mar-rec__note { position: absolute; left: 441px; width: 226px; height: 54px; resize: none; }
+/* Group by Medication (evidence/MATRIX-R0758-administer-a-medication, MOIS
+   DEV v02.31.23 at 100%): heads Date · Time · Status · Medication · Admin By
+   · Detail under rules at 18 · 83 · 124 · 236 · 506 · 624px; a medication's
+   band reads ⊞ and its name 3px after the box, "(n records)" at the head of
+   Detail; a dose line takes the heads' columns (INFERRED). */
+.pb-mar-list--bymed .pb-mar-head,
+.pb-mar-list--bymed .pb-mar-event {
+  grid-template-columns: 18px 65px 41px 112px 270px 118px 1fr;
+}
+.pb-mar-list--bymed .pb-mar-head > span:nth-child(n+2) { border-left: 1px solid #c3c3c3; }
+.pb-mar-list--bymed .pb-mar-order { grid-template-columns: 18px 606px 1fr; }
+.pb-mar-list--bymed .pb-mar-order .pb-mar__name { padding-left: 4px; }
+.pb-mar-list--bymed .pb-mar-order .pb-mar__count { text-align: left; padding: 0 0 0 4px; }
+.pb-mar-list--bymed .pb-mar__box { justify-self: end; margin-right: 0; }

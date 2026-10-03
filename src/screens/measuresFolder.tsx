@@ -4,6 +4,7 @@ import {
   FORM_WINDOW, MEASURE_FORMS, clearDraft, longDate, nextEntryId, patchDraft, resolveLabCode, saveRowForm,
   setDraftCode, startDraft, useMeasureEntry,
 } from '../data/measureEntry'
+import { inPanelOrder, panelFor } from '../data/charts/panels'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { DESKTOP_USER, useEncounterSession } from '../host/encounterArea'
@@ -152,8 +153,9 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
   /* the Panel tab: every result that came in the selected one's panel, and
      their count in the caption — `Panel (5)` over five rows (302837
      `91cd8d02…`), so a result that stands alone reads Panel (0) */
-  const panelRows = current?.panel ? all.filter((r) => r.panel === current.panel) : []
-  const panelRecord = current?.panel ? panels.find((p) => p.id_panel === current.panel) : undefined
+  /* listed in the panel's own order, its results' num_set_id (OBX-1) */
+  const panelRows = current?.panel ? inPanelOrder(all.filter((r) => r.panel === current.panel)) : []
+  const panelRecord = panelFor(panels, current?.panel)
 
   /* Save (F2): the New Record row becomes a record of the folder */
   const fileDraft = () => {
@@ -181,8 +183,12 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
       switch (c.label) {
         case 'New Record': return { ...c, onClick: () => { if (!draftRow) startDraft(chart) } }
         case 'Delete Record': return current?.id === 'new' ? { ...c, onClick: () => clearDraft(chart) } : c
-        case 'Save': return { ...c, disabled: !draft, onClick: fileDraft }
-        case 'Undo': return { ...c, disabled: !draft, onClick: () => clearDraft(chart) }
+        /* Save and Undo stay lit with nothing to file, as every Measurements
+           capture paints them (MOIS DEV evidence/MATRIX-R0480-collected,
+           MATRIX-R0490-test-name; DIS in data/reportScreens.tsx); pressed
+           then, they do nothing */
+        case 'Save': return { ...c, onClick: fileDraft }
+        case 'Undo': return { ...c, onClick: () => clearDraft(chart) }
         case 'Graph': return { ...c, onClick: () => { if (current?.code) open('measurement-graph', { code: current.code }) } }
         case 'Attachment': return { ...c, onClick: () => { open('add-attachment') } }
         default: return c
@@ -302,9 +308,11 @@ export function useMeasuresFolder(node: string, rows: Record<string, string>[], 
     rowTutorialId: active ? (r: Record<string, string>) => `host.mois.row.measure-${r.id || r.code}` : undefined,
     panel: {
       caption: `Panel (${panelRows.length})`,
-      name: panelRecord?.str_panel_name ?? '',
-      orderedBy: panelRecord?.str_ordering_provider ?? '',
+      name: panelRecord?.name ?? '',
+      orderedBy: panelRecord?.orderedBy ?? '',
       rows: panelRows,
+      /* the whole tdt_panel record (charts/panels.ts) */
+      record: panelRecord,
     },
   }
 }

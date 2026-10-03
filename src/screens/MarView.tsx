@@ -347,14 +347,27 @@ export function MarView() {
     ? [...new Set(orders.map((o) => o.med))].map((med) => ({ key: `med:${med}`, orders: orders.filter((o) => o.med === med) }))
     : orders.map((o) => ({ key: o.id, orders: [o] }))
 
+  /* Group by Medication draws its own heads and lines (evidence/MATRIX-R0758-
+     administer-a-medication … R0761, MOIS DEV v02.31.23 at 100%): Date · Time
+     · Status · Medication · Admin By · Detail under rules at 18 · 83 · 124 ·
+     236 · 506 · 624px; a medication's band carries ⊞ and the name from the
+     Date column on, and "(n records)" at the head of Detail — no Admin /
+     Total. INFERRED: a dose line fills those same six columns (the capture
+     shows the bands collapsed). */
+  const byMed = view === 'Group by Medication'
   const grouped = (
-    <div className="pb-mar-list" data-tutorial-id="host.mois.group.mar-list"
+    <div className={['pb-mar-list', byMed ? 'pb-mar-list--bymed' : ''].join(' ')} data-tutorial-id="host.mois.group.mar-list"
       onContextMenu={(e) => { setMenuFor((e.target as HTMLElement).closest('.pb-mar-event') ? 'event' : 'order'); setMenuAt(contextPoint(e)) }}>
-      <div className="pb-mar-head">
-        <span /><span>{view === 'Group by Medication' ? '' : 'Order Date'}</span><span>Medication</span>
-        <span>{view === 'Group by Medication' ? '' : 'Order By'}</span><span>{view === 'Group by Medication' ? '' : 'Detail'}</span>
-        <span className="pb-mar__count">Admin / Total</span>
-      </div>
+      {byMed ? (
+        <div className="pb-mar-head">
+          <span /><span>Date</span><span>Time</span><span>Status</span><span>Medication</span><span>Admin By</span><span>Detail</span>
+        </div>
+      ) : (
+        <div className="pb-mar-head">
+          <span /><span>Order Date</span><span>Medication</span><span>Order By</span><span>Detail</span>
+          <span className="pb-mar__count">Admin / Total</span>
+        </div>
+      )}
       {groups.map((g) => {
         const o = g.orders[0]!
         const events = g.orders.flatMap((x) => x.events.map((e) => ({ e, o: x })))
@@ -372,11 +385,16 @@ export function MarView() {
                 data-state={isOpen ? 'open' : 'shut'}
                 data-tutorial-id={`host.mois.group.mar-${pbSlug(o.med).slice(0, 40)}`}
                 onClick={() => open.flip(g.key)} />
-              <span>{view === 'Group by Medication' ? '' : o.orderDate}</span>
-              <span>{o.med}</span>
-              <span>{view === 'Group by Medication' ? '' : o.orderBy}</span>
-              <span className="pb-mar__detail">{view === 'Group by Medication' ? '' : o.detail}</span>
-              <span className="pb-mar__count">({g.orders.reduce((n, x) => n + admin(x), 0)} / {events.length} records)</span>
+              {byMed ? <>
+                <span className="pb-mar__name">{o.med}</span>
+                <span className="pb-mar__count">({events.length} records)</span>
+              </> : <>
+                <span>{o.orderDate}</span>
+                <span>{o.med}</span>
+                <span>{o.orderBy}</span>
+                <span className="pb-mar__detail">{o.detail}</span>
+                <span className="pb-mar__count">({g.orders.reduce((n, x) => n + admin(x), 0)} / {events.length} records)</span>
+              </>}
             </div>
             {isOpen && events.map(({ e, o: x }) => (
               <div
@@ -390,11 +408,20 @@ export function MarView() {
                 }}
               >
                 <span />
-                <span>{e.status}</span>
-                <span>{e.date}</span>
-                <span>{e.time}</span>
-                <span>{e.generic}</span>
-                <span>{[e.dose, e.units].filter(Boolean).join(' ')}</span>
+                {byMed ? <>
+                  <span>{e.date}</span>
+                  <span>{e.time}</span>
+                  <span>{e.status}</span>
+                  <span>{e.generic}</span>
+                  <span>{e.by}</span>
+                  <span>{[e.dose, e.units].filter(Boolean).join(' ')}</span>
+                </> : <>
+                  <span>{e.status}</span>
+                  <span>{e.date}</span>
+                  <span>{e.time}</span>
+                  <span>{e.generic}</span>
+                  <span>{[e.dose, e.units].filter(Boolean).join(' ')}</span>
+                </>}
               </div>
             ))}
           </Fragment>

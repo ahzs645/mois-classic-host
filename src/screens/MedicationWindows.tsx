@@ -7,6 +7,7 @@ import { usePatient } from '../data/patient-context'
 import { stageStamp } from '../data/clock'
 import { MOIS_TODAY } from '../data/patients'
 import { registerScreenWindows } from '../host/screen-windows'
+import { useScreenReport } from '../host/screen-state'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug, type PBColumn,
 } from '../pb'
@@ -151,6 +152,7 @@ export function DoseWizardWindow({ med, multi: startMulti = false, onSave, onClo
 }) {
   const p = usePatient()
   const [multi, setMulti] = useState(startMulti)
+  useScreenReport({ doseWizardMulti: multi })
   const line = (): DoseLine => ({ dose: '1', units: 'TAB', route: 'ORAL', freq: 'DAILY' })
   const [single, setSingle] = useState<DoseLine[]>([line()])
   const [amount, setAmount] = useState('30')

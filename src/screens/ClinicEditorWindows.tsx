@@ -1,3 +1,5 @@
+import { useScreenReport } from '../host/screen-state'
+import { useUserAccounts } from '../data/user-account-session'
 import { useCallback, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   PBBand, PBButton, PBCheckbox, PBDataWindow, PBDropDownDataWindow, PBGroupBox, PBInput, PBLookup, PBRadio, PBSelect,
@@ -212,9 +214,6 @@ function codeFree(rows: ClinicRow[], code: string): boolean {
 const displayOf = (first: string, last: string) => [last, first].filter(Boolean).join(', ').toUpperCase()
 const signatureOf = (first: string, last: string) => [first, last].filter(Boolean).join(' ').toUpperCase()
 
-/** the User Accounts roster, as New Provider Profile's User Profile drops it */
-const userProfiles = () => ['', ...(userListSpec('ad-users')?.rows ?? []).map((r) => S(r.display))]
-
 function NameBlock({ names, onNames, prefix = '', profile }: {
   names: { first: string; middle: string; last: string; display: string; signature: string; syncDisplay: boolean; syncSignature: boolean }
   onNames: (next: typeof names) => void
@@ -325,6 +324,8 @@ function NewProviderProfileDialog({ close, open, onAdded }: {
   const [rows, update] = useClinicRows('ad-provider-list')
   const [names, setNames] = useState(blankNames)
   const [profile, setProfile] = useState('')
+  const [accounts] = useUserAccounts()
+  useScreenReport({ providerNameReady: Boolean(names.first.trim() && names.last.trim()), providerUserAssociated: Boolean(profile) })
   const proceed = () => {
     const n = resolved(names)
     /* a profile needs a name, and the list is keyed on it */
@@ -345,7 +346,7 @@ function NewProviderProfileDialog({ close, open, onAdded }: {
       <NameBlock names={names} onNames={setNames} profile />
       <ProfileSection height={83}>
         <ProfileRow y={25} label="User Profile:">
-          <PBSelect w={178} options={userProfiles()} value={profile} onChange={(e) => setProfile(e.target.value)} data-tutorial-id={fieldId('User Profile')} />
+          <PBSelect w={178} options={['', ...accounts.map(r => S(r.display))]} value={profile} onChange={(e) => setProfile(e.target.value)} data-tutorial-id={fieldId('User Profile')} />
         </ProfileRow>
         <div style={{ position: 'absolute', top: 37, left: PROFILE_CONTROL_X, lineHeight: '14px' }}>
           Providers requiring electronic downloads or workspace functionality<br />
@@ -425,6 +426,7 @@ function ProviderWindow({ rowKey, close }: { rowKey: string; close: () => void }
     ? [{ start: S(draft.userAssigned), user: S(draft.userProfile), by: SESSION_USER, note: 'New Record' }]
     : [])
 
+  useScreenReport({ providerUserAssociated: Boolean(draft.userProfile), providerBillingNumbersBlank: !draft.pract && !draft.payee })
   const save = () => {
     const name = S(draft.display) || key
     patchRow(update, 'ad-provider-list', key, {
@@ -1142,6 +1144,7 @@ function NewResourceDialog({ close, onAdded }: { close: () => void; onAdded?: ()
   const [rows, update] = useClinicRows('ad-resource-list')
   const { codes, locationsOf } = useFacilities()
   const [d, setD] = useState({ code: '', desc: '', detail: '', facility: '', location: '' })
+  useScreenReport({ newResourceReady: Boolean(d.code.trim() && d.desc.trim() && d.detail.trim()) })
   const create = () => {
     if (!codeFree(rows, d.code)) return
     /* the new row reads Active Y, as `436e6bd7…`'s MRI row does */

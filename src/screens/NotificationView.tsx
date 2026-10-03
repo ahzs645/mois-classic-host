@@ -60,6 +60,63 @@ const RECALL_CODES = [
 
 const TRIGGERS = ['Patient Arrival', 'Patient Discharge', 'Booking Appointment', 'Open Chart', 'Open Encounter Detail']
 
+/* ----------------------------------------------------------------------------
+   The list half of each tab, measured off the 1:1 DEV captures
+   (notification-reminders-empty.png, notification-recalls.png,
+   notification-tasks.png, notification-messages.png,
+   notification-responses.png; MOIS window 705px tall, the stage's ~40px
+   taller, so the panes keep DEV's heights and the extra goes to the detail).
+
+   Each list is a framed box inset 6px into the tab page: its caption band,
+   then a filter row on the same grey ruled off above and below, then the
+   grid. The frame runs y 201–593 on Reminders and Recalls, 201–460 on Tasks,
+   201–451 on Messages, 201–557 for Responses' first grid. Column widths are
+   the painted pitches (a cell and its 2px rule), x from the frame:
+     Reminders  gutter · Reminder 516 · Start Date 105 · Stop 68 · M 16
+     Recalls    gutter · Code 94 · Note 422 · Due 105 · Stop 68 · M 16
+     Tasks      gutter · (blank) 18 · Due 85 · Task 358 · Ack. 54 ·
+                Complete 55 · Created 69 · Created By 108 · M 16
+     Messages   gutter · (blank) 18 · Sent 77 · Subject 513 · Sent By 140 · M 16
+     Responses  no gutter · Called 118 · Contact 139 · Description 201 ·
+                Status 192 · Response · / Last Called 118 · Contact 139 ·
+                Contact Data 201 · Status 230 · Total Calls
+   Reminders and Recalls draw no column before the first caption but the
+   row gutter, and Tasks and Messages one 16px one: the extra `flag` /
+   `att` pair the kit config carries is not in any capture. The run stops
+   short of the frame and the white runs on (M ends at 1208 / 1268).
+   The filter boxes sit over the columns they filter: Reminder; Code and
+   Note; Task, with a box under Ack. and Complete; Subject and Sent By.
+   With no rows a list is a bare header over white, and the pane under it
+   is blank — the detail is a freeform DataWindow with nothing to show.    */
+const LIST_FRAME_H: Record<string, number> = {
+  Reminders: 392, Recalls: 392, Tasks: 259, Messages: 250, 'Responses - READ ONLY': 356,
+}
+const COLUMN_WIDTHS: Record<string, Record<string, number | undefined>> = {
+  Reminders: { reminder: 516, start: 105, stop: 68, m: 16 },
+  Recalls: { code: 94, note: 422, due: 105, stop: 68, m: 16 },
+  Tasks: { flag: 18, due: 85, task: 358, ack: 54, complete: 55, created: 69, by: 108, m: 16 },
+  Messages: { flag: 18, sent: 77, subject: 513, by: 140, m: 16 },
+  'Responses - READ ONLY': { called: 118, contact: 139, desc: 201, status: 192, response: undefined },
+}
+const LOWER_WIDTHS: Record<string, number | undefined> = { last: 118, contact: 139, data: 201, status: 230, total: undefined }
+/** the run's last cell is followed by white to the frame, not stretched —
+    header included (the kit's blank caption cell) */
+const TAIL = { key: '_tail', header: '', headClassName: 'pb-dw__th--blank' }
+
+/** The tab strip: five 157px tabs from the left, not stretched to the frame
+ *  (DEV captures: 480 / 638 / 794 / 951 / 1108 / 1265, white past the last). */
+const NOTIF_CSS = [
+  '.pb-notif > .pb-tabs > .pb-tabs__strip--justified > .pb-tabs__tab { flex: 0 0 157px; }',
+  '.pb-notif-list { display: flex; flex-direction: column; flex: none; margin: 6px 6px 0; border: 1px solid #6d6d6d; background: var(--pb-window); min-height: 0; min-width: 0; overflow: hidden; }',
+  /* an editing cell's 100% input must not widen the window past its frame */
+  '.pb-notif > .pb-tabs, .pb-notif > .pb-tabs > .pb-tabs__page { min-width: 0; }',
+  '.pb-notif-list > .pb-band { min-height: 21px; }',
+  '.pb-notif-filter { display: flex; align-items: center; flex: none; height: 23px; background: var(--pb-band); border-top: 1px solid #656565; border-bottom: 1px solid #656565; }',
+].join('\n')
+
+/** a filter box at its painted x (from the frame's inner edge) */
+const at = (x: number, w: number, prev: number) => ({ marginLeft: x - prev, width: w, flex: 'none' as const })
+
 type NoteRow = Record<string, string | undefined>
 
 export function NotificationView() {
@@ -72,7 +129,6 @@ export function NotificationView() {
   const [cur, setCur] = useState(0)
   /* rows a learner added this session, per chart, kept when the folder is left */
   const [added, setAdded] = useSessionState<Record<string, NoteRow[]>>(`notifications:${patient.chart}`, {})
-  const [dirty, setDirty] = useState(false)
 
   const cfg = notificationTabs[tab]!
   const own = added[tab] ?? []
@@ -96,7 +152,6 @@ export function NotificationView() {
   const setRow = (patch: Partial<NoteRow>) => {
     if (cur >= own.length) return
     setAdded((a) => ({ ...a, [tab]: (a[tab] ?? []).map((r, i) => (i === cur ? { ...r, ...patch } : r)) }))
-    setDirty(true)
   }
 
   const newRecord = () => {
@@ -108,19 +163,20 @@ export function NotificationView() {
         : { flag: '', code: '', note: '', due: MOIS_TODAY, stop: '', m: '', created: `${MOIS_TODAY} 10:05`, by: SESSION_USER }
       setAdded((a) => ({ ...a, [tab]: [blank, ...(a[tab] ?? [])] }))
       setCur(0)
-      setDirty(true)
-    }
+      }
   }
   const save = () => {
     setAdded((a) => ({ ...a, [tab]: (a[tab] ?? []).map((r) => ({ ...r, saved: 'saved' })) }))
-    setDirty(false)
   }
   const undo = () => {
     setAdded((a) => ({ ...a, [tab]: (a[tab] ?? []).filter((r) => r.saved) }))
-    setDirty(false)
   }
 
-  const columns = (cfg.columns as PBColumn<NoteRow>[]).map((c): PBColumn<NoteRow> => {
+  const widths = COLUMN_WIDTHS[tab] ?? {}
+  const columns = (cfg.columns as PBColumn<NoteRow>[])
+    .filter((c) => c.key in widths)
+    .map((c): PBColumn<NoteRow> => ({ ...c, width: widths[c.key] }))
+    .map((c): PBColumn<NoteRow> => {
     if (c.key === 'stop' || c.key === 'ack' || c.key === 'complete') {
       return { ...c, render: (r) => <PBCheckbox checked={r[c.key] === 'Y'} /> }
     }
@@ -152,70 +208,94 @@ export function NotificationView() {
     }
     return c
   })
+  /* the last measured column keeps its width; white runs on to the frame */
+  const tail = columns.length > 0 && columns[columns.length - 1]!.width !== undefined
+  if (tail) columns.push(TAIL as PBColumn<NoteRow>)
 
   const onlyTwo = tab === 'Reminders' || tab === 'Recalls'
+  const split = !!cfg.split
+  const frameH = LIST_FRAME_H[tab] ?? 300
   return (
     <>
+      <style href="mois-classic/notification" precedence="medium">{NOTIF_CSS}</style>
       <PBViewHeader title="Notification" right={<ChartHeaderIdentity />} />
       <PBCommandRow
         commands={[
-          { label: 'New Record', onClick: newRecord, disabled: tab === 'Responses - READ ONLY' },
-          { label: 'Delete Record', disabled: tab === 'Responses - READ ONLY' },
-          { label: 'Save', disabled: !dirty, onClick: save },
-          { label: 'Undo', disabled: !dirty, onClick: undo },
+          /* black on Responses - READ ONLY too (notification-responses.png):
+             MOIS leaves the Task Bar alone and the read-only grids ignore it */
+          { label: 'New Record', onClick: newRecord },
+          { label: 'Delete Record' },
+          /* Save and Undo are drawn enabled at rest — all five DEV captures
+             of this window show the five buttons in full black. They only
+             do something while a row is being added. */
+          { label: 'Save', onClick: save },
+          { label: 'Undo', onClick: undo },
           { label: 'Refresh' },
         ]}
       />
 
       <ChartIdentityStrip noEncounter />
 
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
+      <div className="pb-notif" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
         <PBTabs tabs={TABS} active={tab} onChange={(t) => { setTab(t); setCur(0) }} justified>
-          <PBBand>{cfg.list}</PBBand>
+          <div className="pb-notif-list" style={{ height: frameH }}>
+            <PBBand>{cfg.list}</PBBand>
 
-          {/* each list has its own filter row above the grid */}
-          {cfg.filters !== 'none' && (
-            <div className="pb-row" style={{ padding: '3px 6px 3px 20px', gap: 6 }}>
-              {tab === 'Messages' && (<><span style={{ width: 120 }} /><PBInput w={500} /><PBInput w={150} /></>)}
-              {cfg.filters === 'recall' && (<><PBInput w={96} /><PBInput w={420} /></>)}
-              {cfg.filters === 'task' && (
-                <>
-                  <span style={{ width: 130 }} />
-                  <PBInput w={440} />
-                  <span style={{ width: 20 }} />
-                  <PBCheckbox /><span style={{ width: 50 }} /><PBCheckbox />
-                </>
-              )}
-              {cfg.filters === 'one' && <PBInput w={510} />}
+            {/* each list has its own filter row above the grid */}
+            {cfg.filters !== 'none' && (
+              <div className="pb-notif-filter">
+                {tab === 'Messages' && (<><PBInput style={at(113, 511, 0)} /><PBInput style={at(626, 138, 624)} /></>)}
+                {cfg.filters === 'recall' && (<><PBInput style={at(16, 93, 0)} /><PBInput style={at(110, 421, 109)} /></>)}
+                {cfg.filters === 'task' && (
+                  <>
+                    <PBInput style={at(121, 357, 0)} />
+                    <span style={{ marginLeft: 499 - 478, flex: 'none', display: 'flex' }}><PBCheckbox /></span>
+                    <span style={{ marginLeft: 553 - 512, flex: 'none', display: 'flex' }}><PBCheckbox /></span>
+                  </>
+                )}
+                {cfg.filters === 'one' && <PBInput style={at(16, 515, 0)} />}
+              </div>
+            )}
+
+            <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+              <PBDataWindow
+                flush
+                gutter={!split}
+                style={{ ['--pb-dw-gutter-width' as string]: '17px' }}
+                rows={rows}
+                current={cur}
+                onCurrentChange={setCur}
+                columns={columns}
+                rowTutorialId={(_, i) => (i === 0 ? `host.mois.row.${tab === 'Recalls' ? 'recall' : tab === 'Reminders' ? 'reminder' : 'notification'}-first` : undefined)}
+                empty={false}
+              />
             </div>
-          )}
-
-          <div style={{ height: cfg.split ? 196 : onlyTwo ? 250 : 220, display: 'flex', padding: '0 6px', flex: 'none' }}>
-            <PBDataWindow
-              rows={rows}
-              current={cur}
-              onCurrentChange={setCur}
-              columns={columns}
-              rowTutorialId={(_, i) => (i === 0 ? `host.mois.row.${tab === 'Recalls' ? 'recall' : tab === 'Reminders' ? 'reminder' : 'notification'}-first` : undefined)}
-              empty={`No ${tab.replace(' - READ ONLY', '').toLowerCase()} for this patient.`}
-            />
           </div>
 
           {/* Responses stacks a second read-only grid instead of a detail pane */}
-          {cfg.split && cfg.lower && (
-            <>
+          {split && cfg.lower && (
+            <div className="pb-notif-list" style={{ flex: '1 1 auto', marginTop: 2, marginBottom: 4 }}>
               <PBBand>{cfg.lower.list}</PBBand>
-              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
-                <PBDataWindow rows={[]} columns={cfg.lower.columns as PBColumn<Record<string, string>>[]} empty=" " />
+              <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+                <PBDataWindow
+                  flush
+                  gutter={false}
+                  rows={[]}
+                  columns={(cfg.lower.columns as PBColumn<Record<string, string>>[]).map((c) => ({ ...c, width: LOWER_WIDTHS[c.key] }))}
+                  empty={false}
+                />
               </div>
-            </>
+            </div>
           )}
 
-          {onlyTwo && <ReminderBand key={tab} recall={tab === 'Recalls'} row={row} onDetail={(v) => setRow({ detail: v })} />}
+          {/* the detail under a list is drawn only for a row the list has */}
+          {onlyTwo && (row
+            ? <ReminderBand key={tab} recall={tab === 'Recalls'} row={row} onDetail={(v) => setRow({ detail: v })} />
+            : <div style={{ flex: '1 1 auto', borderTop: '1px solid #9a9a9a', marginTop: 1 }} />)}
           {tab === 'Tasks' && (
             <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '5px 6px 4px' }}>
-              <PBTabs tabs={['Detail', 'Follow Up Notes (0)']} active={lower === 'Detail' ? 'Detail' : 'Follow Up Notes (0)'} onChange={setLower} compact>
-                {lower === 'Detail' ? <TaskDetail row={row} /> : <div className="pb-dw__empty" style={{ padding: 20 }}>No follow up notes.</div>}
+              <PBTabs tabs={['Detail', 'Follow Up Notes (0)']} active={lower === 'Detail' ? 'Detail' : 'Follow Up Notes (0)'} onChange={setLower} compact face>
+                {lower === 'Detail' ? (row ? <TaskDetail row={row} /> : null) : null}
               </PBTabs>
             </div>
           )}
@@ -311,32 +391,45 @@ function TaskDetail({ row }: { row?: NoteRow }) {
   )
 }
 
-/* the Messages tab's detail: no tab strip, the recipient grids at the right */
+/* The Messages tab's lower half: a Detail / Attachments tab set on the left
+   and the Sent To / Copied To grids at the right (notification-messages.png,
+   DEV 1:1: tabs from 487, page to 1072; the grids 1077–1285, Sent To 120 ·
+   Ack 40 · Comp the rest, Copied To from y 600). Detail is drawn only for a
+   message the list has; Attachments was captured on an empty list only, so
+   its page stays blank. */
 function MessageDetail({ row }: { row?: NoteRow }) {
   const pri = row?.flag || 'M'
+  const [page, setPage] = useState('Detail')
   return (
-    <div data-tutorial-id="host.mois.group.message-detail" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 6, padding: '5px 6px 4px', borderTop: '1px solid #9a9a9a' }}>
-      <div style={{ flex: '1 1 auto', display: 'grid', gridTemplateColumns: '74px 1fr', rowGap: 5, alignContent: 'start' }}>
-        {label('Priority:')}
-        <span className="pb-row" style={{ gap: 18 }}>
-          {[['L', 'Low'], ['M', 'Medium'], ['H', 'High'], ['V', 'V. High']].map(([c, l]) => <PBRadio key={c} name="message-priority" label={l} checked={pri === c} />)}
-        </span>
-        {label('Linked to:')}<span />
-        {label('Subject:')}<PBInput w="100%" value={row?.subject ?? ''} readOnly />
-        {label('Detail:')}<PBTextArea key={row?.subject ?? 'none'} defaultValue={row?.detail ?? ''} rows={5} />
+    <div data-tutorial-id="host.mois.group.message-detail" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', gap: 5, padding: '1px 6px 4px' }}>
+      <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex' }}>
+        <PBTabs tabs={['Detail', 'Attachments']} active={page} onChange={setPage} compact face>
+          {page === 'Detail' && row && (
+            <div style={{ flex: '1 1 auto', display: 'grid', gridTemplateColumns: '74px 1fr', rowGap: 5, alignContent: 'start', padding: '5px 6px' }}>
+              {label('Priority:')}
+              <span className="pb-row" style={{ gap: 18 }}>
+                {[['L', 'Low'], ['M', 'Medium'], ['H', 'High'], ['V', 'V. High']].map(([c, l]) => <PBRadio key={c} name="message-priority" label={l} checked={pri === c} />)}
+              </span>
+              {label('Linked to:')}<span />
+              {label('Subject:')}<PBInput w="100%" value={row.subject ?? ''} readOnly />
+              {label('Detail:')}<PBTextArea key={row.subject ?? 'none'} defaultValue={row.detail ?? ''} rows={5} />
+            </div>
+          )}
+        </PBTabs>
       </div>
-      <div style={{ width: 230, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ width: 208, flex: 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {(['Sent To', 'Copied To'] as const).map((who) => (
-          <div key={who} style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
+          <div key={who} style={{ flex: '1 1 0', minHeight: 0, display: 'flex', border: '1px solid #6d6d6d', background: 'var(--pb-window)' }}>
             <PBDataWindow
+              flush
               gutter={false}
               rows={who === 'Sent To' && row?.to ? [{ to: row.to, ack: '', comp: '' }] : []}
               columns={[
-                { key: 'to', header: who, width: 136 },
-                { key: 'ack', header: 'Ack', width: 34, align: 'center' },
-                { key: 'comp', header: 'Comp', width: 40, align: 'center' },
+                { key: 'to', header: who, width: 120 },
+                { key: 'ack', header: 'Ack', width: 40, align: 'center' },
+                { key: 'comp', header: 'Comp', align: 'center' },
               ]}
-              empty=" "
+              empty={false}
             />
           </div>
         ))}

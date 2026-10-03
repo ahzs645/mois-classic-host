@@ -13,7 +13,7 @@ import {
 import { SCHEDULER_EXTRA_NODES, SchedulerExtraView } from '../screens/scheduler/SchedulerExtraView'
 import { designerNodes } from '../data/designerSection'
 import {
-  adminTree, billingTree, daybookProviders,
+  adminTree, billingTree,
   exchangeTree, makeMainMenu, makeStatusCells, modules,
   patientChartTree, reportsTree, schedulerTree, workspaceTree,
   type CarePlanKey, type PBScaleMode, type PBTextMode, type PBTheme
@@ -112,6 +112,8 @@ import '../screens/screen-windows-register'
 import { ScreenStateProvider, mergeScreenReports, type ScreenReport, type ScreenReporter } from './screen-state'
 import { promptCurrentField, useMoisHotkeys } from './hotkeys'
 import { setFieldValue } from './field-input'
+import { auditAnswerFor, currentAuditTarget, describeAuditTarget, fieldSlugOf, findControlForEntry } from './field-audit'
+import { FieldAuditLayer, type FieldAuditStep } from '../screens/FieldAuditWindows'
 import { DesktopProviderField } from '../screens/ChartBasicsWindows'
 import type { HostRecord, HostShellApi, HostShellProps, HostValue } from './types'
 /* Registers each module's menu overrides. Imported last, from the frame
@@ -739,13 +741,28 @@ function Frame({
   const [cdxNavigator, setCdxNavigator] = useState(false)
   /* a window a screen owns (Drug Lookup, Renew, the MAR chooser…), opened
      by name — see host/screen-windows.tsx */
+  const onActionRef = useRef(onAction)
+  onActionRef.current = onAction
+  const report_ = useCallback((id: string, payload?: HostRecord, result?: HostValue, source?: "user" | "derived") => {
+    onActionRef.current?.(id, payload, result, source)
+  }, [])
+
   const [screenWindow, setScreenWindow] = useState<ScreenWindow | null>(null)
   const closeScreenWindow = useCallback(() => setScreenWindow(null), [])
-  const openScreenWindow = useCallback((w: ScreenWindow) => setScreenWindow(w), [])
+  const openScreenWindow = useCallback((w: ScreenWindow) => {
+    report_('host.mois.openUtility', { window: w.id }, undefined, 'derived')
+    setScreenWindow(w)
+  }, [report_])
   /* a window the Workspace / Billing / Reports areas register by id (Create
      New Task, Create New Message, …) — see screens/areaWindowRegistry.ts —
      and the Workspace's session edits, fresh for every frame */
   const [areaWindow, setAreaWindow] = useState<{ id: string; args?: Record<string, unknown> } | null>(null)
+  /* Ctrl+Shift+A (host/field-audit.ts): the audit box up, the fields the
+     learner registered with Yes this session, and the last field asked about
+     (its dictionary entry and MOIS's answer) for a practice check */
+  const [fieldAudit, setFieldAudit] = useState<FieldAuditStep | null>(null)
+  const [registeredFields, setRegisteredFields] = useState<ReadonlySet<string>>(() => new Set())
+  const [lastFieldAudit, setLastFieldAudit] = useState<{ entry: string; answer: string }>({ entry: '', answer: '' })
   /* every session store registered with data/sessionStore.ts starts over —
      the Workspace, Scheduler and billing edits, the chart edits and chart
      basics, the Care Plan, allergy, goal, summary and determinant records,
@@ -783,11 +800,6 @@ function Frame({
   const desktopRef = useRef<HTMLDivElement>(null)
   const frame = useFrameGeometry(desktopRef, windowSize)
 
-  const onActionRef = useRef(onAction)
-  onActionRef.current = onAction
-  const report_ = useCallback((id: string, payload?: HostRecord, result?: HostValue) => {
-    onActionRef.current?.(id, payload, result)
-  }, [])
 
   const current = MODULE_TREES[module]
   const tree: PBTreeNode[] = current.tree
@@ -888,17 +900,18 @@ function Frame({
     report_('host.mois.selectNode', { node: id })
   }, [chart, module, needsChart, refuseNoChart, report_, routeNode])
 
-  const openEncounter = useCallback((row: EncounterRecord) => {
+  const openEncounter = useCallback((row: EncounterRecord, origin?: { appointment: string }) => {
+    report_('host.mois.openWindow', { kind: 'encounter', encounter: String(row.id), ...(origin ? { appointment: origin.appointment } : {}) }, undefined, 'derived')
     mdi.open({
       kind: 'encounter',
       key: `encounter:${chart}:${row.id}`,
       title: `Encounter ${row.id}`,
       props: { encounter: row, loadEncounterForms, encounterFormSlot },
     })
-    report_('host.mois.openWindow', { kind: 'encounter' })
   }, [chart, mdi, report_, loadEncounterForms, encounterFormSlot])
 
   const closeDialogs = useCallback(() => {
+    setFieldAudit(null)
     setReminderChart(null)
     setNoChartOpen(false)
     setServiceEventOpen(false)
@@ -1014,10 +1027,18 @@ function Frame({
       const row = slugAfter(el, 'host.mois.row.')
       if (row) report_('host.mois.rightClickRow', { row })
     }
+    // Focus is structural evidence for a focus exercise, not another Studio step.
+    const onFocus = (event: FocusEvent) => {
+      if (!(event.target instanceof Element)) return
+      const field = slugAfter(event.target, 'host.mois.field.')
+      if (field) report_('host.mois.focusField', { field }, undefined, 'derived')
+    }
+    root.addEventListener('focusin', onFocus, true)
     root.addEventListener('change', onChange, true)
     root.addEventListener('click', onClick, true)
     root.addEventListener('contextmenu', onContextMenu, true)
     return () => {
+      root.removeEventListener('focusin', onFocus, true)
       root.removeEventListener('change', onChange, true)
       root.removeEventListener('click', onClick, true)
       root.removeEventListener('contextmenu', onContextMenu, true)
@@ -1040,15 +1061,17 @@ function Frame({
        can belong to one. */
     if (action === 'host.mois.command' && typeof payload?.command === 'string') {
       const on = (...nodes: string[]) => nodes.includes(selectedRef.current)
-      if (payload.command === 'search' && on('summary', 'demographic')) setChartSearchOpen(true)
-      if (payload.command === 'review' && on('reaction', 'allergy', 'ltm', 'conditions')) setReviewOpen(true)
+      if (payload.command === 'search' && on('summary', 'demographic')) { report_('host.mois.openUtility', { window: 'advance-chart-search' }, undefined, 'derived'); setChartSearchOpen(true) }
+      if (payload.command === 'attachment' && on('encounters', 'documents')) { report_('host.mois.openUtility', { window: 'add-attachment' }, undefined, 'derived'); setAttachmentOpen(true) }
+      if (payload.command === 'review' && on('reaction', 'allergy', 'ltm', 'conditions')) { report_('host.mois.openUtility', { window: 'reviewing' }, undefined, 'derived'); setReviewOpen(true) }
       if (payload.command === 'link-to-order' && on('measures', 'imaging', 'consults', 'procedures')) {
+        report_('host.mois.openUtility', { window: 'order-linking-service' }, undefined, 'derived')
         setOrderLinkOpen(true)
       }
     }
     /* the kit only knows a "…" was pressed; the frame knows it opens the
        chart lookup, so it is the frame that reports the dialog that follows */
-    const opensLookup = action === 'host.mois.lookup'
+    const opensLookup = (action === 'host.mois.lookup' && payload?.field === 'chart')
       || (action === 'host.mois.status' && payload?.link === 'go-to-chart')
     /* an encounter the day book opened: its Save completes the note, so the
        day book's DS reads C (data/schedulerStore.ts) */
@@ -1077,7 +1100,11 @@ function Frame({
 
   /* topmost first: the Chart Navigator is opened from the Find Patient window
      and paints over it, so it has to win the chain. */
-  const dialog = noChartOpen ? 'no-chart-available'
+  const dialog = fieldAudit ? (
+      fieldAudit.step === 'not-available' ? 'audit-information-not-available'
+        : fieldAudit.step === 'register' ? 'register-table-field' : 'change-audit-report'
+    )
+    : noChartOpen ? 'no-chart-available'
     : mainShown && openChart && reminderChart === openChart ? 'opening-chart-reminder'
     : areaWindow ? areaWindow.id
     : cdxNavigator ? 'record-navigator'
@@ -1125,6 +1152,9 @@ function Frame({
     provider: pbSlug(daybookProvider),
     theme: theme === '' ? 'hybrid' : theme === 'pb-theme--flat' ? 'flat' : 'classic',
     screen,
+    /* the last Ctrl+Shift+A: the dictionary entry of the field (its evidence
+       ID, '' when the dictionary has none) and what MOIS answered */
+    fieldAudit: { ...lastFieldAudit, registered: registeredFields.size },
     /* what the Workspace windows have done this session (data/workspaceStore) */
     workspace: {
       tasks: workspace.tasks.length,
@@ -1134,7 +1164,7 @@ function Frame({
       reviews: workspace.reviews.length,
       blend: workspace.blend,
     },
-  }), [workspace, screen, apptRow, sched, basketAck, chart, openChart, claimPrompt, printOutput, printParams, daybook, daybookProvider, dialog, encounterDraft, invoicePaid, mdi.instances.length, module, roster, selected, stoppedReminders, tab, theme, view])
+  }), [lastFieldAudit, registeredFields, workspace, screen, apptRow, sched, basketAck, chart, openChart, claimPrompt, printOutput, printParams, daybook, daybookProvider, dialog, encounterDraft, invoicePaid, mdi.instances.length, module, roster, selected, stoppedReminders, tab, theme, view])
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -1175,10 +1205,16 @@ function Frame({
      so a practice-mode click and an autoplay step open the same window. Add a
      case when you add a window; return false for an id you do not know. */
   const openWindowById = (which: string, _args?: Record<string, unknown>): boolean => {
+    // Structural route only: utility arguments may contain patient or typed text.
+    if (isAreaWindow(which) || [
+      'find-patient', 'chart-navigator', 'advance-chart-search', 'reviewing',
+      'order-linking-service', 'tag-to-care-plan', 'add-attachment',
+      'select-letter-template', 'letter-writer',
+    ].includes(which)) report_('host.mois.openUtility', { window: which }, undefined, 'derived')
     /* the Workspace / Billing / Reports windows, by registered id */
     if (isAreaWindow(which)) { setAreaWindow({ id: which, args: _args }); return true }
     /* a window a folder's screen draws itself (host/screen-windows.tsx) */
-    if (isScreenWindow(which)) { setScreenWindow({ id: which, args: _args }); return true }
+    if (isScreenWindow(which)) { openScreenWindow({ id: which, args: _args }); return true }
     switch (which) {
       case 'find-patient': setFindPatientOpen(true); return true
       case 'chart-navigator': setChartNavOpen(true); return true
@@ -1193,12 +1229,31 @@ function Frame({
       case 'letter-writer': setLetterStep('writer'); return true
       /* a window a screen draws itself (host/screen-windows.tsx) */
       default:
-        if (isScreenWindow(which)) { setScreenWindow({ id: which, args: _args }); return true }
+        if (isScreenWindow(which)) { openScreenWindow({ id: which, args: _args }); return true }
         return false
     }
   }
   const openWindowRef = useRef(openWindowById)
   openWindowRef.current = openWindowById
+
+  /* Ctrl+Shift+A on the field the cursor is in (host/field-audit.ts): look
+     it up in the MOIS Data Dictionary and raise what MOIS raises for it.
+     Where MOIS answers nothing — a display-only cell, a field the dictionary
+     does not list — nothing happens, as there. Returns the entry's ID. */
+  const runFieldAudit = (control?: Element | null): string => {
+    const target = control ?? currentAuditTarget(rootRef.current)
+    const found = target ? describeAuditTarget(target, selectedRef.current) : null
+    const answer = found ? auditAnswerFor(found, registeredFields) : { kind: 'none' as const }
+    const entry = found?.entry?.id ?? ''
+    setLastFieldAudit({ entry, answer: answer.kind })
+    report_('host.mois.fieldAudit', { entry, answer: answer.kind, ...(target && fieldSlugOf(target) ? { field: fieldSlugOf(target) } : {}) })
+    if (answer.kind === 'not-available') setFieldAudit({ step: 'not-available', table: answer.table, column: answer.column, entry })
+    else if (answer.kind === 'register') setFieldAudit({ step: 'register', entry })
+    else if (answer.kind === 'report') setFieldAudit({ step: 'report', entry })
+    return entry
+  }
+  const runFieldAuditRef = useRef(runFieldAudit)
+  runFieldAuditRef.current = runFieldAudit
   /* hyperlinked descriptions jump to their folder (host/frame-nav.ts) */
   setFrameNodeOpener(openNode)
 
@@ -1357,7 +1412,7 @@ function Frame({
             if (!row || !enc) throw new Error(`${actionId}: no encounter behind the ${String(args.appointment)} appointment`)
             await loadChartExport(chart)
             schedulerStore.openedEncounter(row.key)
-            openEncounter(enc)
+            openEncounter(enc, { appointment: args.appointment })
             return undefined
           }
           const index = typeof args.index === 'number' ? args.index : 0
@@ -1450,6 +1505,28 @@ function Frame({
           input.focus()
           return undefined
         }
+        /* Ctrl+Shift+A in a field: `field` puts the cursor in
+           `host.mois.field.{field}` first; else `entry` finds the control on
+           screen whose dictionary entry it is (a recorded step carries
+           only that); with neither, the field the cursor is already in.
+           Answers the field's dictionary entry ID. */
+        case 'host.mois.fieldAudit': {
+          let control: Element | null = null
+          if (!(typeof args.field === 'string' && args.field) && typeof args.entry === 'string' && args.entry) {
+            control = rootRef.current ? findControlForEntry(rootRef.current, selectedRef.current, args.entry) : null
+            if (!control) throw new Error(`No MOIS field for ${args.entry} is on screen.`)
+            if (control instanceof HTMLElement && control.matches('input, textarea, select')) control.focus()
+          } else if (typeof args.field === 'string' && args.field) {
+            const id = `host.mois.field.${args.field}`
+            const el = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
+              .find((node) => node.getAttribute('data-tutorial-id') === id)
+            const input = el?.matches('input, textarea, select') ? el : el?.querySelector<HTMLElement>('input, textarea, select') ?? el ?? null
+            if (!input) throw new Error(`No MOIS field is on screen for ${id}.`)
+            input.focus()
+            control = input
+          }
+          return runFieldAuditRef.current(control)
+        }
         /* type into, pick from or tick a field (host/field-input.ts) */
         case 'host.mois.setField': {
           const root = rootRef.current
@@ -1483,16 +1560,22 @@ function Frame({
             : which === 'advance-chart-search' ? 'summary'
             : which === 'order-linking-service' ? 'measures'
             : which === 'add-attachment' ? 'encounters' : undefined
-          if (folder) { openNode(folder); await nextFrame() }
+          if (folder && stateRef.current.node !== folder) { openNode(folder); await nextFrame() }
           if (!openWindowRef.current(which, args)) throw new Error(`${actionId}: unknown utility window "${which}"`)
           return undefined
         }
         case 'host.mois.daybookFor': {
           const want = typeof args.provider === 'string' ? args.provider : ''
-          const found = daybookProviders.find((p) => pbSlug(p.provider) === want)
-          if (!found) throw new Error(`No MOIS provider matches "${want}".`)
           openNode('p-daybook')
-          setDaybookProvider(found.provider)
+          await nextFrame()
+          const input = rootRef.current?.querySelector<HTMLInputElement>('[data-tutorial-id="host.mois.daybookfor"] input')
+          if (!input) throw new Error('The Provider Day Book picker is not on screen.')
+          input.focus()
+          await nextFrame()
+          const row = [...document.querySelectorAll<HTMLElement>('.pb-dddw__list tbody tr')]
+            .find(tr => [...tr.querySelectorAll('td')].some(cell => pbSlug(cell.textContent?.trim() ?? '') === want))
+          if (!row) throw new Error(`No MOIS provider matches "${want}".`)
+          row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
           return undefined
         }
         case 'host.mois.daybook': {
@@ -1519,6 +1602,7 @@ function Frame({
     print: (menu) => {
       const found = printReportByMenu(menu)
       if (!found) return
+      report_('host.mois.print', { menu, stage: found.fields.length === 0 ? 'report' : 'params' }, undefined, 'derived')
       /* A report with no Selection Parameter fields — the problem list, the
          family history, the social history — goes straight to the preview in
          MOIS: there is nothing to ask for. This branch has to match
@@ -1551,6 +1635,7 @@ function Frame({
       return false
     },
     report: (action, payload) => report_(action, payload),
+    fieldAudit: () => { runFieldAuditRef.current() },
   })
   const itemCounts = workspaceItemCounts(workspace)
   const status = makeStatusCells(
@@ -1719,8 +1804,8 @@ function Frame({
               {view === 'tasklist' && (
                 <TaskListView node={selected} onOpenChart={() => openNode('summary')} />
               )}
-              {view === 'unsentmsp' && <UnsentMspView onPrompt={setClaimPrompt} />}
-              {view === 'sentmsp' && <SentMspView onPrompt={setClaimPrompt} />}
+              {view === 'unsentmsp' && <UnsentMspView onPrompt={(prompt) => { report_('host.mois.claimPrompt', { prompt }, undefined, 'derived'); setClaimPrompt(prompt) }} />}
+              {view === 'sentmsp' && <SentMspView onPrompt={(prompt) => { report_('host.mois.claimPrompt', { prompt }, undefined, 'derived'); setClaimPrompt(prompt) }} />}
               {view === 'invoice' && <InvoiceView paid={invoicePaid} onPaid={() => setInvoicePaid(true)} />}
               {view === 'encounters' && (
                 <EncounterListView
@@ -1829,7 +1914,7 @@ function Frame({
         {printParams && !printOutput && (
           <SelectionParameterDialog
             report={printParams}
-            onOk={() => { setPrintOutput(printParams); setPrintParams(null) }}
+            onOk={() => { report_('host.mois.print', { menu: printParams.menu, stage: 'report' }, undefined, 'derived'); setPrintOutput(printParams); setPrintParams(null) }}
             onClose={() => setPrintParams(null)}
           />
         )}
@@ -1910,6 +1995,15 @@ function Frame({
           open={areaWindow}
           onClose={() => setAreaWindow(null)}
           onOpen={(id, args) => openWindowRef.current(id, args)}
+        />
+        {/* Ctrl+Shift+A's boxes, over whichever window holds the field */}
+        <FieldAuditLayer
+          open={fieldAudit}
+          onChange={setFieldAudit}
+          onRegister={(entry) => {
+            setRegisteredFields((prev) => new Set(prev).add(entry))
+            report_('host.mois.registerField', { entry })
+          }}
         />
         {/* the 200% stretch, laid over everything the desktop holds */}
         <PBScaleOverlay />

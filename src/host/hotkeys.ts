@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { PBMenuItem } from '../pb/components/chrome'
 import { pbSlug } from '../pb'
+import { controlCaption, noteAuditTarget } from './field-audit'
 
 /* ============================================================================
    host/hotkeys — MOIS's keyboard, for the frame.
@@ -19,7 +20,8 @@ import { pbSlug } from '../pb'
       (Demographics' Ctrl+D Print Demographics) works wherever that menu is
       the one on the bar, and nowhere else, which is MOIS's own scoping.
    2. **The commonly used hot keys** that have no menu entry: F2 Save,
-      Shift+F2 Delete, F4 Prompt, F5 Refresh, Ctrl+1..9 the window's tabs.
+      Shift+F2 Delete, F4 Prompt, F5 Refresh, Ctrl+1..9 the window's tabs,
+      and Ctrl+Shift+A, the field audit (host/field-audit.ts).
    3. **Menu access**: Alt plus a menu's underlined letter drops that menu,
       and the item's own underlined letter then picks from it (Alt+V, M →
       Medication Administration). Only the letters the accelerator sheet
@@ -32,7 +34,9 @@ import { pbSlug } from '../pb'
 
    The map listens while the MOIS frame or its tutorial card has focus, but
    not while a modal window is up: a dialog owns its own keys (the Advanced
-   Gender window's F2, a window's Esc).
+   Gender window's F2, a window's Esc). Ctrl+Shift+A is the exception: MOIS
+   answers it inside a raised window too (the audit's Edit Benefit Source /
+   Service checks), so it is taken before the modal test.
    ========================================================================= */
 
 type MenuBarEntry = { label: string; menu?: PBMenuItem[] }
@@ -42,6 +46,8 @@ export type MoisHotkeyActions = {
   command: (slug: string) => boolean
   /** report a semantic action the way the kit would have */
   report: (action: string, payload: Record<string, string>) => void
+  /** Ctrl+Shift+A: ask the audit service about the field the cursor is in */
+  fieldAudit?: () => void
 }
 
 /** The underlined letter of each menu on the bar (Accelerators sheet).
@@ -140,16 +146,7 @@ let lastField: HTMLInputElement | null = null
 /** The caption MOIS paints beside a field: its own aria-label, else the label
     text in the cell before it (`Chart No.:` → `Chart No.`). */
 function captionOf(input: HTMLElement): string {
-  const own = input.getAttribute('aria-label')
-  let node: Element | null = input.closest('.pb-inputgroup') ?? input
-  for (let depth = 0; node && depth < 3; depth += 1) {
-    let prev = node.previousElementSibling
-    while (prev && !(prev.textContent ?? '').trim()) prev = prev.previousElementSibling
-    const text = prev?.textContent?.trim()
-    if (text && /:$/.test(text)) return text.replace(/:$/, '')
-    node = node.parentElement
-  }
-  return own ?? ''
+  return controlCaption(input).caption || (input.getAttribute('aria-label') ?? '')
 }
 
 /** The field the cursor is (or last was) in, and what it holds. */
@@ -203,6 +200,7 @@ export function useMoisHotkeys(
     }
 
     const onFocusIn = (e: FocusEvent) => {
+      if (root()?.contains(e.target as Node)) noteAuditTarget(e.target)
       if (e.target instanceof HTMLInputElement && root()?.contains(e.target) && !e.target.closest('.pb-modal-layer')) lastField = e.target
       const group = (e.target as Element | null)?.closest?.('.pb-inputgroup')
       if (group && root()?.contains(group)) lastLookupGroup = group
@@ -227,6 +225,7 @@ export function useMoisHotkeys(
 
     const onPointerDown = (e: PointerEvent) => {
       frameActive = !!root()?.contains(e.target as Node)
+      if (frameActive) noteAuditTarget(e.target)
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -238,6 +237,15 @@ export function useMoisHotkeys(
       const inFrame = (target && frame.contains(target)) || inTutorialCard
         || ((target === document.body || target === document.documentElement) && frameActive)
       if (!inFrame) return
+      /* Ctrl+Shift+A, in the work area or a raised window alike; the audit's
+         own boxes take their keys themselves */
+      if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey && e.code === 'KeyA') {
+        if (frame.querySelector('[data-field-audit]')) return
+        e.preventDefault(); e.stopPropagation()
+        pending = null
+        actionsRef.current.fieldAudit?.()
+        return
+      }
       /* a modal window owns the keyboard (Esc, its own F2) */
       if (frame.querySelector('.pb-modal-layer')) { pending = null; return }
       const key = keyName(e)

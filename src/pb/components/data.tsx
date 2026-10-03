@@ -28,6 +28,16 @@ export type PBColumn<T> = {
   italic?: boolean
   /** narrow "…" lookup column */
   dots?: boolean
+  /**
+   * Fill a "…" lookup cell edge to edge, inset like any detail cell. DEV
+   * v02.31 paints Demographics ▸ Connections' "…" cells #ffe6e7
+   * (evidence/MATRIX-R0144-general-comment) on every row but the current
+   * one, which stays salmon.
+   */
+  dotsFill?: string
+  /** extra class on the column's caption cell — `pb-dw__th--blank` leaves a
+      trailing filler column's header white (notification-reminders-empty.png) */
+  headClassName?: string
   render?: (row: T, index: number) => ReactNode
 }
 
@@ -131,11 +141,17 @@ export function PBDataWindow<T extends Record<string, any>>({
   filterGutter?: ReactNode
   /** header band: the DataWindow blue, the grey the Patient Summary uses,
       `caption` for the soft grey captions of a chart window's status panel
-      (Determinants of Health), or `false` for a grid that draws no header
-      row at all (the Report List) */
-  head?: 'blue' | 'grey' | 'caption' | false
-  /** what an empty grid says; `false` paints nothing, the way a MOIS history
-      grid with no rows is just its white body */
+      (Determinants of Health), `plain` for regular-weight captions on the
+      face with no separators and no rule (the Goals / Care Plan linked grids:
+      linked-health-issue-populated.png, goal-linked-actions-populated.png,
+      risk-linked-goals-populated.png), or `false` for a grid that draws no
+      header row at all (the Report List) */
+  head?: 'blue' | 'grey' | 'caption' | 'plain' | false
+  /** what an empty grid says; `false` — or `""` — paints nothing, the way a
+      MOIS history grid with no rows is just its white body. Every DEV capture
+      of an empty grid is that bare body (encounter-current-screen.png's
+      Encounter ▸ Report, the day books, Group Bookings' child lists), and no
+      capture shows the padded blank band `""` used to draw. */
   empty?: ReactNode | false
   style?: CSSProperties
   /**
@@ -161,6 +177,15 @@ export function PBDataWindow<T extends Record<string, any>>({
   const setCur = (i: number) => { setInternal(i); onCurrentChange?.(i) }
   const shut = collapsed ?? ownCollapsed
   const sortHost = usePBInstrumentation()
+  const activate = (row: T, index: number) => {
+    if (!onActivate) return
+    const id = rowTutorialId?.(row, index)
+    const prefix = sortHost ? `${sortHost.anchor('row')}.` : ''
+    // Report while the source view still exists. Opening a form can close
+    // this picker before its outcome snapshot arrives in the tutorial player.
+    if (prefix && id?.startsWith(prefix)) sortHost?.report('activateRow', { row: id.slice(prefix.length) })
+    onActivate(row, index)
+  }
 
   const span = columns.length + (gutter ? 1 : 0)
   const sized = columns.map((c) => (typeof c.width === 'number' ? c.width : c.width === undefined && c.dots ? 16 : null))
@@ -242,6 +267,7 @@ export function PBDataWindow<T extends Record<string, any>>({
         rules === 'white' && 'pb-dw--rules-white',
         head === 'grey' && 'pb-dw--head-grey',
         head === 'caption' && 'pb-dw--head-caption',
+        head === 'plain' && 'pb-dw--head-plain',
         hscroll && 'pb-dw--hscroll',
       )}
       style={style}
@@ -269,6 +295,7 @@ export function PBDataWindow<T extends Record<string, any>>({
                   className={cx(
                     (c.headAlign ?? c.align) === 'center' && 'pb-dw__c--center',
                     (c.headAlign ?? c.align) === 'right' && 'pb-dw__c--num',
+                    c.headClassName,
                   )}
                   {...(onSort ? {
                     'data-tutorial-id': sortHost?.anchor('sort', pbSlug(c.key)),
@@ -285,7 +312,7 @@ export function PBDataWindow<T extends Record<string, any>>({
           </thead>
           )}
           <tbody>
-            {rows.length === 0 && !groups?.length && empty !== false && (
+            {rows.length === 0 && !groups?.length && empty !== false && empty !== '' && (
               <tr>
                 <td colSpan={columns.length + (gutter ? 1 : 0)} style={{ height: 'auto', borderRight: 0 }}>
                   <div className="pb-dw__empty">{empty ?? 'No rows retrieved.'}</div>
@@ -323,9 +350,9 @@ export function PBDataWindow<T extends Record<string, any>>({
                   })()}
                   data-tutorial-id={rowTutorialId?.(r, i)}
                   onMouseDown={() => setCur(i)}
-                  onDoubleClick={() => onActivate?.(r, i)}
+                  onDoubleClick={() => activate(r, i)}
                   tabIndex={onActivate ? 0 : undefined}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onActivate?.(r, i) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') activate(r, i) }}
                 >
                   {gutter && (
                     <td className="pb-dw__gutter">
@@ -341,7 +368,9 @@ export function PBDataWindow<T extends Record<string, any>>({
                         c.align === 'right' && 'pb-dw__c--num',
                         c.italic && 'pb-dw__c--italic',
                         c.dots && 'pb-dw__c--dots',
+                        c.dotsFill && 'pb-dw__c--filled',
                       )}
+                      style={c.dotsFill ? { ['--pb-dw-cell-fill' as string]: c.dotsFill } : undefined}
                     >
                       {c.render ? c.render(r, i) : c.dots ? '…' : r[c.key]}
                     </td>
@@ -363,14 +392,14 @@ export function PBDataWindow<T extends Record<string, any>>({
    PBTabs
    ======================================================================== */
 export function PBTabs({
-  tabs, active, onChange, compact, justified, face, boldSelected = true, tabPad, children,
+  tabs, active, onChange, compact, justified, face, boldSelected = true, tabPad, tabWidth, disabled, children,
 }: {
   tabs: string[]
   active: string
   onChange: (t: string) => void
   /** size every tab to its caption instead of PB's fixed 96px (chart windows) */
   compact?: boolean
-  /** stretch the tabs to fill the strip (Notification, Group Visit List) */
+  /** stretch the tabs to fill the strip, instead of sizing them to the caption */
   justified?: boolean
   /** render the page on the grey dialog face instead of white */
   face?: boolean
@@ -379,34 +408,60 @@ export function PBTabs({
   /** a caption-sized tab's padding either side, when a capture measures one
       other than compact's 5px (Determinants of Health: 9px) */
   tabPad?: number
+  /**
+   * PowerBuilder's fixed-width tabs at a width a capture measures: every tab
+   * this wide with its caption centred, the selected one the usual 2px proud
+   * plate either side (so `tabWidth + 4`, and the strip does not move as the
+   * selection does). Encounter 124 (encounter-detail-*.png), Patient Service
+   * Event 108 (encounter-service-event-*.png), Group Visit List 134
+   * (scheduler-group-bookings-patient-list.png), Waiting List 128
+   * (evidence/MATRIX-R1372-patient-name). A caption wider than the tab still
+   * grows it rather than being clipped, as the kit's 96px default does.
+   */
+  tabWidth?: number
+  /**
+   * Tabs MOIS greys out: the caption in disabled grey, not clickable and
+   * reporting nothing (goal-saved.png's Quantitative Settings,
+   * evidence/MATRIX-R0480-collected's "Panel (0)").
+   */
+  disabled?: string[]
   children: ReactNode
 }) {
   const host = usePBInstrumentation()
+  const strip: CSSProperties = {}
+  if (tabPad !== undefined) (strip as Record<string, string>)['--pb-tab-pad'] = `${tabPad}px`
+  if (tabWidth !== undefined) (strip as Record<string, string>)['--pb-tab-w'] = `${tabWidth}px`
   return (
     <div className="pb-tabs">
       <div
-        style={tabPad === undefined ? undefined : { ['--pb-tab-pad' as string]: `${tabPad}px` }}
+        style={tabPad === undefined && tabWidth === undefined ? undefined : strip}
         className={cx(
           'pb-tabs__strip',
           compact && 'pb-tabs__strip--compact',
           justified && 'pb-tabs__strip--justified',
+          tabWidth !== undefined && 'pb-tabs__strip--fixed',
           !boldSelected && 'pb-tabs__strip--plain',
         )}
       >
-        {tabs.map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={cx('pb-tabs__tab', t === active && 'is-active')}
-            data-tutorial-id={host?.anchor('tab', pbSlug(t))}
-            onClick={() => {
-              host?.report('selectTab', { tab: pbSlug(t) })
-              onChange(t)
-            }}
-          >
-            {t}
-          </button>
-        ))}
+        {tabs.map((t) => {
+          const off = disabled?.includes(t) ?? false
+          return (
+            <button
+              key={t}
+              type="button"
+              className={cx('pb-tabs__tab', t === active && 'is-active')}
+              disabled={off}
+              data-tutorial-id={host?.anchor('tab', pbSlug(t))}
+              onClick={() => {
+                if (off) return
+                host?.report('selectTab', { tab: pbSlug(t) })
+                onChange(t)
+              }}
+            >
+              {t}
+            </button>
+          )
+        })}
       </div>
       <div className={cx('pb-tabs__page', face && 'pb-tabs__page--face')}>{children}</div>
     </div>

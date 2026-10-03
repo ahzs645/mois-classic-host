@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useChartExport, useChartRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
-import { date, serviceEpisodes } from '../data/charts/relations'
+import { date, encounterStamp, serviceEpisodes } from '../data/charts/relations'
 import {
   selectFormRows,
   type EncounterFormRow, type FormListRow
@@ -18,6 +18,7 @@ import { VISIT_MODE_CONCEPTS } from '../data/clinicManagement'
 import { MOIS_TODAY } from '../data/patients'
 import { usePatient } from '../data/patient-context'
 import { DESKTOP_USER, useEncounterSession, type SessionNote } from '../host/encounterArea'
+import { openFrameNode } from '../host/frame-nav'
 import { useScreenReport } from '../host/screen-state'
 import type { HostShellProps } from '../host/types'
 import {
@@ -41,7 +42,7 @@ import {
 } from './MeasureDialogs'
 import { PrintEncounterNoteDialog } from './PrintEncounterNoteDialog'
 import { PrintNoteForPatientDialog } from './PrintNoteForPatientDialog'
-import { ServiceEventDialog } from './ServiceEventDialog'
+import { ServiceEventDialog, type ServiceEventRecord, type ServiceEventVisit } from './ServiceEventDialog'
 import { WcbFormWindow } from './WcbFormWindow'
 import { ModalLayer, ModalWindow } from './dialogKit'
 import { DialogFooter } from './formKit'
@@ -81,6 +82,16 @@ import { usePrivateNoteBand, usePrivateNoteMask } from './PrivateNoteWindows'
 
 const TABS = ['Progress Note(s)', 'Measurements', 'Service(s)', 'Detail / Coding', 'Encounter Summary', 'Encounter Forms']
 
+/* The six tabs are one fixed width, 124px each, whichever is selected — the
+   strip runs 276–1020 in every v02.31.23 TRAINING capture of the window
+   (encounter-detail-progress.png, encounter-detail-measurements.png,
+   encounter-detail-coding.png); the selected one is the usual 2px proud
+   plate either side. The kit's fixed tab is 96px and grows with its caption,
+   which made the strip shift as the bold caption moved, so the strip asks
+   for PBTabs' `tabWidth`. */
+const TAB_WIDTH = 124
+const SCOPE = 'pb-encounter-detail'
+
 /** Chart Views, `45a6e1c0…`: caption, hot key, and the tree node it opens. */
 const CHART_VIEWS: [string, string | undefined, string][] = [
   ['Summary', 'Alt+H', 'summary'], ['Demographics', 'Alt+1', 'demographic'], ['Encounters', 'Alt+2', 'encounters'],
@@ -104,6 +115,14 @@ export type EncounterRecord = {
   code?: string
   provider?: string
 }
+
+/* The Times column: caption and the stem of its tdt_encounter columns —
+   dtm_<stem> the date, num_<stem>_hr / num_<stem>_min the time (the Data
+   Dictionary workbook's Matrix rows 393–400; data/charts/relations.ts
+   `encounterStamp` formats them). */
+const ENCOUNTER_TIMES: [string, string][] = [
+  ['Arrived:', 'arrived'], ['In-Room:', 'inroom'], ['Seen:', 'seen'], ['Discharge:', 'discharge'],
+]
 
 /** The note band's pending note: New Note, or the first note of an empty encounter. */
 type Pending = { text: string; author: string; complete: boolean | null }
@@ -153,13 +172,18 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
     .sort((a, b) => String(a.dtm_note_create ?? a.stp_date_create ?? '').localeCompare(String(b.dtm_note_create ?? b.stp_date_create ?? '')))
     .map((r, i) => ({
       key: r.id_encounter_note ?? `x${i}`,
-      author: r.str_author ?? '',
+      /* Author is tdt_encounter_note.id_author (MATRIX-R0420); the export
+         names it in str_author, or — on a note written through the web
+         forms API, which sets only the ids — in the computed cmp_author */
+      author: r.str_author || r.cmp_author || '',
       text: r.str_note ?? '',
       complete: r.str_complete === 'Y',
-      createdBy: r.stp_user_create ?? '',
+      createdBy: r.stp_user_create || r.cmp_creator || '',
       created: [r.stp_date_create?.replace(/\//g, '.'), r.stp_user_create].filter(Boolean).join('  '),
       modified: [r.stp_date_modify?.replace(/\//g, '.'), r.stp_user_modify].filter(Boolean).join('  '),
       exported: true,
+      lockedByAuthor: r.str_lock_by_author === 'Y',
+      isPrivate: r.isprivate === 'Y',
     })), [exported, enc.id])
   const notes = area.session.notes[enc.id] ?? exportedNotes
   const setNotes = (next: SessionNote[]) => area.update((s) => ({ ...s, notes: { ...s.notes, [enc.id]: next } }))
@@ -176,13 +200,25 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
      screens/PrivateNoteWindows.tsx) */
   const maskPrivate = usePrivateNoteMask(enc.id)
   /* only the creator or the author may change a note (the Encounter Note User
-     Lock, on by default); the chart's other users' notes open read-only */
-  const editable = (n: SessionNote) => !n.exported || n.createdBy === DESKTOP_USER || n.author === DESKTOP_USER
+     Lock, on by default); the chart's other users' notes open read-only.
+     A note its author completed is locked outright — "MOIS will also mark
+     your progress note as Complete … If you do not want to lock the
+     Progress Note, simply deselect the Complete checkbox" (301931); the
+     export records that lock as str_lock_by_author = Y with the day in
+     dtm_lock_by_author, on exactly its completed, authored notes. */
+  const editable = (n: SessionNote) => !n.lockedByAuthor && (!n.exported || n.createdBy === DESKTOP_USER || n.author === DESKTOP_USER)
   const noteStatus = pending ? (pending.text.trim() ? 'draft' : 'empty')
     : showing ? (showing.complete ? 'complete' : 'incomplete') : 'none'
 
   /* what the tutorial snapshot reads back as host.screen.* */
-  useScreenReport({ encounter: enc.id, notes: notes.length, noteStatus, reviews: area.session.reviews[enc.id]?.length ?? 0 })
+  useScreenReport({
+    encounter: enc.id, notes: notes.length, noteStatus,
+    /* The visible note counter, without its text or author. It distinguishes
+       walking back to an existing note from merely opening the note tab. */
+    noteIndex: pending ? 0 : notes.length ? Math.min(noteIndex, notes.length - 1) + 1 : 0,
+    completeNotes: notes.filter((note) => note.complete).length,
+    reviews: area.session.reviews[enc.id]?.length ?? 0,
+  })
   useScreenReport(dialog ? { dialog: dialog.id } : {})
 
   /* the open window is the active encounter (301931 "Active Encounter"):
@@ -193,14 +229,10 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enc.id])
 
-  /* Chart Views moves the chart behind the window to a folder, exactly as a
-     click on that folder in the Patient Chart tree does */
-  const windowRef = useRef<HTMLDivElement | null>(null)
+  /* Use the frame's navigation route: the Patient Chart tree may not be
+     mounted while an encounter is open over another module's workspace. */
   const chartView = (node: string) => {
-    const root = windowRef.current?.closest('.pb-root')
-    const target = [...(root?.querySelectorAll<HTMLElement>('[data-tutorial-id]') ?? [])]
-      .find((el) => el.getAttribute('data-tutorial-id') === `host.mois.tree.${node}`)
-    target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    openFrameNode(node)
   }
 
   /* Save (F2): "MOIS will save anything done in the Encounter Detail Window.
@@ -332,21 +364,30 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
       title={encounterTitle(patient)}
       sub={<>chart no.: {patient.chart} -&nbsp;&nbsp;&nbsp;encounter no.: {enc.id}</>}
       onClose={onClose}
-      /* 800 wide in every manual capture (d11b4456…, a02db6dd…), so the chart
-         folder behind stays in view beside it */
-      style={{ width: 800, height: 770, maxWidth: '100%', maxHeight: '100%' }}
+      /* 800 wide in the manual's captures (d11b4456…, a02db6dd…); the live
+         v02.31.23 TRAINING window measures 824 at the stage's 1:1 scale
+         (encounter-detail-header.png, x 276–1100), so the chart folder behind
+         still stays in view beside it */
+      style={{ width: 824, height: 770, maxWidth: '100%', maxHeight: '100%' }}
     >
-      <div ref={windowRef} style={{ display: 'contents' }} onKeyDown={onKeyDown}>
+      <div className={SCOPE} style={{ display: 'contents' }} onKeyDown={onKeyDown}>
         <EncounterMenuBar items={menu} />
 
         <EncounterBanner patient={patient} />
         <MspAppointmentTimes />
 
         {/* ---- the dense encounter header form ------------------------------
-            Four visual columns: identity, times, coded links, general note. */}
+            Four visual columns: identity, times, coded links, general note.
+            Every row is on a 19px pitch (Date 163 … Attending 277, Arrived
+            182 … Duration of Care 258) and the columns sit at the x the
+            TRAINING capture paints them, measured from the window's left
+            edge: Arrived 316 / its time 378–418, Health Issues 445–524,
+            Services 533–612, Nbr. of 618–654, General Note 659–814
+            (encounter-detail-header.png; evidence/MATRIX-R0383-date,
+            MATRIX-R0401-duration-of-care). */}
         <div style={{ display: 'flex', alignItems: 'flex-start', padding: '4px 6px 6px', gap: 0, flex: 'none' }}>
           {/* column 1 — identity */}
-          <div className="pb-form" style={{ padding: 0, gridTemplateColumns: 'auto 1fr', width: 250, flex: 'none' }}>
+          <div className="pb-form" style={{ padding: 0, gridTemplateColumns: 'auto 1fr', width: 250, flex: 'none', ['--pb-row-gap' as string]: '0px' }}>
             <span className="pb-form__label">Date:</span>
             <div className="pb-row">
               <PBInput key={enc.id + 'd'} w={62} align="center" readOnly defaultValue={enc.date ?? ''} />
@@ -385,7 +426,8 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
               rows={apptStatusCodes}
               value={record?.str_appt_status ?? ''}
               display="code"
-              w={62}
+              /* 350–405 in encounter-detail-header.png */
+              w={56}
               listW={214}
               tutorialId="host.mois.lookup.appt-status"
             />
@@ -399,61 +441,77 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
             />
           </div>
 
-          {/* column 2 — times */}
-          <div style={{ width: 176, flex: 'none', paddingLeft: 8 }}>
-            <div style={{ textAlign: 'center', marginBottom: 2 }}><PBCaption>Times</PBCaption></div>
-            {['Arrived:', 'In-Room:', 'Seen:', 'Discharge:'].map((l) => (
-              <div className="pb-row" key={l} style={{ marginBottom: 3, justifyContent: 'flex-end' }}>
-                <span style={{ width: 56, textAlign: 'right' }}>{l}</span>
-                <PBInput w={46} /><PBInput w={30} align="center" defaultValue=":" />
-              </div>
-            ))}
-            <div className="pb-row" style={{ justifyContent: 'flex-end' }}>
-              {/* `(minutes)` after the box, as the v02.31 capture paints it */}
-              <span>Duration of Care:</span><PBInput w={34} defaultValue={record?.num_duration_of_care ?? ''} /><span>(minutes)</span>
+          {/* column 2 — times: a 58px date box and a 40px time box per row,
+              the caption over the labels rather than the boxes */}
+          <div style={{ width: 162, flex: 'none' }}>
+            <div style={{ height: 19, lineHeight: '19px', paddingLeft: 41 }}><PBCaption>Times</PBCaption></div>
+            {/* the four labels flush left at 263, not right against the box */}
+            {/* each row is the stamp's date box and its hour : minute box,
+                tdt_encounter.dtm_<stamp> and num_<stamp>_hr / _min (the
+                Data Dictionary workbook's Matrix rows 393–400, Times ▸
+                Arrived … Discharge ▸ Date / Time) */}
+            {ENCOUNTER_TIMES.map(([l, stem]) => {
+              const at = encounterStamp(record, stem)
+              return (
+                <div className="pb-row" key={l} style={{ height: 19, gap: 4, justifyContent: 'flex-end' }}>
+                  <span style={{ width: 49, flex: 'none' }}>{l}</span>
+                  <PBInput key={`${enc.id}${stem}d`} w={58} defaultValue={at.date} data-tutorial-id={`host.mois.field.${stem}-date`} />
+                  <PBInput key={`${enc.id}${stem}t`} w={40} align="center" defaultValue={at.time || ':'} data-tutorial-id={`host.mois.field.${stem}-time`} />
+                </div>
+              )
+            })}
+            <div className="pb-row" style={{ height: 19, gap: 4, justifyContent: 'flex-end' }}>
+              {/* `(minutes)` after the box, as the v02.31 capture paints it:
+                  the box lines up under Arrived's date box (592–650) */}
+              <span>Duration of Care:</span><PBInput w={58} defaultValue={record?.num_duration_of_care ?? ''} /><span style={{ width: 40, overflow: 'visible' }}>(minutes)</span>
             </div>
           </div>
 
           {/* column 3 — coded links */}
-          <div style={{ flex: 'none', paddingLeft: 8 }}>
-            <div className="pb-row" style={{ marginBottom: 2, gap: 4 }}>
-              <span style={{ width: 100, textAlign: 'center' }}><PBCaption>Health Issues</PBCaption></span>
-              <span style={{ width: 76, textAlign: 'center' }}><PBCaption>Services</PBCaption></span>
-              <span style={{ width: 36, textAlign: 'center', whiteSpace: 'nowrap' }}><PBCaption>Nbr. of</PBCaption></span>
+          <div style={{ flex: 'none', paddingLeft: 27 }}>
+            <div className="pb-row" style={{ height: 19, gap: 0 }}>
+              <span style={{ width: 88 }}><PBCaption>Health Issues</PBCaption></span>
+              <span style={{ width: 80 }}><PBCaption>Services</PBCaption></span>
+              <span style={{ whiteSpace: 'nowrap' }}><PBCaption>Nbr. of</PBCaption></span>
             </div>
             {/* each pair is a lookup: Health Issues opens the Universal Search
                 Window, Services the Master Service Code List */}
             {[0, 1, 2, 3].map((i) => (
-              <div className="pb-row" key={i} style={{ marginBottom: 3, gap: 4 }}>
+              <div className="pb-row" key={i} style={{ height: 19, gap: 0 }}>
                 <PBLookup
-                  w={100}
+                  w={79}
                   name={`health-issue-${i + 1}`}
                   value={issues[i] ?? ''}
                   onChange={(v) => setIssues((r) => r.map((x, j) => (j === i ? v : x)))}
                   onDots={() => setPicking({ kind: 'issue', row: i })}
                 />
+                <span style={{ width: 9, flex: 'none' }} />
                 <PBLookup
-                  w={76}
+                  w={79}
                   name={`service-${i + 1}`}
                   value={services[i] ?? ''}
                   onChange={(v) => setServices((r) => r.map((x, j) => (j === i ? v : x)))}
                   onDots={() => setPicking({ kind: 'service', row: i })}
                 />
-                <PBInput w={32} align="center" defaultValue="-" />
+                <span style={{ width: 6, flex: 'none' }} />
+                {/* Nbr. Of n is tdt_encounter.num_no_service_n, shown with
+                    its .00 (workbook rows 413–416); an unbilled row is "-" */}
+                <PBInput key={`${enc.id}n${i}`} w={36} align="center" defaultValue={record?.[`num_no_service_${i + 1}`] || '-'} />
               </div>
             ))}
           </div>
 
-          {/* column 4 — general note */}
-          <div style={{ flex: '1 1 auto', minWidth: 0, paddingLeft: 8 }}>
-            <div style={{ marginBottom: 2 }}><PBCaption>General Note</PBCaption></div>
-            <PBTextArea rows={5} w="100%" />
+          {/* column 4 — general note, 155 × 70 beside Nbr. of */}
+          <div style={{ flex: '1 1 auto', minWidth: 0, paddingLeft: 5 }}>
+            <div style={{ height: 19, lineHeight: '19px', paddingLeft: 3 }}><PBCaption>General Note</PBCaption></div>
+            {/* tdt_encounter.str_office_note (MATRIX-R0417-general-note) */}
+            <PBTextArea key={`${enc.id}g`} rows={4} w="100%" style={{ height: 70, marginTop: 3 }} defaultValue={record?.str_office_note ?? ''} />
           </div>
         </div>
 
         {/* ---- tabbed detail ---- */}
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
-          <PBTabs tabs={TABS} active={tab} onChange={setTab}>
+        <div className="pb-encounter-detail__tabs" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>
+          <PBTabs tabs={TABS} active={tab} onChange={setTab} tabWidth={TAB_WIDTH}>
             {tab === 'Progress Note(s)' && (
               <ProgressNotePage
                 notes={notes}
@@ -486,7 +544,19 @@ export function EncounterWindow({ encounter, onClose, loadEncounterForms, encoun
                 onCalculator={setCalculator}
               />
             )}
-            {tab === 'Service(s)' && <ServicesPage encounter={enc.id} />}
+            {tab === 'Service(s)' && (
+              <ServicesPage
+                encounter={enc.id}
+                visit={{
+                  date: enc.date ?? '', time,
+                  visit: record?.str_visit_code ?? enc.code ?? '',
+                  /* the banner's ATTENDING is the encounter's provider */
+                  attending: record?.lkp_provider ?? enc.provider ?? record?.str_attending ?? '',
+                  location: record?.str_service_location ?? enc.loc ?? '',
+                  note: record?.str_appt_note ?? enc.reason ?? '',
+                }}
+              />
+            )}
             {tab === 'Detail / Coding' && (
               <CodingPage
                 record={record}
@@ -659,20 +729,22 @@ function EncounterFormsPage({ encounterId, encounterDate, notes, attendingFallba
   return (
     <>
       <div className="pb-cmdrow" style={{ padding: 2 }}>
-        <button
+        <PBButton
+          bare
           className="pb-cmdrow__btn"
-          data-tutorial-id="host.mois.command.new-form"
+          command="new-form"
           onClick={() => setPicking(true)}
         >
           New Form
-        </button>
-        <button
+        </PBButton>
+        <PBButton
+          bare
           className="pb-cmdrow__btn"
-          data-tutorial-id="host.mois.command.delete-form"
+          command="delete-form"
           onClick={() => setRows((r) => r.filter((_, i) => i !== cur))}
         >
           Delete Form
-        </button>
+        </PBButton>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
@@ -718,12 +790,16 @@ function EncounterFormsPage({ encounterId, encounterDate, notes, attendingFallba
           loadEncounterForms={loadEncounterForms}
           builtIn={BUILT_IN_FORMS}
           onCreate={(f) => {
-            /* the picker's type is the registration type; the filed row carries
-               the clinical type MOIS assigns it. A built-in form keeps its own
-               (INSURANCE FORMS for the WCB Report, `1800dc96…`). */
-            const builtIn = BUILT_IN_FORMS.some((b) => b.name === f.name && b.type === f.type)
+            /* an ATTACHMENT web form is filed under the clinical type MOIS
+               assigns it (ASSESSMENT); every other type keeps its own — a
+               built-in form (INSURANCE FORMS for the WCB Report, `1800dc96…`)
+               and an encounter form alike: Create Form on ENCOUNTER FORMS /
+               DIABETES leaves an "ENCOUNTER FORMS / DIABETES" row (Mois
+               references/patient-chart.md "Diabetes Encounter Template";
+               301931 `268ad625…` ENCOUNTER FORMS / ASTHMA / its attending) */
+            const attachment = f.type === 'ATTACHMENT'
             const row: FiledForm = {
-              type: builtIn ? f.type : 'ASSESSMENT', name: f.name, attending: builtIn ? attendingFallback : '',
+              type: attachment ? 'ASSESSMENT' : f.type, name: f.name, attending: attachment ? '' : attendingFallback,
               presetKey: f.presetKey, formId: crypto.randomUUID(), createdBy: DESKTOP_USER, created: MOIS_TODAY,
             }
             setRows((r) => [...r, row])
@@ -940,23 +1016,28 @@ function ProgressNotePage({
   return (
     <>
       <div style={priv.private ? { ['--pb-band' as string]: '#fbf59f' } : undefined} data-tutorial-id={priv.private ? 'host.mois.group.private-note-band' : undefined}>
-      <PBBand right={<>
+      {/* the band's buttons are Task Bar buttons, 77px each and butted
+          together at the band's right end (encounter-detail-progress.png:
+          Print Note 861–938, New Note 938–1015, Delete Note 1015–1092) */}
+      <PBBand right={<span className="pb-row" style={{ gap: 0 }}>
         {priv.button && (
-          <PBButton size="sm" command={priv.button.id}
+          <PBButton bare className="pb-cmdrow__btn" style={{ width: 'auto', minWidth: 77 }} command={priv.button.id}
             onClick={() => priv.button!.onClick()}>
             {priv.button.label}
           </PBButton>
         )}
         <PBButton
-          size="sm"
+          bare
+          className="pb-cmdrow__btn"
+          style={{ width: 77 }}
           command="print-note"
           onClick={() => onPrintNote()}
         >
           Print Note
         </PBButton>
-        <PBButton size="sm" command="new-note" onClick={onNewNote}>New Note</PBButton>
-        <PBButton size="sm" command="delete-note" onClick={onDelete}>Delete Note</PBButton>
-      </>}>
+        <PBButton bare className="pb-cmdrow__btn" style={{ width: 77 }} command="new-note" onClick={onNewNote}>New Note</PBButton>
+        <PBButton bare className="pb-cmdrow__btn" style={{ width: 77 }} command="delete-note" onClick={onDelete}>Delete Note</PBButton>
+      </span>}>
         <span data-tutorial-id="host.mois.field.note-caption">{caption}</span>
         {priv.private && <span style={{ marginLeft: 60, fontWeight: 400, color: '#9a9a9a' }}>This is a private note.</span>}
       </PBBand>
@@ -982,9 +1063,16 @@ function ProgressNotePage({
         <span style={{ width: 8 }} />
         <span>Created By: {note?.complete ? note.createdBy : ''}</span>
         <span className="pb-row__spacer" />
-        <PBButton size="sm" style={{ minWidth: 20 }} disabled={pending ? !notes.length : index === 0} onClick={() => onIndex(pending ? notes.length - 1 : index - 1)}>&lsaquo;</PBButton>
+        {/* the arrows are never greyed: at either end, or over a New Note
+            *of 0, they stay live and a press goes nowhere
+            (encounter-detail-progress.png) */}
+        <PBButton size="sm" command="previous-note" style={{ minWidth: 20 }} onClick={() => {
+          if (pending ? notes.length : index > 0) onIndex(pending ? notes.length - 1 : index - 1)
+        }}>&lsaquo;</PBButton>
         <span style={{ width: 46, textAlign: 'center' }} data-tutorial-id="host.mois.field.note-counter">{counter}</span>
-        <PBButton size="sm" style={{ minWidth: 20 }} disabled={pending != null || index >= notes.length - 1} onClick={() => onIndex(index + 1)}>&rsaquo;</PBButton>
+        <PBButton size="sm" command="next-note" style={{ minWidth: 20 }} onClick={() => {
+          if (pending == null && index < notes.length - 1) onIndex(index + 1)
+        }}>&rsaquo;</PBButton>
       </div>
       <div
         ref={(el) => { boxRef.current = el?.querySelector('textarea') ?? null }}
@@ -1054,6 +1142,7 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
   onCalculator: (c: string | null) => void
 }) {
   const area = useEncounterSession()
+  const instrumentation = usePBInstrumentation()
   const rows = useEncounterMeasures(encounter, encounterDate)
   const [cur, setCur] = useState(0)
   const [open, setOpen] = useState<MeasurementCommand | null>(null)
@@ -1085,14 +1174,19 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
     setCur(rows.length + added.length - 1)
   }
 
-  const command = (label: string, onClick: () => void, width?: number) => (
+  /* 77px Task Bar buttons, Other Template 87 (encounter-detail-measurements
+     .png: New Record 280–357 … Other Template 665–752) */
+  const command = (label: string, onClick: () => void, width = 77) => (
     <button
       className="pb-cmdrow__btn"
-      style={width ? { minWidth: width } : undefined}
+      style={{ width }}
       /* namespaced: the chart's own Encounters screen is still behind this
          window and carries a `New Record` of its own */
       data-tutorial-id={`host.mois.command.measure-${pbSlug(label)}`}
-      onClick={onClick}
+      onClick={() => {
+        instrumentation?.report('command', { command: `measure-${pbSlug(label)}` })
+        onClick()
+      }}
     >
       {label}
     </button>
@@ -1117,7 +1211,7 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
         {command('Graph', () => { if (current) area.open('measurement-graph', { code: current.code }) })}
         {command('Calculator', () => setOpen('calculators'))}
         {command('Template', () => { setTemplate(null); setOpen('template') })}
-        {command('Other Template', () => setOpen('other-template'), 98)}
+        {command('Other Template', () => setOpen('other-template'), 87)}
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
@@ -1127,27 +1221,37 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
           onCurrentChange={setCur}
           onActivate={(r) => { setEditing(r); setOpen('detail') }}
           rowTutorialId={(r) => `host.mois.row.measure-${pbSlug(String(r.code || r.name || 'new'))}`}
+          /* an encounter with no measurements is the grid's white body, no
+             "No rows retrieved." (encounter-detail-measurements.png) */
+          empty={false}
+          /* every column has its painted width, so the header band stops at
+             Units (x 996) the way the capture's does: Code 56, "…" 16,
+             Test Name 354, Value 130, the marker 16, Flag 60, Units 68
+             (encounter-detail-measurements.png; evidence/MATRIX-R0425-code
+             … MATRIX-R0429-units) */
           columns={[
-            { key: 'code', header: 'Code', width: 62, align: 'center' },
-            { key: 'd', header: '', dots: true },
-            { key: 'name', header: 'Test Name' },
+            { key: 'code', header: 'Code', width: 56, align: 'center' },
+            { key: 'd', header: '', dots: true, width: 16 },
+            { key: 'name', header: 'Test Name', width: 354 },
             { key: 'value', header: 'Value', width: 130, align: 'center' },
             {
               key: 'm',
               header: '',
-              width: 18,
+              width: 16,
               align: 'center',
               /* a blood pressure's value has a form behind it: F4 in Value, or
                  this "…" (303104; 302837 `17afb92b…`) */
               render: (r) => (r.code === '43894'
                 /* PHQ-9 TOTAL SCORE: the PATIENT HEALTH QUESTIONNAIRE (303102) */
-                ? <button className="pb-link" data-tutorial-id="host.mois.command.measure-form-43894" onClick={() => { setEditing(r); setOpen('phq9-form') }}>{r.marker === '.*.' ? '.*.' : '…'}</button>
+                ? <button className="pb-link" data-tutorial-id="host.mois.command.measure-form-43894" onClick={() => { instrumentation?.report('command', { command: 'measure-form-43894' }); setEditing(r); setOpen('phq9-form') }}>{r.marker === '.*.' ? '.*.' : '…'}</button>
                 : r.code === '1950' || r.code === 'BP'
-                ? <button className="pb-link" data-tutorial-id={`host.mois.command.measure-form-${pbSlug(r.code)}`} onClick={() => { setEditing(r); setOpen('bp-form') }}>…</button>
+                ? <button className="pb-link" data-tutorial-id={`host.mois.command.measure-form-${pbSlug(r.code)}`} onClick={() => { instrumentation?.report('command', { command: `measure-form-${pbSlug(r.code)}` }); setEditing(r); setOpen('bp-form') }}>…</button>
                 : '-'),
             },
-            { key: 'flag', header: 'Flag', width: 58, align: 'center' },
-            { key: 'units', header: 'Units', width: 72, align: 'center' },
+            { key: 'flag', header: 'Flag', width: 60, align: 'center' },
+            /* "mg/kg; ppm" starts at the column's left edge
+               (encounter-measurement-populated.png) */
+            { key: 'units', header: 'Units', width: 68 },
           ]}
         />
       </div>
@@ -1237,48 +1341,97 @@ function MeasurementsPage({ encounter, encounterDate, calculator, onCalculator }
    encounter-service-event-populated.png, v02.31). `Edit…` opens the same
    window over the selected event.
    ========================================================================= */
-function ServicesPage({ encounter }: { encounter: string }) {
+type ServiceRow = ServiceEventRecord & { id: string }
+
+function ServicesPage({ encounter, visit }: { encounter: string; visit: ServiceEventVisit }) {
+  const instrumentation = usePBInstrumentation()
   const data = useChartExport()
   const events = (data?.service_event ?? []).filter(r => r.str_object === 'tdt_encounter' && r.id_object === encounter)
-  const rows = events.map(r => {
+  /* each event with its episode (tdt_chart_service) and its health issues
+     (tdt_service_event_diag) — what the Patient Service Event window shows
+     when the event is reopened (evidence/MATRIX-R0432-start-date …
+     MATRIX-R0445-certainty) */
+  const rows: ServiceRow[] = events.map(r => {
     const service = data?.chart_service.find(s => s.id_chart_service === r.id_chart_service)
-    return { start: date(service?.dtm_start), episode: service?.str_service_code_term ?? '', event: r.str_service_code_term ?? '', phase: r.str_service_phase ?? '', mrp: service?.str_service_mrp ?? '' }
+    return {
+      id: r.id_service_event ?? '',
+      start: date(service?.dtm_start), stop: date(service?.dtm_end),
+      episode: service?.str_service_code_term ?? '', mrp: service?.str_service_mrp ?? '',
+      memberOf: '', stopReason: service?.str_stop_code_term ?? '',
+      event: r.str_service_code_term ?? '', phase: r.str_service_phase ?? '',
+      issues: (data?.service_event_diag ?? [])
+        .filter((d) => d.id_service_event === r.id_service_event)
+        .map((d) => ({ issue: d.str_diag_code_term ?? '', certainty: d.str_certainty ?? '' })),
+    }
   })
-  const [step, setStep] = useState<'episodes' | 'event' | null>(null)
-  useScreenReport(step ? { dialog: step === 'episodes' ? 'service-episodes' : 'service-event' } : {})
+  const [cur, setCur] = useState(0)
+  const [step, setStep] = useState<
+    { kind: 'episodes' } | { kind: 'new'; episode: ServiceEpisodeRow } | { kind: 'edit'; row: ServiceRow } | null
+  >(null)
+  useScreenReport(step ? { dialog: step.kind === 'episodes' ? 'service-episodes' : 'service-event' } : {})
+  const current = rows[Math.min(cur, rows.length - 1)]
+  /* Task Bar buttons, 77px each (encounter-detail-services.png: New… 280–357,
+     Edit… 357–434, Delete 434–511); all three are live with no event listed */
+  const button = (label: string, anchor: string | undefined, onClick?: () => void) => (
+    <button className="pb-cmdrow__btn" style={{ width: 77 }} data-tutorial-id={anchor} onClick={() => {
+      if (anchor) instrumentation?.report('command', { command: anchor.slice('host.mois.command.'.length) })
+      onClick?.()
+    }}>{label}</button>
+  )
   return (
     <>
       <div className="pb-cmdrow" style={{ padding: 2 }}>
-        <button
-          className="pb-cmdrow__btn"
-          data-tutorial-id="host.mois.command.new-service"
-          onClick={() => setStep('episodes')}
-        >
-          New…
-        </button>
-        <button className="pb-cmdrow__btn" data-tutorial-id="host.mois.command.edit-service" disabled={!rows.length} onClick={() => setStep('event')}>Edit…</button>
-        <button className="pb-cmdrow__btn" disabled={!rows.length}>Delete</button>
+        {button('New…', 'host.mois.command.new-service', () => setStep({ kind: 'episodes' }))}
+        {button('Edit…', 'host.mois.command.edit-service', () => { if (current) setStep({ kind: 'edit', row: current }) })}
+        {button('Delete', undefined)}
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-        <PBDataWindow
-          flush
-          columns={[
-            { key: 'start', header: 'Start Date', width: 88, align: 'center' },
-            { key: 'episode', header: 'Service Episode', width: 150 },
-            { key: 'event', header: 'Service Event' },
-            { key: 'phase', header: 'Phase', width: 82, align: 'center' },
-            { key: 'mrp', header: 'Service MRP', width: 140 },
-          ]}
-          rows={rows}
-        />
+        {/* An encounter with no service event is a blank white page — no
+            header band, no "No rows retrieved." (encounter-detail-services
+            .png). The grid an event lists under is not captured; its columns
+            are the window's own fields. */}
+        {rows.length ? (
+          <PBDataWindow
+            flush
+            columns={[
+              { key: 'start', header: 'Start Date', width: 88, align: 'center' },
+              { key: 'episode', header: 'Service Episode', width: 150 },
+              { key: 'event', header: 'Service Event' },
+              { key: 'phase', header: 'Phase', width: 82, align: 'center' },
+              { key: 'mrp', header: 'Service MRP', width: 140 },
+            ]}
+            rows={rows}
+            current={Math.min(cur, rows.length - 1)}
+            onCurrentChange={setCur}
+            onActivate={(row) => setStep({ kind: 'edit', row })}
+          />
+        ) : <div style={{ flex: '1 1 auto', background: '#fff' }} />}
       </div>
-      {step === 'episodes' && (
+      {step?.kind === 'episodes' && (
         <ServiceEpisodesDialog
-          onPick={() => setStep('event')}
+          onPick={(episode) => setStep({ kind: 'new', episode })}
           onClose={() => setStep(null)}
         />
       )}
-      {step === 'event' && <ServiceEventDialog onClose={() => setStep(null)} />}
+      {step?.kind === 'new' && (
+        <ServiceEventDialog
+          mode="new"
+          visit={visit}
+          record={{ start: step.episode.start, stop: step.episode.stop, episode: step.episode.episode, mrp: step.episode.mrp }}
+          /* the export carries no order links for a service event */
+          linkedOrders={[]}
+          onClose={() => setStep(null)}
+        />
+      )}
+      {step?.kind === 'edit' && (
+        <ServiceEventDialog
+          mode="edit"
+          visit={visit}
+          record={step.row}
+          linkedOrders={[]}
+          onClose={() => setStep(null)}
+        />
+      )}
     </>
   )
 }
@@ -1406,73 +1559,112 @@ function ProviderSearchDialog({ onPick, onClose }: {
   )
 }
 
-/* Visit Mode prints the name behind its stored SNOMED CT concept —
-   data/clinicManagement `VISIT_MODE_CONCEPTS` (301931 `a9bd769a…`) */
+/* ============================================================================
+   Detail / Coding.
+
+   Placed where the v02.31.23 TRAINING capture paints it, x and y from the
+   tab page's top-left (encounter-detail-coding.png; evidence/MATRIX-R0448-
+   resource … MATRIX-R0474-general-note): captions at 6 and their boxes at
+   95 on a 19px pitch; the right-hand captions set right against their boxes
+   at 368; a hairline under Payor, under the two Visit Reason rows, and
+   under the Coding header and each of its three rows, all 547 long; and the
+   coding matrix on a 91px pitch — Procedure two codes, Health Issue five,
+   Service four. Resource is a greyed read-only box (the resource the
+   encounter was booked on).
+
+   Visit Mode prints the name behind its stored SNOMED CT concept —
+   data/clinicManagement `VISIT_MODE_CONCEPTS` (301931 `a9bd769a…`).
+   ========================================================================= */
+const CODE_SLOTS: [string, number][] = [
+  ['Procedure:', 2],
+  ['Health Issue:', 5],
+  ['Service:', 4],
+]
+/* each matrix row's tdt_encounter column stem: Code n is `<stem>_n` (the
+   workbook's Matrix rows 463–473: str_proc_code_1–2, str_diag_code_1–5,
+   str_fee_code_1–4) */
+const CODE_COLUMN: Record<string, string> = {
+  'Procedure:': 'str_proc_code', 'Health Issue:': 'str_diag_code', 'Service:': 'str_fee_code',
+}
+const CODE_X = (i: number) => 95 + 91 * i
+
 function CodingPage({ record, docuStatus }: { record?: MoisRecord; docuStatus?: string }) {
   const mode = record?.str_visit_mode ? VISIT_MODE_CONCEPTS[record.str_visit_mode]?.name ?? record.str_visit_mode : ''
   const location = record?.str_service_location ?? ''
-  const CODE_SLOTS: [string, number][] = [
-    ['Procedure:', 2],
-    ['Health Issue:', 4],
-    ['Service:', 4],
-  ]
+  /** a control whose vertical centre is `y` */
+  const at = (x: number, y: number, node: ReactNode, style?: React.CSSProperties) => (
+    <div style={{ position: 'absolute', left: x, top: Math.round(y - 9.5), height: 19, display: 'flex', alignItems: 'center', ...style }}>{node}</div>
+  )
+  const right = (y: number, text: string) => at(0, y, <span>{text}</span>, { width: 362, justifyContent: 'flex-end' })
+  const rule = (y: number) => <div style={{ position: 'absolute', left: 0, top: y, width: 547, height: 1, background: '#c9c9c9' }} />
+  const caption = { fontWeight: 700, color: 'var(--pb-text-head)' }
   return (
-    <div style={{ padding: '6px 8px' }}>
-      <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
-        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '84px 1fr', width: 264, flex: 'none' }}>
-          <span className="pb-form__label">Resource:</span><PBInput w={176} defaultValue={record?.str_resource ?? ''} />
-          <span className="pb-form__label">Room:</span><PBInput w={68} />
-          <span className="pb-form__label">Docu. Status:</span>
-          <div className="pb-row"><PBInput key={docuStatus ?? 'x'} w={22} align="center" defaultValue={docuStatus ?? record?.str_status_docu ?? ''} data-tutorial-id="host.mois.field.docu-status" /><span>(C = Complete)</span></div>
-          <span className="pb-form__label">Billing Status:</span>
-          <div className="pb-row"><PBInput w={22} align="center" defaultValue={record?.str_status_bill ?? ''} /><span>(B = Billed)</span></div>
-          <span className="pb-form__label">Payor:</span><PBSelect options={['', 'MSP', 'ICBC', 'WCB']} w={84} />
-        </div>
+    <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 360, background: 'var(--pb-face)' }}>
+      {at(6, 18.5, <span>Resource:</span>)}
+      {at(95, 18.5, <PBInput w={182} readOnly defaultValue={record?.str_resource ?? ''} />)}
+      {at(6, 37.5, <span>Room:</span>)}
+      {at(95, 37.5, <PBInput w={58} defaultValue={record?.str_room_number ?? ''} />)}
+      {at(6, 56.5, <span>Docu. Status:</span>)}
+      {at(95, 56.5, <><PBInput key={docuStatus ?? 'x'} w={25} align="center" defaultValue={docuStatus ?? record?.str_status_docu ?? ''} data-tutorial-id="host.mois.field.docu-status" /><span style={{ marginLeft: 8 }}>(C = Complete)</span></>)}
+      {at(6, 75.5, <span>Billing Status:</span>)}
+      {at(95, 75.5, <><PBInput w={25} align="center" defaultValue={record?.str_status_bill ?? ''} /><span style={{ marginLeft: 8 }}>(B = Billed)</span></>)}
+      {at(6, 94.5, <span>Payor:</span>)}
+      {at(95, 94.5, <PBSelect options={[...new Set(['', record?.str_payor ?? '', 'MSP', 'ICBC', 'WCB'])]} defaultValue={record?.str_payor ?? ''} w={88} />)}
 
-        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '106px 1fr', flex: '1 1 auto', minWidth: 0 }}>
-          <span className="pb-form__label pb-form__label--right">Appt Status:</span>
-          <PBSelect options={['', 'Arrived', 'Seen', 'Discharged']} w={62} />
-          <span className="pb-form__label pb-form__label--right">Service Location:</span>
-          <PBSelect options={location ? ['', location] : ['']} defaultValue={location} w={170} />
-          <span className="pb-form__label pb-form__label--right">Visit Mode:</span>
-          <PBSelect options={[...new Set(['', mode, 'DIRECT ENCOUNTER WITH CLIENT ALONE', 'TELEPHONE WITH CLIENT ALONE', 'TELEMEDICINE WITH CLIENT ALONE'])]} defaultValue={mode} w={358} />
-          <span className="pb-form__label pb-form__label--right">Priority:</span>
-          <PBSelect options={['', 'ROUTINE', 'URGENT']} w={170} />
-          <span className="pb-form__label pb-form__label--right">Encounter Ref.:</span>
-          <PBInput w={200} />
-        </div>
-      </div>
+      {right(18.5, 'Appt Status:')}
+      {/* tdt_encounter.str_appt_status (MATRIX-R0449), the header's own
+          code list */}
+      {at(368, 18.5, <PBDropDownDataWindow
+        columns={[{ key: 'code', header: 'Code', width: 52 }, { key: 'description', header: 'Description', width: 160 }]}
+        rows={apptStatusCodes}
+        value={record?.str_appt_status ?? ''}
+        display="code"
+        w={56}
+        listW={214}
+      />)}
+      {right(37.5, 'Service Location:')}
+      {at(368, 37.5, <PBSelect options={location ? ['', location] : ['']} defaultValue={location} w={171} />)}
+      {right(56.5, 'Visit Mode:')}
+      {at(368, 56.5, <PBSelect options={[...new Set(['', mode, 'DIRECT ENCOUNTER WITH CLIENT ALONE', 'TELEPHONE WITH CLIENT ALONE', 'TELEMEDICINE WITH CLIENT ALONE'])]} defaultValue={mode} w={362} />)}
+      {right(75.5, 'Priority:')}
+      {/* str_priority (MATRIX-R0455), str_encompassing_encounter (R0457) */}
+      {at(368, 75.5, <PBSelect options={[...new Set(['', record?.str_priority ?? '', 'ROUTINE', 'URGENT'])]} defaultValue={record?.str_priority ?? ''} w={171} />)}
+      {right(94.5, 'Encounter Ref.:')}
+      {at(368, 94.5, <PBInput w={171} defaultValue={record?.str_encompassing_encounter ?? ''} />)}
 
-      <div className="pb-row" style={{ marginTop: 4, alignItems: 'flex-start' }}>
-        <span style={{ width: 84 }}>Visit Reason:</span>
-        <span className="pb-stack">
-          <PBLookup w={80} />
-          <PBLookup w={80} />
-        </span>
-        <PBInput w={330} defaultValue={record?.str_appt_note ?? ''} style={{ alignSelf: 'flex-start' }} />
-      </div>
+      {rule(106)}
+      {/* two Visit Reason rows, each a code lookup and its own text box */}
+      {at(6, 117.5, <span>Visit Reason:</span>)}
+      {/* Code 1 / Code 2 are tdt_encounter.str_rfe_code_1 / _2, the reason-
+          for-encounter codes (SNOMED in str_rfe_code_n_source); Description 1
+          is str_appt_note (the workbook's Matrix rows 458–461). The second
+          text box is blank under a filled first one in encounter-detail-
+          coding.png, so the visit reason is not repeated there. */}
+      {at(95, 117.5, <PBLookup w={79} defaultValue={record?.str_rfe_code_1 ?? ''} fieldId="host.mois.field.rfe-code-1" />)}
+      {at(186, 117.5, <PBInput w={323} defaultValue={record?.str_appt_note ?? ''} />)}
+      {at(95, 138, <PBLookup w={79} defaultValue={record?.str_rfe_code_2 ?? ''} />)}
+      {at(186, 138, <PBInput w={323} />)}
+      {rule(151)}
 
-      <div className="pb-hrule" style={{ margin: '6px 0 4px' }} />
+      {/* the coding matrix, its captions in the header navy */}
+      {at(6, 163, <span style={caption}>Coding:</span>)}
+      {[0, 1, 2, 3, 4].map((i) => at(CODE_X(i), 163, <span style={caption}>Code {i + 1}</span>, { width: 79, justifyContent: 'center' }))}
+      {rule(175)}
+      {CODE_SLOTS.map(([label, n], row) => {
+        const y = 184 + row * 20
+        return (
+          <div key={label}>
+            {at(6, y, <span>{label}</span>)}
+            {Array.from({ length: n }, (_, i) => <div key={i}>{at(CODE_X(i), y, <PBLookup w={79} defaultValue={record?.[`${CODE_COLUMN[label]}_${i + 1}`] ?? ''} />)}</div>)}
+            {rule(y + 11)}
+          </div>
+        )
+      })}
 
-      {/* the coding matrix */}
-      <div className="pb-row" style={{ gap: 0 }}>
-        <span style={{ width: 84 }}><b>Coding:</b></span>
-        {['Code 1', 'Code 2', 'Code 3', 'Code 4', 'Code 5'].map((c) => (
-          <span key={c} style={{ width: 92, textAlign: 'center' }}><b>{c}</b></span>
-        ))}
-      </div>
-      {CODE_SLOTS.map(([label, n]) => (
-        <div className="pb-row" key={label} style={{ gap: 0, marginTop: 3 }}>
-          <span style={{ width: 84 }}>{label}</span>
-          {Array.from({ length: n }, (_, i) => (
-            <span key={i} style={{ width: 92 }}><PBLookup w={88} /></span>
-          ))}
-        </div>
-      ))}
-
-      <div className="pb-row" style={{ marginTop: 6, alignItems: 'flex-start' }}>
-        <span style={{ width: 84 }}>General Note:</span>
-        <PBTextArea rows={7} w={446} />
+      {at(6, 251, <span>General Note:</span>)}
+      <div style={{ position: 'absolute', left: 95, top: 244 }}>
+        {/* the header's General Note again: str_office_note (MATRIX-R0474) */}
+        <PBTextArea w={443} style={{ height: 106 }} defaultValue={record?.str_office_note ?? ''} />
       </div>
     </div>
   )

@@ -832,13 +832,29 @@ export type OrderDetail = {
   priority?: string
   status?: string
   finishedOn?: string
-  finishedBy?: string
+  /** Finished's second box: "the date and time of its completion" (303526) */
+  finishedTime?: string
   /** the footer under the tab page */
   source?: string
   sentDate?: string
   signature?: string
   created?: string
   encounter?: string
+  /** what the export keeps behind the boxes, drawn nowhere (charts/orders.ts) */
+  record?: OrderRecordModel
+}
+
+/** An order's ids and flags no captured control prints (charts/orders.ts). */
+export type OrderRecordModel = {
+  /** Order Assigned to's coded identity (str_assignedto_id / _system / _source) */
+  assignedTo: { name: string; id: string; system: string; source: string }
+  /** the provider-directory names of the order's id columns */
+  attendingId: string; orderById: string; responsibleOrgId: string
+  responsibleOrgCode: string
+  /** tdt_order.str_print_* — which chart sections the requisition prints */
+  prints: { allergy: boolean; familyHx: boolean; healthIssue: boolean; longTermMeds: boolean }
+  author: { id: string; system: string; source: string }
+  recipientSource: string
 }
 
 export type OrderRow = {

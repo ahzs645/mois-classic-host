@@ -196,7 +196,7 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
           <DialogFooter frame="pb" buttons={footerButtons(PROFILE_PICKER.buttons, {
             wide: true,
             onPress: (b) => (b === 'Change Privileges' ? onApply([...picked.ticked]) : onClose()),
-          })} />
+          }).map((button) => button.command === 'cancel' ? { ...button, command: 'user-security-profiles-cancel' } : button)} />
         </PBWindow>
       </div>
     </div>

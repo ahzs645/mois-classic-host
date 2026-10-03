@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { RESOURCES } from '../data/daybook'
 import { daybookProviders, groupVisitRows } from '../data/mois'
 import { usePatientRoster } from '../data/patient-context'
@@ -38,26 +38,58 @@ type Visit = GroupVisitRow
    "Hide Future Appointment Series" / "Hide Future Appointments All" drop the
    series rows / every row dated after today. */
 
+/* Widths and row pitch are the DEV v02.31.23 list's, read off the header in
+   `scheduler-group-bookings-patient-list.png` (Aug 2026, 100 %): a 16 px
+   gutter, then 76 / 28 / 29 / 23 / 140 / 80 / 16 / 212 / 40 / 132, rows 18 px
+   apart. Every column is sized, so the band stops at Service Location the
+   way the capture's does. */
 const columns: PBColumn<Visit>[] = [
-  { key: 'date', header: 'Date', width: 78, align: 'center' },
+  { key: 'date', header: 'Date', width: 76, align: 'center' },
   { key: 'hr', header: 'HR', width: 28, align: 'center' },
-  { key: 'min', header: 'MIN', width: 32, align: 'center' },
-  { key: 'n', header: '#', width: 26, align: 'center' },
-  { key: 'provider', header: 'Provider', width: 150 },
-  { key: 'topic', header: 'Topic Code', width: 78, align: 'center' },
-  { key: 'd', header: '', dots: true },
-  { key: 'desc', header: 'Topic Description' },
-  { key: 'code', header: 'Code', width: 44, align: 'center' },
-  { key: 'loc', header: 'Service Location', width: 130 },
+  { key: 'min', header: 'MIN', width: 29, align: 'center' },
+  { key: 'n', header: '#', width: 23, align: 'center' },
+  { key: 'provider', header: 'Provider', width: 140 },
+  { key: 'topic', header: 'Topic Code', width: 80, align: 'center' },
+  { key: 'd', header: '', width: 16, dots: true },
+  { key: 'desc', header: 'Topic Description', width: 212 },
+  { key: 'code', header: 'Code', width: 40, align: 'center' },
+  { key: 'loc', header: 'Service Location', width: 132 },
 ]
+const GRID_VARS = { ['--pb-dw-row-h' as string]: '18px', ['--pb-dw-gutter-width' as string]: '15px' } as CSSProperties
 
-/* PowerBuilder parks a tiny recurrence glyph in the gutter of a series row. */
+/** where a column starts, from the grid's left edge (3 px pad + gutter) */
+const leftOf = (key: string) => 3 + 16 + columns.slice(0, columns.findIndex((c) => c.key === key)).reduce((a, c) => a + Number(c.width), 0)
+
+/* The filter boxes ride over their columns — a drop-down over Provider, then
+   Topic Code, Topic Description and Service Location (DEV capture: 132 / 78 /
+   209 / 125 px; v02.30.11 `21c6140d…` has the same four). */
+const FILTERS = [
+  { key: 'provider', w: 136, drop: true },
+  { key: 'topic', w: 78 },
+  { key: 'desc', w: 209 },
+  { key: 'loc', w: 125 },
+] as const
+
+/* PowerBuilder parks a recurrence glyph in the gutter of a series row: a
+   black ring with an arrowhead on either side (DEV capture, rows 2025.10.30
+   and 2025.10.16). */
 const SeriesGlyph = () => (
-  <svg width="11" height="11" viewBox="0 0 11 11">
-    <circle cx="5.5" cy="5.5" r="4" fill="none" stroke="#2f5a8c" />
-    <path d="M5.5 3v3l2 1.2" stroke="#2f5a8c" fill="none" strokeWidth="1.1" />
+  <svg width="12" height="11" viewBox="0 0 12 11" aria-label="series">
+    <circle cx="6" cy="5.5" r="3.6" fill="none" stroke="#000" strokeWidth="1.4" />
+    <path d="M0.6 6.2 L2.4 3.9 L4 6.2 Z" fill="#000" />
+    <path d="M8 4.8 L9.6 7.1 L11.4 4.8 Z" fill="#000" />
   </svg>
 )
+
+/* The four tabs are PowerBuilder's fixed-width ones, 134 px each and packed
+   left — not stretched across the strip — in both the DEV capture and
+   v02.30.11 `21c6140d…` (168 px at 125 %): PBTabs' `tabWidth`. The page
+   under them is a framed panel inset 6 px. */
+const TAB_WIDTH = 134
+const TAB_CSS = `
+.pb-gv-tabs .pb-tabs, .pb-gv-tabs .pb-tabs__page { min-width: 0; }
+.pb-gv-frame { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; margin: 6px 6px 0; border: 1px solid #a0a0a0; border-bottom: 0; background: var(--pb-face); }
+`
 
 const TODAY = '2026.08.11'
 
@@ -144,10 +176,12 @@ export function GroupVisitView() {
         ]}
       />
 
-      <div className="pb-row" style={{ padding: '3px 6px', gap: 6 }}>
-        <PBDropField w={296} />
-        <PBInput w={230} />
-        <PBInput w={172} />
+      <div style={{ position: 'relative', height: 23, flex: 'none' }}>
+        {FILTERS.map((f) => (
+          <span key={f.key} style={{ position: 'absolute', top: 3, left: leftOf(f.key) + 2 }}>
+            {'drop' in f ? <PBDropField w={f.w} /> : <PBInput w={f.w} />}
+          </span>
+        ))}
       </div>
 
       <div className="pb-row" style={{ padding: '0 8px 4px', gap: 28 }}>
@@ -155,7 +189,7 @@ export function GroupVisitView() {
         <PBCheckbox label="Hide Future Appointments All" checked={hideFuture} onChange={setHideFuture} tutorialId="host.mois.check.hide-future-all" />
       </div>
 
-      <div style={{ height: 244, display: 'flex', padding: '0 3px' }}>
+      <div style={{ height: 249, display: 'flex', padding: '0 3px', ...GRID_VARS }}>
         <PBDataWindow
           columns={columns}
           rows={rows}
@@ -166,13 +200,15 @@ export function GroupVisitView() {
         />
       </div>
 
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
+      <style href="mois-classic/group-visit-tabs" precedence="medium">{TAB_CSS}</style>
+      <div className="pb-gv-tabs" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
         <PBTabs
           tabs={['Patient List', 'Other Provider(s)', 'Other Resource(s)', 'Additional Information']}
           active={tab}
           onChange={setTab}
-          justified
+          tabWidth={TAB_WIDTH}
         >
+          <div className="pb-gv-frame">
           {tab === 'Additional Information' ? (
             <VisitDetailPage
               key={visit ? groupKeyOf(visit) : ''}
@@ -184,53 +220,68 @@ export function GroupVisitView() {
           ) : (
           <>
           <PBBand right={<>
-            <DialogButton id="group-list-new" width={60} onClick={onNew}>New</DialogButton>
-            <DialogButton id="group-list-delete" width={60} onClick={onDelete}>Delete</DialogButton>
+            <DialogButton id="group-list-new" width={51} onClick={onNew}>New</DialogButton>
+            <DialogButton id="group-list-delete" width={51} onClick={onDelete}>Delete</DialogButton>
           </>}>
             {tab === 'Patient List' ? 'Patient List'
               : tab === 'Other Provider(s)' ? 'Other Provider List' : 'Other Resource List'}
           </PBBand>
-          <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }} data-tutorial-id="host.mois.field.group-list">
+          <div style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0, display: 'flex', background: 'var(--pb-window)' }} data-tutorial-id="host.mois.field.group-list">
             {tab === 'Patient List' ? (
+              /* DEV `scheduler-group-bookings-patient-list.png`: a gutter, "…"
+                 lookups after Chart, Visit Reason, Health Issue and Services,
+                 and TM / RP / the clip past BS (matrix rows 1335-1347) — the
+                 grid is wider than the frame and pans */
               <PBDataWindow
                 flush
-                gutter={false}
+                hscroll
                 rows={lists.patients}
                 current={patCur}
                 onCurrentChange={setPatCur}
                 rowClassName={(p) => (['C', 'R', 'N'].includes(p.as) ? 'pb-dw--struck' : undefined)}
                 rowTutorialId={(p) => `host.mois.row.group-patient-${p.chart}`}
+                style={GRID_VARS}
                 columns={[
-                  { key: 'chart', header: 'Chart', width: 72, align: 'center' },
-                  { key: 'first', header: 'First Name', width: 92 },
-                  { key: 'last', header: 'Last Name', width: 92 },
-                  { key: 'code', header: 'Code', width: 46, align: 'center' },
+                  { key: 'chart', header: 'Chart', width: 57, align: 'center' },
+                  { key: 'd1', header: '', width: 15, dots: true },
+                  { key: 'first', header: 'First Name', width: 80 },
+                  { key: 'last', header: 'Last Name', width: 103 },
+                  { key: 'code', header: 'Code', width: 40, align: 'center' },
                   { key: 'mode', header: 'Mode', width: 46, align: 'center' },
-                  { key: 'reason', header: 'Visit Reason', width: 176 },
-                  { key: 'issue', header: 'Health Issue', width: 108 },
-                  { key: 'services', header: 'Services', width: 92 },
-                  { key: 'as', header: 'AS', width: 30, align: 'center' },
-                  { key: 'ds', header: 'DS', width: 30, align: 'center' },
-                  { key: 'bs', header: 'BS', width: 30, align: 'center' },
-                  { key: 't', header: 'T', width: 24, align: 'center' },
+                  { key: 'reason', header: 'Visit Reason', width: 168 },
+                  { key: 'd2', header: '', width: 16, dots: true },
+                  { key: 'issue', header: 'Health Issue', width: 72 },
+                  { key: 'd3', header: '', width: 15, dots: true },
+                  { key: 'services', header: 'Services', width: 64 },
+                  { key: 'd4', header: '', width: 14, dots: true },
+                  { key: 'as', header: 'AS', width: 37, align: 'center' },
+                  { key: 'ds', header: 'DS', width: 22, align: 'center' },
+                  { key: 'bs', header: 'BS', width: 23, align: 'center' },
+                  { key: 't', header: 'TM', width: 23, align: 'center' },
+                  { key: 'rp', header: 'RP', width: 23, align: 'center', render: () => '-' },
+                  { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center', render: () => '-' },
                 ]}
-                empty="No patients booked into this group visit."
+                /* an empty list is a bare grid, no message (DEV capture) */
+                empty={false}
               />
             ) : (
+              /* DEV `scheduler-group-bookings-providers.png` / `-resources.png`
+                 and v02.30.11 `21c6140d…`: a gutter, then Provider (Resource)
+                 210, "…" 16, Note 362, Reserve Time on Schedule 166 */
               <PBDataWindow
                 flush
-                gutter={false}
                 rows={others.map((o, i) => ({ ...o, i }))}
+                style={GRID_VARS}
                 current={otherCur}
                 onCurrentChange={setOtherCur}
                 /* a red square beside a provider says the row needs saving (303808) */
                 rowIcon={(r) => (!r.reserved && tab === 'Other Provider(s)' ? <span style={{ display: 'inline-block', width: 7, height: 7, background: '#d00000' }} /> : null)}
                 columns={[
-                  { key: 'name', header: tab === 'Other Provider(s)' ? 'Provider' : 'Resource', width: 228, align: 'center' },
-                  { key: 'd', header: '', dots: true },
-                  { key: 'note', header: 'Note', align: 'center' },
+                  { key: 'name', header: tab === 'Other Provider(s)' ? 'Provider' : 'Resource', width: 210, headAlign: 'center' },
+                  { key: 'd', header: '', width: 16, dots: true },
+                  { key: 'note', header: 'Note', width: 362, headAlign: 'center' },
                   {
-                    key: 'reserve', header: 'Reserve Time on Schedule', width: 160, align: 'center',
+                    key: 'reserve', header: 'Reserve Time on Schedule', width: 166, align: 'center',
                     render: (r) => (r.reserved
                       ? <span>Reserved</span>
                       : (
@@ -247,12 +298,13 @@ export function GroupVisitView() {
                       )),
                   },
                 ]}
-                empty={`No ${tab.replace(/\(s\)/, 's').toLowerCase()} attached to this visit.`}
+                empty={false}
               />
             )}
           </div>
           </>
           )}
+          </div>
         </PBTabs>
       </div>
 
@@ -318,17 +370,20 @@ function VisitDetailPage({ comment, room, resource, onChange }: {
   return (
     <>
       <PBBand>Visit Detail</PBBand>
-      <div className="pb-form" style={{ gridTemplateColumns: '92px 1fr', alignItems: 'start', padding: '6px 10px' }}>
+      {/* DEV `scheduler-group-bookings-info.png`: labels 11 px in, fields
+          at 100 px — Resource a 104 px drop-down, Room Number 64 px, Comment
+          a 115 px box running to 11 px short of the frame — and the Record
+          Created / Last Modified line sits at the foot of the frame */}
+      <div className="pb-form" style={{ gridTemplateColumns: '89px 1fr', alignItems: 'start', padding: '6px 11px 0' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Resource:</span>
-        <PBSelect options={['', 'ROOM 1', 'ROOM 2', 'GROUP ROOM']} w={130} value={resource} onChange={(e) => onChange({ resource: e.target.value })} />
+        <PBSelect options={['', 'ROOM 1', 'ROOM 2', 'GROUP ROOM']} w={104} value={resource} onChange={(e) => onChange({ resource: e.target.value })} />
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Room Number:</span>
-        <PBInput w={82} value={room} onChange={(e) => onChange({ room: e.target.value })} />
+        <PBInput w={64} value={room} onChange={(e) => onChange({ room: e.target.value })} />
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-        <PBTextArea rows={8} w="100%" value={comment} onChange={(e) => onChange({ comment: e.target.value })} data-tutorial-id="host.mois.field.group-comment" />
+        <PBTextArea w="100%" value={comment} onChange={(e) => onChange({ comment: e.target.value })} style={{ height: 115 }} data-tutorial-id="host.mois.field.group-comment" />
       </div>
-      <div className="pb-row" style={{ padding: '2px 10px 4px', gap: 0 }}>
-        <span>Record Created:</span>
-        <span style={{ width: 60 }} />
+      <div className="pb-row" style={{ padding: '2px 11px 8px', gap: 0, marginTop: 'auto' }}>
+        <span style={{ width: 413 }}>Record Created:</span>
         <span>Last Modified:</span>
       </div>
     </>

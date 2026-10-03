@@ -47,7 +47,18 @@ import { NAVY } from './formKit'
      (2505642655), MORRISON, ASHLEE, PAPER FORM, SUCCESS); the rest are
      INFERRED.
 
-   Reported: `host.screen.folder`, `host.screen.checked` (files ticked),
+   · The Record band as the live DEV client draws it (v02.31.23, 2026;
+     ~/github/Mois/references/data-exchange.md "Inbound Documents"): CHART
+     NUM, TYPE, BCHN and DOB; Attach and Unattach buttons; Clear After
+     Attaching; the History Not Applicable pane; and a Distribute table with
+     New and Delete. Attach and Unattach behave as Attach Files' do (the
+     article: "the same as … the Attach files folder"): Attach files the
+     current file and drops it greyed to the foot of the list, Unattach lifts
+     it back. INFERRED: where the two buttons sit (the band's right, beside
+     the checkbox), the band's height, and BCHN / DOB left blank until a
+     chart is looked up, as Attach Files' PHN / DOB are.
+
+   Reported: `host.screen.folder`, `host.screen.attached` (files attached), `host.screen.checked` (files ticked),
    `host.screen.rows`, `host.screen.filter` (outbound status),
    `host.screen.fax` (sent / disabled / unavailable).
    ========================================================================= */
@@ -58,7 +69,7 @@ const FOLDERS: Record<string, string[]> = {
 }
 const RECORD_TYPES = ['', 'Consult', 'Document', 'Imaging', 'Measure', 'Procedure', 'Facility Admission']
 
-type InFile = { name: string; order: number }
+type InFile = { name: string; order: number; attached?: boolean }
 
 function InboundDocumentsView({ close, openNode, open }: FolderViewProps) {
   const srfax = isYes(useSystemSetting(SRFAX_ENABLED_ROW))
@@ -70,16 +81,27 @@ function InboundDocumentsView({ close, openNode, open }: FolderViewProps) {
   const [tab, setTab] = useState('Preview')
   const [chart, setChart] = useState('')
   const [type, setType] = useState('')
+  const [clear, setClear] = useState(false)
   const [notice, setNotice] = useState<null | 'disabled' | 'unavailable' | 'none'>(null)
   const files = lists[folder] ?? []
   const ticked = files.filter((f) => f.order > 0)
   const current = files[cur]
-  useScreenReport({ folder: pbSlug(folder), checked: ticked.length, rows: files.length, fax: notice === 'disabled' ? 'disabled' : notice === 'unavailable' ? 'unavailable' : null })
+  useScreenReport({ folder: pbSlug(folder), attached: files.filter((f) => f.attached).length, checked: ticked.length, rows: files.length, fax: notice === 'disabled' ? 'disabled' : notice === 'unavailable' ? 'unavailable' : null })
 
   const setFiles = (next: InFile[]) => setLists((all) => ({ ...all, [folder]: next }))
   const tick = (i: number, on: boolean) => {
     const max = Math.max(0, ...files.map((f) => f.order))
     setFiles(files.map((f, j) => (j === i ? { ...f, order: on ? max + 1 : 0 } : f)).map((f) => f))
+  }
+  const attach = () => {
+    if (!current || current.attached) return
+    setFiles([...files.filter((_, i) => i !== cur), { ...current, attached: true, order: 0 }])
+    if (clear) { setType(''); setChart('') }
+  }
+  const unattach = () => {
+    if (!current?.attached) return
+    setFiles([{ ...current, attached: false }, ...files.filter((_, i) => i !== cur)])
+    setCur(0)
   }
   const fax = () => {
     if (!ticked.length) { setNotice('none'); return }
@@ -129,7 +151,7 @@ function InboundDocumentsView({ close, openNode, open }: FolderViewProps) {
               columns={[
                 { key: 'select', header: 'Select', width: 42, align: 'center', render: (f, i) => <PBCheckbox checked={f.order > 0} onChange={(on) => tick(i, on)} tutorialId={`host.mois.cell.select-${pbSlug(f.name)}`} /> },
                 { key: 'order', header: 'Order', width: 38, align: 'center', render: (f) => (f.order ? String(f.order) : '') },
-                { key: 'name', header: 'Filename', width: 150 },
+                { key: 'name', header: 'Filename', width: 150, render: (f) => <span style={f.attached ? { color: '#a0a0a0' } : undefined}>{f.name}</span> },
               ]}
             />
           </div>
@@ -148,17 +170,32 @@ function InboundDocumentsView({ close, openNode, open }: FolderViewProps) {
           </PBTabs>
         </div>
       </div>
-      <div style={{ flex: 'none', display: 'flex', gap: 3, padding: 3 }}>
-        <div className="pb-groupbox" data-tutorial-id="host.mois.group.record" style={{ flex: '1 1 auto' }}>
-          <PBBand>Record</PBBand>
-          <div style={{ background: 'linear-gradient(#1e86c8, #0b5fa0)', color: '#fff', padding: '4px 8px', display: 'grid', gridTemplateColumns: '80px 110px 40px 110px', gap: '3px 6px', alignItems: 'center' }}>
+      <div style={{ flex: 'none', height: 150, display: 'flex', gap: 3, padding: 3 }}>
+        <div className="pb-groupbox" data-tutorial-id="host.mois.group.record" style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <PBBand right={<>
+            <PBButton size="sm" command="inbound-attach" onClick={attach}>Attach</PBButton>
+            <PBButton size="sm" command="inbound-unattach" onClick={unattach}>Unattach</PBButton>
+            <PBCheckbox label="Clear After Attaching" checked={clear} onChange={setClear} tutorialId="host.mois.field.clear-after-attaching" />
+          </>}>Record</PBBand>
+          <div style={{ background: 'linear-gradient(#1e86c8, #0b5fa0)', color: '#fff', padding: '4px 8px', display: 'grid', gridTemplateColumns: '80px 110px 1fr 40px 110px', gap: '3px 6px', alignItems: 'center' }}>
             <span>CHART NUM:</span><PBLookup w={104} value={chart} onChange={setChart} name="inbound-chart" />
+            <span />
+            <span>BCHN:</span><span />
             <span>TYPE:</span>
             <PBSelect w={104} options={RECORD_TYPES} value={type} onChange={(e) => setType(e.target.value)} data-tutorial-id="host.mois.field.record-type" />
+            <span />
+            <span>DOB:</span><span />
           </div>
+          <div style={{ flex: '1 1 auto', background: 'var(--pb-face)' }} />
         </div>
-        <div className="pb-groupbox" style={{ width: 220, flex: 'none' }}>
-          <PBBand>{type ? 'History (+/- 15 days from discharged)' : 'History Not Applicable'}</PBBand>
+        <div style={{ width: 220, flex: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div className="pb-groupbox" style={{ flex: '1 1 auto' }}>
+            <PBBand>{type ? 'History (+/- 15 days from discharged)' : 'History Not Applicable'}</PBBand>
+          </div>
+          <div className="pb-groupbox" data-tutorial-id="host.mois.group.distribute" style={{ height: 70, flex: 'none' }}>
+            <PBBand right={<><PBButton size="sm" command="distribute-new">New</PBButton><PBButton size="sm" command="distribute-delete">Delete</PBButton></>}>Distribute</PBBand>
+            <div style={{ background: '#c8dcfa', padding: '1px 16px' }}>User Name</div>
+          </div>
         </div>
       </div>
       {notice && (

@@ -38,6 +38,18 @@ export type MoisChartGroup =
  */
 export type MoisOptionalGroup =
   | 'admission' | 'intervention' | 'social_hx' | 'chart_barrier' | 'medication_lt' | 'observation'
+  /* groups the importer finds in the file itself (scripts/import-chart.mjs
+     `discoverGroups`); MOIS_REF_10000013 carries each of them empty */
+  | 'alias_id' | 'associated_party' | 'claim_other' | 'claim_wcb' | 'consult' | 'dpm' | 'image'
+  | 'occupation' | 'procedure' | 'cp_section' | 'chart_resource' | 'cp_element' | 'custom_form'
+  | 'no_known' | 'education' | 'form_encounter'
+
+/** A file a document points at (tdt_document.str_link), as an asset URL. */
+export type ChartAttachment = {
+  /** `pdf` is the file as MOIS stored it; `text` is a .TXM document's decoded text */
+  kind: 'pdf' | 'text'
+  url: string
+}
 
 export type MoisChartExport = {
   /** who exported it, from which build — the provenance MOIS stamps itself */
@@ -46,4 +58,7 @@ export type MoisChartExport = {
   chart_status?: MoisRecord[]
   chart_name?: MoisRecord[]
   chart: MoisRecord
+  /** the site's provider directory from the export's moisx.xml
+      (id_provider, str_name, str_active) — not the patient's records */
+  provider_directory?: MoisRecord[]
 } & Record<MoisChartGroup, MoisRecord[]> & Partial<Record<MoisOptionalGroup, MoisRecord[]>>

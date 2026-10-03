@@ -1,22 +1,77 @@
+/* Demographics ▸ Patient Detail — measured off the field audit's DEV captures
+   (evidence/MATRIX-R0082-preferred-gender, MATRIX-R0100-first,
+   MATRIX-R0112-country), painted at 100%. See PatientDetailPage.tsx. */
 .pb-patient-detail { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
-.pb-patient-detail__upper { display: grid; grid-template-columns: 1fr 1fr; flex: 1 0 380px; min-height: 380px; }
-.pb-patient-detail__background { min-width: 0; }
+.pb-patient-detail__upper { display: grid; grid-template-columns: 1fr 1fr; flex: 1 0 378px; min-height: 378px; }
+.pb-patient-detail__background { min-width: 0; display: flex; flex-direction: column; }
 .pb-patient-detail__histories { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-.pb-patient-detail__field { display: grid; grid-template-columns: 105px minmax(0, 1fr); align-items: center; gap: 5px; margin-bottom: 3px; }
-.pb-patient-detail__field input, .pb-patient-detail__field .pb-select, .pb-patient-detail__field textarea { width: 100%; min-width: 0; }
-.pb-patient-detail__name { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; border-bottom: 1px solid #ccc; }
-.pb-patient-detail__name label { display: flex; gap: 5px; align-items: center; min-width: 0; }
-.pb-patient-detail__name label span { width: 40px; text-transform: capitalize; flex: none; }
-.pb-patient-detail__name input, .pb-patient-detail__name textarea { width: 100%; min-width: 0; }
-.pb-patient-detail__name.is-current input, .pb-patient-detail__name.is-current textarea { background: #e99b82; }
-.pb-patient-detail__addresses { flex: none; }
-.pb-patient-detail__contact-grid { padding: 6px; display: grid; grid-template-columns: 1.2fr 1fr 1.3fr; gap: 12px; }
-.pb-patient-detail__contact-grid .pb-patient-detail__field { grid-template-columns: 65px minmax(0, 1fr); }
 
-.pb-patient-detail__name { grid-template-areas: "first expiry" "middle note" "last note" "count count"; }
-.pb-patient-detail__name-first { grid-area: first; }
-.pb-patient-detail__name-middle { grid-area: middle; }
-.pb-patient-detail__name-last { grid-area: last; }
-.pb-patient-detail__name-expiry { grid-area: expiry; }
-.pb-patient-detail__name-note { grid-area: note; }
-.pb-patient-detail__name-count { grid-area: count; text-align: right; }
+/* Background Information: 19px rows, label column 107px past a 10px inset */
+.pb-patient-detail__bg { padding: 4px 6px 0 10px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.pb-patient-detail__bgrow { display: flex; align-items: center; height: 19px; flex: none; }
+.pb-patient-detail__lbl { width: 107px; flex: none; white-space: nowrap; }
+.pb-patient-detail__lbl--genotypic { width: 98px; margin-left: 7px; }
+.pb-patient-detail__ethnicity { display: flex; align-items: center; gap: 3px; height: 19px; flex: none; }
+.pb-patient-detail__ethnicity > span:first-child { width: 46px; flex: none; }
+.pb-patient-detail__ethnicity .pb-check { margin-left: 2px; }
+/* the ethnicity is picked through its "…", never typed: MOIS prints it grey */
+.pb-patient-detail__race .pb-field { color: var(--pb-text-dim); }
+.pb-patient-detail__rule { height: 0; border-top: 1px solid #c9c9c9; margin: 7px -6px 7px -10px; flex: none; }
+/* the two genders share a row: Genotypic's label starts 7px past Preferred's field */
+.pb-patient-detail__genders { display: flex; align-items: center; height: 19px; flex: none; }
+/* Multi-Gestation's label starts at 183px, its tick 77px further on */
+.pb-patient-detail__gestation { width: 77px; flex: none; margin-left: 30px; }
+.pb-patient-detail__notes { height: auto; align-items: start; flex: 1 1 auto; min-height: 0; padding-bottom: 12px; }
+.pb-patient-detail__notes textarea { flex: 1 1 auto; height: 100%; min-height: 57px; max-height: 57px; font-family: var(--pb-font-mono); }
+
+/* Status History over Name History, 135px of the upper 378 */
+.pb-patient-detail__status { flex: 0 0 135px; min-height: 0; display: flex; flex-direction: column; }
+.pb-patient-detail__names { flex: 1; min-height: 0; overflow: auto; background: var(--pb-face); }
+
+/* Name History: a free-form record, First/Middle/Last left, Expiry/Note right */
+.pb-patient-detail__name {
+  padding: 6px 6px 8px 8px; display: grid; grid-template-columns: 197px 46px 82px 1fr;
+  grid-template-areas: "first expiry-l expiry count" "middle note-l note note" "last . note note";
+  row-gap: 1px; align-items: center; border-bottom: 1px solid #c9c9c9;
+}
+.pb-patient-detail__name label { display: contents; }
+.pb-patient-detail__name label span { text-transform: capitalize; }
+.pb-patient-detail__name input { width: 140px; margin-left: 49px; }
+.pb-patient-detail__name-first span { grid-area: first; }
+.pb-patient-detail__name-first input { grid-area: first; }
+.pb-patient-detail__name-middle span, .pb-patient-detail__name-middle input { grid-area: middle; }
+.pb-patient-detail__name-last span, .pb-patient-detail__name-last input { grid-area: last; }
+.pb-patient-detail__name-expiry span { grid-area: expiry-l; }
+.pb-patient-detail__name-expiry input { grid-area: expiry; width: 82px; margin: 0; }
+.pb-patient-detail__name-note span { grid-area: note-l; align-self: start; }
+.pb-patient-detail__name-note textarea { grid-area: note; width: 130px; height: 39px; align-self: start; resize: none; }
+.pb-patient-detail__name-count { grid-area: count; text-align: right; padding-right: 26px; }
+/* MOIS fills the current record's fields with its current-row salmon (#dc9e87 sampled) */
+.pb-patient-detail__name.is-current input, .pb-patient-detail__name.is-current textarea { background: #dc9e87; }
+
+/* Historical Contact Information */
+.pb-patient-detail__addresses { flex: none; display: flex; flex-direction: column; }
+.pb-patient-detail__record { display: flex; min-height: 0; }
+.pb-patient-detail__record-body { flex: 1 1 auto; min-width: 0; }
+.pb-patient-detail__expiry {
+  display: flex; align-items: center; gap: 6px; height: 21px; padding: 0 6px 0 21px;
+  background: var(--pb-dw-header); border-bottom: 1px solid #8ea8d0;
+}
+.pb-patient-detail__contact-grid {
+  display: grid; grid-template-columns: 90px 246px 61px 91px 63px 214px;
+  grid-auto-rows: 19px; column-gap: 3px; padding: 2px 0 6px 2px; align-items: center;
+}
+.pb-patient-detail__clabel { justify-self: end; white-space: nowrap; }
+.pb-patient-detail__contact-grid .pb-field { width: 100%; min-width: 0; }
+.pb-patient-detail__contact-grid .pb-patient-detail__c-city, .pb-patient-detail__contact-grid .pb-patient-detail__c-province,
+.pb-patient-detail__contact-grid .pb-patient-detail__c-postal, .pb-patient-detail__contact-grid .pb-patient-detail__c-country { width: 126px; }
+.pb-patient-detail__contact-grid textarea.pb-field { resize: none; }
+/* the DataWindow's own vertical scroll bar, which pages the records */
+.pb-patient-detail__vscroll { width: 17px; flex: none; display: flex; flex-direction: column; background: #f0f0f0; border-left: 1px solid #e3e3e3; }
+.pb-patient-detail__vscroll > button {
+  height: 17px; width: 17px; padding: 0; border: 0; background: transparent; color: #606060;
+  display: grid; place-items: center;
+}
+.pb-patient-detail__vscroll > button:disabled { color: #bfbfbf; }
+.pb-patient-detail__vscroll-track { position: relative; flex: 1 1 auto; }
+.pb-patient-detail__vscroll-thumb { position: absolute; left: 2px; right: 2px; background: #cdcdcd; min-height: 12px; }

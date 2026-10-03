@@ -278,6 +278,7 @@ function ClinicListGrid({ node, onClose }: { node: string; onClose?: () => void 
   const currentRow = rows[cur < rows.length ? cur : 0]
   useScreenReport({
     rows: rows.length,
+    ...(node === 'ad-provider-list' ? { providerUserAssociated: Boolean(currentRow?.userProfile), providerBillingNumbersBlank: !currentRow?.pract && !currentRow?.payee } : {}),
     row: view && currentRow ? `${view.anchorPrefix}-${pbSlug(String(currentRow[view.anchorKey] ?? ''))}` : null,
   })
 

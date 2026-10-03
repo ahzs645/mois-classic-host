@@ -82,6 +82,11 @@ export function patientFromChartRecord(c: MoisRecord): Patient {
     homeMessage: c.str_phone1_msg === 'Y',
     workMessage: c.str_phone2_msg === 'Y',
     lastContact: dot(c.dtm_last_contact),
+    /* Office Information ▸ Invoice Balance (MATRIX-R0060: read only, "from
+       unknown location"). INFERRED: tdt_chart.num_balance, the only balance
+       the chart record keeps; a zero balance stays the dash MOIS prints for
+       none (reference/demographics-full.png), so 87288's 0.00 reads "-". */
+    invoiceBalance: Number(c.num_balance) ? Number(c.num_balance).toFixed(2) : undefined,
     insurance: c.str_phn ?? c.str_insurance_nbr,
     insuranceBy: c.str_phn_by ?? c.str_insurance_by,
     /* the PHN feeds BC Health No. as well as the insurance number; they are one

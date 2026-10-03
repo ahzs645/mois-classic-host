@@ -27,6 +27,14 @@ import { DialogFooter } from './formKit'
    button becomes Request Unenrollment (art. 2951461 `32b23d3c…png`,
    `ee172cd4…png`). A stop date can only be requested once the start date is
    Registered (art. 2257761).
+
+   The v02.31 DEV capture of Edit on a non-PBF record (benefit-editor-
+   populated.png, evidence/MATRIX-R0255-source; MSP ▸ BASIC COVERAGE) has
+   only Save and Cancel — History is the PBF transaction history, so it is
+   offered on a BC-PBF record only — and a 334px Note memo, narrower than the
+   source memos above it. Coverage Description and Deductible are the
+   record's own Coverage and Deductible, the two columns the Benefits grid
+   prints.
    ========================================================================= */
 
 /** Select a Benefit Source / Service, transcribed from `e0dfce68…png`. */
@@ -100,6 +108,8 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
   const [unenrolling, setUnenrolling] = useState(false)
   const [demo, setDemo] = useState(entry.demo ?? (mode === 'new' && isPbf(entry.service)))
   const [carePlan, setCarePlan] = useState(entry.carePlan ?? false)
+  const [coverage, setCoverage] = useState(entry.coverage ?? entry.description ?? '')
+  const [deductible, setDeductible] = useState(entry.deductible ?? '')
   const [history, setHistory] = useState(false)
   const pbf = isPbf(entry.service)
   const registered = entry.status === 'Registered'
@@ -107,7 +117,7 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
 
   const save = (patch: Partial<BenefitEntry>) => {
     const list = patient.benefits ?? []
-    const next = { ...entry, start, demo, carePlan, ...patch }
+    const next = { ...entry, start, demo, carePlan, coverage, deductible, ...patch }
     updatePatient(patient.chart, {
       benefits: mode === 'new' || index === undefined ? [...list, next] : list.map((b, i) => (i === index ? next : b)),
     })
@@ -171,8 +181,8 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
         <PBSection>
           <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr' }}>
             <b>Coverage:</b><span />
-            <span className="pb-form__label">Description:</span><PBInput w="100%" />
-            <span className="pb-form__label">Deductible:</span><PBInput w={96} align="right" />
+            <span className="pb-form__label">Description:</span><PBInput aria-label="Benefit coverage description" w="100%" value={coverage} onChange={(e) => setCoverage(e.target.value)} />
+            <span className="pb-form__label">Deductible:</span><PBInput aria-label="Benefit deductible" w={96} align="right" value={deductible} onChange={(e) => setDeductible(e.target.value)} />
           </div>
         </PBSection>
         <PBSection>
@@ -183,7 +193,7 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
         </PBSection>
         <PBSection>
           <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr', alignItems: 'start' }}>
-            <b>Note:</b><PBTextArea rows={3} w="100%" />
+            <b>Note:</b><PBTextArea rows={3} w={334} />
           </div>
         </PBSection>
         <div style={{ padding: '4px 4px 6px', color: 'var(--pb-text-dim)' }}>
@@ -193,7 +203,7 @@ export function BenefitSourceServiceWindow({ mode, entry, index, onClose }: {
       </div>
       <div className="pb-row" style={{ gap: 8, padding: 10 }}>
         <span className="pb-row__spacer" />
-        {mode === 'edit' && <CmdButton command="benefit-history" wide onClick={() => setHistory(true)}>History</CmdButton>}
+        {mode === 'edit' && pbf && <CmdButton command="benefit-history" wide onClick={() => setHistory(true)}>History</CmdButton>}
         {mode === 'new' && pbf
           ? <CmdButton command="request-enrollment" onClick={() => save({ status: 'Requested' })}>Request Enrollment</CmdButton>
           : unenrolling

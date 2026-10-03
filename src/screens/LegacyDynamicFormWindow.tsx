@@ -1,3 +1,5 @@
+import { useChartExport } from '../data/chart-records'
+import { providerLabel } from '../data/charts/providers'
 import type { MoisRecord } from '../data/charts/types'
 import { date } from '../data/charts/relations'
 import { legacyDynamicFormTitle, savedDynamicFormSections } from '../data/legacy-dynamic-forms'
@@ -13,6 +15,7 @@ export function LegacyDynamicFormWindow({ header, records, onClose }: {
   onClose: () => void
 }) {
   const patient = usePatient()
+  const data = useChartExport()
   const sections = savedDynamicFormSections(header, records)
   const title = legacyDynamicFormTitle(header.id_dform_window)
   const answered = sections.reduce((count, section) => count + section.fields.filter((field) => field.value !== '').length, 0)
@@ -35,7 +38,8 @@ export function LegacyDynamicFormWindow({ header, records, onClose }: {
       <div className="pb-legacy-dform__metadata">
         <label>Form Date: <PBInput value={date(header.dtm_form)} readOnly w={100} /></label>
         <label>This form was created by: <PBInput value={header.stp_user_create ?? ''} readOnly w={220} /></label>
-        <label>Provider: <PBInput value={header.id_provider && header.id_provider !== '-1' ? header.id_provider : ''} readOnly w={135} /></label>
+        {/* id_provider, named by the export's provider directory (charts/providers.ts) */}
+        <label>Provider: <PBInput value={providerLabel(data, header.id_provider)} readOnly w={135} /></label>
         <span>Last Modified: {header.stp_date_modify ?? ''}</span>
       </div>
       <div className="pb-legacy-dform__body">

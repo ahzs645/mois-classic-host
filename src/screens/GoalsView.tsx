@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChartExport, useNodeRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
@@ -14,14 +15,14 @@ import {
   PBCheckbox,
   PBCommandRow, PBDataWindow,
   PBInput, PBMessageBox,
-  PBSection, PBSelect,
+  PBSelect,
   PBSlider,
   PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation, type PBColumn,
 } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { ChartIdentityStrip } from './patientKit'
 import {
-  FOLDER_OF, GOAL_PHASE_OPTIONS, QuantitativeFields, deleteActionRow, goalCountOf, linkedRowAnchor, linkedToGoal,
+  FOLDER_OF, GOAL_PHASE_OPTIONS, QUANT_RULE, QuantitativeFields, deleteActionRow, goalCountOf, linkedRowAnchor, linkedToGoal,
   unlinkRow, type LinkedRow,
 } from './GoalWindows'
 
@@ -44,7 +45,28 @@ import {
        grid's Quantitative Goal box sets it. Its labels are the field audit's
        (`Subject`, `Identified By`, `Concept`, `Target Value` —
        reference/field-audit.md tdt_goal); the article calls Subject
-       "Category". `Require Every` is the article's (not audited).
+       "Category". DEV v02.31.23 captions the last row `Perform Every`
+       (quantitative-settings-populated.png; the article's `Require Every`
+       is an older build's).
+
+   DEV v02.31.23 field-audit captures (goal-saved.png,
+   goal-linked-actions-populated.png, linked-health-issue-populated.png,
+   quantitative-settings-populated.png, evidence/MATRIX-R0918-start …
+   R0966):
+     - the grid lists the newest goal first (DEV AUDIT GOAL above DEV GOAL,
+       both started 2026.08.12) and is 218 px tall;
+     - the five tabs are PowerBuilder's fixed 138 px tabs packed to the left,
+       not stretched across the strip, and Quantitative Settings' caption
+       greys out while it is disabled;
+     - the Quantitative Settings page is three ruled bands under the Goal
+       (Goal 420 px; Subject…Concept; Target Value; Perform Every);
+     - the Linked tabs run their grid to the foot of the window — the
+       Created strip shows only under Detail, Quantitative Settings and
+       Evaluation — with captions on the window face, left-aligned, cells
+       left-aligned, the band `HEALTH CONDITION` / `PLANNED ACTIONS`, and
+       Linked Date carrying the link's time;
+     - the Created strip reads `Created:` · date · HH:MM · user, with
+       `ENC# EMPTY` at the right when the goal has no encounter.
      Evaluation: Evaluation Method, Actual Outcome.
      Linked Health Issue(s): Link Health Issue(s) / Unlink Health Issue.
      Linked Action(s): New Action / Delete Action / Link Action(s) / Unlink
@@ -93,8 +115,13 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
 
   const all = useMemo<GoalRow[]>(() => [
     ...store.goals.map((g) => ({ id: g.id, fields: g, created: `${g.createdAt}  ${g.createdBy}` })),
+    /* newest first: Start descending, then the later-created goal on top
+       (goal-linked-actions-populated.png lists DEV AUDIT GOAL, created
+       10:45, above DEV GOAL, created 10:42, both started 2026.08.12) */
     ...records
       .filter((r) => r.id_goal && !store.deletedGoals.includes(r.id_goal))
+      .slice()
+      .sort((a, b) => (b.dtm_start ?? '').localeCompare(a.dtm_start ?? '') || (b.stp_date_create ?? '').localeCompare(a.stp_date_create ?? ''))
       .map((r) => ({ id: r.id_goal!, fields: { ...goalFieldsOf(r), ...store.edits[r.id_goal!] }, record: r, created: stamp(r) })),
   ], [records, store])
 
@@ -199,7 +226,7 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
         </div>
       )}
 
-      <div style={{ height: 212, display: 'flex', padding: '0 3px' }}>
+      <div style={{ height: 218, display: 'flex', padding: '0 3px' }}>
         <PBDataWindow
           columns={columns} rows={rows} current={cur} onCurrentChange={setCur}
           rowTutorialId={(_r, i) => `host.mois.row.goal-${i}`}
@@ -208,15 +235,18 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '4px 3px 3px' }}>
-        <div className="pb-tabs__strip pb-tabs__strip--justified">
+        <div className="pb-tabs__strip">
           {TABS.map((t) => {
-            /* MOIS greys this tab out unless the row is a quantitative goal */
+            /* MOIS greys this tab out unless the row is a quantitative goal
+               (goal-saved.png: the caption in grey — the kit's disabled tab) */
             const off = t === 'Quantitative Settings' && !quant
             return (
               <button
                 key={t}
                 type="button"
                 className={`pb-tabs__tab${t === activeTab ? ' is-active' : ''}`}
+                /* fixed 138 px tabs, packed left (goal-saved.png) */
+                style={{ width: 138, minWidth: 138, flex: 'none', padding: 0 }}
                 disabled={off}
                 data-tutorial-id={host?.anchor('tab', pbSlug(t))}
                 onClick={() => { if (off) return; host?.report('selectTab', { tab: pbSlug(t) }); setTab(t) }}
@@ -242,11 +272,16 @@ export function GoalsView({ onNew }: { onNew?: () => void }) {
         </div>
       </div>
 
-      <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-        <span>Created: {row?.created ?? ''}</span>
-        <span className="pb-row__spacer" />
-        {row?.record?.id_encounter && <button className="pb-link">ENC# {row.record.id_encounter}</button>}
-      </div>
+      {/* the Linked tabs run to the foot of the window with no Created strip
+          (goal-linked-actions-populated.png, linked-health-issue-populated.png) */}
+      {!activeTab.startsWith('Linked') && (
+        <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
+          <span style={{ width: 76, flex: 'none' }}>Created:</span>
+          <span style={{ whiteSpace: 'pre' }}>{row?.created ?? ''}</span>
+          <span className="pb-row__spacer" />
+          {row && <button className="pb-link">ENC# {row.record?.id_encounter && row.record.id_encounter !== '-1' ? row.record.id_encounter : 'EMPTY'}</button>}
+        </div>
+      )}
 
       {prompt === 'delete-goal' && row && (
         <PBMessageBox
@@ -290,17 +325,15 @@ type PageProps = { fields: GoalFields; set: (patch: Partial<GoalFields>) => void
 /* The quantitative page is a stack of rule-separated sections, not a single
    grid — each band holds one logical setting. */
 function QuantitativePage({ fields, set }: PageProps) {
+  /* quantitative-settings-populated.png: labels at x 15, fields at x 113 */
   return (
-    <div>
-      <PBSection>
-        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '100px 1fr' }}>
-          <span className="pb-form__label">Goal:</span>
-          <PBInput w="100%" value={fields.goal} data-tutorial-id="host.mois.field.goal-tab-description" onChange={(e) => set({ goal: e.target.value })} />
-        </div>
-      </PBSection>
-      <PBSection>
-        <QuantitativeFields value={fields} onChange={set} />
-      </PBSection>
+    <div style={{ padding: '10px 10px 0' }}>
+      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '98px 1fr', marginBottom: 4 }}>
+        <span className="pb-form__label">Goal:</span>
+        <PBInput w={420} value={fields.goal} data-tutorial-id="host.mois.field.goal-tab-description" onChange={(e) => set({ goal: e.target.value })} />
+        <span style={QUANT_RULE} />
+      </div>
+      <QuantitativeFields value={fields} onChange={set} banded />
     </div>
   )
 }
@@ -313,19 +346,22 @@ function DetailPage({ fields, set }: PageProps) {
   ] as const
 
   return (
-    <div style={{ display: 'flex', gap: 14, padding: '8px 10px', alignItems: 'flex-start' }}>
-      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '70px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
+    /* goal-saved.png (100%): captions at x 15, fields at x 73 and 406 px
+       wide; the three level blocks start at x 507, 298 px wide, a 237 px
+       slide and a 28 px Value box each */
+    <div style={{ display: 'flex', gap: 28, padding: '8px 15px', alignItems: 'flex-start' }}>
+      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '52px 406px', flex: 'none', alignItems: 'start' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Goal:</span>
         <PBInput w="100%" value={fields.goal} data-tutorial-id="host.mois.field.goal-tab-description" onChange={(e) => set({ goal: e.target.value })} />
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Detail:</span>
-        <PBTextArea rows={5} w="100%" value={fields.detail} data-tutorial-id="host.mois.field.goal-tab-detail" onChange={(e) => set({ detail: e.target.value })} />
+        <PBTextArea w="100%" style={{ height: 96 }} value={fields.detail} data-tutorial-id="host.mois.field.goal-tab-detail" onChange={(e) => set({ detail: e.target.value })} />
         <span className="pb-form__label" style={{ lineHeight: '14px' }}>Expected<br />Outcome:</span>
-        <PBTextArea rows={5} w="100%" value={fields.expectedOutcome} data-tutorial-id="host.mois.field.goal-tab-expected-outcome" onChange={(e) => set({ expectedOutcome: e.target.value })} />
+        <PBTextArea w="100%" style={{ height: 96 }} value={fields.expectedOutcome} data-tutorial-id="host.mois.field.goal-tab-expected-outcome" onChange={(e) => set({ expectedOutcome: e.target.value })} />
       </div>
 
-      <div style={{ width: 340, flex: 'none' }}>
+      <div style={{ width: 298, flex: 'none' }}>
         {BARS.map(([title, low, high, key]) => (
-          <div key={key} style={{ marginBottom: 10 }} data-tutorial-id={`host.mois.field.goal-${key}`}>
+          <div key={key} style={{ marginBottom: 20 }} data-tutorial-id={`host.mois.field.goal-${key}`}>
             <div style={{ fontWeight: 700, marginBottom: 1 }}>{title}:</div>
             <div className="pb-row" style={{ gap: 0 }}>
               <span style={{ color: 'var(--pb-text-dim)' }}>{low}</span>
@@ -344,7 +380,7 @@ function DetailPage({ fields, set }: PageProps) {
                 style={{ flex: '1 1 auto' }}
               />
               <PBInput
-                w={40} align="center" value={fields[key]}
+                w={28} align="center" value={fields[key]}
                 data-tutorial-id={`host.mois.field.goal-${key}-value`}
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, '').slice(0, 2)
@@ -373,6 +409,19 @@ function EvaluationPage({ fields, set }: PageProps) {
   )
 }
 
+/* column widths read off the DEV captures at 100% — the two tabs do not
+   share them: linked-health-issue-populated.png (End runs to x 639) and
+   goal-linked-actions-populated.png (End to x 621) */
+const LINKED_WIDTHS: Record<keyof typeof goalLinkedTabs, Record<string, number>> = {
+  'Linked Health Issue(s)': { start: 77, end: 93, desc: 281, sensitive: 58, by: 142, when: 125 },
+  'Linked Action(s)': { start: 76, end: 76, desc: 278, completed: 57, sensitive: 52, by: 112, when: 125 },
+}
+
+/** the linked grids' DataWindow gutter: about 26px in DEV, twice the kit's
+    13 — the band's box and the current-row arrow sit well in from the frame
+    (linked-health-issue-populated.png, goal-linked-actions-populated.png) */
+const LINKED_GRID = { ['--pb-dw-gutter-width' as string]: '26px' } as CSSProperties
+
 function LinkedPage({ title, rows, current, onCurrent, onCommand }: {
   title: keyof typeof goalLinkedTabs
   rows: LinkedRow[]
@@ -381,6 +430,7 @@ function LinkedPage({ title, rows, current, onCurrent, onCommand }: {
   onCommand: (label: string) => void
 }) {
   const cfg = goalLinkedTabs[title]
+  const W = LINKED_WIDTHS[title]
   const host = usePBInstrumentation()
   const needsRow = (c: string) => c.startsWith('Unlink') || c === 'Delete Action' || c === 'Edit Action'
   return (
@@ -391,7 +441,7 @@ function LinkedPage({ title, rows, current, onCurrent, onCommand }: {
             key={c}
             type="button"
             className="pb-cmdrow__btn"
-            style={{ minWidth: 110 }}
+            style={{ minWidth: 117 }}
             disabled={needsRow(c) && !rows.length}
             data-tutorial-id={host?.anchor('command', pbSlug(c))}
             onClick={() => { host?.report('command', { command: pbSlug(c) }); onCommand(c) }}
@@ -408,11 +458,15 @@ function LinkedPage({ title, rows, current, onCurrent, onCommand }: {
           onCurrentChange={onCurrent}
           groupBy={(r) => r.group}
           rowTutorialId={linkedRowAnchor}
+          rowStatus={(_r, i) => (i === current ? 'highlight' : 'normal')}
+          /* regular-weight captions on the face, no separators, no rule */
+          head="plain"
+          style={LINKED_GRID}
           columns={[
-            { key: 'start', header: 'Start', width: 84, align: 'center' },
-            { key: 'end', header: 'End', width: 76, align: 'center' },
+            { key: 'start', header: 'Start', width: W.start },
+            { key: 'end', header: 'End', width: W.end },
             {
-              key: 'desc', header: 'Description', width: 260,
+              key: 'desc', header: 'Description', width: W.desc,
               /* a hyperlink to the record in its own folder */
               render: (r, i) => (r.desc ? (
                 <button
@@ -428,14 +482,14 @@ function LinkedPage({ title, rows, current, onCurrent, onCommand }: {
             ...cfg.flags.map((f) => ({
               key: f.key,
               header: f.header,
-              width: f.width,
+              width: W[f.key] ?? f.width,
               align: 'center' as const,
               render: (r: LinkedRow) => <PBCheckbox checked={f.key === 'completed' ? r.completed : r.sensitive} />,
             })),
-            { key: 'by', header: 'Linked By', width: 130 },
-            { key: 'when', header: 'Linked Date', width: 140 },
+            { key: 'by', header: 'Linked By', width: W.by },
+            { key: 'when', header: 'Linked Date', width: W.when, render: (r) => <span style={{ whiteSpace: 'pre' }}>{r.when}</span> },
           ]}
-          empty="Nothing linked."
+          empty={false}
         />
       </div>
     </>

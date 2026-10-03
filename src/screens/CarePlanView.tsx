@@ -3,16 +3,15 @@ import { useChartExport, useNodeRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
 import { stamp } from '../data/charts/detail'
 import { rowsFromExport } from '../data/charts/to-rows'
-import { linkedGoalIds, unlinkGoal, useCarePlanRecords, type GoalLinkObject } from '../data/carePlanRecords'
+import { linkedGoalIds, useCarePlanRecords, type GoalLinkObject } from '../data/carePlanRecords'
 import { carePlanScreens, type CarePlanKey } from '../data/mois'
 import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput, PBLookup,
+  PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBDropField, PBInput, PBLookup,
   PBSlider, PBTextArea, PBViewHeader, pbSlug, usePBInstrumentation, type PBColumn, type PBCommand,
 } from '../pb'
-import { useOpenWindow } from './areaWindowRegistry'
 import { useChartGoals } from './CarePlanRecordWindows'
 import { dot, editableColumns, searchView, slash, useCarePlanFolder, type CellEdit } from './carePlanFolder'
 import { SearchForBand, useFolderSearch, type SearchField } from './SearchForBand'
@@ -48,17 +47,39 @@ import { DesktopLayer } from './StageWindow'
    art. 303447 "The value can be modified by moving the slider"), and saved
    records live in data/carePlanRecords.ts. Search For is the chart's shared
    band (SearchForBand.tsx) over each folder's default field. Planned
-   Actions' Linked Goals tab links and unlinks Goals (`Link Goal...` opens the `link-goal` window,
-   screens/CarePlanRecordWindows.tsx); on the Health Issue folders the tab is
-   "Linked Goals - Read Only" (303447 `fdaeb59f…png`).
+   Actions' Linked Goals band is captioned "Linked Goals" and lists the goals
+   the action is linked to; on the Health Issue folders the tab is
+   "Linked Goals - Read Only" (303447 `fdaeb59f…png`). Neither band carries
+   buttons in DEV v02.31.23 (action-linked-goals-populated.png): links are
+   made from the Goal (screens/GoalsView.tsx). The `link-goal` window
+   (screens/CarePlanRecordWindows.tsx) stays registered, unused here.
 
    PROVENANCE: 303447 `1df53843…png` (Risk for Condition: Risk Description
    painted, Risk Severity slider with Value (/10), Comment), `bcfa0a6a…png`
    (Need for Care: Need Desc., Participants, Risk Rating, Comment),
    `fdaeb59f…png` (Linked Goals - Read Only band and grid).
-   INFERRED: the Link Goal... / Unlink buttons on Planned Actions' Linked
-   Goals band (the article says only that an action "can be linked to more
-   than one goal"), and editing grid cells in place.                        */
+   INFERRED: editing grid cells in place.
+
+   DEV v02.31.23 field-audit captures (100%), which this window now follows:
+     need-for-care-new-record.png, evidence/MATRIX-R0867…R0878 (Need),
+     evidence/MATRIX-R0844…R0857 + risk-linked-goals-populated.png (Risk),
+     evidence/MATRIX-R0968…R0981 + action-linked-goals-populated.png
+     (Planned Actions), health-issues-linked-goals-empty.png:
+     - every grid is its painted column widths (WIDTHS below), not stretched
+       to the window, and 218 px tall; the current row's cells are not boxed
+       — the row is salmon edge to edge, new row included;
+     - Risk Severity / Risk Rating is a 0–10 scale: a 321 px slide and a
+       26 px Value box (EYE TESTS reads 0, a New Need starts on 1);
+     - the Detail panes' label column is ~80–90 px and their fields have the
+       painted widths (Need Desc. 419, Participants 186, Comment 688 × 153;
+       Planned Actions Detail 416 × 136, Participant(s) 166, Outcome 416 × 66,
+       Completed Date 73);
+     - the Linked Goals band carries no buttons on Planned Actions either
+       (action-linked-goals-populated.png: just "Linked Goals") — links are
+       made from the Goal's Linked Action(s) tab (Mois references
+       field-audit.md); the grid captions sit on the window face,
+       left-aligned, and Linked Date carries the time;
+     - the Created strip reads `Created:` · date · HH:MM · user.           */
 
 type Row = Record<string, any>
 
@@ -98,6 +119,26 @@ const CELLS: Partial<Record<CarePlanKey, Record<string, CellEdit>>> = {
   },
 }
 
+/** the grid widths painted in the DEV captures (100%): Risk evidence/MATRIX-
+    R0854-risk-description (Start 74 · End 76 · Risk Code/Description 311 ·
+    "…" 19 · Rank 37 · Source 98 · S 25 · Neg. 33 · M 18 · clip 18), Need
+    need-for-care-new-record.png (72 · 70 · 408 · 188 · 22 · 18), Planned
+    Actions evidence/MATRIX-R0968-planned-start (71 · 71 · 333 · 130 · 62 ·
+    74 · 20 · 18). Source is left-aligned (PROVIDER / PATIENT). */
+const WIDTHS: Partial<Record<CarePlanKey, Record<string, { width: number; align?: 'left' | 'center' }>>> = {
+  risks: {
+    start: { width: 74 }, end: { width: 76 }, desc: { width: 311 }, d: { width: 19 }, rank: { width: 37 },
+    source: { width: 98, align: 'left' }, s: { width: 25 }, neg: { width: 33 }, m: { width: 18 }, clip: { width: 18 },
+  },
+  needs: {
+    start: { width: 72 }, end: { width: 70 }, desc: { width: 408 }, participants: { width: 188 }, s: { width: 22 }, clip: { width: 18 },
+  },
+  actions: {
+    start: { width: 71 }, end: { width: 71 }, desc: { width: 333 }, participants: { width: 130 },
+    completed: { width: 62 }, compdate: { width: 74 }, s: { width: 20 }, clip: { width: 18 },
+  },
+}
+
 /** Search For's fields (SearchForBand.tsx), the default first: 303511
     Action + Participant; 303447 Risks Description + Code, Source; Needs
     Need + Participant(s) */
@@ -117,7 +158,8 @@ export function CarePlanView({ screen }: { screen: CarePlanKey; onNew?: () => vo
   const data = useChartExport()
   const exported = useNodeRecords(screen)
   const store = useCarePlanRecords(patient.chart)
-  const blank = useCallback((): MoisRecord => (screen === 'actions' ? { str_completed: 'N' } : screen === 'risks' ? { str_negation: 'N' } : {}), [screen])
+  /* a New Need's Risk Rating starts on 1 (need-for-care-new-record.png) */
+  const blank = useCallback((): MoisRecord => (screen === 'actions' ? { str_completed: 'N' } : screen === 'risks' ? { str_negation: 'N' } : { num_risk: '1' }), [screen])
   /* Conditions never reaches this window (see Routing above); its key only
      has to be a folder the store knows */
   const folder = useCarePlanFolder(screen === 'conditions' ? 'risks' : screen, exported, { blank })
@@ -141,8 +183,8 @@ export function CarePlanView({ screen }: { screen: CarePlanKey; onNew?: () => vo
   const base: PBColumn<Row>[] = cfg.columns.map((c) => ({
     key: c.key,
     header: c.header,
-    width: c.width,
-    align: c.align,
+    width: WIDTHS[screen]?.[c.key]?.width ?? c.width,
+    align: WIDTHS[screen]?.[c.key]?.align ?? c.align,
     dots: c.dots,
     render: c.check ? (r) => <PBCheckbox checked={r[c.key] === '✓' || r[c.key] === 'Y'} /> : undefined,
   }))
@@ -182,7 +224,7 @@ export function CarePlanView({ screen }: { screen: CarePlanKey; onNew?: () => vo
 
 
 
-      <div style={{ height: 260, flex: 'none', display: 'flex', padding: '0 3px' }}>
+      <div style={{ height: 218, flex: 'none', display: 'flex', padding: '0 3px' }}>
         <PBDataWindow
           columns={columns} rows={view.rows} current={view.current} onCurrentChange={view.onCurrentChange} empty=" "
           rowTutorialId={(_r, i) => (i === view.editRow ? `host.mois.row.${screen}-current` : undefined)}
@@ -214,10 +256,6 @@ export function CarePlanView({ screen }: { screen: CarePlanKey; onNew?: () => vo
                 band={tab === 'Linked Goals' ? cfg.linkedBand : tab}
                 goals={tab === 'Linked Goals'}
                 rows={tab === 'Linked Goals' ? linked : []}
-                /* only Planned Actions' band is not Read Only */
-                editable={screen === 'actions' && !!record}
-                objectId={record?.[idKey]}
-                chart={patient.chart}
               />
             )}
         </div>
@@ -228,10 +266,10 @@ export function CarePlanView({ screen }: { screen: CarePlanKey; onNew?: () => vo
           health-issues-linked-goals-empty.png) run the linked grid to the
           bottom of the window with no strip under it */}
       {tab === 'Detail' && rows.length > 0 && (
-        <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-          <span>Created: {stamp(record)}</span>
-          <span style={{ width: 28 }} />
-          {record?.stp_date_modify && <span>Last Modified: {stamp(record, 'modify')}</span>}
+        <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0, whiteSpace: 'pre' }}>
+          <span style={{ width: 76, flex: 'none' }}>Created:</span>
+          <span style={{ width: 272, flex: 'none' }}>{stamp(record)}</span>
+          {record?.stp_date_modify && <span>Last Modified:  {stamp(record, 'modify')}</span>}
           <span className="pb-row__spacer" />
           <button className="pb-link">ENC# {record?.id_encounter && record.id_encounter !== '-1' ? record.id_encounter : 'EMPTY'}</button>
         </div>
@@ -264,32 +302,37 @@ function DetailPage({
 }
 
 /** `Low Risk … High Risk`, the value box and its `(/10)` suffix.
-    PowerBuilder paints the scale at a fixed width — roughly 320 px of track —
-    rather than stretching it to the pane. Dragging the slider or typing a
-    value 1–10 sets the record's `num_risk` (art. 303447). */
+    PowerBuilder paints the scale at a fixed width rather than stretching it
+    to the pane: a 321 px slide, 18 px of face, a 26 px Value box
+    (need-for-care-new-record.png, evidence/MATRIX-R0854). The scale runs
+    0–10 — EYE TESTS shows 0 with the thumb hard left. Dragging the slider or
+    typing a value sets the record's `num_risk` (art. 303447). */
 function RiskScale({ value = '', onChange, anchor }: { value?: string; onChange?: (v: string) => void; anchor: string }) {
   return (
-    <div style={{ width: 396 }}>
+    <div style={{ width: 400 }}>
       <div className="pb-row" style={{ gap: 0 }}>
-        <span>Low Risk</span>
-        <span className="pb-row__spacer" />
-        <span>High Risk</span>
-        <span style={{ width: 14 }} />
+        <span style={{ width: 324, flex: 'none', display: 'flex' }}>
+          <span>Low Risk</span>
+          <span className="pb-row__spacer" />
+          <span>High Risk</span>
+        </span>
+        <span style={{ width: 15, flex: 'none' }} />
         <span>Value</span>
       </div>
-      <div className="pb-row">
-        <span style={{ flex: '1 1 auto', display: 'flex' }} data-tutorial-id={`host.mois.field.${anchor}`}>
-          <PBSlider min={1} max={10} value={Number(value) || 1} onChange={(v) => onChange?.(String(v))} style={{ flex: '1 1 auto' }} />
+      <div className="pb-row" style={{ gap: 0 }}>
+        <span style={{ width: 321, flex: 'none', display: 'flex' }} data-tutorial-id={`host.mois.field.${anchor}`}>
+          <PBSlider min={0} max={10} value={Number(value) || 0} onChange={(v) => onChange?.(String(v))} style={{ flex: '1 1 auto' }} />
         </span>
+        <span style={{ width: 18, flex: 'none' }} />
         <PBInput
-          w={40} align="center" value={value} readOnly={!onChange}
+          w={26} align="center" value={value} readOnly={!onChange}
           data-tutorial-id={`host.mois.field.${anchor}-value`}
           onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, '')
-            if (v === '' || (Number(v) >= 1 && Number(v) <= 10)) onChange?.(v)
+            const v = e.target.value.replace(/\D/g, '').slice(0, 2)
+            if (v === '' || Number(v) <= 10) onChange?.(v)
           }}
         />
-        <span>(/10)</span>
+        <span style={{ marginLeft: 6 }}>(/10)</span>
       </div>
     </div>
   )
@@ -300,20 +343,22 @@ const PAGE: React.CSSProperties = { display: 'grid', padding: '8px 10px', gap: '
 /* Need for Care — the Participants box sits beside the description and the
    risk scale, and Comment runs the full width underneath it. */
 function NeedDetail({ record, edit }: { record?: MoisRecord; edit: Edit }) {
+  /* need-for-care-new-record.png: captions at x 11, fields at x 100; Need
+     Desc. 419 wide; Participants' caption 15 px past it, its box 186 × 65 */
   return (
-    <div style={{ ...PAGE, gridTemplateColumns: '84px minmax(0, 1fr) auto 210px' }}>
+    <div style={{ ...PAGE, gridTemplateColumns: '81px 419px 67px 186px', padding: '8px 11px' }}>
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Need Desc.:</span>
       <PBInput w="100%" value={record?.str_description ?? ''} data-tutorial-id="host.mois.field.need-description"
         onChange={(e) => edit('str_description', e.target.value.toUpperCase())} />
-      <span className="pb-form__label" style={{ lineHeight: '19px' }}>Participants:</span>
-      <PBTextArea value={record?.str_participants ?? ''} rows={3} w="100%" style={{ gridRow: 'span 2' }}
+      <span className="pb-form__label" style={{ lineHeight: '19px', marginLeft: 7 }}>Participants:</span>
+      <PBTextArea value={record?.str_participants ?? ''} w="100%" style={{ gridRow: 'span 2', height: 65 }}
         data-tutorial-id="host.mois.field.need-participants" onChange={(e) => edit('str_participants', e.target.value)} />
 
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Risk Rating:</span>
       <RiskScale value={record?.num_risk} anchor="need-risk-rating" onChange={(v) => edit('num_risk', v)} />
 
       <span className="pb-form__label" style={{ gridColumn: 1, lineHeight: '19px' }}>Comment:</span>
-      <PBTextArea value={record?.str_comment ?? ''} rows={9} w="100%" style={{ gridColumn: '2 / -1' }}
+      <PBTextArea value={record?.str_comment ?? ''} w={688} style={{ gridColumn: '2 / -1', height: 153 }}
         data-tutorial-id="host.mois.field.need-comment" onChange={(e) => edit('str_comment', e.target.value)} />
     </div>
   )
@@ -324,7 +369,9 @@ function NeedDetail({ record, edit }: { record?: MoisRecord; edit: Edit }) {
    Severity". No Participants box. */
 function RiskDetail({ record, edit }: { record?: MoisRecord; edit: Edit }) {
   return (
-    <div style={{ ...PAGE, gridTemplateColumns: '110px minmax(0, 1fr)' }}>
+    /* evidence/MATRIX-R0854-risk-description: captions at x 11, values at
+       x 101; Comment 688 × 153 */
+    <div style={{ ...PAGE, gridTemplateColumns: '82px minmax(0, 1fr)', padding: '8px 11px' }}>
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Risk Description:</span>
       <div className="pb-row" style={{ gap: 0 }} data-tutorial-id="host.mois.field.risk-description">
         <span>{record?.str_description ?? ''}</span>
@@ -336,7 +383,7 @@ function RiskDetail({ record, edit }: { record?: MoisRecord; edit: Edit }) {
       <RiskScale value={record?.num_risk} anchor="risk-severity" onChange={(v) => edit('num_risk', v)} />
 
       <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-      <PBTextArea value={record?.str_comment ?? ''} rows={11} w="100%"
+      <PBTextArea value={record?.str_comment ?? ''} w={688} style={{ height: 153 }}
         data-tutorial-id="host.mois.field.risk-comment" onChange={(e) => edit('str_comment', e.target.value)} />
     </div>
   )
@@ -375,31 +422,38 @@ function ConditionDetail({ record }: { record?: MoisRecord }) {
 function ActionDetail({ record, edit }: { record?: MoisRecord; edit: Edit }) {
   const completed = record?.str_completed === 'Y'
   return (
+    /* evidence/MATRIX-R0968-planned-start / R0977-detail: captions at x 11,
+       boxes at x 93 (Detail 416 × 136, Outcome 416 × 66); the right-hand
+       captions at x 539, their fields at x 627 (Participant(s) 166,
+       Completed Date 73); a hairline between the two blocks */
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ ...PAGE, gridTemplateColumns: '60px minmax(0, 1fr) auto 210px', paddingBottom: 8 }}>
+      <div style={{ ...PAGE, gridTemplateColumns: '74px 416px 102px 166px', padding: '8px 11px' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Detail:</span>
-        <PBTextArea value={record?.str_comment ?? ''} rows={8} w="100%"
+        <PBTextArea value={record?.str_comment ?? ''} w="100%" style={{ height: 136 }}
           data-tutorial-id="host.mois.field.action-detail" onChange={(e) => edit('str_comment', e.target.value)} />
-        <span className="pb-form__label" style={{ lineHeight: '19px' }}>Participant(s):</span>
+        <span className="pb-form__label" style={{ lineHeight: '19px', marginLeft: 22 }}>Participant(s):</span>
         <PBInput w="100%" value={record?.str_participants ?? ''}
           data-tutorial-id="host.mois.field.action-participants" onChange={(e) => edit('str_participants', e.target.value.toUpperCase())} />
       </div>
 
       <div style={{ borderTop: '1px solid #d6d6d6' }} />
 
-      <div style={{ ...PAGE, gridTemplateColumns: '60px minmax(0, 1fr) auto 210px' }}>
+      <div style={{ ...PAGE, gridTemplateColumns: '74px 416px 102px 166px', padding: '8px 11px' }}>
         <span className="pb-form__label" style={{ lineHeight: '19px' }}>Outcome:</span>
-        <PBTextArea value={record?.str_outcome ?? ''} rows={3} w="100%" style={{ gridRow: 'span 2' }}
+        <PBTextArea value={record?.str_outcome ?? ''} w="100%" style={{ height: 66 }}
           data-tutorial-id="host.mois.field.action-outcome" onChange={(e) => edit('str_outcome', e.target.value)} />
-        <span className="pb-form__label" style={{ lineHeight: '19px' }}>Completed:</span>
-        <PBCheckbox
-          label="Yes" checked={completed} tutorialId="host.mois.field.action-completed"
-          onChange={(on) => edit('str_completed', on ? 'Y' : 'N', { dtm_completed: on ? slash(MOIS_TODAY) : '' })}
-        />
-
-        <span className="pb-form__label" style={{ gridColumn: 3, lineHeight: '19px' }}>Completed Date:</span>
-        <PBInput w={140} value={dot(record?.dtm_completed)} data-tutorial-id="host.mois.field.action-completed-date"
-          onChange={(e) => edit('dtm_completed', slash(e.target.value))} />
+        {/* Completed and Completed Date sit one line apart at the top of the
+            block (y 617 / 636 in R0968), not spread down the Outcome box */}
+        <div style={{ gridColumn: '3 / 5', display: 'grid', gridTemplateColumns: '102px 166px', columnGap: 8, rowGap: 0, alignItems: 'center', alignSelf: 'start' }}>
+          <span className="pb-form__label" style={{ lineHeight: '19px', marginLeft: 22 }}>Completed:</span>
+          <PBCheckbox
+            label="Yes" checked={completed} tutorialId="host.mois.field.action-completed"
+            onChange={(on) => edit('str_completed', on ? 'Y' : 'N', { dtm_completed: on ? slash(MOIS_TODAY) : '' })}
+          />
+          <span className="pb-form__label" style={{ lineHeight: '19px', marginLeft: 22 }}>Completed Date:</span>
+          <PBInput w={73} value={dot(record?.dtm_completed)} data-tutorial-id="host.mois.field.action-completed-date"
+            onChange={(e) => edit('dtm_completed', slash(e.target.value))} />
+        </div>
       </div>
     </div>
   )
@@ -416,31 +470,18 @@ function NoteDetail({ record, edit }: { record?: MoisRecord; edit: Edit }) {
   )
 }
 
-function LinkedPage({ band, goals, rows, editable, objectId, chart }: {
+/** the linked grids' DataWindow gutter: about 26px in DEV, twice the kit's
+    13 — the band's box and the current-row arrow sit well in from the frame
+    (risk-linked-goals-populated.png) */
+const LINKED_GRID = { ['--pb-dw-gutter-width' as string]: '26px' } as React.CSSProperties
+
+function LinkedPage({ band, goals, rows }: {
   band: string; goals: boolean; rows: Record<string, string>[]
-  /** Planned Actions: Link Goal... / Unlink on the band */
-  editable?: boolean; objectId?: string; chart: string
 }) {
   const [cur, setCur] = useState(0)
-  const open = useOpenWindow()
-  const button = (id: string, label: string, onClick: () => void, disabled?: boolean) => (
-    <PBButton size="sm" disabled={disabled} command={id} onClick={() => onClick()}>
-      {label}
-    </PBButton>
-  )
-  const current = rows[Math.min(cur, rows.length - 1)]
   return (
     <>
-      <PBBand
-        right={editable && objectId ? (
-          <>
-            {button('link-goal', 'Link Goal...', () => open('link-goal', { object: 'action', objectId }))}
-            {button('unlink-goal', 'Unlink', () => { if (current) unlinkGoal(chart, 'action', objectId, current.goalId!) }, !current)}
-          </>
-        ) : undefined}
-      >
-        {band}
-      </PBBand>
+      <PBBand>{band}</PBBand>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           flush
@@ -448,19 +489,27 @@ function LinkedPage({ band, goals, rows, editable, objectId, chart }: {
           current={cur}
           onCurrentChange={setCur}
           groupBy={goals ? (r) => r.group : undefined}
-          rowStatus={() => 'highlight'}
+          /* the current row is the pale yellow of the captures */
+          rowStatus={(_r, i) => (i === cur ? 'highlight' : 'normal')}
+          /* regular-weight captions on the face, no separators, no rule */
+          head="plain"
+          style={LINKED_GRID}
+          empty={false}
           rowTutorialId={(r) => (r.goalId ? `host.mois.row.linked-goal-${r.goalId}` : undefined)}
+          /* risk-linked-goals-populated.png / action-linked-goals-populated.png:
+             Start 76 · End 76 · Description 278 · Phase 91 · S 18 · Linked By
+             112 · Linked Date */
           columns={[
             { key: 'start', header: 'Start', width: 76 },
-            { key: 'end', header: 'End', width: 70 },
+            { key: 'end', header: 'End', width: 76 },
             {
-              key: 'desc', header: 'Description', width: 240,
+              key: 'desc', header: 'Description', width: 278,
               render: (r) => <button className="pb-link">{r.desc}</button>,
             },
-            { key: 'phase', header: 'Phase', width: 86 },
-            { key: 's', header: 'S', width: 24, align: 'center', render: (r) => <PBCheckbox checked={r.s === 'Y'} /> },
-            { key: 'by', header: 'Linked By', width: 130 },
-            { key: 'when', header: 'Linked Date', width: 130 },
+            { key: 'phase', header: 'Phase', width: 91 },
+            { key: 's', header: 'S', width: 18, align: 'center', render: (r) => <PBCheckbox checked={r.s === 'Y'} /> },
+            { key: 'by', header: 'Linked By', width: 112 },
+            { key: 'when', header: 'Linked Date', width: 125, render: (r) => <span style={{ whiteSpace: 'pre' }}>{r.when}</span> },
           ]}
         />
       </div>

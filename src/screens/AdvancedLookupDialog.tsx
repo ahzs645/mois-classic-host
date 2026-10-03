@@ -59,6 +59,7 @@ export function AdvancedLookupDialog({ chart, roster = fallbackRoster, onPick, o
 }) {
   const filters = useColumnFilters<Patient>(roster, COLUMNS.map((c) => (c.filter ? {
     key: c.key,
+    ...(c.key === 'chart' ? { anchor: 'lookup-filter-chart', ariaLabel: 'Filter Chart No' } : {}),
     box: c.key === 'status'
       ? (value: string, set: (v: string) => void) => (
         <PBDropDownDataWindow

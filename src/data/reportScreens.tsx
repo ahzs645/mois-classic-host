@@ -26,7 +26,10 @@ export type ReportField =
     time box beside its date). */
 export type PaintedField = {
   label: string
-  kind: 'text' | 'lookup' | 'area' | 'date' | 'time' | 'dots' | 'combo' | 'rule'
+  /** `check`: a tick box at x / y with `value` as the caption beside it,
+      ticked from the record's binding for `label` (Alert's Sensitive:,
+      evidence/MATRIX-R1234-start) */
+  kind: 'text' | 'lookup' | 'area' | 'date' | 'time' | 'dots' | 'combo' | 'rule' | 'check'
   x: number
   y: number
   w: number
@@ -50,6 +53,10 @@ export type ReportScreen = {
     key: string; header: string; auditId?: string; width?: number; align?: 'left' | 'center' | 'right'; dots?: boolean; check?: boolean
     /** a "…" column that opens the Universal Search Window on this preset */
     search?: UniversalSearchPresetId
+    /** an in-cell drop-down DataWindow on the current row: the list headed
+        `header`, one row per option (Family Hx's Relationship,
+        evidence/MATRIX-R0645-relationship) */
+    ddw?: { header: string; options: string[]; listW?: number }
   }[]
   rows: Record<string, string>[]
   /** omit for the tab-less variants such as Paper Forms */
@@ -72,6 +79,21 @@ export type ReportScreen = {
   /** PowerBuilder's fixed-width tabs rather than caption-sized ones
       (Consult Reports: Report · Detail · Office Notes (0), ~100px each) */
   fixedTabs?: boolean
+  /** the fixed tabs' width when a capture measures one other than the kit's
+      96px (PBTabs `tabWidth`) */
+  tabWidth?: number
+  /**
+   * The Created / Last Modified line as MOIS DEV v02.31.23 spaces it on the
+   * allergy, event and plain folders: `Created:` in line with the page's
+   * captions, its stamp 76px after it and `Last Modified:` 348px after it
+   * (evidence/MATRIX-R0652-onset, R0689-onset, R0634-date, R1234-start).
+   * `modified: 'when-set'` prints Last Modified only on a record that has
+   * been modified (R0645 and R0784, never modified, print none);
+   * `detailOnly` draws the line under the first tab alone — the other tabs
+   * run to the bottom of the window (R0681-code, R0685-onset, R0701, R0710).
+   * Omitted, the report family's line (TRAINING c12, c16) is drawn.
+   */
+  createdLine?: { modified: 'always' | 'when-set'; detailOnly?: boolean }
   /** the Acknowledgement History / Workflow Summary rail */
   rail?: boolean
   /** a plain-text notice between Search For and the grid */
@@ -116,20 +138,24 @@ export const reportScreens: Record<string, ReportScreen> = {
     /* List View / Panel View only (302837 `d417fc8b…`) */
     viewSelect: ['List View', 'Panel View'],
     flagKey: 'flag',
+    /* widths and alignment read off the MOIS DEV v02.31.23 field audit,
+       evidence/MATRIX-R0480-collected (1x): every column sized, so the grid
+       ends at Status + clip; Collected and Flag centred, Code, Value, Units
+       and Status left-aligned under centred captions */
     columns: [
-      { key: 'collected', auditId: 'MATRIX-R0480-collected', header: 'Collected', width: 82, align: 'center' },
-      { key: 'by', auditId: 'MATRIX-R0481-ordered-by', header: 'Ordered By', width: 128 },
-      { key: 'code', auditId: 'MATRIX-R0482-code', header: 'Code', width: 60, align: 'center' },
+      { key: 'collected', auditId: 'MATRIX-R0480-collected', header: 'Collected', width: 77, align: 'center' },
+      { key: 'by', auditId: 'MATRIX-R0481-ordered-by', header: 'Ordered By', width: 116 },
+      { key: 'code', auditId: 'MATRIX-R0482-code', header: 'Code', width: 62 },
       dots('d'),
-      { key: 'test', auditId: 'MATRIX-R0483-test-name', header: 'Test Name' },
-      { key: 'value', auditId: 'MATRIX-R0484-value', header: 'Value', width: 92, align: 'center' },
+      { key: 'test', auditId: 'MATRIX-R0483-test-name', header: 'Test Name', width: 241 },
+      { key: 'value', auditId: 'MATRIX-R0484-value', header: 'Value', width: 81 },
       /* 302837's "Unnamed Column", right of Value: an ellipsis where a
          calculator produced the value, `.*.` for a dynamic form (`17afb92b…`) */
-      { key: 'marker', header: '', width: 18, align: 'center' },
-      { key: 'flag', auditId: 'MATRIX-R0485-flag', header: 'Flag', width: 52, align: 'center' },
-      { key: 'units', auditId: 'MATRIX-R0486-units', header: 'Units', width: 62, align: 'center' },
-      { key: 'status', auditId: 'MATRIX-R0487-status', header: 'Status', width: 52, align: 'center' },
-      clip,
+      { key: 'marker', header: '', width: 16, align: 'center' },
+      { key: 'flag', auditId: 'MATRIX-R0485-flag', header: 'Flag', width: 47, align: 'center' },
+      { key: 'units', auditId: 'MATRIX-R0486-units', header: 'Units', width: 64 },
+      { key: 'status', auditId: 'MATRIX-R0487-status', header: 'Status', width: 40 },
+      { ...clip, width: 18 },
     ],
     rows: [
       { collected: '2026.07.14', by: 'DOCTOR, TEST', code: '27958', test: 'ESTROGEN 24H UR-SCNC', value: '5', flag: '-', units: '', status: 'F', clip: '-' },
@@ -224,6 +250,11 @@ export const reportScreens: Record<string, ReportScreen> = {
       { onset: '2024.08.08', tilde: '', type: 'DRUG ALLERGY', category: '', code: '00468029', agent: 'PENICILLIN V POTASSIUM 500000UNIT TAB…', reactions: 'ANAPHYLAXIS', m: '', clip: '-' },
     ],
     tabs: ['Detail', 'Reactions', 'Linked Events'],
+    /* evidence/MATRIX-R0652-onset, MATRIX-R0681-code (DEV v02.31.23): PB's
+       fixed tabs, about 94px each with the caption centred — not sized to
+       their captions */
+    fixedTabs: true,
+    createdLine: { modified: 'always', detailOnly: true },
     /* 2026-09-29 TRAINING capture (set 3) c04, chart 2429: the agent line
        under Type is led by its own Agent Category drop-down, then the code,
        its "…" and the agent; two rules part it from the four coded
@@ -278,19 +309,24 @@ export const reportScreens: Record<string, ReportScreen> = {
   imaging: {
     title: 'Imaging Reports',
     commands: REPORT_CMDS, disabled: DIS,
+    /* widths and alignment from MOIS DEV, evidence/MATRIX-R0537-test-name
+       and imaging-empty-screen.png (1x); Performed and Status centred, the
+       rest left */
     columns: [
-      { key: 'performed', header: 'Performed', width: 78, align: 'center' },
-      { key: 'by', header: 'Ordered By', width: 96, align: 'center' },
-      { key: 'test', header: 'Test Name' },
+      { key: 'performed', header: 'Performed', width: 66, align: 'center' },
+      { key: 'by', header: 'Ordered By', width: 85 },
+      /* DEV sizes this column too and its band stops after the clip, the
+         grid's white body running on to the frame (imaging-empty-screen.png) */
+      { key: 'test', header: 'Test Name', width: 251 },
       /* the Test Name "…" searches MEDICAL IMAGING (2026-09-29 TRAINING capture c11) */
-      { ...dots('d'), search: 'medical-imaging' },
-      { key: 'region', header: 'Region', width: 72, align: 'center' },
-      { key: 'laterality', header: 'Laterality', width: 68, align: 'center' },
-      { key: 'modality', header: 'Modality', width: 62, align: 'center' },
-      { key: 'contrast', header: 'Contrast', width: 60, align: 'center' },
-      { key: 'status', header: 'Status', width: 54, align: 'center' },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { ...dots('d'), width: 21, search: 'medical-imaging' },
+      { key: 'region', header: 'Region', width: 61 },
+      { key: 'laterality', header: 'Laterality', width: 58 },
+      { key: 'modality', header: 'Modality', width: 47 },
+      { key: 'contrast', header: 'Contrast', width: 45 },
+      { key: 'status', header: 'Status', width: 39, align: 'center' },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     /* evidence/MATRIX-R0568-facility-ref — one filed exam and two empty records */
     rows: [
@@ -299,6 +335,26 @@ export const reportScreens: Record<string, ReportScreen> = {
       { performed: '', by: '', test: '', region: '', laterality: '', modality: '', contrast: '', status: '', m: '', clip: '1' },
     ],
     tabs: ['Report', 'Detail'],
+    /* Report painted as MOIS DEV draws it, evidence/MATRIX-R0537-test-name
+       (1x; boxes on the Detail tab's 19px pitch): Test Name, then Region ·
+       Laterality · Flag and Modality · Contrast · Status three to a line, the
+       Report body across the page; Order Date with Order # greyed beside it,
+       Ordered By and Copies To on the right. With no record behind the
+       current row the page is bare (imaging-empty-screen.png). */
+    painted: [
+      { label: 'Test Name:', kind: 'text', x: 68.5, y: 6, w: 280 },
+      { label: 'Region:', kind: 'text', x: 68.5, y: 25, w: 71 },
+      { label: 'Laterality:', kind: 'text', x: 192.5, y: 25, w: 71, cap: { right: 187.5 } },
+      { label: 'Flag:', kind: 'text', x: 307, y: 25, w: 41, cap: { right: 302.5 } },
+      { label: 'Modality:', kind: 'text', x: 68.5, y: 44, w: 71 },
+      { label: 'Contrast:', kind: 'text', x: 192.5, y: 44, w: 71, cap: { right: 187.5 } },
+      { label: 'Status:', kind: 'text', x: 307, y: 44, w: 41, cap: { right: 302.5 } },
+      { label: 'Report:', kind: 'area', x: 68.5, y: 63, w: 579, h: 183 },
+      { label: 'Order Date:', kind: 'date', x: 419.5, y: 6, w: 78, cap: { right: 414.5 } },
+      { label: 'Order #:', kind: 'lookup', x: 567.5, y: 6, w: 80, cap: { right: 562.5 }, disabled: true },
+      { label: 'Ordered By:', kind: 'text', x: 419.5, y: 25, w: 228, cap: { right: 414.5 } },
+      { label: 'Copies To:', kind: 'text', x: 419.5, y: 44, w: 228, cap: { right: 414.5 } },
+    ],
     /* Report — evidence/MATRIX-R0535-paper-clip */
     left: [
       { label: 'Test Name:', kind: 'text', w: 320, value: 'CAT SCAN - WHOLE BODY' },
@@ -380,19 +436,21 @@ export const reportScreens: Record<string, ReportScreen> = {
   consults: {
     title: 'Consult Reports',
     commands: REPORT_CMDS, disabled: DIS,
+    /* widths from MOIS DEV, evidence/MATRIX-R0579-reason (1x); Reason fills
+       the rest, as it does there */
     columns: [
-      { key: 'refer', header: 'Refer Date', width: 82, align: 'center' },
-      { key: 'seen', header: 'Seen Date', width: 82, align: 'center' },
-      { key: 'by', header: 'Referred By', width: 140 },
-      dots('d1'),
-      { key: 'seenby', header: 'Seen By', width: 150 },
+      { key: 'refer', header: 'Refer Date', width: 76, align: 'center' },
+      { key: 'seen', header: 'Seen Date', width: 77, align: 'center' },
+      { key: 'by', header: 'Referred By', width: 136 },
+      { ...dots('d1'), width: 17 },
+      { key: 'seenby', header: 'Seen By', width: 132 },
       dots('d2'),
       { key: 'reason', header: 'Reason for Consult Request' },
       /* the Reason "…" searches CONSULT REQUESTS (AIHS) (capture c13) */
       { ...dots('d3'), search: 'consult-requests' },
-      { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 's', header: 'S', width: 23, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     rows: [
       { refer: '2025.06.01', seen: '2025.07.22', by: '', seenby: '', reason: '', s: '', m: '⇩', clip: '-' },
@@ -437,6 +495,25 @@ export const reportScreens: Record<string, ReportScreen> = {
     forms: {
       /* evidence/MATRIX-R0599-facility-ref */
       Detail: {
+        /* painted as MOIS DEV draws it, evidence/MATRIX-R0590-reason (1x, a
+           19px pitch): Reason with its "…", Report By and Transcribed each
+           with a Date (Transcribed's time box beside it), the two-line
+           Consultant's Diagnosis box and its "…", Key Word; the facility trio
+           on the right */
+        painted: [
+          { label: 'Reason:', kind: 'lookup', x: 68.5, y: 6, w: 333, search: 'consult-requests' },
+          { label: 'Report By:', kind: 'text', x: 68.5, y: 25, w: 151 },
+          { label: 'Date:', kind: 'date', x: 269.5, y: 25, w: 88, cap: { right: 264.5 } },
+          { label: 'Transcribed:', kind: 'text', x: 68.5, y: 44, w: 151 },
+          { label: 'Date:', kind: 'date', x: 269.5, y: 44, w: 88, cap: { right: 264.5 } },
+          { label: 'Transcribed Time', kind: 'time', x: 360.5, y: 44, w: 41, cap: false },
+          { label: "Consultant's\nDiagnosis:", kind: 'area', x: 68.5, y: 63, w: 316, h: 35 },
+          { label: "Consultant's Diagnosis lookup", kind: 'dots', x: 385.5, y: 63, w: 16, cap: false },
+          { label: 'Key Word:', kind: 'area', x: 68.5, y: 101, w: 333, h: 43 },
+          { label: 'Facility:', kind: 'text', x: 492.5, y: 6, w: 155, cap: { right: 487.5 } },
+          { label: 'Facility Loc.:', kind: 'text', x: 492.5, y: 25, w: 155, cap: { right: 487.5 } },
+          { label: 'Facility Ref.:', kind: 'text', x: 492.5, y: 44, w: 155, cap: { right: 487.5 } },
+        ],
         left: [
           { label: 'Reason:', kind: 'lookup', w: 320 },
           { label: 'Report By:', kind: 'text', w: 168 },
@@ -461,16 +538,34 @@ export const reportScreens: Record<string, ReportScreen> = {
   procedures: {
     title: 'Procedure',
     commands: REPORT_CMDS, disabled: DIS,
+    /* widths from MOIS DEV, evidence/MATRIX-R0605-performed (1x) */
     columns: [
-      { key: 'performed', header: 'Performed', width: 88, align: 'center' },
-      { key: 'by', header: 'Performed By', width: 170, align: 'center' },
-      { key: 'desc', header: 'Description' },
+      { key: 'performed', header: 'Performed', width: 81, align: 'center' },
+      { key: 'by', header: 'Performed By', width: 178, align: 'center' },
+      /* DEV sizes this column too and its band stops after the clip, the
+         grid's white body running on to the frame (MATRIX-R0605) */
+      { key: 'desc', header: 'Description', width: 364 },
       dots('d'),
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     rows: [{ performed: '', by: '', desc: 'PHLEBOTOMY', m: '', clip: '-' }],
     tabs: ['Report', 'Detail'],
+    /* Report painted as MOIS DEV draws it, evidence/MATRIX-R0611-description
+       (1x, a 19px pitch): Description and Diag Desc. on the left; Order Date
+       with Order # greyed, Ordered By, Report By with its Date, Copies To on
+       the right; the Report body across the page under them */
+    painted: [
+      { label: 'Description:', kind: 'text', x: 68.5, y: 5, w: 273 },
+      { label: 'Diag Desc.:', kind: 'lookup', x: 68.5, y: 24, w: 275 },
+      { label: 'Report:', kind: 'area', x: 68.5, y: 81, w: 580, h: 165 },
+      { label: 'Order Date:', kind: 'date', x: 419.5, y: 5, w: 93, cap: { right: 414.5 } },
+      { label: 'Order #:', kind: 'lookup', x: 567.5, y: 5, w: 81, cap: { right: 562.5 }, disabled: true },
+      { label: 'Ordered By:', kind: 'text', x: 419.5, y: 24, w: 229, cap: { right: 414.5 } },
+      { label: 'Report By:', kind: 'text', x: 419.5, y: 43, w: 128, cap: { right: 414.5 } },
+      { label: 'Date:', kind: 'date', x: 585.5, y: 43, w: 63, cap: { right: 580.5 } },
+      { label: 'Copies To:', kind: 'text', x: 419.5, y: 62, w: 229, cap: { right: 414.5 } },
+    ],
     /* Report — evidence/MATRIX-R0609-paper-clip */
     left: [
       { label: 'Description:', kind: 'text', w: 320, value: 'PHLEBOTOMY' },
@@ -488,6 +583,27 @@ export const reportScreens: Record<string, ReportScreen> = {
     forms: {
       /* evidence/MATRIX-R0632-facility-ref */
       Detail: {
+        /* painted as MOIS DEV draws it, evidence/MATRIX-R0621-description
+           (1x, a 19px pitch): Perform By, Report By and Transcribed each with
+           a Date — Perform By's and Transcribed's with a time box, Perform
+           By's masked " : " — then Diag Desc. and Key Word; the facility
+           trio on the right */
+        painted: [
+          { label: 'Description:', kind: 'text', x: 68.5, y: 6, w: 321 },
+          { label: 'Perform By:', kind: 'text', x: 68.5, y: 25, w: 166 },
+          { label: 'Date:', kind: 'date', x: 281.5, y: 25, w: 63, cap: { right: 276.5 } },
+          { label: 'Perform Time', kind: 'time', x: 347.5, y: 25, w: 42, cap: false, value: ':' },
+          { label: 'Report By:', kind: 'text', x: 68.5, y: 44, w: 166 },
+          { label: 'Date:', kind: 'date', x: 281.5, y: 44, w: 63, cap: { right: 276.5 } },
+          { label: 'Transcribed:', kind: 'text', x: 68.5, y: 63, w: 166 },
+          { label: 'Date:', kind: 'date', x: 281.5, y: 63, w: 63, cap: { right: 276.5 } },
+          { label: 'Transcribed Time', kind: 'time', x: 347.5, y: 63, w: 42, cap: false },
+          { label: 'Diag Desc.:', kind: 'lookup', x: 68.5, y: 82, w: 321 },
+          { label: 'Key Word:', kind: 'area', x: 68.5, y: 101, w: 321, h: 43 },
+          { label: 'Facility:', kind: 'text', x: 471.5, y: 6, w: 176, cap: { right: 466.5 } },
+          { label: 'Facility Loc.:', kind: 'text', x: 471.5, y: 25, w: 176, cap: { right: 466.5 } },
+          { label: 'Facility Ref.:', kind: 'text', x: 471.5, y: 44, w: 176, cap: { right: 466.5 } },
+        ],
         left: [
           { label: 'Description:', kind: 'text', w: 320, value: 'PHLEBOTOMY' },
           { label: 'Perform By:', kind: 'text', w: 168 },
@@ -584,15 +700,20 @@ Object.assign(reportScreens, {
     title: 'Facility Admissions',
     commands: ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh', 'Mark for Review', 'Print', 'Attachment'],
     disabled: DIS,
+    /* widths and alignment from MOIS DEV, evidence/MATRIX-R1135-admitted
+       (1x); the dates centred, Facility and
+       Description left */
     columns: [
-      { key: 'admitted', header: 'Admitted', width: 88, align: 'center' },
-      { key: 'discharged', header: 'Discharged', width: 88, align: 'center' },
-      { key: 'by', header: 'Admit By', width: 120, align: 'center' },
-      { key: 'facility', header: 'Facility', width: 130, align: 'center' },
-      { key: 'desc', header: 'Description' },
-      dots('d'),
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'admitted', header: 'Admitted', width: 76, align: 'center' },
+      { key: 'discharged', header: 'Discharged', width: 76, align: 'center' },
+      { key: 'by', header: 'Admit By', width: 115 },
+      { key: 'facility', header: 'Facility', width: 115 },
+      /* DEV sizes this column too and its band stops after the clip
+         (MATRIX-R1135) */
+      { key: 'desc', header: 'Description', width: 272 },
+      { ...dots('d'), width: 17 },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     /* evidence/MATRIX-R1140-method — an empty record heads the list */
     rows: [
@@ -601,6 +722,19 @@ Object.assign(reportScreens, {
       { admitted: '2025.12.17', discharged: '', by: '', facility: 'TVL', desc: 'LONG TERM CARE FACILITIES (RESIDENTIAL CARE)', m: '', clip: '-' },
     ],
     tabs: ['Report', 'Detail'],
+    /* Report painted as MOIS DEV draws it, evidence/MATRIX-R1143-description
+       (1x, a 19px pitch): Description, Attending and Diag Desc. on the left,
+       Admit Date, Admitted By and Copies To on the right, the Report body
+       across the page */
+    painted: [
+      { label: 'Description:', kind: 'text', x: 68.5, y: 6, w: 273 },
+      { label: 'Attending:', kind: 'text', x: 68.5, y: 25, w: 273 },
+      { label: 'Diag Desc.:', kind: 'lookup', x: 68.5, y: 44, w: 273 },
+      { label: 'Report:', kind: 'area', x: 68.5, y: 63, w: 580, h: 183 },
+      { label: 'Admit Date:', kind: 'date', x: 419.5, y: 6, w: 77, cap: { right: 414.5 } },
+      { label: 'Admitted By:', kind: 'text', x: 419.5, y: 25, w: 229, cap: { right: 414.5 } },
+      { label: 'Copies To:', kind: 'text', x: 419.5, y: 44, w: 229, cap: { right: 414.5 } },
+    ],
     /* Report — evidence/MATRIX-R1149-report */
     left: [
       { label: 'Description:', kind: 'text', w: 310, value: 'ASSISTED LIVING' },
@@ -616,6 +750,23 @@ Object.assign(reportScreens, {
     forms: {
       /* evidence/MATRIX-R1141-paper-clip */
       Detail: {
+        /* painted as MOIS DEV draws it, evidence/MATRIX-R1151-description
+           (1x): Transcribed (Date and time) above Report By (Date), then
+           Diag Desc. and Key Word; the facility trio on the right sits 2px
+           higher than the left column */
+        painted: [
+          { label: 'Description:', kind: 'text', x: 68.5, y: 6, w: 313 },
+          { label: 'Transcribed:', kind: 'text', x: 68.5, y: 25, w: 151 },
+          { label: 'Date:', kind: 'date', x: 272.5, y: 25, w: 66, cap: { right: 267.5 } },
+          { label: 'Transcribed Time', kind: 'time', x: 341.5, y: 25, w: 40, cap: false },
+          { label: 'Report By:', kind: 'text', x: 68.5, y: 44, w: 151 },
+          { label: 'Date:', kind: 'date', x: 272.5, y: 44, w: 66, cap: { right: 267.5 } },
+          { label: 'Diag Desc.:', kind: 'lookup', x: 68.5, y: 63, w: 313 },
+          { label: 'Key Word:', kind: 'area', x: 68.5, y: 81, w: 313, h: 43 },
+          { label: 'Facility:', kind: 'text', x: 471.5, y: 4, w: 176, cap: { right: 466.5 } },
+          { label: 'Facility Loc.:', kind: 'text', x: 471.5, y: 23, w: 176, cap: { right: 466.5 } },
+          { label: 'Facility Ref.:', kind: 'text', x: 471.5, y: 42, w: 176, cap: { right: 466.5 } },
+        ],
         left: [
           { label: 'Description:', kind: 'text', w: 310, value: 'ASSISTED LIVING' },
           { label: 'Transcribed:', kind: 'text', w: 150 },
@@ -650,16 +801,18 @@ Object.assign(reportScreens, {
       'Mark for Review', 'Link to Order', 'Print', 'Distribute',
     ],
     disabled: DIS,
+    /* widths from MOIS DEV, evidence/MATRIX-R0792-date (1x); Note fills the
+       rest, as it does there */
     columns: [
-      { key: 'date', header: 'Date', width: 84, align: 'center' },
-      { key: 'author', header: 'Author', width: 120 },
-      dots('d'),
-      { key: 'type', header: 'Document Type', width: 118 },
+      { key: 'date', header: 'Date', width: 67, align: 'center' },
+      { key: 'author', header: 'Author', width: 91 },
+      { ...dots('d'), width: 19 },
+      { key: 'type', header: 'Document Type', width: 116 },
       { key: 'note', header: 'Note' },
       { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      { key: 'link', header: 'Link', width: 34, align: 'center' },
-      clip,
+      { key: 'm', header: 'M', width: 19, align: 'center' },
+      { key: 'link', header: 'Link', width: 28, align: 'center' },
+      { ...clip, width: 17 },
     ],
     rows: [
       { date: '2030.05.03', author: '', type: 'PAPER FORM', note: 'INTEGRATED PRIMARY COMMUNITY CARE SERVICE REQUEST', s: '✓', m: '⇩', link: '↷', clip: '-' },
@@ -725,16 +878,20 @@ Object.assign(reportScreens, {
   interventions: {
     title: 'Intervention',
     commands: SIMPLE, disabled: DIS, plain: true,
+    /* widths and alignment from MOIS DEV, evidence/MATRIX-R0634-date (1x):
+       Performed By left-aligned */
     columns: [
-      { key: 'date', header: 'Date', width: 86, align: 'center' },
-      dots('d1'),
-      { key: 'by', header: 'Performed By', width: 150, align: 'center' },
-      { key: 'desc', header: 'Description' },
+      { key: 'date', header: 'Date', width: 80, align: 'center' },
+      { ...dots('d1'), width: 18 },
+      { key: 'by', header: 'Performed By', width: 144 },
+      /* DEV sizes this column too and its band stops after the clip
+         (MATRIX-R0634) */
+      { key: 'desc', header: 'Description', width: 342 },
       dots('d2'),
-      { key: 'declined', header: 'Declined', width: 62, align: 'center', check: true },
-      { key: 'notind', header: 'Not Indicated', width: 80, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'declined', header: 'Declined', width: 64, align: 'center', check: true },
+      { key: 'notind', header: 'Not Indicated', width: 76, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     rows: [
       { date: '2025.02.26', by: '(RN) FLYNN, DEREK', desc: 'EYE CARE MANAGEMENT', m: '⇩', clip: '-' },
@@ -743,8 +900,15 @@ Object.assign(reportScreens, {
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 7, w: '100%', value: 'Saw last year.' }],
     right: [],
-    /* set 3 c02: the Family Hx layout — caption at the margin, one wide box */
-    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115 }],
+    /* set 3 c02: the Family Hx layout — caption at the margin, one wide box.
+       The caption sits 88px before the box, as MOIS DEV prints it on Family
+       Hx and Social History (evidence/MATRIX-R0645-relationship,
+       MATRIX-R0784-start). NOTE: DEV's Intervention box itself starts 24px
+       further left (x 73, 730 wide, caption 65px before it,
+       evidence/MATRIX-R0634-date); c02's geometry is kept. */
+    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115, cap: { left: 9 } }],
+    /* evidence/MATRIX-R0634-date: Last Modified on a modified record */
+    createdLine: { modified: 'when-set' },
     created: '2025.02.26  13:59  (RN) FLYNN, DEREK',
   },
 
@@ -756,12 +920,29 @@ Object.assign(reportScreens, {
       /* widths read off the 2026-09-29 TRAINING capture c15 */
       { key: 'chart', header: 'Chart', width: 65, align: 'center' },
       dots('d1'),
-      { key: 'name', header: 'Name', width: 152, align: 'center' },
-      { key: 'relationship', header: 'Relationship', width: 115, align: 'center' },
-      { key: 'condition', header: 'Condition' },
-      dots('d2'),
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      /* MOIS DEV, evidence/MATRIX-R0645-relationship (1x): Name and
+         Relationship left-aligned */
+      { key: 'name', header: 'Name', width: 152 },
+      /* the current row's Relationship is an in-cell drop-down headed
+         "Relationship" (evidence/MATRIX-R0645-relationship). The capture
+         shows the list's first sixteen entries and a scroll bar; what
+         follows Granddaughter is not captured, so the list stops there. */
+      {
+        key: 'relationship', header: 'Relationship', width: 115,
+        ddw: {
+          header: 'Relationship', listW: 132,
+          options: [
+            'Father', 'Mother', 'Mat. Grandfather', 'Pat. Grandfather', 'Mat. Grandmother', 'Pat. Grandmother',
+            'Uncle', 'Aunt', 'Brother', 'Sister', 'Wife', 'Husband', 'Son', 'Daughter', 'Grandson', 'Granddaughter',
+          ],
+        },
+      },
+      /* DEV sizes this column too and its band stops after the clip
+         (MATRIX-R0643) */
+      { key: 'condition', header: 'Condition', width: 298 },
+      { ...dots('d2'), width: 19 },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     /* evidence/MATRIX-R0649-comment */
     rows: [
@@ -773,8 +954,10 @@ Object.assign(reportScreens, {
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 6, w: '100%' }],
     right: [],
-    /* c15: the caption at the left margin, one wide box under the grid */
-    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115 }],
+    /* c15: the caption at the left margin, one wide box under the grid; the
+       caption 88px before the box (MOIS DEV evidence/MATRIX-R0645-relationship) */
+    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115, cap: { left: 9 } }],
+    createdLine: { modified: 'when-set' },
     created: '2025.05.07  13:53  MCKENZIE, KRISTEN',
   },
 
@@ -782,16 +965,20 @@ Object.assign(reportScreens, {
   alerts: {
     title: 'Alert',
     commands: SIMPLE, disabled: DIS, plain: true,
+    /* widths and alignment from MOIS DEV, evidence/MATRIX-R1234-start (1x):
+       Code left-aligned */
     columns: [
-      { key: 'start', header: 'Start', width: 82, align: 'center' },
+      { key: 'start', header: 'Start', width: 78, align: 'center' },
       { key: 'end', header: 'End', width: 78, align: 'center' },
-      { key: 'code', header: 'Code', width: 76, align: 'center' },
-      dots('d'),
-      { key: 'desc', header: 'Description', width: 230 },
-      { key: 'detail', header: 'Detail' },
-      { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'code', header: 'Code', width: 72 },
+      { ...dots('d'), width: 17 },
+      { key: 'desc', header: 'Description', width: 217 },
+      /* DEV sizes this column too and its band stops after the clip
+         (MATRIX-R1234) */
+      { key: 'detail', header: 'Detail', width: 251 },
+      { key: 's', header: 'S', width: 28, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     rows: [
       { start: '', end: '', code: '', desc: 'MAIL', detail: '', m: '', clip: '1' },
@@ -811,6 +998,20 @@ Object.assign(reportScreens, {
       { label: 'Comment:', kind: 'area', rows: 6, w: '100%' },
     ],
     right: [],
+    /* painted as MOIS DEV draws it, evidence/MATRIX-R1234-start and
+       R1243-detail (1x): Detail across the page, the Sensitive tick with its
+       "Yes" under it, the Comment box below; every caption 8px in */
+    painted: [
+      { label: 'Detail:', kind: 'text', x: 101, y: 8, w: 699, cap: { left: 8 } },
+      { label: 'Sensitive:', kind: 'check', x: 128, y: 31, w: 40, value: 'Yes', cap: { left: 8 } },
+      { label: 'Comment:', kind: 'area', x: 101, y: 50, w: 699, h: 115, cap: { left: 8 } },
+    ],
+    /* the page is 40px deeper than Family Hx's, as DEV's is (R1234-start:
+       Detail page 174 tall against Family Hx's 134, R0645-relationship), so
+       the grid gives that back */
+    gridHeight: 356,
+    /* R1234-start: Last Modified 348px after Created on a modified alert */
+    createdLine: { modified: 'when-set' },
     created: '2025.11.06  09:26  BLANCO, ELYN',
   },
 
@@ -871,14 +1072,17 @@ Object.assign(reportScreens, {
   socialhx: {
     title: 'Social History',
     commands: SIMPLE, disabled: DIS, plain: true,
+    /* widths from MOIS DEV, evidence/MATRIX-R0784-start (1x) */
     columns: [
-      { key: 'start', header: 'Start', width: 86, align: 'center' },
-      { key: 'end', header: 'End', width: 86, align: 'center' },
-      { key: 'desc', header: 'Description' },
-      dots('d'),
-      { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'start', header: 'Start', width: 76, align: 'center' },
+      { key: 'end', header: 'End', width: 77, align: 'center' },
+      /* DEV sizes this column too and its band stops after the clip
+         (MATRIX-R0784) */
+      { key: 'desc', header: 'Description', width: 543 },
+      { ...dots('d'), width: 17 },
+      { key: 's', header: 'S', width: 28, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 18, align: 'center' },
+      { ...clip, width: 18 },
     ],
     rows: [
       { start: '', end: '', desc: '', s: '', m: '', clip: '-' },
@@ -886,23 +1090,28 @@ Object.assign(reportScreens, {
     ],
     left: [{ label: 'Comment:', kind: 'area', rows: 7, w: '100%' }],
     right: [],
-    /* set 3 c29 */
-    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115 }],
+    /* set 3 c29; the caption 88px before the box (MOIS DEV
+       evidence/MATRIX-R0784-start) */
+    painted: [{ label: 'Comment:', kind: 'area', x: 97, y: 8, w: 690, h: 115, cap: { left: 9 } }],
+    createdLine: { modified: 'when-set' },
     created: '2025.02.13  07:41  WARKENTIN, LISA',
   },
 
 
+  /* evidence/MATRIX-R0991-start (DEV v02.31.23, 100%): the view header is
+     singular, "Barrier to Care" (the tree node is plural), and the grid is
+     Start 70 · End 71 · Barrier to Care 550 · S 32 · M 30 · paperclip 20 —
+     no "…" column */
   barriers: {
-    title: 'Barriers to Care',
+    title: 'Barrier to Care',
     commands: SIMPLE, disabled: DIS, plain: true,
     columns: [
-      { key: 'start', header: 'Start', width: 82, align: 'center' },
-      { key: 'end', header: 'End', width: 78, align: 'center' },
-      { key: 'barrier', header: 'Barrier to Care' },
-      dots('d'),
-      { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'start', header: 'Start', width: 70, align: 'center' },
+      { key: 'end', header: 'End', width: 71, align: 'center' },
+      { key: 'barrier', header: 'Barrier to Care', width: 550 },
+      { key: 's', header: 'S', width: 32, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 30, align: 'center' },
+      { ...clip, width: 20 },
     ],
     rows: [],
     tabs: ['Detail'],
@@ -914,17 +1123,18 @@ Object.assign(reportScreens, {
     created: '2026.08.12  09:00  JALIL, AHMAD',
   },
 
+  /* evidence/MATRIX-R1000-start: the column is "Patient Resource", and the
+     grid is Barrier to Care's geometry (70 · 71 · 550 · 32 · 30 · 20) */
   resources: {
     title: 'Patient Resources',
     commands: SIMPLE, disabled: DIS, plain: true,
     columns: [
-      { key: 'start', header: 'Start', width: 82, align: 'center' },
-      { key: 'end', header: 'End', width: 78, align: 'center' },
-      { key: 'resource', header: 'Resource' },
-      dots('d'),
-      { key: 's', header: 'S', width: 22, align: 'center', check: true },
-      { key: 'm', header: 'M', width: 22, align: 'center' },
-      clip,
+      { key: 'start', header: 'Start', width: 70, align: 'center' },
+      { key: 'end', header: 'End', width: 71, align: 'center' },
+      { key: 'resource', header: 'Patient Resource', width: 550 },
+      { key: 's', header: 'S', width: 32, align: 'center', check: true },
+      { key: 'm', header: 'M', width: 30, align: 'center' },
+      { ...clip, width: 20 },
     ],
     rows: [],
     tabs: ['Detail'],
@@ -978,7 +1188,9 @@ Object.assign(reportScreens, {
       'New Record', 'New AEFI', 'Edit AEFI', 'Delete Record', 'Save', 'Undo',
       'Refresh', 'Attachment', 'Elevate To Risk',
     ],
-    disabled: DIS, plain: true,
+    /* not plain: evidence/MATRIX-R0689-onset and R0695-onset (DEV v02.31.23)
+       print "Last Modified:" after Created on the event's footer line */
+    disabled: DIS,
     columns: [
       { key: 'onset', header: 'Onset', width: 88, align: 'center' },
       { key: 'agents', header: 'Agents', width: 340 },
@@ -989,8 +1201,11 @@ Object.assign(reportScreens, {
     rows: [],
     tabs: ['Detail', 'Agents', 'Reactions', 'Recommendations', 'Linked Reaction Risks'],
     /* set 3 c13–c18: fixed 138px tabs, the strip 22px higher than the other
-       folders' so Recommendations' form fits */
+       folders' so Recommendations' form fits. DEV agrees: the captions are
+       centred 140px apart (evidence/MATRIX-R0689-onset, R0695-onset) */
     fixedTabs: true,
+    tabWidth: 138,
+    createdLine: { modified: 'always', detailOnly: true },
     gridHeight: 222,
     left: [
       { label: 'Onset Date:', kind: 'date', w: 92, value: '' },

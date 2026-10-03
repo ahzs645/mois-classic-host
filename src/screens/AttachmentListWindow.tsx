@@ -105,7 +105,11 @@ export function AttachmentToolbar({ prefix, height, divided, icons, closeTint, o
   )
 }
 
-export type AttachmentListRow = { date: string; author: string; docType: string; note: string; file: string }
+export type AttachmentListRow = {
+  date: string; author: string; docType: string; note: string; file: string
+  /** a row for an attachment the export counts but does not carry: it has no file name to show */
+  exported?: boolean
+}
 
 /** The attachments the stage has filed on one record, by chart and record. */
 export function useAttachmentLog(target: string | null) {
@@ -126,7 +130,7 @@ export function AttachmentListWindow({ target, exported, onAddAttachment, onClos
   const { chart } = usePatient()
   const base: AttachmentListRow[] = [
     ...log,
-    ...Array.from({ length: exported }, () => ({ date: '', author: '', docType: 'ATTACHMENT', note: '', file: '' })),
+    ...Array.from({ length: exported }, () => ({ date: '', author: '', docType: 'ATTACHMENT', note: '', file: '', exported: true })),
   ]
   const [added, setAdded] = useState<AttachmentListRow[]>([])
   const rows = [...base, ...added]
@@ -168,7 +172,7 @@ export function AttachmentListWindow({ target, exported, onAddAttachment, onClos
         <div className="pb-form" style={{ flex: 'none', gridTemplateColumns: '120px 410px 1fr 360px', padding: '6px 10px', gap: '3px 8px', borderTop: '1px solid #a0a0a0', background: 'var(--pb-face)' }}>
           {label('Note:')}<PBInput w={404} readOnly value={r?.note ?? ''} />
           <span />
-          <span style={{ textAlign: 'right' }}>File Name: {r?.file || (r?.docType ? `${chart}_${500000 + cur}.pdf` : '')}</span>
+          <span style={{ textAlign: 'right' }}>File Name: {r?.file || (r?.docType && !r.exported ? `${chart}_${500000 + cur}.pdf` : '')}</span>
           {label('Attending:')}<PBLookup w={410} />{label('Primary Recipient:')}<PBLookup w={354} />
           {label('Author:')}<PBLookup w={410} value={r?.author ?? ''} />{label('Copies To:')}<PBLookup w={354} />
           {label('Responsible Org.:')}<PBLookup w={410} />{label('Facility:')}<PBInput w={354} />

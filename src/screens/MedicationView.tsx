@@ -96,17 +96,29 @@ import './medication.css'
      CPP HX (`d7ec0802…`, `ce34e801…`).
    ========================================================================= */
 
+/** what is left of a medication grid's width: the DataWindow's own white,
+    not a column (c19; evidence/MATRIX-R0754-comment) */
+const PAD_COLUMN: PBColumn<Med> = {
+  key: '_pad', header: <span style={{ position: 'absolute', inset: 0, background: 'var(--pb-dw-row)' }} />,
+  render: () => <span style={{ display: 'block', margin: '0 calc(-1 * var(--pb-dw-pad-x, 4px))', height: 'var(--pb-dw-row-h)', background: 'var(--pb-dw-row)' }} />,
+}
+
+/* Rx - Prescription's grid, measured off evidence/MATRIX-R0754-comment and
+   MATRIX-R0741-order (MOIS DEV v02.31.23, the window at 100%): gutter 17 ·
+   Order 78 · Medication 338 · … 17 · Dose / Frequency 140 (text left,
+   caption centred) · … 16 · Amount 98 · Type 53 · M 18 · the paper clip 18,
+   then the DataWindow's own white to the edge — Long Term's build (c19). */
 const RX_COLUMNS: PBColumn<Med>[] = [
-  { key: 'order', header: 'Order', width: 84, align: 'center' },
-  { key: 'med', header: 'Medication' },
-  { key: 'd1', header: '', dots: true },
-  /* left-aligned, as #36 paints them */
-  { key: 'dose', header: 'Dose / Frequency', width: 150 },
-  { key: 'd2', header: '', dots: true },
-  { key: 'amount', header: 'Amount', width: 110 },
-  { key: 'type', header: 'Type', width: 56, align: 'center' },
-  { key: 'm', header: 'M', width: 22, align: 'center' },
-  { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center' },
+  { key: 'order', header: 'Order', width: 78, align: 'center' },
+  { key: 'med', header: 'Medication', width: 338, headAlign: 'center' },
+  { key: 'd1', header: '', dots: true, width: 17 },
+  { key: 'dose', header: 'Dose / Frequency', width: 140, headAlign: 'center' },
+  { key: 'd2', header: '', dots: true, width: 16 },
+  { key: 'amount', header: 'Amount', width: 98, headAlign: 'center' },
+  { key: 'type', header: 'Type', width: 53, align: 'center' },
+  { key: 'm', header: 'M', width: 18, align: 'center' },
+  { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
+  PAD_COLUMN,
 ]
 
 /* both folders (user capture 2026-09-25 #36 Rx, #45 LTM (v02.31.23)) */
@@ -131,11 +143,7 @@ const LTM_COLUMNS: PBColumn<Med>[] = [
   { key: 'type', header: 'Type', width: 53, align: 'center' },
   { key: 'm', header: 'M', width: 18, align: 'center' },
   { key: 'clip', header: '', width: 18, align: 'center' },
-  /* what is left of the width: the DataWindow's own white, not a column */
-  {
-    key: '_pad', header: <span style={{ position: 'absolute', inset: 0, background: 'var(--pb-dw-row)' }} />,
-    render: () => <span style={{ display: 'block', margin: '0 calc(-1 * var(--pb-dw-pad-x, 4px))', height: 'var(--pb-dw-row-h)', background: 'var(--pb-dw-row)' }} />,
-  },
+  PAD_COLUMN,
 ]
 const LTM_GRID_STYLE = { ['--pb-dw-row-h' as string]: '18px', ['--pb-dw-gutter-width' as string]: '17px' }
 
@@ -305,16 +313,17 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
 
   const dots = (m: Med, i: number, which: 'd1' | 'd2') => (
     <button
-      type="button" className={rx ? 'pb-dw__dots' : undefined}
-      /* c19 prints Long Term's "..." as bare text, bold on the current row */
-      style={rx ? undefined : { all: 'unset', display: 'block', width: '100%', textAlign: 'center', letterSpacing: 0, fontWeight: i === cur ? 700 : undefined, color: i === cur ? '#000' : undefined }}
+      type="button"
+      /* c19 prints Long Term's "..." as bare text, bold on the current row;
+         so does Rx (evidence/MATRIX-R0754-comment), not a dots button */
+      style={{ all: 'unset', display: 'block', width: '100%', textAlign: 'center', letterSpacing: 0, fontWeight: i === cur ? 700 : undefined, color: i === cur ? '#000' : undefined }}
       data-tutorial-id={i === cur ? `host.mois.lookup.${which === 'd1' ? 'medication' : 'dose'}` : undefined}
       onMouseDown={() => setCur(i)}
       onClick={() => {
         if (m !== draft) startDraft({ ...m, id: newMedId(mode), order: MOIS_TODAY, record: undefined, voided: undefined })
         win.open(which === 'd1' ? MED_WINDOWS.drugLookup : MED_WINDOWS.doseWizard)
       }}
-    >{rx ? '…' : '...'}</button>
+    >...</button>
   )
   const columns = (rx ? RX_COLUMNS : LTM_COLUMNS).map((c) => (
     c.key === 'd1' || c.key === 'd2'
@@ -359,8 +368,11 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         : <div className="pb-row" style={{ padding: '0 0 0 4px', height: 25.5, flex: 'none' }} data-tutorial-id="host.mois.field.review-banner">Long Term Medications have not been reviewed for this patient</div>)}
 
       <div
-        /* c19: Long Term's grid runs flush to the work area's edges, 237px tall */
-        style={{ padding: rx ? '0 3px' : 0, height: rx ? 256 : 237, flex: 'none', display: 'flex', position: 'relative' }}
+        /* c19: Long Term's grid runs flush to the work area's edges, 237px tall.
+           Rx's does too (evidence/MATRIX-R0754-comment), and with no review
+           band over it the grid takes that band's 25.5px: its detail pane
+           starts where Long Term's does */
+        style={{ padding: 0, height: rx ? 262.5 : 237, flex: 'none', display: 'flex', position: 'relative' }}
         onContextMenu={(e) => {
           const tr = (e.target as HTMLElement).closest('tbody tr')
           if (!tr) return
@@ -376,7 +388,7 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
           onCurrentChange={setCur}
           rowClassName={(m) => (m.voided ? 'pb-dw--struck' : !rx && m.end ? 'pb-dw--checked' : undefined)}
           rowTutorialId={(m) => `host.mois.row.${rowSlug(m)}`}
-          style={rx ? undefined : LTM_GRID_STYLE}
+          style={LTM_GRID_STYLE}
           empty={rx ? 'No prescriptions on file.' : 'No long term medications on file.'}
         />
         {/* reported as `host.dialog = 'record-option-list'` while it is down,
@@ -384,34 +396,26 @@ export function MedicationView({ mode }: { mode: 'rx' | 'ltm' }) {
         {menuAt && <RowContextMenu at={menuAt} items={contextItems} onClose={() => setMenuAt(null)} reportDialog="record-option-list" />}
       </div>
 
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: rx ? '4px 3px 0' : '0 0 11.5px 5px' }}>
-        <div data-tutorial-id="host.mois.group.medication-detail" style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-face)', border: rx ? '1px solid var(--pb-border)' : 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* both folders' detail pane is c19's (evidence/MATRIX-R0754-comment
+          draws Rx's to the same measure) */}
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 0 11.5px 5px' }}>
+        <div data-tutorial-id="host.mois.group.medication-detail" style={{ flex: '1 1 auto', minWidth: 0, background: 'var(--pb-face)', border: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <PBTabs tabs={DETAIL_TABS} active={detailTab} onChange={setDetailTab} compact>
             <DetailPage key={current?.id ?? 'none'} rx={rx} cpp={detailTab === 'CPP'} med={current} onPrintHistory={() => win.open(MED_WINDOWS.history)} />
-            {/* c19: Long Term's Created line and ENC# link sit inside the tab
-                page, under a rule, the value on the fields' left edge */}
-            {!rx && (
-              <div className="pb-row" style={{ marginTop: 'auto', padding: '0 3px 14px 8px', height: 28.5, borderTop: '1px solid #c8c8c8', gap: 0, flex: 'none' }}>
-                <span style={{ width: 76, flex: 'none' }}>Created:</span>
-                <span>{current?.created}</span>
-                {current?.modified && <><span style={{ width: 24 }} /><span>Last Modified: {current.modified}</span></>}
-                <span className="pb-row__spacer" />
-                <button className="pb-link">ENC# {current?.encounter && current.encounter !== '-1' ? current.encounter : 'EMPTY'}</button>
-              </div>
-            )}
+            {/* c19: the Created line and ENC# link sit inside the tab page,
+                under a rule, the value on the fields' left edge — on Rx too
+                (evidence/MATRIX-R0754-comment). Last Modified starts 348px
+                in, where R0754 prints it after a stamp of either length */}
+            <div className="pb-row" style={{ marginTop: 'auto', padding: '0 3px 14px 8px', height: 28.5, borderTop: '1px solid #c8c8c8', gap: 0, flex: 'none' }}>
+              <span style={{ width: 76, flex: 'none' }}>Created:</span>
+              <span style={current?.modified ? { minWidth: 272, flex: 'none', whiteSpace: 'pre' } : { whiteSpace: 'pre' }}>{current?.created}</span>
+              {current?.modified && <span style={{ whiteSpace: 'pre' }}>Last Modified: {current.modified}</span>}
+              <span className="pb-row__spacer" />
+              <button className="pb-link">ENC# {current?.encounter && current.encounter !== '-1' ? current.encounter : 'EMPTY'}</button>
+            </div>
           </PBTabs>
         </div>
       </div>
-
-      {rx && (
-        <div className="pb-row" style={{ padding: '2px 8px 4px', borderTop: '1px solid #d6d6d6', gap: 0 }}>
-          <span>Created: {current?.created}</span>
-          <span style={{ width: 24 }} />
-          {current?.modified && <span>Last Modified: {current?.modified}</span>}
-          <span className="pb-row__spacer" />
-          <button className="pb-link">ENC# {current?.encounter && current.encounter !== '-1' ? current.encounter : 'EMPTY'}</button>
-        </div>
-      )}
 
       {/* ---- the windows this folder raises ---- */}
       {win.is(MED_WINDOWS.drugLookup) && (
@@ -618,24 +622,34 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
      labels 14.5px in, a 77px label column, 408px fields (ATC 87 · Started By
      233.5) 17px tall, Generic Name 44 · Instructions 102 · Office Note 45,
      2px apart; the tick block and Dose Detail in a 296.5px column 9.5px to
-     their right */
-  const lt = !rx
+     their right.
+     Rx's is the same pane (evidence/MATRIX-R0754-comment, MATRIX-R0749-atc-code
+     … R0755, MOIS DEV v02.31.23 at 100%): every box on Long Term's rows, the
+     "Ordered By:" caption left-aligned 8px after ATC Code, Office Note 34px
+     tall so "Last Printed:" fits under it on the fields' edge, and Repeat
+     [tick] [42px box] ✗ under PRN. */
+  /* a dose tree to draw: Rx keeps #36's rule; on Long Term a free-text dose
+     has none (evidence/MATRIX-R0724-start: the "2 mg daily" row draws no Dose
+     Detail box, where #45's wizard-built row draws "duration: 0.0 ENTER ON
+     RENEW") */
+  const tree = !!med && (rx ? !!(med.dispense || med.dose) : med.doses.length > 0 || !!med.dispense || (med.doseKind === 'S' && !!med.dose))
+  const label = { lineHeight: '17px' }
   return (
-    <div className="pb-medication-detail" style={{ display: 'flex', gap: lt ? 9.5 : 8, padding: lt ? '4px 0 0 9.5px' : '6px 8px', alignItems: lt ? 'stretch' : 'flex-start', minWidth: 0, ...(lt ? { ['--pb-row-h' as string]: '17px' } : null) }}>
-      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: lt ? '77px 408px' : '78px 1fr', gap: lt ? '2px 0' : undefined, flex: lt ? 'none' : '1 1 auto', minWidth: 0, alignItems: 'start' }}>
-        <span className="pb-form__label" style={{ lineHeight: lt ? '17px' : '19px' }}>ATC Code:</span>
-        <div className="pb-row" style={lt ? { gap: 0 } : undefined}>
-          <PBInput w={lt ? 87 : 84} readOnly defaultValue={med?.atc ?? ''} style={{ background: 'var(--pb-face)' }} />
-          {lt
-            ? <span style={{ width: 84, flex: 'none', textAlign: 'right', paddingRight: 7 }}>Started By:</span>
-            : <span style={{ marginLeft: 8 }}>Ordered By:</span>}
-          <PBLookup w={lt ? 233.5 : 206} defaultValue={med?.orderBy ?? ''} />
+    <div className="pb-medication-detail" style={{ display: 'flex', gap: 9.5, padding: '4px 0 0 9.5px', alignItems: 'stretch', minWidth: 0, ['--pb-row-h' as string]: '17px' }}>
+      <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '77px 408px', gap: '2px 0', flex: 'none', minWidth: 0, alignItems: 'start' }}>
+        <span className="pb-form__label" style={label}>ATC Code:</span>
+        <div className="pb-row" style={{ gap: 0 }}>
+          <PBInput w={87} readOnly defaultValue={med?.atc ?? ''} style={{ background: 'var(--pb-face)' }} />
+          {rx
+            ? <span style={{ width: 84, flex: 'none', paddingLeft: 8 }}>Ordered By:</span>
+            : <span style={{ width: 84, flex: 'none', textAlign: 'right', paddingRight: 7 }}>Started By:</span>}
+          <PBLookup w={233.5} defaultValue={med?.orderBy ?? ''} />
         </div>
 
-        <span className="pb-form__label" style={{ lineHeight: lt ? '17px' : '19px' }}>Generic Name:</span>
-        <PBTextArea rows={2} w="100%" readOnly defaultValue={med?.generic ?? ''} style={{ background: 'var(--pb-face)', ...(lt ? { height: 44 } : null) }} />
+        <span className="pb-form__label" style={label}>Generic Name:</span>
+        <PBTextArea rows={2} w="100%" readOnly defaultValue={med?.generic ?? ''} style={{ background: 'var(--pb-face)', height: 44 }} />
 
-        <span className="pb-form__label" style={{ lineHeight: lt ? '17px' : '19px' }}>Indication:</span>
+        <span className="pb-form__label" style={label}>Indication:</span>
         <PBLookup w="100%" />
 
         {cpp ? (
@@ -669,17 +683,17 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
             <span className="pb-form__label" style={{ lineHeight: '14px' }}>
               {rx ? <>Comment:<br /><br />Printed on<br />Prescription</> : <>Instructions:<br /><br />(copied to<br />prescriptions)</>}
             </span>
-            <PBTextArea rows={5} w="100%" defaultValue={med?.comment ?? ''} style={lt ? { height: 102 } : undefined} />
+            <PBTextArea rows={5} w="100%" defaultValue={med?.comment ?? ''} style={{ height: 102 }} />
 
             <span className="pb-form__label" style={{ lineHeight: '14px' }}>Office Note<br />(not Printed):</span>
-            <PBTextArea rows={2} w="100%" defaultValue={med?.office ?? ''} data-tutorial-id="host.mois.field.office-note" style={lt ? { height: 45 } : undefined} />
+            <PBTextArea rows={2} w="100%" defaultValue={med?.office ?? ''} data-tutorial-id="host.mois.field.office-note" style={{ height: rx ? 34 : 45 }} />
           </>
         )}
 
         {rx && (
           <>
             <span />
-            <div className="pb-row" style={{ gap: 0 }}>
+            <div className="pb-row" style={{ gap: 0, height: 17 }}>
               <span style={{ width: 70 }}>Last Printed:</span>
               <span style={{ width: 140 }}>{med?.lastPrinted}</span>
               {med?.lastPrinted && (
@@ -692,13 +706,13 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
 
       {/* the instruction flags and the Dose Detail tree, on the right. The
           box is white with a bold "Dose Detail" caption over a black rule
-          (user capture 2026-09-25 #45 (v02.31.23)); on Rx it is drawn only
-          for a row with a dose tree (#36) */}
-      <div style={{ width: lt ? 296.5 : 340, flex: 'none', alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
-        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: lt ? '58px 1fr' : '68px 1fr', gap: lt ? '0px 14px' : '0px 6px' }}>
+          (user capture 2026-09-25 #45 (v02.31.23)); it is drawn only for a
+          row with a dose tree (#36; evidence/MATRIX-R0724-start) */}
+      <div style={{ width: 296.5, flex: 'none', alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}>
+        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '58px 1fr', gap: '0px 14px' }}>
           <span className="pb-form__label pb-form__label--right">Instructions:</span>
-          <div className="pb-row" style={{ gap: lt ? 0 : 18 }}>
-            <span style={lt ? { width: 118.5, flex: 'none' } : { display: 'contents' }}><PBCheckbox label="Do Not Substitute" checked={med?.record?.str_no_substitute === 'Y'} /></span>
+          <div className="pb-row" style={{ gap: 0 }}>
+            <span style={{ width: 118.5, flex: 'none' }}><PBCheckbox label="Do Not Substitute" checked={med?.record?.str_no_substitute === 'Y'} /></span>
             <PBCheckbox label="Do Not Adapt" checked={med?.record?.str_do_not_adapt === 'Y'} />
           </div>
           <span className="pb-form__label pb-form__label--right">PRN:</span>
@@ -706,13 +720,15 @@ function DetailPage({ rx, cpp = false, med, onPrintHistory }: { rx: boolean; cpp
           {rx && (
             <>
               <span className="pb-form__label pb-form__label--right">Repeat:</span>
-              <div className="pb-row">
-                <PBCheckbox checked={med?.record?.str_refill === 'Y'} /><PBInput w={46} defaultValue={med?.record?.str_refill === 'Y' ? med.record.num_repeat ?? '' : ''} /><span style={{ fontWeight: 700 }}>&#10007;</span>
+              <div className="pb-row" style={{ gap: 0 }}>
+                <PBCheckbox checked={med?.record?.str_refill === 'Y'} />
+                <span style={{ marginLeft: 5, display: 'inline-flex' }}><PBInput w={42} defaultValue={med?.record?.str_refill === 'Y' ? med.record.num_repeat ?? '' : ''} /></span>
+                <span style={{ marginLeft: 4, fontWeight: 700 }}>&#10005;</span>
               </div>
             </>
           )}
         </div>
-        {(!rx || (med && (med.dispense || med.dose))) && (
+        {tree && (
           <div data-tutorial-id="host.mois.group.dose-detail" style={{ marginTop: rx ? 8 : 32, flex: '1 1 auto', minHeight: 118, border: '1px solid #000', background: '#fff' }}>
             <div style={{ fontWeight: 700, padding: '0 4px', borderBottom: '1px solid #000' }}>Dose Detail</div>
             <DoseTree med={med} rx={rx} />

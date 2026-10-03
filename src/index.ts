@@ -26,3 +26,11 @@ export { JorgListWindow, ServiceLocationSelectionWindow } from './screens/JorgLo
 /* Encounter ID, which a Dynamic Form's "Encounter Date:" link opens */
 export { PreferenceEncounterDialog } from './screens/PreferenceEncounterDialog'
 export { NOT_ASSIGNED, dformServiceLocations, jorgUnits, type JorgUnit, type ServiceLocation } from './data/jorg'
+/* the MOIS Data Dictionary joined to the stage, and Ctrl+Shift+A's lookup of
+   the control under the cursor — what the stage's field explorer selects on
+   screen and shows a field with */
+export {
+  DATA_DICTIONARY, auditAnswer, dictionaryEntry, entryNode, workbookCorrection,
+  type AuditAnswer, type DictionaryEntry,
+} from './data/dataDictionary'
+export { auditTargetOf, auditableControls, captionUnit, describeAuditTarget, findControlForEntry } from './host/field-audit'

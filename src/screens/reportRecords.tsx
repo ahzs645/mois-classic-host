@@ -1,11 +1,11 @@
-import { useMemo } from 'react'
+import { useContext, useMemo } from 'react'
 import type { MoisRecord } from '../data/charts'
 import { useFolderReviews } from '../data/folder-reviews'
 import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import { useScreenWindow, useSessionState } from '../host/screen-windows'
-import type { PBCommand } from '../pb'
+import { PBActiveEncounterContext, type PBCommand } from '../pb'
 import { practiceRecords } from '../data/practiceRecords'
 import { setNoKnown, storedItems, useAllergySession } from '../data/allergySession'
 import { SESSION_USER } from '../data/chartSession'
@@ -44,7 +44,8 @@ import { useDraftRecords } from './listKit'
    Reaction Risks' `No Known` files the `** NO KNOWN **` assertion when the
    list is empty (and says why not when it is not — INFERRED, the article only
    gives the empty case), and Adverse Events' `Elevate To Risk` opens the
-   Elevate Event To a Reaction Risk window for the current event.
+   Elevate Event To a Reaction Risk window for the current event; New AEFI /
+   Edit AEFI open the AEFI form (screens/AefiWindow.tsx).
 
    Measures and Preferences have their own handlers and are left alone.
    ========================================================================= */
@@ -83,6 +84,7 @@ export function useReportRecords({
   const [reviews] = useFolderReviews(node)
   const [session, setSession] = useSessionState<Session>(`report:${chart}:${node}`, { added: [], removed: [] })
   const allergy = useAllergySession(chart)
+  const encounter = useContext(PBActiveEncounterContext)
 
   /* the export's rows, then any practice record this folder carries (see
      data/practiceRecords.ts), keyed so a removal survives re-ordering */
@@ -160,6 +162,18 @@ export function useReportRecords({
         onApply: (applied: QuickEntryApplied) => { applyQuickEntry(applied); act.mark('saved', true) },
       }),
     } : c),
+    /* art. 303131: "To create an AEFI you must first select an encounter
+       number. The 'Edit AEFI' screen will then open." With no Active ENC#
+       New AEFI raises the Encounter List (INFERRED: what MOIS says first is
+       not captured); Edit AEFI opens the current event's form. */
+    'New AEFI': (c) => (node !== 'events' ? c : {
+      ...c,
+      onClick: () => { if (encounter && !encounter.encounter) encounter.onLookup?.(); else win.open(ADVERSE_WINDOWS.aefi) },
+    }),
+    'Edit AEFI': (c) => (node !== 'events' ? c : {
+      ...c, disabled: !list[cur],
+      onClick: () => { const r = list[cur]; if (r) win.open(ADVERSE_WINDOWS.aefi, { event: r.record?.id_adverse_event ?? r.row.__key ?? '' }) },
+    }),
     'Elevate To Risk': (c) => (node !== 'events' ? c : {
       ...c, disabled: !list[cur],
       onClick: () => { const r = list[cur]; if (r) win.open(ADVERSE_WINDOWS.elevate, { event: r.record?.id_adverse_event ?? r.row.__key ?? '' }) },

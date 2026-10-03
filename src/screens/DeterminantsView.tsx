@@ -402,6 +402,15 @@ function Footer({ row }: { row?: HistoryRow }) {
 const label = (text: string, style?: CSSProperties) => <span className="pb-form__label" style={{ whiteSpace: 'nowrap', ...style }}>{text}</span>
 
 /* --- Employment ------------------------------------------------------------ */
+/** Employer Information's form (evidence/MATRIX-R0291-occupation … R0302):
+    caption 70.5 | field 121 | right caption 71 | field 92, rows 16 on a 20px pitch */
+const EMPLOYER_GRID: CSSProperties = {
+  display: 'grid', gridTemplateColumns: '70.5px 121px 71px 92px', gridAutoRows: 16, rowGap: 4,
+  alignItems: 'center', padding: '2px 0 3px 2.5px', ['--pb-row-h' as string]: '16px',
+}
+const WIDE: CSSProperties = { gridColumn: '2 / 5', display: 'flex' }
+const RIGHT_CAPTION: CSSProperties = { justifySelf: 'end', textAlign: 'right', paddingRight: 5 }
+
 
 function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, focus, setFocus, filters, setFilter, onPick }: TabProps & {
   filters: Record<string, string>; setFilter: (k: string, v: string) => void
@@ -455,21 +464,30 @@ function EmploymentTab({ rows, cur, setCur, edit, onNew, onDelete, focus, setFoc
       />
       {row && (
         <>
-          <div style={{ flex: '1 1 auto', minHeight: 190, display: 'flex', gap: 6, padding: '2px 8px 4px' }}>
-            <PBGroup title="Employer Information" style={{ width: 400, flex: 'none' }}>
-              <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '72px 1fr', rowGap: 2 }}>
+          {/* R0302: Employer Information 13px in and 389.5 wide, General
+              Notes 8.5px after it, 9.5px short of the pane's edge */}
+          <div style={{ flex: '1 1 auto', minHeight: 190, display: 'flex', gap: 8.5, padding: '2px 9.5px 4px 13px' }}>
+            <PBGroup title="Employer Information" style={{ width: 389.5, flex: 'none' }}>
+              {/* evidence/MATRIX-R0291-occupation … R0302-general-notes (MOIS DEV
+                  v02.31.23 at 100%): 16px boxes on a 20px pitch, captions 13px
+                  into the box and fields at 83.5; the long fields 284 wide,
+                  City / Province 121 and Office - Main / Office Fax 85, the
+                  right-hand captions ending at 270.5 over 92px fields that
+                  end flush with the long ones. Occupation mirrors the grid's
+                  cell, greyed (it is picked with the "…") */}
+              <style>{'.pb-det-occupation .pb-field{color:#6d6d6d}'}</style>
+              <div style={EMPLOYER_GRID}>
                 {label('Occupation:')}
-                <PBLookup w="100%" value={row.occupation ?? ''} readOnly name="employment-occupation" onDots={() => onPick(row.key, 'occupation', 'occupation')} />
-                {label('Company:')}<PBInput w={286} {...bind('company')} data-tutorial-id="host.mois.field.employment-company" />
-                {label('Address:')}<PBInput w={286} {...bind('address')} data-tutorial-id="host.mois.field.employment-address" />
-                <span /><PBInput w={286} {...bind('address2')} />
-                {label('City:')}
-                <div className="pb-row" style={{ gap: 6 }}><PBInput w={120} {...bind('city')} />{label('Postal Code:', { width: 72, textAlign: 'right' })}<PBInput w={88} {...bind('postal')} /></div>
-                {label('Province:')}
-                <div className="pb-row" style={{ gap: 6 }}><PBInput w={120} {...bind('province')} />{label('Country:', { width: 72, textAlign: 'right' })}<PBInput w={88} {...bind('country')} /></div>
-                {label('Office - Main:')}
-                <div className="pb-row" style={{ gap: 6 }}><PBInput w={120} {...bind('phoneMain')} data-tutorial-id="host.mois.field.employment-phone" />{label('Office - Other:', { width: 72, textAlign: 'right' })}<PBInput w={88} {...bind('phoneOther')} /></div>
-                {label('Office Fax:')}<PBInput w={86} {...bind('fax')} />
+                <span className="pb-det-occupation" style={{ gridColumn: '2 / 5', display: 'flex' }}>
+                  <PBLookup w={300} value={row.occupation ?? ''} readOnly name="employment-occupation" onDots={() => onPick(row.key, 'occupation', 'occupation')} />
+                </span>
+                {label('Company:')}<span style={WIDE}><PBInput w={284} {...bind('company')} data-tutorial-id="host.mois.field.employment-company" /></span>
+                {label('Address:')}<span style={WIDE}><PBInput w={284} {...bind('address')} data-tutorial-id="host.mois.field.employment-address" /></span>
+                <span /><span style={WIDE}><PBInput w={284} {...bind('address2')} /></span>
+                {label('City:')}<PBInput w={121} {...bind('city')} />{label('Postal Code:', RIGHT_CAPTION)}<PBInput w={92} {...bind('postal')} />
+                {label('Province:')}<PBInput w={121} {...bind('province')} />{label('Country:', RIGHT_CAPTION)}<PBInput w={92} {...bind('country')} />
+                {label('Office - Main:')}<PBInput w={85} {...bind('phoneMain')} data-tutorial-id="host.mois.field.employment-phone" />{label('Office - Other:', RIGHT_CAPTION)}<PBInput w={92} {...bind('phoneOther')} />
+                {label('Office Fax:')}<PBInput w={85} {...bind('fax')} />
               </div>
             </PBGroup>
             <PBGroup title="General Notes" style={{ flex: '1 1 auto', minWidth: 0 }}>

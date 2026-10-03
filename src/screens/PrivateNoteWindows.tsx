@@ -98,16 +98,36 @@ function Group({ caption, disabled, children }: { caption: string; disabled?: bo
 
 /* --- the Progress Note(s) band's private-note state ----------------------- */
 
+/** A note the chart export itself marks private (tdt_encounter_note.isprivate
+    = Y) before this session has an access list for it: private to its author
+    (or creator), whose owner record runs from the note's creation. The export
+    carries no access list, so nobody else is on it and Break Glass is left at
+    its default. A session record, once written, wins. */
+function exportedPrivateNote(chart: string, patient: string, encounter: string, note: SessionNote): PrivateNote {
+  const owner = note.author || note.createdBy
+  return {
+    id: noteId(chart, encounter, note.key), chart, patient, encounter, noteKey: note.key,
+    apptDate: '', apptTime: '', visitReason: '', owner, author: owner, creator: note.createdBy || owner,
+    reason: '', breakGlass: 'authorized', breakGlassUsers: [], alert: false, method: ALERT_METHODS[0]!, priority: ALERT_PRIORITIES[1]!,
+    access: [{ id: `export-${note.key}-owner`, who: owner, kind: 'owner', start: note.created.split(' ')[0] ?? '', stop: '', note: '' }],
+  }
+}
+
 /** What ProgressNotePage draws for the current note: the band's first
     button, the yellow band, and the text a reader without access sees. */
 export function usePrivateNoteBand(encounter: { id: string; date?: string; hr?: string; mn?: string; reason?: string }, note: SessionNote | null | undefined) {
   const patient = usePatient()
-  const [notes] = usePrivateNotes()
+  const [notes, setNote] = usePrivateNotes()
   const open = useOpenWindow()
   const mayMake = useSpecialFunction(FN_MAKE_PRIVATE)
   const mayBreak = useSpecialFunction(FN_BREAK_GLASS_PRIVATE)
   const id = note ? noteId(patient.chart, encounter.id, note.key) : ''
-  const pn = id ? notes[id] : undefined
+  const pn = id ? notes[id] ?? (note?.isPrivate
+    ? exportedPrivateNote(patient.chart, `${patient.last}, ${patient.first}`.toUpperCase(), encounter.id, note)
+    : undefined) : undefined
+  /* the access windows read the store, so an export-private note is written
+     to it before one of them opens */
+  const keep = () => { if (pn && !notes[id]) setNote(id, (n) => n ?? pn) }
   const priv = isPrivate(pn)
   const readable = !pn || !priv || canRead(pn, DESKTOP_USER)
   useScreenReport({ privateNote: !note ? null : priv ? (readable ? 'readable' : 'private') : 'none' })
@@ -120,10 +140,11 @@ export function usePrivateNoteBand(encounter: { id: string; date?: string; hr?: 
     visitReason: encounter.reason ?? '', author: note?.author || DESKTOP_USER, creator: note?.createdBy || DESKTOP_USER,
   }
   let button: { label: string; id: string; onClick: () => void } | null = null
-  if (priv && readable) button = { label: 'View Access', id: 'view-access', onClick: () => { open(PRIVATE_WINDOWS.access, { id }) } }
+  if (priv && readable) button = { label: 'View Access', id: 'view-access', onClick: () => { keep(); open(PRIVATE_WINDOWS.access, { id }) } }
   else if (priv && pn) {
     button = {
       label: 'Break Glass', id: 'break-glass', onClick: () => {
+        keep()
         if (!mayBreak || blockedByAuthor(pn, DESKTOP_USER)) open(PRIVATE_WINDOWS.blocked, { permission: !mayBreak })
         else open(PRIVATE_WINDOWS.breakGlass, { id })
       },
@@ -147,6 +168,7 @@ export function usePrivateNoteMask(encounterId: string): (notes: SessionNote[]) 
   const [notes] = usePrivateNotes()
   return (list) => list.map((n) => {
     const pn = notes[noteId(patient.chart, encounterId, n.key)]
+      ?? (n.isPrivate ? exportedPrivateNote(patient.chart, `${patient.last}, ${patient.first}`.toUpperCase(), encounterId, n) : undefined)
     return pn && isPrivate(pn) ? { ...n, text: privateLine(pn) } : n
   })
 }

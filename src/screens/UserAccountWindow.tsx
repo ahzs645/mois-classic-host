@@ -1,3 +1,6 @@
+import { useUserAccounts, useProviderRoster, accountSettingsKey, initialAccountSettings, accountOutcomes, type AccountSettings } from '../data/user-account-session'
+import { useSessionState } from '../host/screen-windows'
+import { CellSelect, CellText } from './adminKit'
 import { useState } from 'react'
 import { UserAgreementResponses } from './UserAgreementWindows'
 import {
@@ -33,6 +36,7 @@ import { useTickSet } from './listKit'
 import { useStoredList } from './adminSession'
 import { aliasKey } from './ProviderTabGrids'
 import { MOIS_TODAY as MOIS_TODAY_STAMP } from '../data/patients'
+import { ALIAS_SOURCES } from '../data/clinicManagement'
 
 /* ============================================================================
    Administration ▸ User Management ▸ User Accounts — the two editors.
@@ -103,12 +107,12 @@ function TabGrid({ columns, rows, pitch = 19 }: {
    ======================================================================== */
 
 /**
- * What `Create User` hands back. Only the three name fields are tracked: they
- * are what the new `User Accounts` row is made of, and — while the two
+ * What `Create User` hands back. The name fields and selected security profiles
+ * seed the local account. While the two
  * `Synchronize with Name Fields` boxes are ticked, which is their default —
  * what MOIS writes `Display Name` and `Signature` from.
  */
-export type NewUserDraft = { user: string; first: string; last: string }
+export type NewUserDraft = { user: string; first: string; last: string; profiles?: string[] }
 
 const NAME_FIELDS: Record<string, keyof NewUserDraft> = {
   'User Name:': 'user',
@@ -130,7 +134,7 @@ export function NewUserDialog({ onCreate, onClose }: {
   const [picker, setPicker] = useState(false)
   const [profiles, setProfiles] = useState<string[]>([])
   const [draft, setDraft] = useState<NewUserDraft>({ user: '', first: '', last: '' })
-  useScreenReport({ dialog: pbSlug(NEW_USER_TITLE) })
+  useScreenReport({ dialog: pbSlug(NEW_USER_TITLE), newUserReady: Boolean(draft.user.trim() && draft.first.trim() && draft.last.trim()) })
 
   return (
     <div className="pb-modal-layer pb-modal-layer--plain" style={{ zIndex: 80 }}>
@@ -166,7 +170,7 @@ export function NewUserDialog({ onCreate, onClose }: {
           </div>
 
           <DialogFooter frame="pb" buttons={footerButtons(NEW_USER_BUTTONS, {
-            wide: true, onPress: (b) => (b === 'Create User' ? onCreate(draft) : onClose()),
+            wide: true, onPress: (b) => (b === 'Create User' ? onCreate({ ...draft, profiles }) : onClose()),
           })} />
         </PBWindow>
       </div>
@@ -301,7 +305,11 @@ function NewUserControl({ field, draft, onDraft, profiles, onChangeProfiles }: {
 export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () => void }) {
   const host = usePBInstrumentation()
   const [tab, setTab] = useState(USER_ACCOUNT_TABS[0]!)
-  useScreenReport({ dialog: 'user-account' })
+  const [saved, saveSettings] = useSessionState<AccountSettings>(accountSettingsKey(row), initialAccountSettings(row))
+  const [savedAliases, saveAliases] = useSessionState<UserRow[] | null>(aliasKey('', String(row.display ?? '')), null)
+  const [draft, setDraft] = useState({ ...saved, aliases: savedAliases ?? saved.aliases })
+  const set = (patch: Partial<AccountSettings>) => setDraft(d => ({ ...d, ...patch }))
+  useScreenReport({ dialog: 'user-account', ...accountOutcomes(draft, row) })
 
   const display = String(row.display ?? '')
   const [last = '', first = ''] = display.split(',').map((s) => s.trim())
@@ -355,20 +363,21 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
 
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <PBTabs tabs={USER_ACCOUNT_TABS} active={tab} onChange={setTab} compact>
-              <UserAccountPage key={tab} tab={tab} row={row} />
+              <UserAccountPage key={tab} tab={tab} row={row} draft={draft} set={set} />
             </PBTabs>
           </div>
 
-          <DialogFooter frame="pb" buttons={footerButtons(USER_ACCOUNT_FOOTER, { wide: true, onPress: onClose })} />
+          <DialogFooter frame="pb" buttons={footerButtons(USER_ACCOUNT_FOOTER, { wide: true, onPress: b => { if (b === 'Apply Changes') { saveSettings({ ...draft, saves: saved.saves + 1 }); saveAliases(draft.aliases) }; onClose() } })} />
         </PBWindow>
       </div>
     </div>
   )
 }
 
-function UserAccountPage({ tab, row }: { tab: string; row: UserRow }) {
+type AccountDraftProps = { row: UserRow; draft: AccountSettings; set: (patch: Partial<AccountSettings>) => void }
+function UserAccountPage({ tab, row, draft, set }: AccountDraftProps & { tab: string }) {
   switch (tab) {
-    case 'User Account': return <UserAccountTab row={row} />
+    case 'User Account': return <UserAccountTab row={row} draft={draft} set={set} />
     case 'Module / Window Access': return <ModuleWindowAccessTab override />
     /* Tabs 3 and 4 are real — they are in the capture's strip — but only the
        SECURITY PROFILE versions of them were ever captured (`e361c4e01d11`,
@@ -381,8 +390,8 @@ function UserAccountPage({ tab, row }: { tab: string; row: UserRow }) {
     /* the user-level Report Access IS captured, in 304021 `9ca90685`
        (Override + Access / Print per report): screens/ReportAccessPane.tsx */
     case 'Report Access': return <ReportAccessPane override />
-    case 'User Alias': return <UserAliasTab row={row} />
-    case 'Workspace Mgt': return <WorkspaceMgtTab row={row} />
+    case 'User Alias': return <UserAliasTab row={row} draft={draft} set={set} />
+    case 'Workspace Mgt': return <WorkspaceMgtTab row={row} draft={draft} set={set} />
     case 'Memberships': return <MembershipsTab />
     case 'Service Group': return <ServiceGroupTab />
     case 'Subscription': return <SubscriptionTab />
@@ -397,12 +406,15 @@ const UncapturedPage = () => <div style={{ flex: '1 1 auto' }} />
    `42be29fdd885`. The spec's prose says "four group boxes" and then names
    six; six are captured and six are drawn.                                 */
 
-function UserAccountTab({ row }: { row: UserRow }) {
+function UserAccountTab({ row, draft, set }: AccountDraftProps) {
   const [changePw, setChangePw] = useState(false)
   const [picker, setPicker] = useState(false)
   /* the account's own profile (its Role on the grid), and its own status:
      an inactive (I) account opens with Active unticked (303186) */
-  const [profiles, setProfiles] = useState<string[]>([String(row.role || 'MOA')])
+  const profiles = draft.profiles
+  const setProfiles = (profiles: string[]) => set({ profiles })
+  const [accounts] = useUserAccounts()
+  const providers = useProviderRoster()
   const [active, setActive] = useState(row.status !== 'I')
   const [toggledActive, setToggledActive] = useState(false)
   useScreenReport(toggledActive ? { cell: 'active', checked: active } : {})
@@ -464,10 +476,10 @@ function UserAccountTab({ row }: { row: UserRow }) {
 
             <PBGroup title="Other Settings" style={{ marginTop: 6 }}>
               <Field label="Default Desktop Provider:" w={150}>
-                <PBSelect w={200} options={DESKTOP_PROVIDERS} data-tutorial-id={anchorField('Default Desktop Provider')} />
+                <PBSelect w={200} options={[...new Set(['', ...DESKTOP_PROVIDERS, ...providers.map(p => p.provider)])]} value={draft.desktopProvider} onChange={e => set({ desktopProvider: e.target.value })} data-tutorial-id={anchorField('Default Desktop Provider')} />
               </Field>
               <Field label="Default Author*:" w={150}>
-                <PBSelect w={200} options={DESKTOP_PROVIDERS} data-tutorial-id={anchorField('Default Author')} />
+                <PBSelect w={200} options={[...new Set(['', ...accounts.map(r => String(r.display ?? ''))])]} value={draft.author} onChange={e => set({ author: e.target.value })} data-tutorial-id={anchorField('Default Author')} />
               </Field>
               <div style={{ paddingTop: 2 }}>{DEFAULT_AUTHOR_FOOTNOTE}</div>
             </PBGroup>
@@ -500,12 +512,12 @@ function UserAccountTab({ row }: { row: UserRow }) {
             <PBGroup title="Workspace Settings" style={{ marginTop: 6 }}>
               <div className="pb-caption">Do not ask user to acknowledge manual entry of:</div>
               {WORKSPACE_ACK_ITEMS.map((item) => (
-                <PBCheckbox key={item} label={item} tutorialId={`host.mois.field.ack-${pbSlug(item)}`} />
+                <PBCheckbox key={item} label={item} {...(item === 'Progress Notes' ? { checked: draft.ackProgressNotes, onChange: (v: boolean) => set({ ackProgressNotes: v }) } : {})} tutorialId={`host.mois.field.ack-${pbSlug(item)}`} />
               ))}
               {/* 303492 v2.31.41 (`wfkw6qbP…`, inline image 5): the user's
                   own inbox for unmatched results; blank = the system default */}
               <Field label="Unmatched Results Inbox:" w={150}>
-                <PBSelect w={200} options={['', ...DESKTOP_PROVIDERS]} data-tutorial-id="host.mois.field.unmatched-results-inbox" />
+                <PBSelect w={200} options={[...new Set(['', ...DESKTOP_PROVIDERS])]} data-tutorial-id="host.mois.field.unmatched-results-inbox" />
               </Field>
             </PBGroup>
           </div>
@@ -526,34 +538,25 @@ function UserAccountTab({ row }: { row: UserRow }) {
 
 /* --- tab 5: `User Alias` ------------------------------------------------- */
 
-function UserAliasTab({ row }: { row: UserRow }) {
-  /* New adds a row dated today for the learner to fill in (303351: Code NHA,
-     Value the MSP number, Note NHA CIX Labs); Delete removes the last one.
-     The list is kept under the account's alias key (ProviderTabGrids.tsx
-     `aliasKey`), the one its associated Provider's Alias ID tab reads — MOIS
-     "will copy the Alias IDs for you" between the two (303184). */
-  const [rows, setRows] = useStoredList<UserRow>(aliasKey('', String(row.display ?? '')), USER_ALIAS_ROWS)
+function UserAliasTab({ draft, set }: AccountDraftProps) {
+  const [cur, setCur] = useState(0)
+  const rows = draft.aliases
+  const edit = (i: number, key: string, value: string) => set({ aliases: rows.map((r, j) => j === i ? { ...r, [key]: value } : r) })
+  const columns = umColumns(USER_ALIAS_COLUMNS).map(col => ({ ...col,
+    render: (r: UserRow, i: number) => col.key === 'source'
+      ? <CellSelect value={r.source} options={['', ...ALIAS_SOURCES.map(source => source.code)]} onChange={v => edit(i, 'source', v)} anchor={`user-alias-source-${i + 1}`} />
+      : <CellText value={r[col.key]} onChange={v => edit(i, col.key, v)} anchor={`user-alias-${col.key}-${i + 1}`} />,
+  }))
   useScreenReport({ rows: rows.length })
-  return (
-    <>
-      <PBBand
-        right={(
-          <BandButtons
-            scope="user-alias"
-            labels={['New', 'Delete']}
-            onPress={(b) => setRows((r) => (b === 'New'
-              ? [...r, { start: MOIS_TODAY_STAMP, end: '', source: '', value: '', note: '' }]
-              : r.slice(0, -1)))}
-          />
-        )}
-      >
-        User Alias List
-      </PBBand>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
-        <TabGrid columns={umColumns(USER_ALIAS_COLUMNS)} rows={rows} />
-      </div>
-    </>
-  )
+  return <>
+    <PBBand right={<BandButtons scope="user-alias" labels={['New', 'Delete']} onPress={b => {
+      set({ aliases: b === 'New' ? [...rows, { start: MOIS_TODAY_STAMP, end: '', source: '', value: '', note: '' }] : rows.filter((_, i) => i !== cur) })
+      setCur(b === 'New' ? rows.length : 0)
+    }} />}>User Alias List</PBBand>
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
+      <PBDataWindow rows={rows} columns={columns} current={cur} onCurrentChange={setCur} empty=" " />
+    </div>
+  </>
 }
 
 /* --- tab 6: `Workspace Mgt` ----------------------------------------------
@@ -563,7 +566,14 @@ function UserAliasTab({ row }: { row: UserRow }) {
    Acknowledge Backlog raises `Acknowledge Backlog` (`eb5ed396f17d`, 303356);
    Reassign Backlog raises `Select Users` (`d1654b0c032c`, 303358).        */
 
-function WorkspaceMgtTab({ row }: { row: UserRow }) {
+function WorkspaceMgtTab({ row, draft, set }: AccountDraftProps) {
+  const [accounts] = useUserAccounts()
+  const [shareCur, setShareCur] = useState(0)
+  const shareColumns = umColumns(SHARING_WORKSPACE_COLUMNS).map(col => ({ ...col, render: (r: UserRow, i: number) => {
+    const edit = (v: string) => set({ sharing: draft.sharing.map((r, j) => j === i ? { ...r, [col.key]: v } : r) })
+    return col.key === 'user' ? <CellSelect value={r.user} options={[...new Set(['', ...accounts.map(r => String(r.display ?? '')).filter(Boolean)])]} onChange={edit} anchor={`sharing-user-${i + 1}`} />
+      : <CellText value={r[col.key]} onChange={edit} anchor={`sharing-${col.key}-${i + 1}`} />
+  } }))
   const [backlog, setBacklog] = useState<null | 'acknowledge' | 'reassign'>(null)
   const forwarding = umColumns(INBOX_FORWARDING_COLUMNS)
   const ruleCol = forwarding.find((c) => c.key === 'rule')
@@ -600,11 +610,11 @@ function WorkspaceMgtTab({ row }: { row: UserRow }) {
 
       <div className="pb-row" style={{ flex: '1 1 45%', minHeight: 0, alignItems: 'stretch', gap: 8, padding: 3 }}>
         <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <PBBand right={<BandButtons scope="sharing-workspace" labels={['New', 'Delete']} />}>
+          <PBBand right={<BandButtons scope="sharing-workspace" labels={['New', 'Delete']} onPress={b => { set({ sharing: b === 'New' ? [...draft.sharing, { start: MOIS_TODAY_STAMP, stop: '', user: '', note: '' }] : draft.sharing.filter((_, i) => i !== shareCur) }); setShareCur(b === 'New' ? draft.sharing.length : 0) }} />}>
             Sharing Workspace With
           </PBBand>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
-            <TabGrid columns={umColumns(SHARING_WORKSPACE_COLUMNS)} rows={SHARING_WORKSPACE_ROWS} />
+            <PBDataWindow columns={shareColumns} rows={draft.sharing} current={shareCur} onCurrentChange={setShareCur} empty=" " />
           </div>
         </div>
         {/* read-only panel, 368px wide, with a #C8DCFA caption bar of its

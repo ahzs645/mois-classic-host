@@ -39,7 +39,12 @@ import { DialogButton, WorkspaceDialogFrame } from './WorkspaceDialogFrame'
    Care Plan Sections is a grid of Order · Section Label · Type (the
    article's "How it works" and the field audit's columns). The current
    row's Order is editable (it "controls the display order of the section"),
-   and so is a USER section's label. INFERRED layout.
+   and so is a USER section's label. Geometry from evidence/MATRIX-R1010-order
+   (DEV v02.31.23, 100%): Order 54 · Section Label 298 · Type 130 and nothing
+   past Type — the grid stops there; the current row's Order is edited in
+   place with no box drawn; Add from Template is a 104 px button, the other
+   four 81 px. The DEV site lists ORDER / MEASUREMENTS sections; the rows
+   here are this chart's (site configuration, not layout).
 
    Commands, per tab:
      New Record       Sections: the "Select Standard Sections" / custom
@@ -144,6 +149,7 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
 
   const commands = screen.commands.map((label) => label ? ({
     label,
+    ...(label === 'Add from Template' ? { width: 104 } : null),
     disabled: label === 'Delete Record' ? (onElements ? !current : !section) : false,
     onClick: label === 'New Record' ? () => { openWindow(onElements ? 'care-plan-element-new' : 'care-plan-new-section'); dirty() }
       : label === 'Delete Record' ? deleteRecord
@@ -179,9 +185,9 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
               rowTutorialId={(r) => `host.mois.row.care-plan-section-${pbSlug(r.label)}`}
               columns={[
                 {
-                  key: 'order', header: 'Order', width: 80, align: 'center',
+                  key: 'order', header: 'Order', width: 54, align: 'center',
                   render: (r, i) => (i === secCur
-                    ? <PBInput w={60} align="center" value={r.order} data-tutorial-id="host.mois.field.section-order" onChange={(e) => {
+                    ? <PBInput w="100%" align="center" style={{ border: 0, background: 'transparent', color: 'inherit' }} value={r.order} data-tutorial-id="host.mois.field.section-order" onChange={(e) => {
                       /* a section a tag added on its own joins the stored list first */
                       if (!settings.sections.some((s) => s.label === r.label)) addSections(chart, [{ label: r.label, type: r.type }])
                       updateSection(chart, r.label, { order: e.target.value.replace(/[^\d]/g, '') }); dirty()
@@ -189,13 +195,12 @@ export function SummarySettingsView({ screen }: { screen: ChartScreen }) {
                     : r.order),
                 },
                 {
-                  key: 'label', header: 'Section Label', width: 300,
+                  key: 'label', header: 'Section Label', width: 298,
                   render: (r, i) => (i === secCur && r.type === 'USER' && settings.sections.some((s) => s.label === r.label)
-                    ? <PBInput w={280} defaultValue={r.label} data-tutorial-id="host.mois.field.section-label" onBlur={(e) => { const v = e.target.value.trim().toUpperCase(); if (v && v !== r.label) { updateSection(chart, r.label, { label: v }); dirty() } }} />
+                    ? <PBInput w="100%" style={{ border: 0, background: 'transparent', color: 'inherit' }} defaultValue={r.label} data-tutorial-id="host.mois.field.section-label" onBlur={(e) => { const v = e.target.value.trim().toUpperCase(); if (v && v !== r.label) { updateSection(chart, r.label, { label: v }); dirty() } }} />
                     : r.label),
                 },
                 { key: 'type', header: 'Type', width: 130 },
-                { key: 'pad', header: '' },
               ]}
               empty="No sections."
             />

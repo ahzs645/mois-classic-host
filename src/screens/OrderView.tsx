@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useChartExport, useChartRows, useNodeRecords } from '../data/chart-records'
-import { date } from '../data/charts/relations'
+import { date, encounterStamp } from '../data/charts/relations'
+import { finishTime, orderRecordModel } from '../data/charts/orders'
 import {
   encounterRows, orderPayors, orderPriorities, orderReferralSources,
   type OrderDetail, type OrderRecipient, type OrderRow
@@ -55,7 +56,10 @@ const DESIGN_W = 823
    collided with the Referral Note. */
 const columns: PBColumn<OrderRow>[] = [
   { key: 'date', header: 'Date', width: 62, align: 'center' },
-  { key: 'type', header: 'Order Type', width: 93, align: 'center' },
+  /* Order Type's cells are left in their column, under a centred caption —
+     CONSULTATION / IMAGE / LAB start at the column's left edge in both the
+     DEV capture (order-office.png) and the TRAINING one (order-report.png) */
+  { key: 'type', header: 'Order Type', width: 93, headAlign: 'center' },
   { key: 'by', header: 'Ordered By', width: 138 },
   { key: 'd1', header: '', dots: true, width: 19 },
   { key: 'to', header: 'Order To', width: 134 },
@@ -91,6 +95,7 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   const offset = draft ? 1 : 0
 
   const records = useNodeRecords('orders')
+  const chartData = useChartExport()
   /* the current order, by the id its row is anchored on, so a lesson can
      grade "that order is the one you are on" (host.screen.row) */
   const currentOrderId = draft && cur === 0 ? null : records[cur - offset]?.id_order
@@ -117,8 +122,23 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
     facilityRef: r?.str_filler_ref_no, facilityLoc: r?.str_facility_loc,
     referralNote: r?.str_note, assignedTo: r?.str_assignedto, priority: r?.str_priority_code,
     status: r?.str_status, finishedOn: r?.dtm_finish_date?.replace(/\//g, '.'),
-    source: r?.str_source, created: [r?.stp_date_create, r?.stp_user_create].filter(Boolean).join('  '),
-    encounter: r?.id_encounter,
+    /* Finished is a date and a time (303526 "the date and time of its
+       completion"): dtm_finish_date + dtm_finish_time */
+    finishedTime: finishTime(r),
+    /* ids and flags no captured control prints (charts/orders.ts) */
+    record: r ? orderRecordModel(r, chartData) : undefined,
+    /* The footer, as evidence/MATRIX-R1060-attending (DEV) and
+       order-report.png (TRAINING) both print it: "Source: SYSTEM" is the
+       interface the order came in on (str_interface — str_source is only
+       INT / EXT), Sent Date is the order date in both captures, the
+       right-hand link is the record state (UNSIGNED / SIGNED), "Created:"
+       is `yyyy.mm.dd hh:mm  USER`, and an order raised off any encounter
+       links "ENC# EMPTY" rather than nothing. */
+    source: r ? (r.str_interface || r.str_source) : undefined,
+    sentDate: r?.dtm_ord_date?.replace(/\//g, '.'),
+    signature: r?.stp_record_state,
+    created: r ? [r.stp_date_create?.replace(/\//g, '.').replace(/(\d\d:\d\d):\d\d$/, '$1'), r.stp_user_create].filter(Boolean).join('  ') : undefined,
+    encounter: r ? (r.id_encounter && r.id_encounter !== '0' ? r.id_encounter : 'EMPTY') : undefined,
   } } : undefined
   /* MOIS counts the children of the current order in the tab captions, and
      a distribution counts its recipients rather than its events. */
@@ -136,15 +156,20 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
   return (
     <div className="pb-screen" style={{ ['--pb-design-w' as string]: `${DESIGN_W}px` }}>
       <PBViewHeader title="Order" right={<ChartHeaderIdentity />} />
-      {/* Eleven buttons are wider than this window's painted 823px: the
-          captures show them on one row in a wider window, so on the stage
-          the run wraps rather than cutting Respond off the end. */}
-      <style href="mois-classic/order-cmds" precedence="medium">{'.pb-order-cmds > .pb-cmdrow { flex-wrap: wrap; }'}</style>
-      <div className="pb-order-cmds" style={{ flex: 'none' }}>
+      {/* One row, never wrapped. This Task Bar is text-sized, not the uniform
+          80.5: the DEV capture at 1:1 (order-office.png, the same window
+          width as the stage's) puts the edges at 480 / 556 / 632 / 708 / 774
+          / 840 / 906 / 994 / 1070 / 1130 / 1237, and the TRAINING capture
+          (order-report.png) agrees to a pixel per button and gives Respond
+          its 63. In a window this wide MOIS lets Respond run off the right
+          edge, cut through its caption, and so does the stage. */}
+      <style href="mois-classic/order-cmds" precedence="medium">{'.pb-order-cmds > .pb-cmdrow { flex-wrap: nowrap; overflow: hidden; }'}</style>
+      <div className="pb-order-cmds" style={{ flex: 'none', minWidth: 0 }}>
         <PBCommandRow
           commands={[
             {
               label: 'New Record',
+              exactWidth: 76,
               onClick: () => {
                 setDraft({ date: MOIS_TODAY, type: '', by: DESKTOP_PROVIDER, to: '', for: '', st: 'IP', links: '-', attach: '-' })
                 setCur(0)
@@ -156,6 +181,7 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
                Continue puts the templated order in as the new record */
             {
               label: 'Quick Entry',
+              exactWidth: 76,
               onClick: () => openWindow('quick-entry-chart', {
                 group: 'Order',
                 onApply: ({ template, values }: QuickEntryApplied) => {
@@ -169,32 +195,42 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
                 },
               }),
             },
-            { label: 'Delete Record' },
+            { label: 'Delete Record', exactWidth: 76 },
             /* MOIS draws Save and Undo in full black here, not greyed — both
                captures of this window show them enabled at rest. */
-            { label: 'Save', onClick: () => setDraft(null) }, { label: 'Undo', onClick: () => { setDraft(null); setCur(0) } }, { label: 'Refresh' },
-            { label: 'Mark for Review' }, { label: 'Attachment', onClick: onAttachment },
-            { label: 'Print' }, { label: 'Paste Provider Addr.', width: 118 },
+            { label: 'Save', exactWidth: 66, onClick: () => setDraft(null) },
+            { label: 'Undo', exactWidth: 66, onClick: () => { setDraft(null); setCur(0) } },
+            { label: 'Refresh', exactWidth: 66 },
+            { label: 'Mark for Review', exactWidth: 88 }, { label: 'Attachment', exactWidth: 76, onClick: onAttachment },
+            { label: 'Print', exactWidth: 60 }, { label: 'Paste Provider Addr.', exactWidth: 107 },
             /* 2961349 `ad5aba34…`: answer the Information Request on this row */
-            { label: 'Respond', onClick: () => respond(currentOrderId ?? undefined, openWindow) },
+            { label: 'Respond', exactWidth: 63, onClick: () => respond(currentOrderId ?? undefined, openWindow) },
           ]}
         />
       </div>
 
-      {/* patient identity strip — fields sit at the offsets they were painted at */}
+      {/* patient identity strip — fields sit at the offsets they were painted
+          at: FIRST / MIDDLE / LAST / DoB / Active ENC# at 492 / 662 / 801 /
+          972 / 1092 in the 1:1 DEV capture (order-office.png), the same
+          170 / 139 / 171 / 120 run the TRAINING capture gives at 200% and
+          the Encounter window paints. The old 186 / 145 / 208 / 113 pushed
+          Active ENC# off the right edge ("NO ENCOUNTE…"). */}
       <ChartIdentityStrip
-        widths={{ first: 186, middle: 145, last: 208, dob: 113 }}
+        widths={{ first: 170, middle: 139, last: 171, dob: 120 }}
         encounter={patient.encounter ?? 'NO ENCOUNTER'}
         search
         fixedSearch
       />
 
-      {/* Ten rows and a header. The capture's grid is 355px against a 1590px
-          column run; at this window's measured 810px run that scales to ~181,
-          and ten rows at the kit's 19px pitch plus the header comes to ~207.
-          At 342 the grid crowded the Report tab until Referral Note and Order
-          Management had no room left and collided with the footer. */}
-      <PBFixed style={{ padding: '0 3px', height: 207, display: 'flex' }}>
+      {/* The order list is the part of this window that takes up its height:
+          the 1:1 DEV capture (order-office.png, MOIS window 705px tall) draws
+          it 138px from header top to frame bottom, the TRAINING capture's
+          taller window ~347. The stage's window is ~40px taller than DEV's,
+          so the list is 138 + 40 — which leaves the Report tab its four
+          group boxes and the Source / Created footer, as DEV shows them. At
+          207 the tab page started 87px lower than DEV's and Order
+          Management's Finished row and the footer fell off the bottom. */}
+      <PBFixed style={{ padding: '0 3px', height: 178, display: 'flex' }}>
         <PBDataWindow
           columns={columns.map((c) => (c.key === 'type'
             ? {
@@ -247,81 +283,100 @@ export function OrderView({ onAttachment }: { onAttachment: () => void }) {
 /* --- Report ---------------------------------------------------------------
    Four group boxes in two columns, then the window's footer line: where the
    order came from and whether it has been signed, with the encounter it was
-   raised on hyperlinked at the right.                                      */
+   raised on hyperlinked at the right.
+
+   Measured off the 1:1 DEV capture of this page
+   (evidence/MATRIX-R1060-attending/ui-original.png), every offset from its
+   group box's left edge, and checked against the TRAINING capture at 200%
+   (reference/order-report.png), which gives the same numbers halved:
+     Detail Information  555 wide; captions at 9, fields at 100; the three
+                         lookups and Referred To / Copies To all 260 wide
+                         (with their "…"); the right-hand captions end at
+                         426 and their boxes run 430–545; Transcribed is
+                         135 / 61 / 40.
+     Appointment Booking 233 wide, 5px right of Detail Information;
+                         controls at 88; Office at 88, Patient at 149; the
+                         date box 72, the time box 44; Patient Notified at 96.
+     Order Management    Order Assigned to: over a 209 lookup; drop-downs at
+                         93, 127 wide; Finished 72 + 50.
+   Every row is on a 20px pitch (a 19px field and 1px), not the kit's 22.
+   The footer keys sit 76px apart, Source's value 107: Sent Date at +183.
+   The Referral Note is a monospaced text column ("ORDER BY: GHATAVI, …").  */
+const REPORT_ROWS = { ['--pb-row-gap' as string]: '1px' }
+
 function ReportPage({ order }: { order?: OrderRow }) {
   const d: OrderDetail = order?.detail ?? {}
   return (
     /* the page scrolls rather than letting the boxes run under the footer
        when the tab is shorter than the window it was painted in */
     <div className="pb-order-report" style={{ overflowY: 'auto' }}>
-      <div className="pb-order-report__grid" style={{ flex: '1 0 auto', minHeight: 262 }}>
-        <PBGroup title="Detail Information" style={{ width: 553 }}>
-          <div className="pb-form" style={{ gridTemplateColumns: '120px 1fr', padding: '2px 0 0' }}>
+      <div className="pb-order-report__grid" style={{ flex: '1 0 auto', minHeight: 262, gap: '5px 5px' }}>
+        <PBGroup title="Detail Information" style={{ width: 555 }}>
+          <div className="pb-form" style={{ gridTemplateColumns: '84px 1fr', padding: '2px 0 0', ...REPORT_ROWS }}>
             <DetailRow label="Attending:" value={d.attending} right="Facility:" rightValue={d.facility} />
             <DetailRow label="Ordered By:" value={d.orderedBy} right="Facility Ref.:" rightValue={d.facilityRef} />
             <DetailRow label="Responsible Org.:" value={d.responsibleOrg} right="Facility Loc.:" rightValue={d.facilityLoc} />
 
             <span className="pb-form__label">Referred To:</span>
             <div className="pb-row">
-              <PBLookup w={244} defaultValue={d.referredTo ?? ''} />
-              <span className="pb-row__spacer" />
-              <span>Payor:</span>
+              <span style={{ flex: 'none' }}><PBLookup w={260} defaultValue={d.referredTo ?? ''} /></span>
+              <span style={{ flex: '1 1 auto', textAlign: 'right' }}>Payor:</span>
               <PBSelect options={orderPayors} w={115} defaultValue={d.payor ?? ''} />
             </div>
 
             <span className="pb-form__label">Copies To:</span>
-            <div className="pb-row"><PBLookup w={244} defaultValue={d.copiesTo ?? ''} /></div>
+            <div className="pb-row"><span style={{ flex: 'none' }}><PBLookup w={260} defaultValue={d.copiesTo ?? ''} /></span></div>
 
             <span className="pb-form__label">Transcribed:</span>
-            <div className="pb-row">
+            <div className="pb-row" style={{ gap: 3 }}>
               <PBInput w={135} defaultValue={d.transcribed?.[0] ?? ''} />
-              <PBInput w={80} defaultValue={d.transcribed?.[1] ?? ''} />
-              <PBInput w={53} defaultValue={d.transcribed?.[2] ?? ''} />
+              <PBInput w={61} defaultValue={d.transcribed?.[1] ?? ''} />
+              <PBInput w={40} defaultValue={d.transcribed?.[2] ?? ''} />
             </div>
           </div>
         </PBGroup>
 
-        <PBGroup title="Appointment Booking" style={{ width: 235 }}>
-          <div className="pb-form" style={{ gridTemplateColumns: '100px 1fr', padding: '2px 0 0' }}>
+        <PBGroup title="Appointment Booking" style={{ width: 233 }}>
+          <div className="pb-form" style={{ gridTemplateColumns: '72px 1fr', padding: '2px 0 0', ...REPORT_ROWS }}>
             <span className="pb-form__label">Responsibility:</span>
-            <div className="pb-row" style={{ gap: 22 }}>
+            <div className="pb-row" style={{ gap: 15 }}>
               <PBRadio name="order-responsibility" label="Office" checked={d.responsibility === 'Office'} />
               <PBRadio name="order-responsibility" label="Patient" checked={d.responsibility === 'Patient'} />
             </div>
 
             <span className="pb-form__label">Date / Time:</span>
-            <div className="pb-row">
-              <PBInput w={96} defaultValue={d.bookedDate ?? ''} />
-              <PBInput w={53} align="center" defaultValue={d.bookedTime ?? ':'} />
+            <div className="pb-row" style={{ gap: 4 }}>
+              <PBInput w={72} defaultValue={d.bookedDate ?? ''} />
+              <PBInput w={44} align="center" defaultValue={d.bookedTime ?? ':'} />
             </div>
 
             <span className="pb-form__label">Notify:</span>
-            <div className="pb-row" style={{ paddingLeft: 14 }}>
+            <div className="pb-row" style={{ paddingLeft: 8 }}>
               <PBCheckbox label="Patient Notified" checked={!!d.notified} />
             </div>
           </div>
         </PBGroup>
 
-        <PBGroup title="Referral Note" fill style={{ width: 553 }}>
+        <PBGroup title="Referral Note" fill style={{ width: 555 }}>
           <PBTextArea
-            style={{ flex: '1 1 auto', width: '100%', height: '100%' }}
+            style={{ flex: '1 1 auto', width: '100%', height: '100%', fontFamily: 'var(--pb-font-mono)' }}
             defaultValue={d.referralNote ?? ''}
           />
         </PBGroup>
 
-        <PBGroup title="Order Management" style={{ width: 235 }}>
+        <PBGroup title="Order Management" style={{ width: 233 }}>
           <div className="pb-stack" style={{ paddingTop: 2 }}>
             <span>Order Assigned to:</span>
-            <PBLookup w={205} defaultValue={d.assignedTo ?? ''} />
+            <PBLookup w={209} defaultValue={d.assignedTo ?? ''} />
           </div>
-          <div className="pb-form" style={{ gridTemplateColumns: '108px 1fr', padding: '6px 0 0' }}>
+          <div className="pb-form" style={{ gridTemplateColumns: '77px 1fr', padding: '4px 0 0', ...REPORT_ROWS }}>
             <span className="pb-form__label">Referral Source:</span>
-            <PBSelect options={orderReferralSources} w={126} defaultValue={d.referralSource ?? ''} />
+            <PBSelect options={orderReferralSources} w={127} defaultValue={d.referralSource ?? ''} />
             <span className="pb-form__label">Priority:</span>
-            <PBSelect options={orderPriorities} w={126} defaultValue={d.priority ?? ''} />
+            <PBSelect options={orderPriorities} w={127} defaultValue={d.priority ?? ''} />
             <span className="pb-form__label">Status:</span>
             <PBDropDownDataWindow
-              w={126}
+              w={127}
               listW={300}
               display="status"
               value={statusWord(d.status)}
@@ -330,9 +385,9 @@ function ReportPage({ order }: { order?: OrderRow }) {
               rows={ORDER_STATUS_ROWS}
             />
             <span className="pb-form__label">Finished:</span>
-            <div className="pb-row">
-              <PBInput w={98} defaultValue={d.finishedOn ?? ''} />
-              <PBInput w={69} defaultValue={d.finishedBy ?? ''} />
+            <div className="pb-row" style={{ gap: 5 }}>
+              <PBInput w={72} defaultValue={d.finishedOn ?? ''} />
+              <PBInput w={50} defaultValue={d.finishedTime ?? ''} />
             </div>
           </div>
         </PBGroup>
@@ -340,15 +395,15 @@ function ReportPage({ order }: { order?: OrderRow }) {
 
       <div className="pb-order-report__footer">
         <div className="pb-order-report__line">
-          <span className="pb-order-report__key">Source:</span>
-          <span className="pb-order-report__val">{d.source ?? ''}</span>
-          <span className="pb-order-report__key pb-order-report__key--2">Sent Date:</span>
+          <span className="pb-order-report__key" style={{ width: 76 }}>Source:</span>
+          <span className="pb-order-report__val" style={{ width: 107 }}>{d.source ?? ''}</span>
+          <span className="pb-order-report__key pb-order-report__key--2" style={{ width: 56 }}>Sent Date:</span>
           <span>{d.sentDate ?? ''}</span>
           <span className="pb-row__spacer" />
           {d.signature && <button className="pb-link">{d.signature}</button>}
         </div>
         <div className="pb-order-report__line">
-          <span className="pb-order-report__key">Created:</span>
+          <span className="pb-order-report__key" style={{ width: 76 }}>Created:</span>
           <span>{d.created ?? ''}</span>
           <span className="pb-row__spacer" />
           {d.encounter && <button className="pb-link">ENC# {d.encounter}</button>}
@@ -358,7 +413,9 @@ function ReportPage({ order }: { order?: OrderRow }) {
   )
 }
 
-/** One `label [field] … right-label [field]` row of the Detail Information box. */
+/** One `label [field] … right-label [field]` row of the Detail Information
+ *  box: the lookup keeps its 260 whatever the right-hand caption's length,
+ *  and the caption is right-aligned against its box, as MOIS paints it. */
 function DetailRow({ label, value, right, rightValue }: {
   label: string; value?: string; right: string; rightValue?: string
 }) {
@@ -366,9 +423,8 @@ function DetailRow({ label, value, right, rightValue }: {
     <>
       <span className="pb-form__label">{label}</span>
       <div className="pb-row">
-        <PBLookup w={244} defaultValue={value ?? ''} />
-        <span className="pb-row__spacer" />
-        <span>{right}</span>
+        <span style={{ flex: 'none' }}><PBLookup w={260} defaultValue={value ?? ''} /></span>
+        <span style={{ flex: '1 1 auto', textAlign: 'right', whiteSpace: 'nowrap' }}>{right}</span>
         <PBInput w={115} defaultValue={rightValue ?? ''} />
       </div>
     </>
@@ -378,15 +434,31 @@ function DetailRow({ label, value, right, rightValue }: {
 /* --- Distribution ---------------------------------------------------------
    A grey-headed grid whose bands are the distribution events: the document
    that went out is a hyperlink in the band, and each recipient under it is
-   painted yellow.                                                          */
+   painted yellow.
+
+   The captions and cells are left in their columns, and both start at the
+   same x: Method / Recipient Type / Name / Location / Status at 35 / 127 /
+   269 / 460 / 730 from the page's left edge, in the TRAINING capture with a
+   distribution in it (reference/order-distribution.png: INTERNAL, PRIMARY
+   RECIPIENT, SUS NOW 1 TER, the location text, SUCCESS) and in the 1:1 DEV
+   capture of an empty one (order-distribution.png) alike. There is no gutter:
+   the event band's ⊟ sits at 13, so the run opens on a blank 31px column.
+   The header is the window face with no weight and no rule under it.     */
 type DistRow = OrderRecipient & { event: string; document: string; by: string }
+
+/** the grey caption band of the Distribution and Links pages: MOIS letters
+ *  it in the body weight, with no rule under it (order-distribution.png,
+ *  order-links.png, and both TRAINING captures) — the kit's grey header is
+ *  Patient Summary's bold one */
+const PLAIN_HEAD_CSS = '.pb-order-plainhead .pb-dw--head-grey .pb-dw__table > thead > tr > th { font-weight: 400; border-bottom: 0; }'
 
 function DistributionPage({ order }: { order?: OrderRow }) {
   const rows: DistRow[] = (order?.distribution ?? []).flatMap((d) =>
     d.recipients.map((r) => ({ ...r, event: d.sentAt, document: d.document, by: d.by })),
   )
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+    <div className="pb-order-plainhead" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+      <style href="mois-classic/order-plainhead" precedence="medium">{PLAIN_HEAD_CSS}</style>
       <PBDataWindow
         head="grey"
         gutter={false}
@@ -403,42 +475,56 @@ function DistributionPage({ order }: { order?: OrderRow }) {
           </span>
         )}
         columns={[
-          { key: 'method', header: 'Method', width: 130, align: 'center' },
-          { key: 'type', header: 'Recipient Type', width: 160, align: 'center' },
-          { key: 'name', header: 'Name', width: 190, align: 'center' },
-          { key: 'location', header: 'Location', align: 'center' },
-          { key: 'status', header: 'Status', width: 130, align: 'center' },
+          { key: '_lead', header: '', width: 31 },
+          { key: 'method', header: 'Method', width: 92 },
+          { key: 'type', header: 'Recipient Type', width: 142 },
+          { key: 'name', header: 'Name', width: 191 },
+          { key: 'location', header: 'Location', width: 270 },
+          { key: 'status', header: 'Status' },
         ]}
-        empty="This order has not been distributed."
+        /* an order with no distribution shows the bare header over white */
+        empty={false}
       />
     </div>
   )
 }
 
-/* --- Links ---------------------------------------------------------------- */
+/* --- Links ----------------------------------------------------------------
+   Section is captioned at its left edge, Date centred over right-aligned
+   dates, Description at its left: 19 / 156 (centre) / 193 from the page's
+   edge in order-links.png (DEV, 1:1), the DOCUMENT · 2025.07.09 · ANXIETY
+   row in reference/order-links.png (TRAINING) giving the same 104 / 69
+   column run. The kit's gutter is 13 to MOIS's 17, so Section takes the
+   difference and Date and Description land where they were painted.      */
 function LinksPage({ order }: { order?: OrderRow }) {
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+    <div className="pb-order-plainhead" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+      <style href="mois-classic/order-plainhead" precedence="medium">{PLAIN_HEAD_CSS}</style>
       <PBDataWindow
         head="grey"
         zebra={false}
         rows={order?.linkRows ?? []}
         rowStatus={() => 'highlight' as const}
         columns={[
-          { key: 'section', header: 'Section', width: 130, headAlign: 'center' },
-          { key: 'date', header: 'Date', width: 100, align: 'right', headAlign: 'center' },
+          { key: 'section', header: 'Section', width: 108, headAlign: 'left' },
+          { key: 'date', header: 'Date', width: 69, align: 'right', headAlign: 'center' },
           {
             key: 'desc', header: 'Description', headAlign: 'left',
             render: (r) => <button className="pb-link">{r.desc}</button>,
           },
         ]}
-        empty="No linked records."
+        empty={false}
       />
     </div>
   )
 }
 
-/* --- Office Notes --------------------------------------------------------- */
+/* --- Office Notes ---------------------------------------------------------
+   Date 85, Author 134, Note the rest (order-office.png, DEV 1:1, separators
+   at 579 / 713; reference/order-office-notes.png, TRAINING, 2024.10.03 ·
+   SINGH, SANDEEP · CONTACT THE CLIENT): the date centred, the author and
+   the note left in their columns. An order with no notes shows the header
+   over white, no message.                                                  */
 function OfficeNotesPage({ order }: { order?: OrderRow }) {
   return (
     <>
@@ -447,19 +533,23 @@ function OfficeNotesPage({ order }: { order?: OrderRow }) {
         <PBDataWindow
           flush
           columns={[
-            { key: 'date', header: 'Date', width: 118, align: 'center' },
-            { key: 'author', header: 'Author', width: 190, align: 'center' },
-            { key: 'note', header: 'Note' },
+            { key: 'date', header: 'Date', width: 85, align: 'center' },
+            { key: 'author', header: 'Author', width: 134, headAlign: 'center' },
+            { key: 'note', header: 'Note', headAlign: 'center' },
           ]}
           rows={order?.notes ?? []}
-          empty="No office notes on this order."
+          empty={false}
         />
       </div>
     </>
   )
 }
 
-/* --- History -------------------------------------------------------------- */
+/* --- History --------------------------------------------------------------
+   Date / Time 94, Changed By 173, Field 127, Changed To 177, Reason for
+   Change the rest — the caption run of order-history.png (DEV 1:1, cells at
+   497 / 591 / 764 / 891 / 1068). The audit's Comment (MATRIX-R1133) is not
+   a column here; it was not testable on an order with no history.          */
 function HistoryPage({ order }: { order?: OrderRow }) {
   return (
     <>
@@ -468,26 +558,35 @@ function HistoryPage({ order }: { order?: OrderRow }) {
         <PBDataWindow
           flush
           columns={[
-            { key: 'when', header: 'Date / Time', width: 150, align: 'center' },
-            { key: 'by', header: 'Changed By', width: 176, align: 'center' },
-            { key: 'field', header: 'Field', width: 132, align: 'center' },
-            { key: 'to', header: 'Changed To', width: 150, align: 'center' },
+            { key: 'when', header: 'Date / Time', width: 94, align: 'center' },
+            { key: 'by', header: 'Changed By', width: 173, align: 'center' },
+            { key: 'field', header: 'Field', width: 127, align: 'center' },
+            { key: 'to', header: 'Changed To', width: 177, align: 'center' },
             { key: 'reason', header: 'Reason for Change', align: 'center' },
           ]}
           rows={order?.history ?? []}
-          empty="No status changes recorded for this order."
+          empty={false}
         />
       </div>
     </>
   )
 }
 
+/** The caption band over Office Notes and History: a 22px band ruled top
+ *  and bottom, its two buttons the band's full height, flat and
+ *  black-edged like the Task Bar's, 52 / 53 wide (order-office.png and
+ *  order-history.png, DEV 1:1: band y 363–386, New / Edit at 1185–1236,
+ *  Delete at 1237–1289; the TRAINING office-notes capture agrees). */
 function PBBandRow({ title, actions }: { title: string; actions: string[] }) {
   return (
-    <div className="pb-band">
+    <div className="pb-band" style={{ minHeight: 22, paddingRight: 0, borderTop: '1px solid #656565', borderBottom: '1px solid #656565' }}>
       {title}
       <span className="pb-band__spacer" />
-      {actions.map((a) => <PBButton key={a} size="sm">{a}</PBButton>)}
+      <span style={{ display: 'flex', alignSelf: 'stretch' }}>
+        {actions.map((a, i) => (
+          <PBButton key={a} bare className="pb-cmdrow__btn" style={{ width: i === 0 ? 52 : 53, height: 'auto', fontWeight: 400 }}>{a}</PBButton>
+        ))}
+      </span>
     </div>
   )
 }
@@ -756,6 +855,7 @@ function readRowList<T>(row: EncounterListRow | undefined, key: 'report' | 'dist
    it rolls a chart up, under its Expand All / Collapse All pair.           */
 function EncounterReportPage({ row }: { row?: EncounterListRow }) {
   const data = useChartExport()
+  const record = row ? data?.encounter.find((r) => r.id_encounter === row.id) : undefined
   const rows: EncounterReportRow[] = row ? [
     ...(data?.encounter_note ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'PROGRESS NOTES', date: date(r.dtm_note_create), description: r.str_author ?? '', detail: r.str_note ?? '' })),
     ...(data?.measure ?? []).filter(r => r.id_encounter === row.id).map(r => ({ section: 'MEASUREMENTS', date: date(r.dtm_collect_date), description: r.str_description ?? '', detail: [r.str_value, r.str_units].filter(Boolean).join(' ') })),
@@ -768,7 +868,11 @@ function EncounterReportPage({ row }: { row?: EncounterListRow }) {
     <>
       {/* Arrived / In-Room / Seen / Discharge, each a date box and a time box
           — the same pair the Order window books an appointment with. The
-          capture leaves all eight empty and the audit maps none of them. */}
+          capture leaves all eight empty. They are the encounter's Times —
+          tdt_encounter.dtm_<stamp> and num_<stamp>_hr / _min, as the
+          Encounter Detail Window's Times column maps them (the Data
+          Dictionary workbook's Matrix rows 393–400) — so a chart export
+          fills them from the current row. */}
       <div
         className="pb-row"
         style={{
@@ -779,10 +883,10 @@ function EncounterReportPage({ row }: { row?: EncounterListRow }) {
           flex: 'none',
         }}
       >
-        <EncounterTime label="Arrived:" labelW={56} />
-        <EncounterTime label="In-Room:" labelW={81} />
-        <EncounterTime label="Seen:" labelW={78} />
-        <EncounterTime label="Discharge:" labelW={82} />
+        <EncounterTime label="Arrived:" labelW={56} at={encounterStamp(record, 'arrived')} />
+        <EncounterTime label="In-Room:" labelW={81} at={encounterStamp(record, 'inroom')} />
+        <EncounterTime label="Seen:" labelW={78} at={encounterStamp(record, 'seen')} />
+        <EncounterTime label="Discharge:" labelW={82} at={encounterStamp(record, 'discharge')} />
       </div>
 
       <div className="pb-row" style={{ padding: '3px 0 3px 8px', gap: 22, flex: 'none' }}>
@@ -817,7 +921,8 @@ function EncounterReportPage({ row }: { row?: EncounterListRow }) {
             { key: 'link', header: 'Hyperlink', width: 109, align: 'center', headAlign: 'left' },
             { key: '_pad', header: '' },
           ]}
-          /* an encounter with nothing on it shows a blank band, not a message */
+          /* an encounter with nothing on it shows the grid's bare white body,
+             not a message (encounter-current-screen.png) */
           empty=""
         />
       </div>
@@ -829,12 +934,12 @@ function EncounterReportPage({ row }: { row?: EncounterListRow }) {
  * `Arrived: [date] [time]` — the label right-aligned in its own run, which is
  * what parks the four pairs of boxes at 65 / 265 / 462 / 663 across the pane.
  */
-function EncounterTime({ label, labelW }: { label: string; labelW: number }) {
+function EncounterTime({ label, labelW, at }: { label: string; labelW: number; at: { date: string; time: string } }) {
   return (
     <>
       <span style={{ width: labelW, textAlign: 'right', paddingRight: 8, flex: 'none' }}>{label}</span>
-      <PBInput w={68} style={{ flex: 'none' }} />
-      <PBInput w={48} align="center" defaultValue=":" style={{ marginLeft: 3, flex: 'none' }} />
+      <PBInput w={68} style={{ flex: 'none' }} defaultValue={at.date} />
+      <PBInput w={48} align="center" defaultValue={at.time || ':'} style={{ marginLeft: 3, flex: 'none' }} />
     </>
   )
 }

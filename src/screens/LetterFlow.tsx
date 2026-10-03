@@ -185,7 +185,7 @@ export function SelectLetterTemplateDialog({
               groupTutorialId={(group) => `host.mois.group.${pbSlug(group)}`}
               collapsed={collapsed}
               onCollapsedChange={setCollapsed}
-              rowTutorialId={(t) => `host.mois.row.${pbSlug(t.name)}`}
+              rowTutorialId={(t) => `host.mois.row.${t.group === 'Recent' ? 'recent-' : ''}${pbSlug(t.name)}`}
               /* the picker has no column-header row: the first band sits under
                  the Search field */
               head={false}

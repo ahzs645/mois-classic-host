@@ -257,7 +257,7 @@ assumption, and opening them found ten real errors:
 | capture | what it actually shows |
 |---|---|
 | `encounter-detail-summary` | **the MOIS sign-in dialog** — not an encounter tab at all. Branded splash, version block, User Name / Password, Change Password. A whole screen that would otherwise have been missed. |
-| `encounter-detail-coding` | Detail / Coding is a **coding matrix** — Procedure / Health Issue / Service against Code 1–5, with ragged slot counts (2, 4, 4) — plus Resource, Docu. Status, Billing Status, Visit Mode, Encounter Ref. The invented Payor/Fee-Code layout was wrong. |
+| `encounter-detail-coding` | Detail / Coding is a **coding matrix** — Procedure / Health Issue / Service against Code 1–5, with ragged slot counts (2, 5, 4) — plus Resource, Docu. Status, Billing Status, Visit Mode, Encounter Ref. The invented Payor/Fee-Code layout was wrong. |
 | `scheduler-provider-daybook-right` | the day book grid has **14 columns**; AS, TK, MG, DS, BS, TM and RP were missing |
 | `action-linked-goals-populated` | Planned Actions has its own grid — Planned Start / Planned End / Action / Participant(s) / Action Completed / Completed Date — and its band reads `Linked Goals`, without the `- Read Only` suffix |
 | `risk-linked-goals-populated` | the screen is titled **"Risk for Condition"** (singular) with Rank, Source, Neg. columns |

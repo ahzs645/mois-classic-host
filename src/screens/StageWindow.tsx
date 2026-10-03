@@ -19,7 +19,7 @@ export { DesktopLayer } from './dialogKit'
 import { DesktopLayer } from './dialogKit'
 
 export function StageWindow({
-  id, title, width, height, onClose, children, footer, style, bodyStyle,
+  id, title, width, height, onClose, children, footer, style, bodyStyle, controls,
 }: {
   /** the dialog id: reported as `host.dialog` and anchored `host.mois.dialog.<id>` */
   id: string
@@ -32,9 +32,13 @@ export function StageWindow({
   footer?: ReactNode
   style?: CSSProperties
   bodyStyle?: CSSProperties
+  /** minimize and maximize beside close. Most of these windows draw close
+      alone; the MAR Detail Record draws all three
+      (evidence/MATRIX-R0766-date-time, R0763-ordered-by). */
+  controls?: boolean
 }) {
   return (
-    <ModalWindow id={id} title={title} onClose={onClose} portal="inline" report zIndex={LAYER.stage}
+    <ModalWindow id={id} title={title} onClose={onClose} portal="inline" report zIndex={LAYER.stage} controls={controls}
       windowStyle={{ ...clampTo(24, width, height), ...style }}>
       <div style={{ ...FACE, ...bodyStyle }}>
         {children}

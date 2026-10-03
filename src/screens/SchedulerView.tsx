@@ -1,3 +1,5 @@
+import { useProviderRoster, useResourceRoster } from '../data/user-account-session'
+import { useScreenReport } from '../host/screen-state'
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBRadio,
@@ -65,17 +67,26 @@ type Appt = DayRow & Record<string, string>
    - The foot is the Patient Detail Slide (scheduler/PatientDetailSlide.tsx).
    ========================================================================= */
 
+/* Widths are the DEV v02.31.23 day book's, read off the header separators of
+   `scheduler-provider-daybook-left.png` / `-right.png` (Aug 2026, 100 %);
+   the v02.30.22 manual capture art. 303834 `74e88fd1…` (taken at 125 %)
+   gives the same set once divided by 1.25. The grid has four narrow "…"
+   lookup columns, not one — after Chart, Visit Reason, Health Issue and
+   Services — blank in the header and dotted in every row (`74e88fd1…`; the
+   DEV header shows the first two as 13 px / 15 px blank cells). */
 const identityColumns: PBColumn<Appt>[] = [
-  { key: 'hr', header: 'HR', width: 30, align: 'center' },
-  { key: 'mn', header: 'MN', width: 32, align: 'center' },
-  { key: 'code', header: 'Code', width: 42, align: 'center' },
-  { key: 'mode', header: 'Mode', width: 44, align: 'center' },
-  { key: 'n', header: '#', width: 26, align: 'center' },
-  { key: 'chart', header: 'Chart', width: 68, align: 'center' },
-  { key: 'first', header: 'First Name', width: 92 },
-  { key: 'last', header: 'Last Name', width: 96 },
-  { key: 'reason', header: 'Visit Reason', width: 160 },
-  { key: 'loc', header: 'Service Location', width: 156 },
+  { key: 'hr', header: 'HR', width: 23, align: 'center' },
+  { key: 'mn', header: 'MN', width: 23, align: 'center' },
+  { key: 'code', header: 'Code', width: 39, align: 'center' },
+  { key: 'mode', header: 'Mode', width: 42, align: 'center' },
+  { key: 'n', header: '#', width: 24, align: 'center' },
+  { key: 'chart', header: 'Chart', width: 59, align: 'center' },
+  { key: 'chartDots', header: '', width: 13, align: 'center', dots: true },
+  { key: 'first', header: 'First Name', width: 74 },
+  { key: 'last', header: 'Last Name', width: 92 },
+  { key: 'reason', header: 'Visit Reason', width: 142 },
+  { key: 'reasonDots', header: '', width: 15, align: 'center', dots: true },
+  { key: 'loc', header: 'Service Location', width: 135 },
 ]
 
 /* everything past Room runs off the right-hand edge of the pane: the audit
@@ -83,33 +94,36 @@ const identityColumns: PBColumn<Appt>[] = [
    ("The column continues beyond the visible right edge of the shared Day Book
    grid" — MATRIX-R1311-as, MATRIX-R1320-rp). */
 const flagColumns: PBColumn<Appt>[] = [
-  { key: 'as', header: 'AS', width: 30, align: 'center' },
-  { key: 'tk', header: 'TK', width: 30, align: 'center' },
-  { key: 'mg', header: 'MG', width: 32, align: 'center' },
-  { key: 'issue', header: 'Health Issue', width: 92 },
-  { key: 'issueDots', header: '', width: 16, align: 'center', dots: true },
-  { key: 'services', header: 'Services', width: 78 },
-  { key: 'payor', header: 'Payor', width: 56, align: 'center' },
-  { key: 'ds', header: 'DS', width: 30, align: 'center' },
-  { key: 'bs', header: 'BS', width: 30, align: 'center' },
-  { key: 'tm', header: 'TM', width: 32, align: 'center' },
-  { key: 'rp', header: 'RP', width: 30, align: 'center' },
+  { key: 'as', header: 'AS', width: 35, align: 'center' },
+  { key: 'tk', header: 'TK', width: 21, align: 'center' },
+  { key: 'mg', header: 'MG', width: 24, align: 'center' },
+  { key: 'issue', header: 'Health Issue', width: 74 },
+  { key: 'issueDots', header: '', width: 14, align: 'center', dots: true },
+  { key: 'services', header: 'Services', width: 54 },
+  { key: 'servicesDots', header: '', width: 18, align: 'center', dots: true },
+  { key: 'payor', header: 'Payor', width: 49, align: 'center' },
+  { key: 'ds', header: 'DS', width: 23, align: 'center' },
+  { key: 'bs', header: 'BS', width: 23, align: 'center' },
+  { key: 'tm', header: 'TM', width: 23, align: 'center' },
+  { key: 'rp', header: 'RP', width: 27, align: 'center' },
 ]
 
+/* past RP: M and the attachment clip (matrix rows 1291-1292; drawn in
+   `74e88fd1…`, 21 px / 18 px at 100 %) */
 const tailColumns: PBColumn<Appt>[] = [
-  { key: 'm', header: 'M', width: 26, align: 'center' },
-  { key: 'clip', header: '\u{1F4CE}', width: 22, align: 'center' },
+  { key: 'm', header: 'M', width: 21, align: 'center' },
+  { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
 ]
 
 /** the column keys in each View Type's order (art. 303795) */
 function viewColumns(view: string): PBColumn<Appt>[] {
-  const resource: PBColumn<Appt> = { key: 'resource', header: 'Resource', width: 88 }
-  const room: PBColumn<Appt> = { key: 'room', header: 'Room', width: 60 }
+  const resource: PBColumn<Appt> = { key: 'resource', header: 'Resource', width: 76 }
+  const room: PBColumn<Appt> = { key: 'room', header: 'Room', width: 58 }
   const fees: PBColumn<Appt> = { key: 'fees', header: '# Fees', width: 44, align: 'center' }
   if (view === 'Provider') return [...identityColumns, room, ...flagColumns, ...tailColumns]
   if (view === 'Biller') {
     const flags = [...flagColumns]
-    flags.splice(flags.findIndex((c) => c.key === 'services') + 1, 0, fees)
+    flags.splice(flags.findIndex((c) => c.key === 'servicesDots') + 1, 0, fees)
     return [...identityColumns, resource, ...flags, ...tailColumns]
   }
   return [...identityColumns, resource, room, ...flagColumns, ...tailColumns]
@@ -132,7 +146,6 @@ function decorate(
     if (c.key === 'as') {
       return {
         ...c,
-        width: 45,
         render: (row: Appt, n: number) => {
           const i = shown[n]?.i ?? n
           return (
@@ -180,11 +193,13 @@ function decorate(
   })
 }
 
+/* the resource book's header (`scheduler-resource-daybook-left.png`) carries
+   the Chart and Visit Reason "…" columns too, and a 77 px Provider */
 const resourceColumns: PBColumn<Appt>[] = [
   ...identityColumns,
-  { key: 'provider', header: 'Provider', width: 120 },
-  { key: 'room', header: 'Room', width: 60 },
-  ...flagColumns.filter((c) => c.key !== 'issueDots'),
+  { key: 'provider', header: 'Provider', width: 77 },
+  { key: 'room', header: 'Room', width: 58 },
+  ...flagColumns.filter((c) => c.key !== 'issueDots' && c.key !== 'servicesDots'),
 ]
 
 /* the circling glyph a series row carries in the gutter */
@@ -227,8 +242,12 @@ const LONG = new Intl.DateTimeFormat('en-CA', { weekday: 'long', month: 'long', 
 const SHORT = new Intl.DateTimeFormat('en-CA', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
 const pbDate = (f: Intl.DateTimeFormat, d: Date) => f.format(d).replace(', ', ' ')
 
-/** the jump boxes sit over First Name and Last Name: gutter + HR…Chart */
-const NAME_LEFT = 3 + 13 + 30 + 32 + 42 + 44 + 26 + 68
+/** the jump boxes sit over First Name and Last Name: gutter + HR…Chart's
+    "…" — 238 px in from the pane, 72 px and 92 px wide, in both DEV day
+    books (`scheduler-provider-daybook-left.png`, `-resource-daybook-left.png`) */
+const NAME_LEFT = 3 + 13 + identityColumns
+  .slice(0, identityColumns.findIndex((c) => c.key === 'first'))
+  .reduce((a, c) => a + Number(c.width), 0)
 
 export function SchedulerView({
   mode = 'provider', offset = 0, onMove, provider = DESKTOP_PROVIDER_DEFAULT, onProvider,
@@ -249,7 +268,7 @@ export function SchedulerView({
   onApptStatus?: (row: number, code: string) => void
   /** the chart the frame has open: the only one whose encounters can open */
   chart?: string
-  onOpenEncounter?: (row: EncounterOpen) => void
+  onOpenEncounter?: (row: EncounterOpen, origin?: { appointment: string }) => void
   onOpenNode?: (node: string) => void
   /** @deprecated — booking, billing and statuses live in data/schedulerStore */
   apptStatuses?: unknown; booked?: unknown; billedRows?: unknown; onBill?: unknown; onNewAppt?: unknown
@@ -260,6 +279,8 @@ export function SchedulerView({
   const openWindow = useOpenWindow()
   const [view, setView] = useState('Scheduler')
   const [hide, setHide] = useState({ noshow: true, rebooked: true, cancelled: true, discharged: false })
+  const daybookProviders = useProviderRoster()
+  const resources = useResourceRoster()
   const [resource, setResource] = useState('1')
   const [jump, setJump] = useState({ first: '', last: '' })
   /* or Show Only: AS / DS */
@@ -322,7 +343,7 @@ export function SchedulerView({
     const enc = encounterOf(row, offset, chart ?? '')
     if (!enc || !row) return
     schedulerStore.openedEncounter(row.key)
-    onOpenEncounter?.(enc)
+    onOpenEncounter?.(enc, { appointment: `${row.hr}${row.mn}` })
   }
 
   const moveButton = (move: DaybookMove, label: string, width?: number) => (
@@ -421,8 +442,12 @@ export function SchedulerView({
   const withItems = (cols: PBColumn<Appt>[]) => cols.map((c) => (c.key === 'tk' || c.key === 'mg' ? { ...c, render: itemCell(c.key) } : c))
   const columns = isResource
     ? resourceColumns
-    : withItems(decorate(headed, shown, curRow, setStatus, () => openWindow('daybook-health-issue')))
+    : withItems(decorate(headed, shown, curRow, setStatus, () => {
+      host?.report('openUtility', { window: 'daybook-health-issue' })
+      openWindow('daybook-health-issue')
+    }))
   const form = schedulerExtras.daybookForm(provider, offset)
+  useScreenReport({ daybookAliasPresent: Boolean(form.alias), resource: isResource ? pbSlug(resource) : null, resourceAppointments: isResource ? all.length : 0 })
   const setForm = (patch: Parameters<typeof schedulerExtras.setDaybookForm>[2]) => schedulerExtras.setDaybookForm(provider, offset, patch)
   const LOCATIONS = ['', ...new Set([...all.map((r) => r.loc).filter(Boolean), ...daybookProviders.map((p) => p.loc)])]
 
@@ -430,12 +455,21 @@ export function SchedulerView({
   const shifts = isResource ? [] : shiftMinutes(sched.shifts, provider, weekdayOf(offset))
   const offShift = (h: number) => shifts.length > 0 && !shifts.some(([a, b]) => h * 60 >= a && h * 60 < b)
 
+  /* the resource book's six are the provider book's first six, in the same
+     order (`scheduler-resource-daybook-left.png`) */
   const commands: PBCommand[] = isResource
-    ? [{ label: 'New Appt', onClick: () => openWindow('new-appointment') }, { label: 'Delete Appt' }, { label: 'Save' }, { label: 'Undo' }, { label: 'Refresh' }]
+    ? [
+      { label: 'New Appt', onClick: () => openWindow('new-appointment') },
+      { label: 'Appt Series', onClick: () => openWindow('appointment-series', { kind: 'patient' }) },
+      { label: 'Save' }, { label: 'Delete Appt' }, { label: 'Undo' }, { label: 'Refresh' },
+    ]
     : [
       { label: 'New Appt', onClick: () => openWindow('new-appointment') },
       { label: 'Appt Series', onClick: () => openWindow('appointment-series', { kind: 'patient' }) },
-      { label: 'Save', onClick: commitDaybookMspLoc },
+      { label: 'Save', onClick: () => {
+        commitDaybookMspLoc()
+        schedulerStore.saveDay(provider, offset)
+      } },
       { label: 'Delete Appt', disabled: !current, onClick: () => openWindow('delete-appointment') },
       { label: 'Undo' },
       { label: 'Refresh' },
@@ -455,18 +489,21 @@ export function SchedulerView({
       {/* ---- filter form: three panels divided by hairlines ---- */}
       <div className="pb-daybook-filters" style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid #c9c9c9', flex: 'none', minWidth: 800 }}>
         {/* date navigator */}
-        <div style={{ padding: '5px 8px', flex: 'none', width: 196 }}>
+        {/* DEV: "Date:" at 12 px, an 86 px field at 55 px, and 19 px arrow
+            buttons either side of an 85 px Today (both DEV day books;
+            `74e88fd1…` ÷ 1.25 agrees) */}
+        <div style={{ padding: '5px 8px 5px 12px', flex: 'none', width: 196 }}>
           <div className="pb-row">
-            <span style={{ width: 40 }}>Date:</span>
-            <PBInput w={112} align="center" value={daybookStamp(offset)} readOnly style={{ background: '#fff' }} />
+            <span style={{ width: 39 }}>Date:</span>
+            <PBInput w={86} align="center" value={daybookStamp(offset)} readOnly style={{ background: '#fff' }} />
           </div>
-          <div className="pb-row" style={{ marginTop: 6, gap: 3 }}>
+          <div className="pb-row" style={{ marginTop: 6, gap: 3, width: 171 }}>
             {/* the captures paint these as plain ASCII, not guillemets */}
-            {moveButton('prev-week', '<<', 24)}
-            {moveButton('prev-day', '<', 24)}
+            {moveButton('prev-week', '<<', 19)}
+            {moveButton('prev-day', '<', 19)}
             {moveButton('today', 'Today')}
-            {moveButton('next-day', '>', 24)}
-            {moveButton('next-week', '>>', 24)}
+            {moveButton('next-day', '>', 19)}
+            {moveButton('next-week', '>>', 19)}
           </div>
           {!isResource && (
             <PBButton style={{ marginTop: 10, width: 118, height: 34, lineHeight: '13px', whiteSpace: 'normal' }}>
@@ -480,7 +517,7 @@ export function SchedulerView({
         {isResource ? (
           <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
             <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>Resource</span>
-            <PBSelect options={RESOURCES} w={240} value={resource} onChange={(e) => setResource(e.target.value)} />
+            <PBSelect options={resources} data-tutorial-id="host.mois.field.daybook-resource" w={197} value={resource} onChange={(e) => setResource(e.target.value)} />
 
             <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>View Type:</span>
             <div className="pb-row pb-row--gap-lg">
@@ -502,8 +539,9 @@ export function SchedulerView({
         <div className="pb-form" style={{ gridTemplateColumns: 'auto 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '19px' }}>Daybook For:</span>
           <div className="pb-row" data-tutorial-id={host?.anchor('daybookfor')}>
+            {/* DEV: Daybook For 197 px, Service Location 157 px */}
             <PBDropDownDataWindow
-              w={188}
+              w={197}
               value={provider}
               display="provider"
               columns={[
@@ -523,7 +561,7 @@ export function SchedulerView({
           <span className="pb-form__label pb-form__label--right" style={{ lineHeight: '14px' }}>Service<br />Location:</span>
           <div className="pb-row" data-tutorial-id="host.mois.field.daybook-service-location">
             <PBSelect
-              w={188}
+              w={157}
               options={LOCATIONS}
               value={extras.serviceLocation}
               onChange={(e) => schedulerExtras.setServiceLocation(e.target.value, extras.showOnly)}
@@ -572,20 +610,27 @@ export function SchedulerView({
             <DaybookMspLoc provider={provider} value={form.mspLoc} onChange={(v) => setForm({ mspLoc: v })} />
             <span style={{ marginLeft: 6 }}>Alias:</span>
             <span data-tutorial-id="host.mois.field.daybook-alias">
-              <PBSelect w={120} options={['', ...daybookProviders.map((p) => p.provider).filter((p) => p !== provider)]} value={form.alias} onChange={(e) => setForm({ alias: e.target.value })} />
+              <PBSelect w={130} options={['', ...daybookProviders.map((p) => p.provider).filter((p) => p !== provider)]} value={form.alias} onChange={(e) => setForm({ alias: e.target.value })} />
             </span>
           </div>
 
-          <span className="pb-form__label" style={{ lineHeight: '19px' }}>Comment:</span>
-          <PBTextArea rows={2} w="100%" value={form.comment} onChange={(e) => setForm({ comment: e.target.value })} data-tutorial-id="host.mois.field.daybook-comment" />
+          {/* "see more" sits under Comment:, beside the box's second line, and
+              the call-list link has a row of its own under the box (DEV
+              `scheduler-provider-daybook-left.png`; v02.30.22 `74e88fd1…`) */}
+          <span className="pb-form__label" style={{ lineHeight: '19px', gridColumn: 1, gridRow: 2 }}>Comment:</span>
+          <span style={{ gridColumn: 2, gridRow: '2 / span 2', display: 'flex' }}>
+            <PBTextArea rows={2} w="100%" value={form.comment} onChange={(e) => setForm({ comment: e.target.value })} data-tutorial-id="host.mois.field.daybook-comment" />
+          </span>
+          <button className="pb-link" style={{ gridColumn: 1, gridRow: 3, justifySelf: 'end', alignSelf: 'end' }} data-tutorial-id="host.mois.command.see-more" onClick={() => { host?.report('command', { command: 'see-more' }); openWindow('daybook-comment') }}>see more</button>
 
-          <button className="pb-link" style={{ justifySelf: 'end' }} data-tutorial-id="host.mois.command.see-more" onClick={() => { host?.report('command', { command: 'see-more' }); openWindow('daybook-comment') }}>see more</button>
-          <button className="pb-link" style={{ justifySelf: 'start' }} data-tutorial-id="host.mois.command.open-call-list" onClick={() => { host?.report('command', { command: 'open-call-list' }); openWindow('daybook-call-list') }}>
+          <button className="pb-link" style={{ gridColumn: 2, gridRow: 4, justifySelf: 'start' }} data-tutorial-id="host.mois.command.open-call-list" onClick={() => { host?.report('command', { command: 'open-call-list' }); openWindow('daybook-call-list') }}>
             {form.noCallList || !all.some((r) => r.chart) ? 'Create Call List' : 'Open Call List'}
           </button>
 
-          <span />
-          <PBCheckbox label="Do Not Auto-Generate a Call List" checked={form.noCallList} onChange={(v) => setForm({ noCallList: v })} tutorialId="host.mois.check.no-call-list" />
+          <span style={{ gridColumn: 1, gridRow: 5 }} />
+          <span style={{ gridColumn: 2, gridRow: 5 }}>
+            <PBCheckbox label="Do Not Auto-Generate a Call List" checked={form.noCallList} onChange={(v) => setForm({ noCallList: v })} tutorialId="host.mois.check.no-call-list" />
+          </span>
         </div>
         </>
         )}
@@ -636,19 +681,22 @@ export function SchedulerView({
 
       {/* ---- the scroll strip: < Scroll < pans left, > Scroll > right, and
            the two jump boxes sit over First Name and Last Name ---- */}
-      <div className="pb-scrollrow" style={{ position: 'relative' }}>
+      {/* the resource book keeps the strip and its two boxes but has no
+          Scroll buttons, so the strip holds its own 21 px height
+          (`scheduler-resource-daybook-left.png`) */}
+      <div className="pb-scrollrow" style={{ position: 'relative', minHeight: 21 }}>
         {!isResource && <PBButton size="sm" style={{ minWidth: 62 }} onClick={() => scroll(-320)} command="scroll-left">&lt; Scroll &lt;</PBButton>}
         <span className="pb-scrollrow__spacer" />
-        <span style={{ position: 'absolute', left: NAME_LEFT, top: 2, display: 'flex' }}>
+        <span style={{ position: 'absolute', left: NAME_LEFT, top: 2, display: 'flex', gap: 2 }}>
           <PBInput
-            w={92}
+            w={72}
             value={jump.first}
             onChange={(e) => setJump({ ...jump, first: e.target.value })}
             onKeyDown={(e) => { if (e.key === 'Enter') jumpTo('first', e.currentTarget.value) }}
             data-tutorial-id="host.mois.field.daybook-filter-first"
           />
           <PBInput
-            w={96}
+            w={92}
             value={jump.last}
             onChange={(e) => setJump({ ...jump, last: e.target.value })}
             onKeyDown={(e) => { if (e.key === 'Enter') jumpTo('last', e.currentTarget.value) }}
@@ -684,7 +732,7 @@ export function SchedulerView({
           rowTutorialId={(row) => `host.mois.row.appt-${row.hr}${row.mn}`}
           /* a day with no appointments paints a bare grid — every day-book
              capture reads "Appointment(s): 0" and carries no message */
-          empty=""
+          empty={false}
         />
       </div>
 

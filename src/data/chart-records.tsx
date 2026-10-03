@@ -25,12 +25,13 @@ export function recordsForNode(data: MoisChartExport | null, node: string): Mois
 
 /** Missing, loading and unmapped chart records all produce an empty list. */
 export function chartRowsFor(chart: string, node: string): Record<string, string>[] {
-  return rowsFromExport(node, recordsForNode(chartExportFor(chart), node))
+  const data = chartExportFor(chart)
+  return rowsFromExport(node, recordsForNode(data, node), data)
 }
 
 export function useChartRows(node: string): Record<string, string>[] {
   const data = useChartExport()
-  return useMemo(() => rowsFromExport(node, recordsForNode(data, node)), [data, node])
+  return useMemo(() => rowsFromExport(node, recordsForNode(data, node), data), [data, node])
 }
 
 export function useNodeRecords(node: string): MoisRecord[] {

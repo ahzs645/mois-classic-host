@@ -17,7 +17,34 @@ import { daysFromToday, toDashes } from './clock'
    stage's today, every dose still SCHEDULED — the shape of the manual's own
    example (a once-daily solution "for 7 DAY", `d38e5e72…png`). It is a
    practice record, not part of the chart export.
+
+   The action trail (tdt_mar_action): every step an instruction went
+   through, with who took it and when — id_mar_instruction names the parent
+   or child it belongs to, str_action the step, str_user_name / dtm_date /
+   dtm_time the who and when. Chart 87288's two orders read NOT SCHEDULED →
+   DELEGATED on the parent and SCHEDULED → ADMINISTERED on each dose. It is
+   carried on the order and on each event (`actions`). No capture shows MOIS
+   listing it — the order window's Signing History is the order's signing
+   (Action SIGNED, Note, On / By; 1741600 `d38e5e72…png`), not this trail,
+   and the record windows (1664605 `cb60a024…png`, 303427 `1494e901…png`)
+   have no history box — so it is drawn nowhere. Where it is the same
+   information it fills in what the dose's tdt_mar row lacks: an event with
+   no administration record takes its status, by and date / time from its
+   last action rather than from the instruction's care step.
    ========================================================================= */
+
+/** one step of an instruction's trail (tdt_mar_action) */
+export type MarAction = {
+  id: string
+  /** the tdt_mar_instruction it belongs to */
+  instruction: string
+  /** SCHEDULED · ADMINISTERED · NOT SCHEDULED · DELEGATED … */
+  action: string
+  by: string
+  date: string
+  time: string
+  record: MoisRecord
+}
 
 export type MarEvent = {
   id: string
@@ -34,6 +61,8 @@ export type MarEvent = {
   lot: string
   by: string
   record?: MoisRecord
+  /** the dose's own action trail, oldest first */
+  actions?: MarAction[]
 }
 
 export type MarOrder = {
@@ -56,11 +85,30 @@ export type MarOrder = {
   events: MarEvent[]
   /** a practice record the stage adds, not one from the export */
   practice?: boolean
+  /** the parent order's own action trail, oldest first */
+  actions?: MarAction[]
 }
 
 const dot = (v?: string) => (v ?? '').replace(/\//g, '.')
 const hm = (v?: string) => (v ?? '').slice(0, 5)
 const num = (v?: string) => (v ? String(Number(v)) : '')
+
+/** An instruction's action trail, oldest first (by date, time, then id). */
+export function marActionsFor(data: MoisChartExport | null, instruction: string | undefined): MarAction[] {
+  if (!data || !instruction) return []
+  return (data.mar_action ?? [])
+    .filter((a) => a.id_mar_instruction === instruction)
+    .map((a): MarAction => ({
+      id: a.id_mar_action ?? '',
+      instruction,
+      action: a.str_action ?? '',
+      by: a.str_user_name ?? a.stp_user_create ?? '',
+      date: dot(a.dtm_date),
+      time: hm(a.dtm_time),
+      record: a,
+    }))
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`) || Number(a.id) - Number(b.id))
+}
 
 /** The export's MAR, as parent orders with their events, newest first. */
 export function marOrdersFromExport(data: MoisChartExport | null): MarOrder[] {
@@ -72,20 +120,24 @@ export function marOrdersFromExport(data: MoisChartExport | null): MarOrder[] {
       const children = instructions.filter((c) => c.str_type === 'CHILD' && c.id_parent_record === p.id_mar_instruction)
       const events = children.map((c): MarEvent => {
         const m = (data.mar ?? []).find((r) => r.id_mar === c.id_outcome_record)
+        const actions = marActionsFor(data, c.id_mar_instruction)
+        const last = actions[actions.length - 1]
         return {
           id: c.id_mar_instruction ?? '',
-          status: m?.str_action_type ?? c.str_care_step ?? c.str_status ?? '',
-          date: dot(m?.dtm_admin_date ?? c.dtm_start_date),
-          time: hm(m?.dtm_admin_time ?? c.dtm_start_time),
+          status: m?.str_action_type ?? last?.action ?? c.str_care_step ?? c.str_status ?? '',
+          date: m?.dtm_admin_date ? dot(m.dtm_admin_date) : last?.date ?? dot(c.dtm_start_date),
+          time: m?.dtm_admin_time ? hm(m.dtm_admin_time) : last?.time ?? hm(c.dtm_start_time),
           med: m ? (m.str_medication && m.str_generic_name && m.str_medication !== m.str_generic_name ? `${m.str_generic_name} [${m.str_medication}]` : m.str_generic_name ?? m.str_medication ?? '') : '',
           generic: m?.str_generic_name ?? m?.str_medication ?? '',
           dose: num(m?.num_dose_size),
           units: m?.str_dose_unit ?? '',
-          series: m?.str_series ?? '',
+          /* Series Number is num_series_seq_nbr (MATRIX-R0770) */
+          series: m?.num_series_seq_nbr ?? m?.str_series ?? '',
           site: m?.str_site ?? '',
           lot: m?.str_lot_number ?? '',
-          by: m?.str_admin_by ?? c.str_create_by ?? '',
+          by: m?.str_admin_by ?? last?.by ?? c.str_create_by ?? '',
           record: m,
+          actions,
         }
       })
       const first = events[0]
@@ -107,6 +159,7 @@ export function marOrdersFromExport(data: MoisChartExport | null): MarOrder[] {
         created: `${dot(p.stp_date_create).replace(/:\d\d$/, '')}  ${p.stp_user_create ?? ''}`,
         modified: `${dot(p.stp_date_modify).replace(/:\d\d$/, '')}  ${p.stp_user_modify ?? ''}`,
         events,
+        actions: marActionsFor(data, p.id_mar_instruction),
       }
     })
     .sort((a, b) => b.orderDate.localeCompare(a.orderDate))

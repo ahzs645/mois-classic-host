@@ -41,6 +41,11 @@ export type SessionNote = {
   modified?: string
   /** a note from the chart export */
   exported?: boolean
+  /** the export's tdt_encounter_note.str_lock_by_author = Y: completed and
+      locked by its author, so it opens read-only to everyone */
+  lockedByAuthor?: boolean
+  /** the export's tdt_encounter_note.isprivate = Y */
+  isPrivate?: boolean
 }
 export type SessionReview = { folder: string; date: string; by: string; note: string }
 

@@ -339,6 +339,10 @@ export function deleteFolderRecord(chart: string, folder: CarePlanFolder, id: st
    in `goalIds`, which this keeps in step. */
 const linkKey = (object: GoalLinkObject, objectId: string, goalId: string) => `${object}:${objectId}:${goalId}`
 const linkWhen = () => `${MOIS_TODAY}  ${clock().slice(0, 5)}`
+/** an exported link's Linked Date: the day and the minute, two spaces apart —
+    `2026.08.12  11:52` (linked-health-issue-populated.png,
+    risk-linked-goals-populated.png, DEV v02.31.23) */
+const linkStamp = (v?: string) => [dot(v), (v ?? '').trim().split(/\s+/)[1]?.slice(0, 5)].filter(Boolean).join('  ')
 
 export function linkGoal(chart: string, object: GoalLinkObject, objectId: string, goalId: string) {
   const key = linkKey(object, objectId, goalId)
@@ -376,7 +380,7 @@ export function linkedGoalIds(data: MoisChartExport | null, s: ChartState, objec
   }
   for (const link of data?.goal_link ?? []) {
     if (link.str_object === `tdt_${object}` && link.id_object === objectId && link.id_goal) {
-      push({ object, objectId, goalId: link.id_goal, by: link.stp_user_create ?? '', when: dot(link.stp_date_create) })
+      push({ object, objectId, goalId: link.id_goal, by: link.stp_user_create ?? '', when: linkStamp(link.stp_date_create) })
     }
   }
   s.goalLinks.filter((l) => l.object === object && l.objectId === objectId).forEach(push)

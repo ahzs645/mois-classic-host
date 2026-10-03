@@ -126,6 +126,11 @@ export function editableColumns<T extends Record<string, unknown>>(
         return (
           <input
             className="pb-dw__edit"
+            /* the DataWindow's edit columns are borderless: the current row
+               reads salmon edge to edge with no boxes in it, a new row too
+               (need-for-care-new-record.png, risk-linked-goals-populated.png,
+               action-linked-goals-populated.png, DEV v02.31.23) */
+            style={{ border: 0, background: 'transparent', color: 'inherit', padding: '0 1px' }}
             data-tutorial-id={anchor}
             aria-label={typeof c.header === 'string' ? c.header : c.key}
             value={value}

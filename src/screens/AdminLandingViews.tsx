@@ -22,7 +22,8 @@ import { PBViewHeader } from '../pb'
    (#54), and Computer Registration is called `Computer Reg.` there.
    ========================================================================= */
 
-type Entry = { term: string; text: string }
+export type LandingEntry = { term: string; text: string }
+type Entry = LandingEntry
 
 const DESIGNER_MANAGEMENT: Entry[] = [
   { term: 'Concept Mapping:', text: 'Create and manage Concept Mapping.' },
@@ -57,18 +58,26 @@ export const ADMIN_LANDINGS: Record<string, { title: string; termW: number; entr
 export function AdminLanding({ node }: { node: string }) {
   const page = ADMIN_LANDINGS[node]
   if (!page) return null
+  return <SectionLanding title={page.title} termW={page.termW} entries={page.entries} />
+}
+
+/** The section landing page itself — Administration's, and the other
+    modules' folder pages drawn on the same PowerBuilder page (Data Exchange
+    ▸ Manual Entry, screens/ExchangeView.tsx). `band` is the light-blue
+    sub-band's caption when it differs from the view header's. */
+export function SectionLanding({ title, band, termW, entries }: { title: string; band?: string; termW: number; entries: Entry[] }) {
   return (
     <>
-      <PBViewHeader title={page.title} />
+      <PBViewHeader title={title} />
       {/* the light-blue sub-band repeating the caption, bold */}
       <div style={{ background: 'linear-gradient(#e4edfa, #ccdcf3)', padding: '8px 10px', fontWeight: 700, flex: 'none' }}>
-        {page.title}
+        {band ?? title}
       </div>
       <div style={{ height: 32, background: 'white', borderBottom: '1px solid #666', flex: 'none' }} />
       <div style={{ background: 'white', flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 18px' }}>
         <p style={{ margin: '6px 0 16px' }}>These pages are used to manage:</p>
-        <dl style={{ display: 'grid', gridTemplateColumns: `${page.termW}px 1fr`, gap: '30px 8px', padding: '0 20px', margin: 0 }}>
-          {page.entries.map((e) => (
+        <dl style={{ display: 'grid', gridTemplateColumns: `${termW}px 1fr`, gap: '30px 8px', padding: '0 20px', margin: 0 }}>
+          {entries.map((e) => (
             <div key={e.term} style={{ display: 'contents' }}>
               <dt style={{ fontWeight: 700 }}>{e.term}</dt>
               <dd style={{ margin: 0 }}>{e.text}</dd>

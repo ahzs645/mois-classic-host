@@ -2,3 +2,7 @@ node_modules
 dist
 .DS_Store
 reference
+
+# Chart attachment contents stay local; only the placeholder documentation ships.
+/src/data/charts/attachments/*
+!/src/data/charts/attachments/README.md

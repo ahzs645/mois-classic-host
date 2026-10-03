@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PBDataWindow, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
+import { PBDataWindow, PBInput, PBViewHeader, pbSlug, usePBInstrumentation } from '../pb'
 import { REPORT_FOLDERS, reportRows, type ReportRow } from '../data/reportCatalogue'
 import { REPORT_WINDOWS } from '../data/reportParams'
 import { reportSpecFor, reportSpecWindow } from '../data/reportSpecs'
@@ -22,6 +22,16 @@ import { useOpenWindow } from './areaWindowRegistry'
    that window, the same action a replayed step performs. The current row
    (orange, #f7c7bd) is reported as `host.screen.row`, so `host.mois.selectRow`
    can be graded.
+
+   Find: the live DEV client (v02.31.23, 2026) shows a `Find:` box over the
+   catalogue — ~/github/Mois/references/reports.md "Report List" ("Controls:
+   `Find:` search field. Expandable report categories.") and
+   module-overview.md ("`Report List` with `Find:` filter"). The manual's
+   captures of this grid all read v02.17.20 (data/reportCatalogue.ts), which
+   predates it. INFERRED: its strip and width, drawn the way System Settings
+   puts Find (a label and a box filling the row), and what it matches — a
+   report's name or description, showing the matches under open folders the
+   way System Settings' Find does (`0f26ee79…`).
    ========================================================================= */
 
 /** Folders start shut, the way the module opens. */
@@ -31,9 +41,14 @@ const SHARED_NAMES = new Set(reportRows.map((r) => r.name).filter((n, i, all) =>
 export function ReportListView({ onRun }: { onRun?: (row: ReportRow) => void }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(ALL_SHUT)
   const [cur, setCur] = useState(-1)
+  const [find, setFind] = useState('')
   const openWindow = useOpenWindow()
   const host = usePBInstrumentation()
-  const current = reportRows[cur]
+  const term = find.trim().toLowerCase()
+  const rows = term
+    ? reportRows.filter((r) => r.name.toLowerCase().includes(term) || (r.desc ?? '').toLowerCase().includes(term))
+    : reportRows
+  const current = rows[cur]
   useScreenReport({ row: current ? pbSlug(current.name) : '' })
   const run = (row: ReportRow) => {
     onRun?.(row)
@@ -49,15 +64,25 @@ export function ReportListView({ onRun }: { onRun?: (row: ReportRow) => void }) 
   return (
     <>
       <PBViewHeader title="Report List" />
+      <label className="pb-row" style={{ gap: 3, padding: '3px 4px 0', flex: 'none' }}>
+        Find:
+        <PBInput
+          aria-label="Find report"
+          data-tutorial-id="host.mois.field.report-find"
+          value={find}
+          onChange={(event) => { setFind(event.target.value); setCur(-1) }}
+          style={{ flex: 1, minWidth: 0 }}
+        />
+      </label>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
         <PBDataWindow
-          rows={reportRows}
+          rows={rows}
           current={cur}
           onCurrentChange={setCur}
           onActivate={(row) => run(row)}
           groupBy={(row) => row.folder}
           groupLabel={(folder) => folder}
-          collapsed={collapsed}
+          collapsed={term ? new Set<string>() : collapsed}
           onCollapsedChange={setCollapsed}
           /* a name two folders share (Bills ▸ MSP / Practice Private) takes
              its folder as a prefix, so each row has its own anchor */

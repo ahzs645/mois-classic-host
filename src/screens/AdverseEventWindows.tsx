@@ -2,7 +2,7 @@ import { cloneElement, useMemo, useRef, useState, type CSSProperties, type React
 import { useChartExport } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts'
 import {
-  addAdverseEvent, addReactionRisk, effectiveLinks, eventItem, linkEventRisk, riskItem, setEventParts, storedEvent,
+  addAdverseEvent, addReactionRisk, effectiveLinks, eventItem, linkEventRisk, riskItem, setEventParts, storedEvent, storedRiskReactions,
   unlinkEventRisk, useAllergySession,
   type AgentType, type EventAgent, type EventReaction, type EventRiskLink, type ReactionRiskInput,
 } from '../data/allergySession'
@@ -98,7 +98,8 @@ import { FooterButton, StageMessageBox, StageWindow } from './StageWindow'
    · the Link to a New Reaction Risk drop-downs (certainty, criticality …);
    · the message No Known gives when Reaction Risks are already on file (the
      article only describes the empty case).
-   Left out: New AEFI / Edit AEFI (the Edit AEFI form), the Reaction code
+   New AEFI / Edit AEFI open the AEFI form, screens/AefiWindow.tsx.
+   Left out: the Reaction code
    "…" lookup (the field takes typed text), the hyperlinks' jump to the
    other folder, and the multi-category prompt Elevate gives. The Detail
    page's Owned by / Record State lines are gone: c13 shows neither.
@@ -110,6 +111,8 @@ export const ADVERSE_WINDOWS = {
   linkRisks: 'link-reaction-risks',
   linkEvents: 'link-adverse-events',
   noKnownBlocked: 'no-known-reaction-risks',
+  /** New AEFI / Edit AEFI: the AEFI form (screens/AefiWindow.tsx) */
+  aefi: 'edit-aefi',
 } as const
 
 registerScreenWindows(Object.values(ADVERSE_WINDOWS))
@@ -342,7 +345,7 @@ function AgentBlock({ agent, index, count, onPick, onChange, onLookup, anchor }:
   )
 }
 
-function AgentList({ agents, setCur, onChange, onLookup, anchor }: {
+export function AgentList({ agents, setCur, onChange, onLookup, anchor }: {
   agents: EventAgent[]; setCur: (i: number) => void; onChange: (next: EventAgent[]) => void
   onLookup?: (i: number) => void; anchor?: string
 }) {
@@ -461,7 +464,7 @@ function AdverseFooter({ ok, onClose, okId, cancelId, okDisabled, above = 7, bel
 type LinkMode = 'none' | 'new' | 'existing'
 
 /** agent picked in the Master Reaction Agent List (c10) */
-function pickAgent(a: EventAgent, row: { code: string; description: string }): EventAgent {
+export function pickAgent(a: EventAgent, row: { code: string; description: string }): EventAgent {
   return { ...a, code: row.code, agent: row.description }
 }
 
@@ -760,6 +763,32 @@ export function EventReactionsPane({ record }: { record?: MoisRecord }) {
         { id: 'event-delete-reaction', label: 'Delete Reaction', w: 117, onClick: () => { if (reactions.length) { save(reactions.filter((_, i) => i !== cur)); setCur(0) } } },
       ]} />
       <ReactionGrid reactions={reactions} cur={cur} setCur={setCur} onChange={save} anchor="event-reaction" />
+    </div>
+  )
+}
+
+/** Reaction Risks ▸ Reactions (evidence/MATRIX-R0681-code … R0683-rank, MOIS
+    DEV v02.31.23): the event's own page — a New Reaction | Delete Reaction
+    band over Code · … · Reaction · Rank, no Severity or Comment column. The
+    rows are the risk's reactions (the export's tdt_reaction_risk, or what a
+    window filed this session); an added or deleted line lasts while the
+    record is open (INFERRED: no capture shows a risk reaction saved). */
+export function RiskReactionsPane({ record }: { record?: MoisRecord }) {
+  const ix = useAllergyIndex()
+  const id = record?.id_allergy ?? ''
+  const filed = useMemo<EventReaction[]>(() => {
+    const rows = id.startsWith('session-') ? storedRiskReactions(ix.chart, id) : (ix.data?.reaction_risk ?? []).filter((r) => r.id_allergy === id)
+    return rows.map((r, i) => ({ code: r.str_reaction_code ?? '', term: r.str_reaction ?? '', rank: r.num_rank ?? String(i) }))
+  }, [ix.chart, ix.data, id])
+  const [reactions, setReactions] = useState<EventReaction[]>(filed)
+  const [cur, setCur] = useState(0)
+  return (
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)' }}>
+      <BandCommands commands={[
+        { id: 'risk-new-reaction', label: 'New Reaction', w: 117, disabled: !id, onClick: () => { setReactions([...reactions, { code: '', term: '', rank: String(reactions.length) }]); setCur(reactions.length) } },
+        { id: 'risk-delete-reaction', label: 'Delete Reaction', w: 117, onClick: () => { if (reactions.length) { setReactions(reactions.filter((_, i) => i !== cur)); setCur(0) } } },
+      ]} />
+      <ReactionGrid reactions={reactions} cur={cur} setCur={setCur} onChange={setReactions} anchor="risk-reaction" />
     </div>
   )
 }

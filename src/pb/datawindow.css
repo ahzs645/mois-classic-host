@@ -205,6 +205,11 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
 .pb-dw__c--center { text-align: center; }
 .pb-dw__c--italic { font-style: italic; }
 .pb-dw__c--dots   { width: 16px; text-align: center; color: #555; letter-spacing: -1px; }
+/* a filled "…" cell (PBColumn `dotsFill`): the fill shows through the tile's
+   transparent middle, so the band's 1px inset and hairline stay; the current
+   row keeps its salmon (evidence/MATRIX-R0144-general-comment: #ffe6e7 on
+   every Connections row but the current one) */
+.pb-dw__table > tbody > tr:not(.is-current) > td.pb-dw__c--filled { background-color: var(--pb-dw-cell-fill); }
 .pb-dw__c--narrow { width: 34px; text-align: center; }
 .pb-dw__c--link   { color: var(--pb-link); text-decoration: underline; }
 
@@ -328,6 +333,34 @@ thead .pb-dw__gutter { background: var(--pb-dw-header); }
    Detail and Hyperlink nowhere near the cells beneath them */
 .pb-dw--head-grey .pb-dw__table > thead > tr > th.pb-dw__c--center { text-align: center; }
 .pb-dw--head-grey .pb-dw__table > thead > tr > th.pb-dw__c--num { text-align: right; }
+
+/* --- plain header --------------------------------------------------------
+   The Goals and Care Plan linked grids caption their columns in regular
+   black on the window face, flush to the frame: no blue, no inset, no
+   column separators and no rule under them — the face runs straight into
+   the first band (linked-health-issue-populated.png,
+   goal-linked-actions-populated.png, risk-linked-goals-populated.png; face
+   sampled #f0eeef). A centred or right caption keeps its alignment, as in
+   the grey header (Sensitive sits over its checkbox). */
+.pb-dw--head-plain .pb-dw__table > thead > tr > th {
+  text-align: left;
+  background: #f0f0f0;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  font-weight: 400;
+  color: #000;
+}
+.pb-dw--head-plain .pb-dw__table > thead > tr > th:hover { background: #f0f0f0; }
+.pb-dw--head-plain .pb-dw__table > thead > tr > th.pb-dw__c--center { text-align: center; }
+.pb-dw--head-plain .pb-dw__table > thead > tr > th.pb-dw__c--num { text-align: right; }
+
+/* A trailing filler column — the white a DataWindow leaves past its last
+   painted column — gets no header fill (PBColumn `headClassName`):
+   notification-reminders-empty.png stops the blue after M and runs white to
+   the frame. */
+.pb-dw__table > thead > tr > th.pb-dw__th--blank,
+.pb-dw__table > thead > tr > th.pb-dw__th--blank:hover { background: var(--pb-dw-row); border-color: var(--pb-dw-row); }
 
 /* --- caption header ------------------------------------------------------
    A chart window's status panel (Determinants of Health ▸ <domain> Status)

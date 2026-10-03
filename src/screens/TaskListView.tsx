@@ -49,7 +49,18 @@ import { SEARCH_FIELDS, matchesSearch } from '../data/workspaceSearch'
    - Search For searches Patient and Task; the "…" (or F4) opens Advanced
      Search on Priority, Patient, Task, Assignee, Group and Team
      (`79f934dc…`).
+
+   Added from the live DEV client (v02.31.23, 2026;
+   ~/github/Mois/references/workspace.md "Task Inbox"): the filter strip
+   reads Search For, Timeframe (observed `All Time`), Acknowledged,
+   Completed, View — the Timeframe drop-down is newer than the v02.30.22
+   capture the rest of the screen was measured on. Only its observed value
+   is known, so it lists that one entry and filters nothing. INFERRED: its
+   width, and the narrower Search For box that makes room for it.
    ========================================================================= */
+
+/** Task Inbox's Timeframe drop-down: the one value the DEV session recorded. */
+const TASK_TIMEFRAMES = ['All Time']
 
 const cx = (...v: (string | false | undefined)[]) => v.filter(Boolean).join(' ')
 
@@ -280,10 +291,11 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
   useEffect(() => {
     setCurrentWorkspaceRow(screen && current ? { node, row: taskRowSlug(current), args: taskRowArgs(screen, current) } : null)
   })
-  useScreenReport(current ? { row: taskRowSlug(current) } : {})
+  useScreenReport({ ...(current ? { row: taskRowSlug(current) } : {}), acknowledgedFilter: ack, completedFilter: comp })
 
   if (!screen) return null
 
+  const timeframe = node === 'ws-task-inbox'
   const view2 = !!screen.viewSelect && extras.taskView === 'View 2'
   /* View 2 trades Created / Created By for the Task Group (1802744) */
   const viewColumns = view2
@@ -344,13 +356,25 @@ export function TaskListView({ node, onOpenChart }: { node: string; onOpenChart?
       <div className="pb-row" style={{ gap: 6, padding: '4px 6px', background: '#f0f0f0', flex: 'none', alignItems: 'center' }}>
         <span className="pb-form__label">Search For:</span>
         <PBInput
-          w={screen.filters ? 400 : 700}
+          w={timeframe ? 300 : screen.filters ? 400 : 700}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setCur(0) }}
           onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); advanced() } }}
           data-tutorial-id="host.mois.field.task-search"
         />
         <PBButton bare className="pb-inputgroup__btn pb-inputgroup__btn--dots" title="Advanced search…" command="task-advanced-search" onClick={advanced}>…</PBButton>
+        {timeframe && (
+          <>
+            <span className="pb-form__label" style={{ marginLeft: 12 }}>Timeframe:</span>
+            <PBSelect
+              w={84}
+              options={TASK_TIMEFRAMES}
+              value={TASK_TIMEFRAMES[0]}
+              data-tutorial-id="host.mois.field.filter-timeframe"
+              onChange={() => {}}
+            />
+          </>
+        )}
         {screen.filters && (
           <>
             <span className="pb-form__label" style={{ marginLeft: 12 }}>Acknowledged:</span>

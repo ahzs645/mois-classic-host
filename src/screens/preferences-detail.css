@@ -21,7 +21,10 @@
   gap: 4px 6px;
 }
 .pb-preference-detail__subject { border-right: 1px solid #ccc; }
-.pb-preference-detail__radios { gap: 16px; }
+/* the three radios sit on a 91px pitch (Concept x 567, Code x 658, Free
+   Text x 749 in evidence/MATRIX-R0889-start, DEV v02.31.23 at 100%) */
+.pb-preference-detail__radios { gap: 0; }
+.pb-preference-detail__radios > * { width: 91px; flex: none; }
 .pb-preference-detail__other {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr);

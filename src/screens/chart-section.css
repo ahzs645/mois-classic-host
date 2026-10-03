@@ -1,0 +1,54 @@
+/* ============================================================================
+   ChartSectionView — the per-column filter band (`ChartScreen.filterColumns`).
+
+   PROVENANCE: evidence/MATRIX-R1045-date/ui-original.png (MOIS DEV
+   v02.31.23, 1:1), Encounter Documentation Forms. Under the grid's top rule
+   (y 168) the DataWindow paints a #c7c7c7 band 23px tall (169-191) and a
+   dark rule under it (192) across its whole width — past the last column
+   too — then the blue headers. Each filter box is a flat 1px-ruled white box
+   17px tall (171-187), 2px under the band's top, that starts on the column's
+   left rule and runs to 2px short of the next (577-774 over Form Type's
+   578-776, 776-1013 over Form Name, 1015-1184 over Attending). The Date
+   column and the gutter carry no box.
+   ========================================================================= */
+
+.pb-chart-section--filters {
+  --pb-chart-filter-band: #c7c7c7;
+  --pb-chart-filter-h: 24px; /* 23px band + the 1px rule under it */
+}
+
+/* the band and its rule run the frame's full width, so the white past the
+   last sized column starts under them, not beside them */
+.pb-chart-section--filters .pb-dw {
+  background:
+    linear-gradient(
+      var(--pb-chart-filter-band) 0 calc(var(--pb-chart-filter-h) - 1px),
+      #646464 calc(var(--pb-chart-filter-h) - 1px) var(--pb-chart-filter-h),
+      transparent var(--pb-chart-filter-h)
+    ) no-repeat,
+    var(--pb-dw-row);
+}
+
+.pb-chart-section--filters .pb-dw__table > thead > tr.pb-dw__filters th,
+.pb-chart-section--filters .pb-dw__table > thead > tr.pb-dw__filters th:hover {
+  height: var(--pb-chart-filter-h);
+  padding: 2px 0 4px;
+  background: var(--pb-chart-filter-band);
+  border-bottom: 1px solid #646464;
+  vertical-align: top;
+  /* the box sits 1px over the column's left rule */
+  overflow: visible;
+}
+
+.pb-chart-section--filters .pb-dw__filters .pb-field {
+  display: block;
+  width: calc(100% - 1px);
+  height: 17px;
+  margin-left: -1px;
+}
+
+/* both header rows are sticky at the top; the column titles stay under the
+   band when the list scrolls (as the Select Form list does, layout.css) */
+.pb-chart-section--filters .pb-dw__table > thead > tr:not(.pb-dw__filters) > th {
+  top: var(--pb-chart-filter-h);
+}

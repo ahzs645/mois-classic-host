@@ -7,6 +7,9 @@ import { useSessionState } from '../host/screen-windows'
 import { PBDataWindow, PBDropDownDataWindow, PBMessageBox, pbSlug, type PBColumn, type PBCommand } from '../pb'
 import { useOpenWindow } from './areaWindowRegistry'
 import { useFiledEforms } from './PhsaEformWindows'
+import { useDocumentFile } from './DocumentFileWindows'
+import { useChartExport } from '../data/chart-records'
+import { providerLabel } from '../data/charts/providers'
 
 /* ============================================================================
    Patient Chart ▸ Documents — Distribute, and what it needs (303445).
@@ -39,6 +42,14 @@ import { useFiledEforms } from './PhsaEformWindows'
      as Documents rows, after the exported ones (appended, so the grid's
      row → record mapping is untouched).
 
+   - a double-click on a row opens the file the document points at
+     (DocumentFileWindows.tsx);
+   - the Report tab's Responsible Org. falls back to the export's provider
+     directory when a record carries only the id (id_responsible_org /
+     str_responsible_org_id; data/charts/providers.ts), and the footer's
+     Code is the record's str_facility_code - str_facility_description, as
+     MATRIX-R0811's capture prints it ("Code: 11488-4 - Encounter Summary").
+
    ClinicalReportView calls this hook for every node; it is inert off
    Documents.
    ========================================================================= */
@@ -53,6 +64,8 @@ export function useDocumentsDistribution({ node, record, records, cur }: { node:
   const [sent] = useSessionDocDistributions()
   const [refusal, setRefusal] = useState<string | null>(null)
   const [eforms] = useFiledEforms()
+  const data = useChartExport()
+  const file = useDocumentFile({ active, records })
   const id = record?.id_document ?? ''
   const typeOf = (r: MoisRecord | undefined, fallback = '') => (r?.id_document ? types[r.id_document] : undefined) ?? r?.str_doc_type ?? fallback
   const mine = sent.filter((d) => d.chart === p.chart && d.documentId === id)
@@ -63,11 +76,19 @@ export function useDocumentsDistribution({ node, record, records, cur }: { node:
     if (!record) { open('send-document', { mode: 'document', docType: 'NOTIFICATION' }); return }
     if (type === 'PAPER FORM') { setRefusal(type); return }
     const known = RESPONSE_DOC_TYPES.some((t) => t.type === type)
-    open('send-document', { mode: 'document', documentId: id, docType: known ? type : 'MISC', recipient: record.str_recipient ?? '' })
+    open('send-document', { mode: 'document', documentId: id, docType: known ? type : 'MISC', recipient: record.str_primary_recipient ?? '' })
   }
 
   return {
     active,
+    /** the grid's double-click: open the row's file (`index` is the folder's) */
+    onActivate: active ? file.open : undefined,
+    /** the record the Report tab binds: Responsible Org. named from the directory when only its id was stored */
+    detail: (r: MoisRecord | undefined): MoisRecord | undefined => (!active || !r || r.str_responsible_org ? r
+      : { ...r, str_responsible_org: providerLabel(data, r.id_responsible_org ?? r.str_responsible_org_id) || undefined }),
+    /** the footer's Code: the LOINC the record was filed under, and its description */
+    code: (r: MoisRecord | undefined): string | undefined => (!active || !r?.str_facility_code ? undefined
+      : `${r.str_facility_code} - ${r.str_facility_description ?? ''}`.trim()),
     /** the grid's rows, with this session's filed eFORMs after them */
     rows: <R extends Record<string, string>>(rows: R[]): R[] => (!active ? rows : [
       ...rows,
@@ -94,27 +115,32 @@ export function useDocumentsDistribution({ node, record, records, cur }: { node:
     tabs: (tabs: string[] | undefined) => (!active || !tabs ? tabs : tabs.map((t) => (t.startsWith('Distribution') ? `Distribution (${mine.reduce((n, d) => n + d.rows.length, 0)})` : t))),
     /** the Distribution tab's page, or null for any other tab */
     page: (tab: string): ReactNode => (!active || !tab.startsWith('Distribution') ? null : (
+      /* MOIS DEV v02.31.23, evidence/MATRIX-R0818-method (1x): Method ·
+         Recipient Type · Name · Location · Status — no Date column (303445
+         `8d2d2fb0…`, an older build, had one) — captioned in regular weight
+         on the grey band, and an undistributed document is the grid's empty
+         white body. Column widths are read off the captions' centres; the
+         capture has no rows to confirm them. */
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
         <PBDataWindow
           head="grey"
           zebra={false}
           rows={mine.flatMap((d) => d.rows.map((r) => ({ date: d.date, method: r.method, type: r.type, name: r.name, location: '', status: r.status })))}
           columns={[
-            { key: 'date', header: 'Date', width: 120 },
-            { key: 'method', header: 'Method', width: 70 },
-            { key: 'type', header: 'Recipient Type', width: 150 },
-            { key: 'name', header: 'Name', width: 200 },
-            { key: 'location', header: 'Location', width: 150 },
-            { key: 'status', header: 'Status' },
+            { key: 'method', header: <span style={{ fontWeight: 400 }}>Method</span>, width: 83, align: 'center' },
+            { key: 'type', header: <span style={{ fontWeight: 400 }}>Recipient Type</span>, width: 136, headAlign: 'center' },
+            { key: 'name', header: <span style={{ fontWeight: 400 }}>Name</span>, width: 104, headAlign: 'center' },
+            { key: 'location', header: <span style={{ fontWeight: 400 }}>Location</span>, width: 292, headAlign: 'center' },
+            { key: 'status', header: <span style={{ fontWeight: 400 }}>Status</span>, headAlign: 'center' },
           ]}
-          empty="This document has not been distributed."
+          empty={false}
         />
       </div>
     )),
-    windows: refusal && (
+    windows: (<>{file.windows}{refusal && (
       <PBMessageBox title="Distribute" icon="warn" buttons={[{ label: 'OK', value: 'ok', default: true, command: 'distribute-refused-ok', tutorialId: 'host.mois.command.distribute-refused-ok' }]} onClose={() => setRefusal(null)}>
         A {refusal} cannot be distributed through CDX: there is no LOINC code for it. Change the Document Type to MISC, enter the recipient, and Distribute again.
       </PBMessageBox>
-    ),
+    )}</>),
   }
 }

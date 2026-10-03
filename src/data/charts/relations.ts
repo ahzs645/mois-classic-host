@@ -1,5 +1,20 @@
 import type { MoisChartExport, MoisChartGroup, MoisRecord } from './types'
 export const date = (v?: string) => v?.split(' ')[0]?.replace(/\//g, '.') ?? ''
+
+/** An encounter's Times stamp (`arrived` / `inroom` / `seen` / `discharge`)
+    as its two boxes show it: dtm_<stem> as `yyyy.mm.dd`, num_<stem>_hr /
+    num_<stem>_min as `hh : mm` — the header's own Date / time pair
+    ("2026.08.10 | 14 : 00", encounter-detail-header.png). The Data
+    Dictionary workbook's Matrix rows 393–400 map each box. A stamp the export
+    does not carry is blank. */
+export function encounterStamp(record: MoisRecord | undefined, stem: string): { date: string; time: string } {
+  const hr = record?.[`num_${stem}_hr`]
+  const mn = record?.[`num_${stem}_min`]
+  return {
+    date: date(record?.[`dtm_${stem}`]),
+    time: hr ? `${hr.padStart(2, '0')} : ${(mn || '0').padStart(2, '0')}` : '',
+  }
+}
 export function linkedGoals(data: MoisChartExport | null, group: string, record?: MoisRecord) {
   const id = record?.[`id_${group}`]
   if (!data || !id) return []

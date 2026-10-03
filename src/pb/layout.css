@@ -212,6 +212,17 @@
   background: var(--pb-mdi);
   cursor: col-resize;
 }
+/* On a 1x screen 3.5px leaves the whole work area on a half pixel, and
+   Chromium clips a text box's first glyph column there: at ?scale=100 an
+   input read ':250)' for '(250) 555-1234' and lost the stem of PRINCE's P
+   (the field's clip snaps to the pixel grid, the bitmap glyphs are drawn
+   from the half pixel). MOIS draws at 1x, and the DEV v02.31.23 captures,
+   taken 1:1, show a 4px gap (linked-health-issue-populated.png, x 433–436),
+   so a 1x screen gets that; a 2x screen keeps the 7 device px the TRAINING
+   captures measure. */
+@media (max-resolution: 1.5dppx) {
+  .pb-split__gutter { width: 4px; }
+}
 /* the work area's sunken left edge (#6d6d6d on the captures) */
 .pb-split__gutter + .pb-panel { border-left: 1px solid #6d6d6d; }
 

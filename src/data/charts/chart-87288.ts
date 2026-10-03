@@ -4,6 +4,7 @@
  * site MOIS DEV, reference 10000013. Field names are MOIS's own.
  *
  * chart_address: 2 · chart_occupant: 1 · chart_preference: 9 · chart_service: 6 · connection: 3 · encounter: 114 · encounter_note: 15 · measure: 42 · panel: 2 · order: 28 · document: 95 · prescription: 4 · drug_dose: 3 · drug_duration: 3 · health_issue: 2 · allergy: 1 · reaction_risk: 1 · reaction_event: 1 · adverse_event: 1 · adverse_agent: 1 · adverse_link: 1 · alert: 1 · family_hx: 1 · risk: 1 · need: 1 · action: 1 · goal: 2 · goal_link: 4 · mar: 2 · mar_action: 8 · mar_instruction: 4 · service_event: 7 · service_event_diag: 4 · form_header: 1 · form_wcb: 1 · dform_header: 8 · dform_data: 478
+ * empty in this export: chart_status, chart_name, admission, intervention, social_hx, chart_barrier, medication_lt, alias_id, associated_party, chart_resource, claim_other, claim_wcb, consult, cp_element, cp_section, custom_form, dpm, education, form_encounter, image, no_known, observation, occupation, procedure
  */
 import type { MoisChartExport } from './types'
 
@@ -349,8 +350,7 @@ export const chart87288: MoisChartExport = {
    "id_chart_service": "10000930",
    "id_chart": "577521",
    "dtm_start": "2025/09/17",
-   "stp_date_create": "2025/09/17 13:31:57",
-   "service_events": ""
+   "stp_date_create": "2025/09/17 13:31:57"
   },
   {
    "str_service_code_system": "NH.SERVICE",
@@ -370,8 +370,7 @@ export const chart87288: MoisChartExport = {
    "id_chart_service": "10000931",
    "id_chart": "577521",
    "dtm_start": "2025/09/17",
-   "stp_date_create": "2025/09/17 13:31:58",
-   "service_events": ""
+   "stp_date_create": "2025/09/17 13:31:58"
   },
   {
    "str_service_code_system": "NH.SERVICE",
@@ -391,8 +390,7 @@ export const chart87288: MoisChartExport = {
    "id_chart_service": "10000932",
    "id_chart": "577521",
    "dtm_start": "2025/11/18",
-   "stp_date_create": "2025/11/18 13:22:38",
-   "service_events": ""
+   "stp_date_create": "2025/11/18 13:22:38"
   },
   {
    "str_service_code_system": "NH.SERVICE",
@@ -419,8 +417,7 @@ export const chart87288: MoisChartExport = {
    "dtm_start": "2026/01/12",
    "dtm_end": "2026/01/12",
    "stp_date_create": "2026/01/12 11:11:02",
-   "stp_date_modify": "2026/01/12 11:12:34",
-   "service_events": ""
+   "stp_date_modify": "2026/01/12 11:12:34"
   },
   {
    "str_service_code_system": "NH.SERVICE",
@@ -441,8 +438,7 @@ export const chart87288: MoisChartExport = {
    "id_chart": "577521",
    "dtm_start": "2026/01/12",
    "dtm_end": "2026/01/12",
-   "stp_date_create": "2026/01/12 11:13:01",
-   "service_events": ""
+   "stp_date_create": "2026/01/12 11:13:01"
   },
   {
    "str_service_code_system": "NH.SERVICE",
@@ -463,8 +459,7 @@ export const chart87288: MoisChartExport = {
    "id_chart": "577521",
    "dtm_start": "2026/02/19",
    "dtm_end": "2026/02/19",
-   "stp_date_create": "2026/02/19 10:14:13",
-   "service_events": ""
+   "stp_date_create": "2026/02/19 10:14:13"
   }
  ],
  "connection": [
@@ -584,8 +579,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
    "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "num_duration_of_care": "10",
-   "encounter_notes": ""
+   "num_duration_of_care": "10"
   },
   {
    "str_name_f": "PATCH",
@@ -614,8 +608,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -646,8 +639,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -676,8 +668,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -710,8 +701,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -744,8 +734,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -774,8 +763,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -805,8 +793,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -834,8 +821,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -867,8 +853,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -904,8 +889,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -951,8 +935,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
    "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "num_duration_of_care": "45",
-   "encounter_notes": ""
+   "num_duration_of_care": "45"
   },
   {
    "str_name_f": "PATCH",
@@ -981,8 +964,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1012,8 +994,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1046,8 +1027,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1081,8 +1061,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1116,8 +1095,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1152,8 +1130,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1182,8 +1159,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1212,8 +1188,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1242,8 +1217,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1280,8 +1254,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1318,8 +1291,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:03",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:03"
   },
   {
    "str_name_f": "PATCH",
@@ -1354,8 +1326,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1385,8 +1356,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1416,8 +1386,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1447,8 +1416,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1481,8 +1449,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1511,8 +1478,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1544,8 +1510,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1591,8 +1556,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
    "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "num_duration_of_care": "1",
-   "encounter_notes": ""
+   "num_duration_of_care": "1"
   },
   {
    "str_name_f": "PATCH",
@@ -1622,8 +1586,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1652,8 +1615,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1682,8 +1644,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1712,8 +1673,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1748,8 +1708,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1780,8 +1739,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1814,8 +1772,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1858,8 +1815,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
    "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "num_duration_of_care": "30",
-   "encounter_notes": ""
+   "num_duration_of_care": "30"
   },
   {
    "str_name_f": "PATCH",
@@ -1892,8 +1848,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1928,8 +1883,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1964,8 +1918,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -1998,8 +1951,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2031,8 +1983,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2062,8 +2013,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2100,8 +2050,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2144,8 +2093,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
    "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "num_duration_of_care": "10",
-   "encounter_notes": ""
+   "num_duration_of_care": "10"
   },
   {
    "str_name_f": "PATCH",
@@ -2178,8 +2126,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2213,8 +2160,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2244,8 +2190,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2275,8 +2220,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2311,8 +2255,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2345,8 +2288,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2376,8 +2318,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2407,8 +2348,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2438,8 +2378,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2469,8 +2408,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2503,8 +2441,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2534,8 +2471,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2565,8 +2501,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2596,8 +2531,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2627,8 +2561,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2663,8 +2596,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2694,8 +2626,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2725,8 +2656,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2756,8 +2686,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2787,8 +2716,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2818,8 +2746,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2849,8 +2776,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2880,8 +2806,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2910,8 +2835,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2941,8 +2865,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -2972,8 +2895,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3003,8 +2925,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3034,8 +2955,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3065,8 +2985,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3096,8 +3015,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3127,8 +3045,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3158,8 +3075,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3189,8 +3105,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -3220,8 +3135,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3251,8 +3165,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3282,8 +3195,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3313,8 +3225,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3344,8 +3255,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3375,8 +3285,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3406,8 +3315,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3437,8 +3345,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3468,8 +3375,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3499,8 +3405,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3532,8 +3437,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3562,8 +3466,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3592,8 +3495,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3626,8 +3528,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3656,8 +3557,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3686,8 +3586,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3716,8 +3615,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3746,8 +3644,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3776,8 +3673,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3806,8 +3702,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3851,8 +3746,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
    "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "num_duration_of_care": "80",
-   "encounter_notes": ""
+   "num_duration_of_care": "80"
   },
   {
    "str_name_f": "PATCH",
@@ -3884,8 +3778,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3917,8 +3810,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3948,8 +3840,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -3978,8 +3869,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:05"
   },
   {
    "str_name_f": "PATCH",
@@ -4007,8 +3897,7 @@ export const chart87288: MoisChartExport = {
    "stp_date_create": "2026/04/29 10:14:04",
    "stp_date_modify": "2026/04/29 10:14:27",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/04/29 10:14:27",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/04/29 10:14:27"
   },
   {
    "str_name_f": "PATCH",
@@ -4043,8 +3932,7 @@ export const chart87288: MoisChartExport = {
    "id_fee_code_2_chart_service": "0",
    "id_fee_code_3_chart_service": "0",
    "id_fee_code_4_chart_service": "0",
-   "dtm_chart_assigned": "2026/03/04 14:20:04",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/03/04 14:20:04"
   },
   {
    "str_name_f": "PATCH",
@@ -4071,8 +3959,7 @@ export const chart87288: MoisChartExport = {
    "num_attachments": "1",
    "stp_date_create": "2026/06/17 12:25:22",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/06/17 12:25:31",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/06/17 12:25:31"
   },
   {
    "str_name_f": "PATCH",
@@ -4098,8 +3985,7 @@ export const chart87288: MoisChartExport = {
    "num_attachments": "1",
    "stp_date_create": "2026/07/07 11:53:11",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/07/07 11:53:14",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/07/07 11:53:14"
   },
   {
    "str_name_f": "PATCH",
@@ -4125,8 +4011,7 @@ export const chart87288: MoisChartExport = {
    "num_attachments": "2",
    "stp_date_create": "2026/07/07 12:02:24",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/07/07 12:02:24",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/07/07 12:02:24"
   },
   {
    "str_name_f": "PATCH",
@@ -4151,8 +4036,7 @@ export const chart87288: MoisChartExport = {
    "num_time_slots": "4",
    "stp_date_create": "2026/08/20 07:42:29",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/08/20 07:42:31",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/08/20 07:42:31"
   },
   {
    "str_name_f": "PATCH",
@@ -4182,8 +4066,7 @@ export const chart87288: MoisChartExport = {
    "stp_date_create": "2026/07/14 08:46:03",
    "stp_date_modify": "2026/08/19 16:36:57",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/07/14 08:46:07",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/07/14 08:46:07"
   },
   {
    "str_name_f": "PATCH",
@@ -4213,8 +4096,7 @@ export const chart87288: MoisChartExport = {
    "stp_date_create": "2026/08/19 16:58:02",
    "stp_date_modify": "2026/08/19 17:01:07",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/08/19 16:58:05",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/08/19 16:58:05"
   },
   {
    "str_name_f": "PATCH",
@@ -4244,8 +4126,7 @@ export const chart87288: MoisChartExport = {
    "stp_date_create": "2026/08/20 08:16:04",
    "stp_date_modify": "2026/08/20 08:16:35",
    "num_chart": "87288",
-   "dtm_chart_assigned": "2026/08/20 08:16:08",
-   "encounter_notes": ""
+   "dtm_chart_assigned": "2026/08/20 08:16:08"
   }
  ],
  "encounter_note": [
@@ -9406,8 +9287,7 @@ export const chart87288: MoisChartExport = {
    "dtm_order": "2025/10/02",
    "stp_date_create": "2025/10/02 11:02:46",
    "num_repeat": "1",
-   "dtm_last_printed": "2026/02/24 14:21:04",
-   "drug_durations": ""
+   "dtm_last_printed": "2026/02/24 14:21:04"
   },
   {
    "str_order_by": "TECHNICAL SUPPORT",
@@ -9442,8 +9322,7 @@ export const chart87288: MoisChartExport = {
    "id_chart": "577521",
    "dtm_order": "2025/10/22",
    "stp_date_create": "2025/10/22 12:16:17",
-   "dtm_last_printed": "2025/11/17 13:24:49",
-   "drug_durations": ""
+   "dtm_last_printed": "2025/11/17 13:24:49"
   },
   {
    "str_order_by": "TECHNICAL SUPPORT",
@@ -9478,8 +9357,7 @@ export const chart87288: MoisChartExport = {
    "dtm_order": "2026/05/06",
    "num_attachments": "0",
    "stp_date_create": "2026/05/06 12:03:17",
-   "stp_date_modify": "2026/05/06 12:04:02",
-   "drug_durations": ""
+   "stp_date_modify": "2026/05/06 12:04:02"
   },
   {
    "str_order_by": "AMIN, MONA",
@@ -9516,8 +9394,7 @@ export const chart87288: MoisChartExport = {
    "num_attachments": "1",
    "stp_date_create": "2025/11/07 15:30:01",
    "stp_date_modify": "2025/11/07 15:49:18",
-   "dtm_last_printed": "2025/11/07 15:51:12",
-   "drug_durations": ""
+   "dtm_last_printed": "2025/11/07 15:51:12"
   }
  ],
  "drug_dose": [
@@ -9580,8 +9457,7 @@ export const chart87288: MoisChartExport = {
    "id_object": "501046",
    "num_duration": "20.0000",
    "num_sequence": "10",
-   "stp_date_create": "2025/10/02 12:39:55",
-   "drug_doses": ""
+   "stp_date_create": "2025/10/02 12:39:55"
   },
   {
    "str_object": "tdt_prescription",
@@ -9595,8 +9471,7 @@ export const chart87288: MoisChartExport = {
    "id_object": "501048",
    "num_duration": "14.0000",
    "num_sequence": "10",
-   "stp_date_create": "2025/10/22 12:17:25",
-   "drug_doses": ""
+   "stp_date_create": "2025/10/22 12:17:25"
   },
   {
    "str_object": "tdt_prescription",
@@ -9608,8 +9483,7 @@ export const chart87288: MoisChartExport = {
    "id_drug_duration": "10000979",
    "id_object": "501135",
    "num_sequence": "10",
-   "stp_date_create": "2026/05/06 12:04:02",
-   "drug_doses": ""
+   "stp_date_create": "2026/05/06 12:04:02"
   }
  ],
  "health_issue": [
@@ -9664,8 +9538,7 @@ export const chart87288: MoisChartExport = {
    "id_chart": "577521",
    "stp_date_create": "2026/01/13 09:39:49",
    "stp_date_modify": "2026/01/13 09:41:14",
-   "dtm_start": "2026/01/13",
-   "reaction_risks": ""
+   "dtm_start": "2026/01/13"
   }
  ],
  "reaction_risk": [
@@ -9896,9 +9769,7 @@ export const chart87288: MoisChartExport = {
    "num_other_duration_day": "0",
    "stp_date_create": "2026/01/13 09:37:43",
    "stp_date_modify": "2026/01/13 09:39:39",
-   "id_user": "500052",
-   "reaction_events": "",
-   "adverse_agents": ""
+   "id_user": "500052"
   }
  ],
  "adverse_agent": [
@@ -10302,8 +10173,7 @@ export const chart87288: MoisChartExport = {
    "dtm_start_date": "2026/01/12",
    "dtm_start_time": "11:52:34",
    "stp_date_create": "2026/01/12 11:48:36",
-   "stp_date_modify": "2026/01/12 11:48:36",
-   "mar_actions": ""
+   "stp_date_modify": "2026/01/12 11:48:36"
   },
   {
    "str_type": "CHILD",
@@ -10332,8 +10202,7 @@ export const chart87288: MoisChartExport = {
    "dtm_start_date": "2026/02/19",
    "dtm_start_time": "10:57:59",
    "stp_date_create": "2026/02/19 10:52:50",
-   "stp_date_modify": "2026/02/19 10:52:50",
-   "mar_actions": ""
+   "stp_date_modify": "2026/02/19 10:52:50"
   },
   {
    "str_type": "PARENT",
@@ -10361,8 +10230,7 @@ export const chart87288: MoisChartExport = {
    "dtm_order_date": "2026/01/12",
    "dtm_order_time": "11:51:35",
    "stp_date_create": "2026/01/12 11:48:36",
-   "stp_date_modify": "2026/01/12 11:48:36",
-   "mar_actions": ""
+   "stp_date_modify": "2026/01/12 11:48:36"
   },
   {
    "str_type": "PARENT",
@@ -10390,8 +10258,7 @@ export const chart87288: MoisChartExport = {
    "dtm_order_date": "2026/02/19",
    "dtm_order_time": "10:56:39",
    "stp_date_create": "2026/02/19 10:52:50",
-   "stp_date_modify": "2026/02/19 10:52:50",
-   "mar_actions": ""
+   "stp_date_modify": "2026/02/19 10:52:50"
   }
  ],
  "service_event": [
@@ -10409,8 +10276,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000442",
    "id_object": "530216",
    "id_chart_service": "10000930",
-   "stp_date_create": "2025/09/17 13:31:57",
-   "service_event_diags": ""
+   "stp_date_create": "2025/09/17 13:31:57"
   },
   {
    "str_object": "tdt_encounter",
@@ -10426,8 +10292,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000443",
    "id_object": "530215",
    "id_chart_service": "10000931",
-   "stp_date_create": "2025/09/17 13:31:58",
-   "service_event_diags": ""
+   "stp_date_create": "2025/09/17 13:31:58"
   },
   {
    "str_object": "tdt_encounter",
@@ -10443,8 +10308,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000444",
    "id_object": "530251",
    "id_chart_service": "10000933",
-   "stp_date_create": "2026/01/12 11:11:02",
-   "service_event_diags": ""
+   "stp_date_create": "2026/01/12 11:11:02"
   },
   {
    "str_object": "tdt_encounter",
@@ -10460,8 +10324,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000445",
    "id_object": "530251",
    "id_chart_service": "10000933",
-   "stp_date_create": "2026/01/12 11:11:55",
-   "service_event_diags": ""
+   "stp_date_create": "2026/01/12 11:11:55"
   },
   {
    "str_object": "tdt_encounter",
@@ -10474,8 +10337,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000446",
    "id_object": "530251",
    "id_chart_service": "10000933",
-   "stp_date_create": "2026/01/12 11:12:24",
-   "service_event_diags": ""
+   "stp_date_create": "2026/01/12 11:12:24"
   },
   {
    "str_object": "tdt_encounter",
@@ -10491,8 +10353,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000447",
    "id_object": "530251",
    "id_chart_service": "10000934",
-   "stp_date_create": "2026/01/12 11:13:01",
-   "service_event_diags": ""
+   "stp_date_create": "2026/01/12 11:13:01"
   },
   {
    "str_object": "tdt_encounter",
@@ -10508,8 +10369,7 @@ export const chart87288: MoisChartExport = {
    "id_service_event": "10000448",
    "id_object": "530306",
    "id_chart_service": "10000935",
-   "stp_date_create": "2026/02/19 10:14:14",
-   "service_event_diags": ""
+   "stp_date_create": "2026/02/19 10:14:14"
   }
  ],
  "service_event_diag": [
@@ -10583,9 +10443,7 @@ export const chart87288: MoisChartExport = {
    "id_form_type": "1001",
    "id_author": "-1",
    "dtm_created": "2025/07/27",
-   "stp_date_create": "2025/11/13 11:46:13",
-   "form_encounters": "",
-   "form_wcbs": ""
+   "stp_date_create": "2025/11/13 11:46:13"
   }
  ],
  "form_wcb": [
@@ -10632,8 +10490,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/11",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/11 21:20:18",
-   "stp_date_modify": "2026/02/11 21:21:38",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/11 21:21:38"
   },
   {
    "str_object": "tdt_measure",
@@ -10658,8 +10515,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/12",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/12 08:30:29",
-   "stp_date_modify": "2026/02/12 08:39:29",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/12 08:39:29"
   },
   {
    "str_object": "tdt_measure",
@@ -10684,8 +10540,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/12",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/12 09:25:24",
-   "stp_date_modify": "2026/02/12 09:52:40",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/12 09:52:40"
   },
   {
    "str_object": "tdt_measure",
@@ -10709,8 +10564,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/12",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/12 10:09:59",
-   "stp_date_modify": "2026/02/12 10:14:14",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/12 10:14:14"
   },
   {
    "str_object": "tdt_measure",
@@ -10735,8 +10589,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/13",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/12 23:57:48",
-   "stp_date_modify": "2026/02/13 00:59:33",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/13 00:59:33"
   },
   {
    "str_object": "tdt_measure",
@@ -10760,8 +10613,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/19",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/19 10:18:27",
-   "stp_date_modify": "2026/02/19 10:18:51",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/19 10:18:51"
   },
   {
    "str_object": "tdt_measure",
@@ -10785,8 +10637,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/02/19",
    "num_grace_period": "0",
    "stp_date_create": "2026/02/19 10:20:35",
-   "stp_date_modify": "2026/02/19 10:20:56",
-   "dform_datas": ""
+   "stp_date_modify": "2026/02/19 10:20:56"
   },
   {
    "str_object": "tdt_measure",
@@ -10810,8 +10661,7 @@ export const chart87288: MoisChartExport = {
    "dtm_form": "2026/01/12",
    "num_grace_period": "0",
    "stp_date_create": "2026/01/12 10:54:47",
-   "stp_date_modify": "2026/01/12 10:55:11",
-   "dform_datas": ""
+   "stp_date_modify": "2026/01/12 10:55:11"
   }
  ],
  "dform_data": [
@@ -20045,6 +19895,850 @@ export const chart87288: MoisChartExport = {
    "id_object": "0",
    "stp_date_create": "2026/01/12 10:54:48",
    "stp_date_modify": "2026/01/12 10:55:11"
+  }
+ ],
+ "admission": [],
+ "intervention": [],
+ "social_hx": [],
+ "chart_barrier": [],
+ "medication_lt": [],
+ "alias_id": [],
+ "associated_party": [],
+ "chart_resource": [],
+ "claim_other": [],
+ "claim_wcb": [],
+ "consult": [],
+ "cp_element": [],
+ "cp_section": [],
+ "custom_form": [],
+ "dpm": [],
+ "education": [],
+ "form_encounter": [],
+ "image": [],
+ "no_known": [],
+ "observation": [],
+ "occupation": [],
+ "procedure": [],
+ "provider_directory": [
+  {
+   "id_provider": "500074",
+   "str_name": "PCIPT 1 FJN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500138",
+   "str_name": "RACHELS TEST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500139",
+   "str_name": "NH TEST GROUP - CDX",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500151",
+   "str_name": "SMILE ORG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500143",
+   "str_name": "TEST1313",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500144",
+   "str_name": "INTEROP, CIVICA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500093",
+   "str_name": "OMT CASE NURSE 4",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500157",
+   "str_name": "PRENATAL TEST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500065",
+   "str_name": "ACCESS COORDINATOR",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500147",
+   "str_name": "DEGENSTEIN, CONNIE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500146",
+   "str_name": "MHSU 1 TREAT THERAPIST 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500149",
+   "str_name": "SNOW INC",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500150",
+   "str_name": "PCIPT 9 TEST 1 SMI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500152",
+   "str_name": "TEST, TESTB",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "5001",
+   "str_name": "NH - VCS (MAIN)",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "5002",
+   "str_name": "NH - VCS (LAB)",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500140",
+   "str_name": "SMITH, PETER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500155",
+   "str_name": "PCIPT TESTING JOETEST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500153",
+   "str_name": "DULAY CARDIOLOGY",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "5003",
+   "str_name": "NH - PHYSICIAN (CONSULT)",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "5004",
+   "str_name": "NH - PHYSICIAN (FOLLOW-UP)",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500148",
+   "str_name": "LOWE, DEBORAH",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500069",
+   "str_name": "TOPS PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500101",
+   "str_name": "TES",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500111",
+   "str_name": "OHS NURSE 2 NI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500154",
+   "str_name": "ERICKSON, AMANDA",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500142",
+   "str_name": "PCIPT 2 NURSE 1 PRG",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500145",
+   "str_name": "TEST, TEST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500094",
+   "str_name": "HHM NW",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500077",
+   "str_name": "PCIPT 2 FJN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500067",
+   "str_name": "WAITLIST NO CALENDAR",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500068",
+   "str_name": "REGISTERED DIETITIAN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500072",
+   "str_name": "PCIPT 1 CLIN 1 OAT SMI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500105",
+   "str_name": "MHO NHA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500052",
+   "str_name": "LONG TERM CARE WAITLIST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500063",
+   "str_name": "MHSU RT 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500075",
+   "str_name": "PCIPT 1 NURSE 1 FJN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500016",
+   "str_name": "PCIPT 1 NURSE 1 FLK",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500053",
+   "str_name": "WARKENTIN, LISA",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500079",
+   "str_name": "CLOSED",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500080",
+   "str_name": "CLOSED FOREVER",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500029",
+   "str_name": "PCIPT 1 MCK",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500083",
+   "str_name": "YCAS/EPI 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500084",
+   "str_name": "YCAS EPI 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500089",
+   "str_name": "WU, GEORGE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500013",
+   "str_name": "HIC 1 NURSE 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500096",
+   "str_name": "OUTBREAK MANAGEMENT TEAM",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500097",
+   "str_name": "OMT INTAKE NURSE 1",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500014",
+   "str_name": "HIGH INTENSITY CARE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500019",
+   "str_name": "PCIPT 1 NURSE 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500031",
+   "str_name": "PCIPT 1 MHC 2 MCK",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500081",
+   "str_name": "TAT 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500078",
+   "str_name": "HS TL PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500022",
+   "str_name": "PCIPT 1 NURSE 4 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500024",
+   "str_name": "PH PRINCE GEORGE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500025",
+   "str_name": "NICODEMO, HERALD",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500070",
+   "str_name": "TEST0",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500028",
+   "str_name": "WALKIN CLINIC PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500032",
+   "str_name": "PCA MCK",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500035",
+   "str_name": "NO DAYBOOK NO WORKSPACE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500055",
+   "str_name": "KINCH, VANESSA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500082",
+   "str_name": "YAN, LING",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500015",
+   "str_name": "SCULLY, DANA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500038",
+   "str_name": "ELDERLY SERVICES CLINICIAN 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500027",
+   "str_name": "PCN PHRN 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500041",
+   "str_name": "RAINBOW ADULT DAY CENTRE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500076",
+   "str_name": "PCIPT 1 OT 1 FJN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500017",
+   "str_name": "MOORES, ALEC",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500042",
+   "str_name": "PCIPT 1 PCA 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500045",
+   "str_name": "PCIPT 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500044",
+   "str_name": "PCIPT INTAKE NURSE TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500039",
+   "str_name": "ICM NURSE 1 TER",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500048",
+   "str_name": "PRIMARY CARE PROVIDER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500050",
+   "str_name": "QUESNEL SCHEDULE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500051",
+   "str_name": "URGENT PRIMARY CARE QUE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500021",
+   "str_name": "PCIPT 1 NURSE 3 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500036",
+   "str_name": "ELDERLY SERVICES TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500073",
+   "str_name": "MOBILE SUPPORT TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500056",
+   "str_name": "OAT CLINIC RUP",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500057",
+   "str_name": "PCIPT HCN QUE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500054",
+   "str_name": "WILLOW CLINIC",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500030",
+   "str_name": "PCIPT 1 MHC 1 MCK",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500059",
+   "str_name": "GEORGE H. WU",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500040",
+   "str_name": "ICMT TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500043",
+   "str_name": "PCIPT 1 NURSE 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500060",
+   "str_name": "PCIPT 1 QUE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500061",
+   "str_name": "PCIPT 1 OT 1 QUE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500098",
+   "str_name": "OMT CASE NURSE 1",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500033",
+   "str_name": "ORG ROLE SCHEDULE TEST",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500099",
+   "str_name": "OMT INTAKE ADMIN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500100",
+   "str_name": "OMT CONTACT NURSE 1",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500092",
+   "str_name": "HOME HEALTH MONITORING",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500058",
+   "str_name": "PCIPT 1 NURSE 1 QUE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500095",
+   "str_name": "HHM NI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500071",
+   "str_name": "PCIPT OAT 1 SMI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500112",
+   "str_name": "OHS NURSE 3 NI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500102",
+   "str_name": "EPIDEMIOLOGY 1 NHA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500104",
+   "str_name": "UCDR CONTACT POD",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500108",
+   "str_name": "UCDR POD 3",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500106",
+   "str_name": "UCDR ADMIN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500103",
+   "str_name": "UCDR CASE POD 3",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500018",
+   "str_name": "PCIPT 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500116",
+   "str_name": "CALL CENTRE AGENTS",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500110",
+   "str_name": "OHS NURSE 1 NI",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500088",
+   "str_name": "NEWNEWBIE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500046",
+   "str_name": "BLUE PINE CLINIC",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500120",
+   "str_name": "OHS ADMIN SUPPORT",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500062",
+   "str_name": "ICMT NURSE 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500132",
+   "str_name": "PH COVID CLINC X",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500037",
+   "str_name": "PCIPT 1 MHC 1 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500047",
+   "str_name": "PCIPT 1 MHC 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500090",
+   "str_name": "GOOD, JOHN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500118",
+   "str_name": "CALL CENTRE AGENT 2",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500125",
+   "str_name": "MEDLYN, DAVID",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500109",
+   "str_name": "UCDR POD 2",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500113",
+   "str_name": "OHS NHA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500114",
+   "str_name": "TEST ORG ROLE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500122",
+   "str_name": "PORTAL",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500034",
+   "str_name": "ORG TESTING",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500136",
+   "str_name": "HA TECHNICIAN RUP",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500130",
+   "str_name": "BECKETT, ANDREA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500127",
+   "str_name": "DITTO, DARREN",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500123",
+   "str_name": "PORTAL 1 LEAD",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500133",
+   "str_name": "JTEST ORG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500141",
+   "str_name": "PCIPT 2 PRG",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500023",
+   "str_name": "PCIPT 1 NURSE PRG",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500117",
+   "str_name": "CALL CENTRE AGENT 1",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500159",
+   "str_name": "MANTUA, TIFFANY",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500135",
+   "str_name": "BIG ORG TEST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500091",
+   "str_name": "BAD, (BOB)",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500126",
+   "str_name": "BEARDWOOD, WALTER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500158",
+   "str_name": "NEW TEST 1",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500121",
+   "str_name": "(THE), PORTAL",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500161",
+   "str_name": "WASHINGTON, ALYSSA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500131",
+   "str_name": "ALFREY, ANGIE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500115",
+   "str_name": "TEST ORG ROLE 25",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500129",
+   "str_name": "LEISCHNER, KY",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500137",
+   "str_name": "TEST 123",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500066",
+   "str_name": "MEDLYN, ORG ROLE2",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500160",
+   "str_name": "STRELOFF, STEPHANIE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500128",
+   "str_name": "GURIQBAL, SINGH",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500087",
+   "str_name": "TEST1",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500162",
+   "str_name": "MURPHY, JOAN",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500169",
+   "str_name": "SUS NOW 1 IWL 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500170",
+   "str_name": "SUS NOW 1 MHSUC 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500171",
+   "str_name": "SUS NOW 1 NURSE 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500172",
+   "str_name": "SUS NOW 1 TER",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500173",
+   "str_name": "PCIPT 1 CHW 1 FLK",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500026",
+   "str_name": "TECHNICAL SUPPORT",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500164",
+   "str_name": "NICHOLSON, JAYNE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500179",
+   "str_name": "TEST, CALLLIST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500174",
+   "str_name": "SUS NOW ADMIN NW",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500167",
+   "str_name": "MEYER, DEVON",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500175",
+   "str_name": "AADTP",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500168",
+   "str_name": "MARTIN, JERRY",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500020",
+   "str_name": "PCIPT 1 NURSE 2 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500107",
+   "str_name": "DOCTOR, TEST",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500166",
+   "str_name": "TEST1234",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500176",
+   "str_name": "RACHEL, ANATOLE",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500177",
+   "str_name": "RAJANNA, NANDA",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500178",
+   "str_name": "PCIPT 1 NURSE 5 PRG",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500163",
+   "str_name": "NEW TEST 1 TEST",
+   "str_active": "N"
+  },
+  {
+   "id_provider": "500119",
+   "str_name": "BLK STAFF  IMMS CLNIC",
+   "str_active": "Y"
+  },
+  {
+   "id_provider": "500165",
+   "str_name": "AKEHURST, WILLIAM",
+   "str_active": "Y"
   }
  ]
 }

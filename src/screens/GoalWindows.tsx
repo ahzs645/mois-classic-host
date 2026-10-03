@@ -12,8 +12,9 @@ import { usePatient } from '../data/patient-context'
 import { MOIS_TODAY } from '../data/patients'
 import { useScreenReport } from '../host/screen-state'
 import {
-  PBCheckbox, PBInput, PBRadio, PBSelect, PBTextArea, pbSlug,
+  PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea, pbSlug,
 } from '../pb'
+import { CodePrompt } from './QuickEntryEditors'
 import { registerAreaWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { ModalWindow } from './dialogKit'
 import { DialogFooter, FormLabel } from './formKit'
@@ -76,56 +77,82 @@ export const conceptOptions = (subject: string, by: 'Code' | 'Concept', current:
   return ['', ...list, ...(current && !list.includes(current) ? [current] : [])]
 }
 
-/* --- the quantitative settings block, shared by New Goal and the tab ------- */
+/* --- the quantitative settings block, shared by New Goal and the tab -------
+   Measured off quantitative-settings-populated.png (DEV v02.31.23, 100%):
+   Subject a 133 px drop-down; Identified By two radios; Concept (Code) a
+   265 px edit with a "…" prompt, not a drop-down; Target Value a 78 px
+   operator drop-down and a 100 px value; "Perform Every:" a 62 px count, a
+   100 px units drop-down and the word "Units". On the tab (`banded`) a
+   hairline rule closes the Subject…Concept block and the Target Value row.
+   The caption is "Perform Every" in that capture (the article's "Require
+   Every" is an older build's); the anchors keep their old names. */
 type QuantFields = Pick<GoalFields, 'subject' | 'identifiedBy' | 'concept' | 'operator' | 'target' | 'target2' | 'every' | 'units'>
 
-export function QuantitativeFields({ value, onChange, labelWidth = 100 }: {
+/** the hairline MOIS draws between the tab's bands */
+export const QUANT_RULE = { gridColumn: '1 / -1', height: 0, borderTop: '1px solid #d6d6d6', margin: '3px -10px' } as const
+
+export function QuantitativeFields({ value, onChange, labelWidth = 98, banded }: {
   value: QuantFields
   onChange: (patch: Partial<QuantFields>) => void
   labelWidth?: number
+  /** the Quantitative Settings tab rules its bands off; New Goal does not */
+  banded?: boolean
 }) {
-  const grid = { padding: 0, gridTemplateColumns: `${labelWidth}px 1fr`, rowGap: 5 }
+  const [prompt, setPrompt] = useState(false)
+  const grid = { padding: 0, gridTemplateColumns: `${labelWidth}px 1fr`, rowGap: 4 }
+  const concepts = conceptOptions(value.subject, value.identifiedBy, value.concept).filter(Boolean)
   return (
     <div className="pb-form" style={grid}>
       <span className="pb-form__label">Subject:</span>
       <PBSelect
-        options={['', ...GOAL_SUBJECTS]} w={150} value={value.subject}
+        options={['', ...GOAL_SUBJECTS]} w={133} value={value.subject}
         data-tutorial-id="host.mois.field.goal-subject"
         onChange={(e) => onChange({ subject: e.target.value, concept: '' })}
       />
 
       <span className="pb-form__label">Identified By:</span>
-      <div className="pb-row pb-row--gap-lg">
+      <div className="pb-row" style={{ gap: 20 }}>
         <PBRadio name="goal-idby" label="Code" checked={value.identifiedBy === 'Code'} tutorialId="host.mois.field.goal-identified-by-code" onChange={() => onChange({ identifiedBy: 'Code', concept: '' })} />
         <PBRadio name="goal-idby" label="Concept" checked={value.identifiedBy === 'Concept'} tutorialId="host.mois.field.goal-identified-by-concept" onChange={() => onChange({ identifiedBy: 'Concept', concept: '' })} />
       </div>
 
       <span className="pb-form__label">{value.identifiedBy === 'Code' ? 'Code:' : 'Concept:'}</span>
-      <PBSelect
-        options={conceptOptions(value.subject, value.identifiedBy, value.concept)} w={260} value={value.concept}
-        data-tutorial-id="host.mois.field.goal-concept"
-        onChange={(e) => onChange({ concept: e.target.value })}
+      <PBLookup
+        w={282} value={value.concept} name="goal-concept" fieldId="host.mois.field.goal-concept"
+        onChange={(v) => onChange({ concept: v.toUpperCase() })}
+        onDots={() => setPrompt(true)}
       />
+      {banded && <span style={QUANT_RULE} />}
 
       <span className="pb-form__label">Target Value:</span>
-      <div className="pb-row">
+      <div className="pb-row" style={{ gap: 4 }}>
         <PBSelect
-          options={['', ...GOAL_OPERATORS].map((o) => ({ value: o, label: o === 'BETWEEN' ? 'Between' : o }))} w={84} value={value.operator}
+          options={['', ...GOAL_OPERATORS].map((o) => ({ value: o, label: o === 'BETWEEN' ? 'Between' : o }))} w={78} value={value.operator}
           data-tutorial-id="host.mois.field.goal-target-operator"
           onChange={(e) => onChange({ operator: e.target.value })}
         />
-        <PBInput w={110} value={value.target} data-tutorial-id="host.mois.field.goal-target-value" onChange={(e) => onChange({ target: e.target.value })} />
+        <PBInput w={100} value={value.target} data-tutorial-id="host.mois.field.goal-target-value" onChange={(e) => onChange({ target: e.target.value })} />
         {value.operator === 'BETWEEN' && <>
           <span>and</span>
-          <PBInput w={110} value={value.target2} data-tutorial-id="host.mois.field.goal-target-value-2" onChange={(e) => onChange({ target2: e.target.value })} />
+          <PBInput w={100} value={value.target2} data-tutorial-id="host.mois.field.goal-target-value-2" onChange={(e) => onChange({ target2: e.target.value })} />
         </>}
       </div>
+      {banded && <span style={QUANT_RULE} />}
 
-      <span className="pb-form__label">Require Every:</span>
-      <div className="pb-row">
-        <PBInput w={56} align="center" value={value.every} data-tutorial-id="host.mois.field.goal-require-every" onChange={(e) => onChange({ every: e.target.value })} />
-        <PBSelect options={['', ...GOAL_UNITS]} w={110} value={value.units} data-tutorial-id="host.mois.field.goal-require-every-units" onChange={(e) => onChange({ units: e.target.value })} />
+      <span className="pb-form__label">Perform Every:</span>
+      <div className="pb-row" style={{ gap: 4 }}>
+        <PBInput w={62} value={value.every} data-tutorial-id="host.mois.field.goal-require-every" onChange={(e) => onChange({ every: e.target.value })} />
+        <span style={{ width: 12 }} />
+        <PBSelect options={['', ...GOAL_UNITS]} w={100} value={value.units} data-tutorial-id="host.mois.field.goal-require-every-units" onChange={(e) => onChange({ units: e.target.value })} />
+        <span>Units</span>
       </div>
+      {prompt && (
+        <CodePrompt
+          id="goal-concept-prompt" title={value.identifiedBy === 'Code' ? 'Code Lookup' : 'Concept Lookup'}
+          rows={concepts.map((term, i) => ({ code: String(i + 1).padStart(3, '0'), term }))}
+          onPick={(r) => onChange({ concept: r.term })} onClose={() => setPrompt(false)}
+        />
+      )}
     </div>
   )
 }

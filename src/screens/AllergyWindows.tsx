@@ -7,8 +7,9 @@ import { registerScreenWindows, useScreenWindow } from '../host/screen-windows'
 import { PBBand, PBButton, PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
 import {
   ADVERSE_WINDOWS, AdverseEventWindows, EventAgentsPane, EventDetailPane, EventReactionsPane, LinkPickerWindow,
-  LinkedRisksPane, useAllergyIndex,
+  LinkedEventsPane, LinkedRisksPane, RiskReactionsPane, useAllergyIndex,
 } from './AdverseEventWindows'
+import { AefiWindow } from './AefiWindow'
 import { FooterButton, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -245,6 +246,19 @@ export function AdverseEventTab({ tab, record }: { tab: string; record?: MoisRec
   return <EventDetailPane record={record} />
 }
 
+/** Reaction Risks' lower tabs other than Detail: Reactions (evidence/
+    MATRIX-R0681-code) and Linked Events (`1a8f753b…`). The report frame
+    draws Linked Events through LinkedEventsPane already; its Reactions tab
+    comes here for RiskReactionsPane (ClinicalReportView). */
+export function ReactionRiskTab({ tab, record }: { tab: string; record?: MoisRecord }) {
+  const win = useScreenWindow()
+  if (tab === 'Linked Events') {
+    return <LinkedEventsPane key={record?.id_allergy} record={record}
+      onLink={() => win.open(ADVERSE_WINDOWS.linkEvents, { risk: record?.id_allergy ?? '' })} />
+  }
+  return <RiskReactionsPane key={record?.id_allergy} record={record} />
+}
+
 /* The windows a report folder raises through the frame's by-name switch. */
 export function AllergyFolderWindows({ record, onMark }: { record?: MoisRecord; onMark: (what: string, top?: boolean) => void }) {
   const win = useScreenWindow()
@@ -254,6 +268,10 @@ export function AllergyFolderWindows({ record, onMark }: { record?: MoisRecord; 
         <NewReactionRiskWindow onClose={win.close} onSaved={() => { onMark('saved', true); win.close() }} />
       )}
       <AdverseEventWindows win={win} onMark={onMark} />
+      {win.is(ADVERSE_WINDOWS.aefi) && (
+        <AefiWindow eventId={typeof win.window?.args?.event === 'string' ? win.window.args.event : undefined}
+          onClose={win.close} onSaved={(created) => onMark('saved', created)} />
+      )}
       {win.is(ALLERGY_WINDOWS.textViewer) && (
         <TextViewerWindow
           heading={typeof win.window?.args?.heading === 'string' ? win.window.args.heading : 'Recommendations - Read Only'}

@@ -305,6 +305,10 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
   return (
     <StageWindow id={id} title={isNew ? 'Medication Administration Record' : 'Medication Administration Detail Record'}
       width={751} height={633} onClose={onClose}
+      /* the Detail Record's title bar has minimize, maximize and close
+         (evidence/MATRIX-R0766-date-time, R0763-ordered-by); no capture
+         shows the new-record window's, so it keeps close alone */
+      controls={!isNew}
       bodyStyle={{ background: '#fff', position: 'relative', overflow: 'hidden' }}
       footer={isNew ? <>
         <FooterButton onClick={() => onSave(entry(), false)} tutorialId="host.mois.command.save-and-duplicate" wide={false}>Save and Duplicate</FooterButton>
@@ -318,7 +322,7 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
         <FooterButton onClick={onClose} wide={false}>Close</FooterButton>
       </>}>
       <MarBanner />
-      <div className="pb-mar-rec">
+      <div className="pb-mar-rec" style={isNew ? undefined : { top: -13, bottom: 13 }}>
         {isNew ? <>
           {/* a history record's order is Unknown and undated (`a405e0ac…png`) */}
           {L(61, 'Ordered By:')}
@@ -327,9 +331,23 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
           <At x={470} y={61}><PBInput w={72} align="center" defaultValue={history ? '0000.00.00' : MOIS_TODAY} /></At>
           <At x={548} y={61}><PBInput w={45} align="center" defaultValue={history ? '' : opened} /></At>
         </> : (
-          <div className="pb-form" style={{ ...F, left: 0, right: 0, top: 40, height: 74, alignContent: 'center', gridTemplateColumns: '110px 260px 130px 1fr', background: '#cfe8f7', padding: '0 9px', gap: '4px 6px' }}>
-            <span>Ordered By:</span><b>{order?.orderBy}</b><span>Order Date / Time:</span><b>{order?.orderDate}&nbsp;&nbsp;&nbsp;{order?.orderTime}</b>
-            <span>Scheduled Start:</span><b>{event?.date}&nbsp;&nbsp;&nbsp;{event?.time}</b><span>Scheduled End:</span><b />
+          /* evidence/MATRIX-R0763-ordered-by, MATRIX-R0766-date-time (MOIS DEV
+             v02.31.23 at 100%): the order block is 61px of #c4e3f7 under the
+             banner, its two lines centred 17 and 40px down; captions 9px in,
+             values 111px in (a time 78px after its date); Order Date / Time
+             and Scheduled End right-aligned on 464px, their values at 473
+             (time at 552). The record's body below sits 13px higher than a
+             new record's (every field, rule and the Created line) */
+          <div style={{ ...F, left: 0, right: 0, top: 53, height: 61, background: '#c4e3f7' }}>
+            <At x={9} y={8.5}>Ordered By:</At>
+            <At x={111} y={8.5}><b>{order?.orderBy}</b></At>
+            <At x={264} y={8.5} w={200} right>Order Date / Time:</At>
+            <At x={473} y={8.5}><b>{order?.orderDate}</b></At>
+            <At x={552} y={8.5}><b>{order?.orderTime}</b></At>
+            <At x={9} y={31.5}>Scheduled Start:</At>
+            <At x={111} y={31.5}><b>{event?.date}</b></At>
+            <At x={189} y={31.5}><b>{event?.time}</b></At>
+            <At x={264} y={31.5} w={200} right>Scheduled End:</At>
           </div>
         )}
         <hr className="pb-mar-rec__rule" style={{ top: 114 }} />
@@ -404,11 +422,13 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
 
         <div className="pb-mar-rec__divider" />
         <At x={363} y={264} h={28}><span style={{ lineHeight: '13px' }}>Administration<br />Note:</span></At>
-        <PBTextArea className="pb-mar-rec__note" style={{ top: 264 }} />
+        {/* the record's three notes: str_comment, str_prep_note and
+            str_consent_comment (MATRIX-R0775 / R0776 / R0777) */}
+        <PBTextArea className="pb-mar-rec__note" style={{ top: 264 }} defaultValue={r?.str_comment ?? ''} />
         <At x={363} y={327} h={28}><span style={{ lineHeight: '13px' }}>Preparation<br />Note:</span></At>
-        <PBTextArea className="pb-mar-rec__note" style={{ top: 327 }} />
+        <PBTextArea className="pb-mar-rec__note" style={{ top: 327 }} defaultValue={r?.str_prep_note ?? ''} />
         <At x={363} y={401} h={28}><span style={{ lineHeight: '13px' }}>Consent<br />Note:</span></At>
-        <PBTextArea className="pb-mar-rec__note" style={{ top: 401 }} />
+        <PBTextArea className="pb-mar-rec__note" style={{ top: 401 }} defaultValue={r?.str_consent_comment ?? ''} />
         <hr className="pb-mar-rec__rule" style={{ top: 509 }} />
 
         <At x={12} y={515}>Created:</At>

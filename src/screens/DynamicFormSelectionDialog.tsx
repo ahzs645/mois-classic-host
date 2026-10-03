@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import catalog from '../data/legacy-dynamic-form-catalog.json'
 import { PBButton, PBDataWindow, pbSlug } from '../pb'
+import { usePBInstrumentation } from '../pb/instrumentation'
 import { ModalWindow } from './dialogKit'
 
 /* ============================================================================
@@ -50,13 +51,19 @@ const MUSCULOSKELETAL: Row[] = [
 
 type CatalogEntry = { title: string; group: string }
 
+/** Second-column text read off the live DEV client where the capture above
+ *  has none: the written guide from the Aug 2026 session
+ *  (references/patient-chart.md, "Dynamic Forms") observed
+ *  `Pain Management`: `Pain Assessment` / `Pain Assessment Form`. */
+const OBSERVED_DESCRIPTIONS: Record<string, string> = { '3500': 'Pain Assessment Form' }
+
 /** Every top-level catalog form outside the captured band, grouped in catalog order. */
 function catalogRows(): Row[] {
   const byGroup = new Map<string, Row[]>()
   for (const [windowId, entry] of Object.entries(catalog as Record<string, CatalogEntry>)) {
     if (Number(windowId) < 1000 || entry.group === 'Musculoskeletal') continue
     const list = byGroup.get(entry.group) ?? []
-    list.push({ group: entry.group, title: entry.title, description: entry.title, windowId })
+    list.push({ group: entry.group, title: entry.title, description: OBSERVED_DESCRIPTIONS[windowId] ?? entry.title, windowId })
     byGroup.set(entry.group, list)
   }
   return [...byGroup.values()].flat()
@@ -69,6 +76,7 @@ export function DynamicFormSelectionDialog({ onOk, onClose }: {
   onClose: () => void
 }) {
   const [current, setCurrent] = useState(0)
+  const host = usePBInstrumentation()
   const picked = ROWS[current]
   const choose = (r: Row) => onOk({ group: r.group, title: r.title, windowId: r.windowId })
 
@@ -119,7 +127,11 @@ export function DynamicFormSelectionDialog({ onOk, onClose }: {
             style={{ position: 'absolute', left: x(288), top: y(645), width: 74, height: 22, minWidth: 0 }}
             command="dynamic-form-ok"
             disabled={!picked}
-            onClick={() => picked && choose(picked)}
+            onClick={() => {
+              if (!picked) return
+              host?.report('activateRow', { row: `dform-${pbSlug(picked.title)}` })
+              choose(picked)
+            }}
           >
             Ok
           </PBButton>

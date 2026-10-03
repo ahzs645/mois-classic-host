@@ -74,12 +74,23 @@ export function SystemSettingsView({ onClose }: { onClose?: () => void }) {
     return edits[id] ?? committed[id] ?? s.value
   }
   const dirty = Object.keys(edits).length > 0
+  const currentValue = selected ? valueOf(selected) : ''
+  // Safe configuration facts, not printer names, messages, or arbitrary text.
+  const toggle = (value: string | undefined) => value === 'ON' || value === 'OFF' ? value : null
+  const numeric = (value: string | undefined) => value !== undefined && /^-?\d+(?:\.\d+)?$/.test(value) && Number.isFinite(Number(value)) ? Number(value) : null
 
   useScreenReport({
     band: lastBand ? settingSlug(lastBand) : null,
     row: curId,
     saved: saved && !dirty,
     draft: dirty,
+    editedRow: curId && Object.prototype.hasOwnProperty.call(edits, curId) ? curId : null,
+    selectedValuePresent: Boolean(currentValue.trim()),
+    selectedToggle: toggle(currentValue),
+    selectedNumber: numeric(currentValue),
+    savedRow: curId && Object.prototype.hasOwnProperty.call(committed, curId) ? curId : null,
+    savedToggle: curId ? toggle(committed[curId]) : null,
+    savedNumber: curId ? numeric(committed[curId]) : null,
   })
 
   const gridRef = useRef<HTMLDivElement>(null)

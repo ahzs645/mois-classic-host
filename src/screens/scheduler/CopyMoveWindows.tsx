@@ -5,6 +5,7 @@ import {
   currentRow, offsetOfStamp, schedulerStore, stampOf, useSchedulerStore,
 } from '../../data/schedulerStore'
 import { DESKTOP_PROVIDER_DEFAULT } from '../../data/session'
+import { useScreenReport } from '../../host/screen-state'
 import { registerAreaWindow, type AreaWindowProps } from '../areaWindowRegistry'
 import { DialogGroup, DialogRow, NAVY, SchedulerDialog, str } from './SchedulerDialog'
 
@@ -30,7 +31,12 @@ import { DialogGroup, DialogRow, NAVY, SchedulerDialog, str } from './SchedulerD
    ========================================================================= */
 
 const providers = () => daybookProviders.map((p) => p.provider)
-const validDate = (v: string) => /^\d{4}\.\d{2}\.\d{2}$/.test(v) && v !== '0000.00.00'
+const validDate = (v: string) => {
+  if (!/^\d{4}\.\d{2}\.\d{2}$/.test(v) || v === '0000.00.00') return false
+  const [year, month, day] = v.split('.').map(Number)
+  const date = new Date(Date.UTC(year!, month! - 1, day!))
+  return date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day
+}
 
 function CopyMoveAppointment({ args, close }: AreaWindowProps) {
   const s = useSchedulerStore()
@@ -52,6 +58,14 @@ function CopyMoveAppointment({ args, close }: AreaWindowProps) {
     if (a.action === 'move') setMove(true)
     if (a.action === 'copy') setMove(false)
   }, [typed])
+
+  // Calendar structure only: no patient identity, provider name, or typed text.
+  useScreenReport({
+    copyDestinationReady: validDate(date),
+    copyDestinationOffset: validDate(date) ? offsetOfStamp(date) : null,
+    copyDestinationSameProvider: !change || provider === from?.provider,
+    copyAction: move ? 'move' : 'copy',
+  })
 
   const go = () => {
     if (!row || !from || !validDate(date)) return
@@ -122,6 +136,13 @@ function CopyMoveDayBook({ args, close }: AreaWindowProps) {
     if (a.action === 'move') setMove(true)
     if (a.action === 'copy') setMove(false)
   }, [typed])
+
+  useScreenReport({
+    copyDestinationReady: validDate(date),
+    copyDestinationOffset: validDate(date) ? offsetOfStamp(date) : null,
+    copyDestinationSameProvider: provider === from.provider,
+    copyAction: move ? 'move' : 'copy',
+  })
 
   const go = () => {
     if (!validDate(date)) return

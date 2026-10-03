@@ -92,6 +92,9 @@ export type AdverseEventInput = {
   comment: string
   agents: EventAgent[]
   reactions: EventReaction[]
+  /** the Detail tab's Event Type: NORMAL (New Record) unless New AEFI
+      filed it (screens/AefiWindow.tsx) */
+  eventType?: string
 }
 
 type StoredRisk = { id: string; input: ReactionRiskInput; created: string }
@@ -105,6 +108,10 @@ type AllergyState = {
   /** agents / reactions edited on an event's tabs, by id_adverse_event */
   parts: Record<string, { agents?: EventAgent[]; reactions?: EventReaction[] }>
   links: EventRiskLink[]
+  /** the Edit AEFI form's columns as last saved (Save Form), by
+      id_adverse_event — `str_*` Y/N, `num_*`, and the form's draft-only
+      `ui:*` controls that have no column in an export (AefiWindow.tsx) */
+  aefi: Record<string, Record<string, string>>
   /** `${event}|${risk}` pairs unlinked, including the export's own */
   unlinked: string[]
   /** by folder (`reaction`); the store is shaped for Conditions / LTM too */
@@ -115,7 +122,7 @@ const state: Record<string, AllergyState> = {}
 let seq = 0
 const changes = createSignal(() => { for (const key of Object.keys(state)) delete state[key] })
 const emit = changes.emit
-const blank = (): AllergyState => ({ risks: [], events: [], parts: {}, links: [], unlinked: [], noKnown: {} })
+const blank = (): AllergyState => ({ risks: [], events: [], parts: {}, aefi: {}, links: [], unlinked: [], noKnown: {} })
 const EMPTY = blank()
 /* each write replaces the chart's slice, so a reader memoising on it sees
    the change */
@@ -166,6 +173,13 @@ export function addAdverseEvent(chart: string, input: AdverseEventInput): string
 export function setEventParts(chart: string, id: string, parts: { agents?: EventAgent[]; reactions?: EventReaction[] }) {
   const s = of(chart)
   s.parts = { ...s.parts, [id]: { ...s.parts[id], ...parts } }
+  emit()
+}
+
+/** Edit AEFI ▸ Save Form: the form's values for one event, over its record */
+export function saveAefi(chart: string, id: string, values: Record<string, string>) {
+  const s = of(chart)
+  s.aefi = { ...s.aefi, [id]: { ...s.aefi[id], ...values } }
   emit()
 }
 
@@ -279,7 +293,7 @@ export function eventItem(e: StoredEvent): StoredItem {
       str_intolerance_type: i.type,
       /* not `str_comment`: that is the Recommendations tab's Comments */
       str_event_comment: i.comment,
-      str_event_type: 'NORMAL',
+      str_event_type: i.eventType ?? 'NORMAL',
       stp_record_state: 'UNSIGNED',
       stp_user_create: SESSION_USER,
       stp_date_create: e.created,

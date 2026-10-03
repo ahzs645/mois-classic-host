@@ -12,10 +12,12 @@ import { MOIS_TODAY } from '../data/patients'
 import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
 import { SearchForBand, searchFieldsFor, useFolderSearch } from './SearchForBand'
 import { ChartIdentityStrip } from './patientKit'
+import { useColumnFilters } from './listKit'
 import {
   PBCommandRow, PBDataWindow, PBTabs, PBTextArea,
-  PBViewHeader, type PBColumn, type PBCommand,
+  PBViewHeader, pbSlug, type PBColumn, type PBCommand,
 } from '../pb'
+import './chart-section.css'
 
 
 /* The window most Patient Chart and Scheduler nodes open into. Everything
@@ -32,6 +34,9 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   const [openedDynamicForm, setOpenedDynamicForm] = useState<MoisRecord | null>(null)
   const [createdDynamicForms, setCreatedDynamicForms] = useState<{ formId: string; presetKey: string; name: string; group?: string }[]>([])
   const [openedCreatedForm, setOpenedCreatedForm] = useState<string | null>(null)
+  /* exported dynamic forms deleted this session, by their index in
+     `screen.rows` (see Delete Record below) */
+  const [removedRows, setRemovedRows] = useState<number[]>([])
   const [pickingDynamicForm, setPickingDynamicForm] = useState(false)
   const formData = useRef<Record<string, Record<string, unknown>>>({})
   const isDynamic = screen.title === 'Dynamic Forms'
@@ -39,6 +44,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   const dynamicFields = useChartRecords('dform_data')
   const exportedCount = screen.rows?.length ?? 0
   const selectedCreatedForm = createdDynamicForms[current - exportedCount]
+  const selectedExportedForm = current < exportedCount && !removedRows.includes(current) ? dynamicForms[current] : undefined
   const openedCreatedRow = createdDynamicForms.find((form) => form.formId === openedCreatedForm)
   /* the webform preset behind a picked dynamic form, when the host has one
      (the stage's MOIS form library) — matched on the form's name */
@@ -50,7 +56,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   useScreenReport(isDynamic && pickingDynamicForm ? { dialog: 'dynamic-form-selection' } : openedDynamicForm ? { dialog: 'dynamic-form' } : {})
   const openSelectedDynamicForm = () => {
     if (selectedCreatedForm) setOpenedCreatedForm(selectedCreatedForm.formId)
-    else setOpenedDynamicForm(dynamicForms[current] ?? null)
+    else setOpenedDynamicForm(selectedExportedForm ?? null)
   }
 
   /* MOIS lights Save and Undo the moment a record is started and puts them
@@ -58,8 +64,12 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
      cycle the Encounters list runs. A screen that lists them as disabled is
      describing its resting state, not a permanent one. */
   const [dirty, setDirty] = useState(false)
-  const commands: PBCommand[] = screen.commands.map((c) => {
+  const commands: PBCommand[] = screen.commands.map((c): PBCommand => {
     if (c === null) return null
+    const command = chartCommand(c)
+    return command && screen.commandWidths?.[c] ? { ...command, exactWidth: screen.commandWidths[c] } : command
+  })
+  function chartCommand(c: string): PBCommand {
     const gated = screen.disabled?.includes(c) ?? false
     /* New Record opens the Dynamic Form Selection Window (303105 `7518af69…`)
        whether or not the host can render the form itself */
@@ -67,12 +77,30 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
       return { label: c, onClick: () => setPickingDynamicForm(true) }
     }
     if (isDynamic && c === 'Open Form') {
-      return { label: c, disabled: !dynamicForms[current] && !selectedCreatedForm, onClick: openSelectedDynamicForm }
+      return { label: c, disabled: !selectedExportedForm && !selectedCreatedForm, onClick: openSelectedDynamicForm }
     }
+    /* MOIS paints Delete Record black at rest, with forms listed
+       (evidence/MATRIX-R1038-form-date: all four buttons enabled). A press
+       does what Delete Record does on the other chart folders
+       (reportRecordEdits.tsx, art. 304655 "deletes the selected record"):
+       the current row leaves the list, in this session only, with no
+       confirmation — the export behind the list is never written. A form
+       this session created is dropped outright. */
     if (isDynamic && c === 'Delete Record') {
-      return { label: c, disabled: !selectedCreatedForm, onClick: () => {
-        setCreatedDynamicForms((forms) => forms.filter((form) => form.formId !== selectedCreatedForm?.formId))
-        setCurrent(0)
+      return { label: c, onClick: () => {
+        if (selectedCreatedForm) {
+          setCreatedDynamicForms((forms) => forms.filter((form) => form.formId !== selectedCreatedForm.formId))
+        } else if (current < exportedCount && !removedRows.includes(current)) {
+          setRemovedRows((removed) => [...removed, current])
+        } else return
+        /* the row above becomes current, the way the chart folders move
+           (useDraftRecords' `deleteMoves: 'previous'`); the first row's
+           successor when there is none above. Dropping a created form
+           shifts the created rows after it up by one. */
+        const left = shown.filter((x) => x.index !== current)
+        const above = left.filter((x) => x.index < current).pop()
+        const below = left[0]
+        setCurrent(above ? above.index : below ? below.index - (selectedCreatedForm ? 1 : 0) : 0)
       } }
     }
     if (c === 'New Record' || c === 'Quick Entry') {
@@ -82,7 +110,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
       return { label: c, disabled: !dirty, onClick: () => setDirty(false) }
     }
     return { label: c, disabled: gated }
-  })
+  }
 
   const columns: PBColumn<Record<string, string>>[] = screen.columns.map((c) => ({
     key: c.key,
@@ -92,7 +120,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
     dots: c.dots,
   }))
 
-  const rows = isDynamic ? [
+  const rows: Record<string, string>[] = isDynamic ? [
     ...(screen.rows ?? []),
     ...createdDynamicForms.map((form) => ({ date: MOIS_TODAY, group: form.group ?? 'DYNAMIC FORM', title: form.name, attending: '', user: DESKTOP_USER, state: 'DRAFT' })),
   ] : screen.rows ?? []
@@ -101,9 +129,26 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
      still address the unfiltered list */
   const searchFields = useMemo(() => searchFieldsFor(screen.title, screen.columns), [screen.title, screen.columns])
   const search = useFolderSearch(screen.title, searchFields)
-  const shown = rows.map((row, index) => ({ row, index })).filter((x) => search.test(x.row))
+  /* A window with `filterColumns` filters per column instead
+     (evidence/MATRIX-R1045-date): a box over each listed column, in the
+     grey band PBDataWindow's `filters` row draws above the headers. */
+  const filters = useColumnFilters(
+    rows.map((row, index) => ({ row, index })).filter((x) => !removedRows.includes(x.index) && search.test(x.row)),
+    screen.columns.map((c) => (screen.filterColumns?.includes(c.key) ? {
+      key: c.key,
+      value: (x: { row: Record<string, string> }) => x.row[c.key],
+      ariaLabel: `Filter ${c.header}`,
+      anchor: `filter-${pbSlug(c.header)}`,
+    } : null)),
+  )
+  const shown = filters.shown
   const grid = (
     <PBDataWindow
+      /* a DataWindow fills its frame and keeps its painted column widths, so
+         past the last sized column runs the grid's own white
+         (evidence/MATRIX-R1045-date: Attending ends at 1185, white beyond) */
+      style={{ flex: '1 1 auto' }}
+      filters={screen.filterColumns ? filters.filterRow : undefined}
       columns={columns}
       rows={shown.map((x) => x.row)}
       current={Math.max(0, shown.findIndex((x) => x.index === current))}
@@ -166,7 +211,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
           </div>
         </>
       ) : (
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>{grid}</div>
+        <div className={screen.filterColumns ? 'pb-chart-section--filters' : undefined} style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 3px 3px' }}>{grid}</div>
       )}
       {openedDynamicForm && (
         <LegacyDynamicFormWindow

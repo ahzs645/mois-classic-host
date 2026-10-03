@@ -1,3 +1,5 @@
+import { useProviderRoster, useResourceRoster } from '../data/user-account-session'
+import { useScreenReport } from '../host/screen-state'
 import { useEffect, useMemo, useState } from 'react'
 import {
   PBButton, PBGroup, PBInput, PBLookup, PBSelect,
@@ -47,6 +49,9 @@ const ROW_H = 18
 
 export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
   const sched = useSchedulerStore()
+  const daybookProviders = useProviderRoster()
+  const resources = useResourceRoster()
+  const [resource, setResource] = useState('')
   const patient = usePatient()
   const encounters = useChartRecords('encounter', 'dtm_appoint')
   const fromLink = args.from === 'link'
@@ -71,6 +76,20 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
   const [first, setFirst] = useState(prefill?.first ?? '')
   const [last, setLast] = useState(prefill?.last ?? '')
   const [reason, setReason] = useState('')
+  const timeReady = /^\d{1,2}$/.test(hr) && Number(hr) < 24
+    && /^\d{1,2}$/.test(mn) && Number(mn) < 60
+    && /^\d+$/.test(slots) && Number(slots) > 0
+  const patientChosen = Boolean(chart && first && last)
+  useScreenReport({
+    appointmentTimeReady: timeReady,
+    appointmentHour: timeReady ? Number(hr) : null,
+    appointmentMinute: timeReady ? Number(mn) : null,
+    appointmentSlots: timeReady ? Number(slots) : null,
+    appointmentPatientChosen: patientChosen,
+    appointmentMatchesCurrentChart: patientChosen && chart === patient.chart
+      && first.toUpperCase() === patient.first.toUpperCase() && last.toUpperCase() === patient.last.toUpperCase(),
+    appointmentReasonReady: Boolean(reason.trim()),
+  })
 
   /* a lesson "types" by passing the values; apply every time they change */
   const typed = JSON.stringify(args)
@@ -109,7 +128,7 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
   const booked = useMemo(() => dayRows(sched, provider, Number.isFinite(offset) ? offset : 0), [sched, provider, offset])
 
   const save = () => {
-    schedulerStore.book(provider, Number.isFinite(offset) ? offset : 0, { hr, mn, slots, chart, reason, first, last, code })
+    schedulerStore.book(provider, Number.isFinite(offset) ? offset : 0, { hr, mn, slots, chart, reason, first, last, code, resource })
     close()
   }
 
@@ -131,9 +150,9 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
                   <span className="pb-form__label" style={{ width: 72 }}>Chart No.</span>
                   <PBLookup
                     w={120}
-                    name="chart"
+                    name="chart" fieldId="host.mois.field.chart"
                     value={chart}
-                    onChange={setChart}
+                    onChange={pickChart}
                     onEnter={pickChart}
                     /* the lookup picks the chart that is open */
                     onDots={() => pickChart(patient.chart)}
@@ -150,7 +169,7 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
               <PBGroup title="Provider / Location / Resource">
                 <div className="pb-row" style={{ gap: 6 }}>
                   <span className="pb-form__label" style={{ width: 96 }}>Provider</span>
-                  <PBSelect w={220} options={daybookProviders.map((p) => p.provider)} value={provider} onChange={(e) => setProvider(e.target.value)} />
+                  <PBSelect w={220} options={daybookProviders.map((p) => p.provider)} data-tutorial-id="host.mois.field.appt-provider" value={provider} onChange={(e) => setProvider(e.target.value)} />
                 </div>
                 <div className="pb-row" style={{ gap: 6, paddingTop: 3 }}>
                   <span className="pb-form__label" style={{ width: 96 }}>Service Location</span>
@@ -158,7 +177,7 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
                 </div>
                 <div className="pb-row" style={{ gap: 6, paddingTop: 3 }}>
                   <span className="pb-form__label" style={{ width: 96 }}>Resource</span>
-                  <PBSelect w={220} options={['', 'TREATMENT ROOM 1', 'TREATMENT ROOM 2']} />
+                  <PBSelect w={220} options={['', ...resources]} value={resource} onChange={e => setResource(e.target.value)} data-tutorial-id="host.mois.field.appt-resource" />
                 </div>
               </PBGroup>
 
@@ -186,7 +205,7 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
                 </div>
                 <div className="pb-row" style={{ gap: 6, paddingTop: 3 }}>
                   <span className="pb-form__label" style={{ width: 62 }}>Visit Reason</span>
-                  <PBLookup w={260} name="visit-reason" value={reason} onChange={setReason} />
+                  <PBLookup w={260} name="visit-reason" fieldId="host.mois.field.visit-reason" value={reason} onChange={setReason} />
                 </div>
               </PBGroup>
 
@@ -229,7 +248,7 @@ export function NewAppointmentDialog({ args, close }: AreaWindowProps) {
             <div className="pb-band">Availability</div>
             <div className="pb-row" style={{ gap: 4, padding: '3px 4px', flex: 'none' }}>
               <span className="pb-form__label">Select:</span>
-              <PBSelect w={190} options={daybookProviders.map((p) => p.provider)} value={provider} onChange={(e) => setProvider(e.target.value)} />
+              <PBSelect w={190} options={daybookProviders.map((p) => p.provider)} data-tutorial-id="host.mois.field.appt-provider" value={provider} onChange={(e) => setProvider(e.target.value)} />
               <PBButton size="sm" onClick={() => setDate(stampOf(offset - 7))}>&lt;&lt;</PBButton>
               <PBButton size="sm" onClick={() => setDate(stampOf(offset - 1))}>&lt;</PBButton>
               <PBInput w={90} align="center" value={date} onChange={(e) => setDate(e.target.value)} />

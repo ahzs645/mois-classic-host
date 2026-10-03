@@ -1,16 +1,25 @@
 import { PBInput, PBLookup, PBTextArea } from '../pb'
 
 /** Report and Detail are different DataWindows. Geometry checked in the
- * live TRAINING client on 2026-09-21; values come only from the selected row. */
+ * live TRAINING client on 2026-09-21; values come only from the selected row.
+ *
+ * MOIS DEV v02.31.23 (field audit, 1x): the Detail tab's result block is
+ * wider than Report's — Test Name runs 320 to Report's 280, and Flag and
+ * Status are 28px boxes there against 60 (evidence/MATRIX-R0502-test-name
+ * against MATRIX-R0490-test-name). LOINC is a printed value, not a box; of
+ * the four provenance lines only Report By has no time box, Perform By's and
+ * Collect By's are masked " : " and Transcribed's is blank
+ * (MATRIX-R0502, MATRIX-R0517-collect-note). */
 export function MeasureReportPane({ detail, row }: { detail: boolean; row?: Record<string, string> }) {
   const value = (key: string) => row?.[key] ?? ''
   const input = (key?: string, width?: number) => <PBInput w={width ?? '100%'} value={key ? value(key) : ''} readOnly />
+  const small = detail ? 28 : 58
   return <div className="pb-measure-pane">
     <div className="pb-measure-pane__top">
-      <div className="pb-measure-pane__result">
+      <div className="pb-measure-pane__result" style={detail ? { width: 390 } : undefined}>
         <span>Test Name:</span>{input('test')}
-        <span>Value:</span><div className="pb-row">{input('value', 100)}{input('units', 60)}<span>Flag:</span>{input('flag', 58)}</div>
-        <span>Ref. Ranges:</span><div className="pb-row"><PBInput w={62} className="pb-measure-range" value={value('lower')} readOnly /><span>to</span><PBInput w={62} className="pb-measure-range" value={value('upper')} readOnly /><span>Status:</span>{input('status', 58)}</div>
+        <span>Value:</span><div className="pb-row">{input('value', 100)}{input('units', 60)}<span>Flag:</span>{input('flag', small)}</div>
+        <span>Ref. Ranges:</span><div className="pb-row"><PBInput w={62} className="pb-measure-range" value={value('lower')} readOnly /><span>to</span><PBInput w={62} className="pb-measure-range" value={value('upper')} readOnly /><span>Status:</span>{input('status', small)}</div>
       </div>
       <div className="pb-measure-pane__ordering">
         {detail ? <>
@@ -25,15 +34,22 @@ export function MeasureReportPane({ detail, row }: { detail: boolean; row?: Reco
       </div>
     </div>
     {detail ? <>
-      <div className="pb-measure-pane__codes"><span>MOIS Code:</span>{input('code', 100)}<span>LOINC:</span>{input('loinc', 150)}</div>
+      <div className="pb-measure-pane__codes"><span>MOIS Code:</span>{input('code', 100)}<span>LOINC:</span><span>{value('loinc')}</span></div>
       <div className="pb-measure-pane__provenance">
         {[
-          ['Perform By:', 'performedBy', 'performedDate', 'Ord. Name:', 'orderName'],
-          ['Report By:', 'reportedBy', 'reportedDate', 'Volume:', 'volume'],
-          ['Transcribed:', 'transcribedBy', 'transcribedDate', 'Category:', 'category'],
-          ['Collect By:', 'collectedBy', 'collected', 'Specimen Src.:', 'specimen'],
-        ].map(([label, by, date, right, key]) => <div className="pb-measure-pane__provenance-row" key={label}>
-          <span>{label}</span>{input(by)}<span>Date:</span>{input(date)}<PBInput w={40} value="" readOnly /><span>{right}</span>{input(key)}
+          ['Perform By:', 'performedBy', 'performedDate', 'Ord. Name:', 'orderName', ':', 'performedTime'],
+          ['Report By:', 'reportedBy', 'reportedDate', 'Volume:', 'volume', null, ''],
+          ['Transcribed:', 'transcribedBy', 'transcribedDate', 'Category:', 'category', '', 'transcribedTime'],
+          ['Collect By:', 'collectedBy', 'collected', 'Specimen Src.:', 'specimen', ':', 'collectedTime'],
+        ].map(([label, by, date, right, key, time, timeKey]) => <div className="pb-measure-pane__provenance-row" key={label}>
+          <span>{label}</span>{input(by ?? '')}<span>Date:</span>{input(date ?? '')}
+          {/* Report By's line keeps the time box's place empty; the others
+              print the record's time over their empty mask (302837 "Collect
+              Date: The date and time that the measurement was collected";
+              `3b59a254…` Collect By 2018.04.20 | 00:01). Collect By's time is
+              num_collect_hr / num_collect_min (charts/to-rows.ts) */}
+          {time === null ? <span style={{ width: 40 }} /> : <PBInput w={40} align="center" value={(timeKey && value(timeKey)) || time} readOnly />}
+          <span>{right}</span>{input(key ?? '')}
         </div>)}
       </div>
       <div className="pb-measure-pane__note"><span>Collect Note:</span><PBTextArea value={value('collectNote')} readOnly /></div>

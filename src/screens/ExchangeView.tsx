@@ -9,6 +9,25 @@ import {
 import { ManualEntryView } from './ManualEntryView'
 import { AutoUpdateView, PrepareBillsView, ReconcileRemittanceView, TeleplanView } from './MspExchangeViews'
 import { AmcareScorecardView } from './AmcareScorecardView'
+import { SectionLanding } from './AdminLandingViews'
+
+/* --- Manual Entry ▸ the section's own page --------------------------------
+   PROVENANCE: ~/github/Mois/references/module-overview.md ("Data
+   Exchange": "Observed right pane after switching showed `Manual Data
+   Entry`, listing `Measures`, `Imaging`, `Consults`, `Procedures`,
+   `Documents`, `Facility Admissions`, and `Orders`"), live DEV v02.31.23.
+   Drawn on the section landing page Administration's User Management,
+   Designer Management and Clinic Management use (AdminLandingViews.tsx),
+   with `Manual Data Entry` as its sub-band the way User Management's reads
+   `User / Access Management`. INFERRED: the header caption (the node's), the
+   intro line and term column (the other landings'); the guide does not
+   transcribe a description for any of the seven, so none is drawn. */
+const MANUAL_DATA_ENTRY = ['Measures', 'Imaging', 'Consults', 'Procedures', 'Documents', 'Facility Admissions', 'Orders']
+  .map((term) => ({ term: `${term}:`, text: '' }))
+
+function ManualDataEntryLanding() {
+  return <SectionLanding title="Manual Entry" band="Manual Data Entry" termW={145} entries={MANUAL_DATA_ENTRY} />
+}
 
 /* ============================================================================
    Data Exchange — one work-area view per folder.
@@ -35,6 +54,7 @@ export type ExchangeGo = {
 }
 
 const SCREENS: Record<string, (go: ExchangeGo) => ReactElement> = {
+  'dx-manual': () => <ManualDataEntryLanding />,
   'dx-prepare-bills': () => <PrepareBillsView />,
   'dx-teleplan': () => <TeleplanView />,
   'dx-remittance': () => <ReconcileRemittanceView />,

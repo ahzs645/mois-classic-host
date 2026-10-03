@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useUserAccounts, accountSettingsKey, initialAccountSettings, accountOutcomes, type AccountSettings } from '../data/user-account-session'
+import { useSessionState } from '../host/screen-windows'
+import { useState } from 'react'
 import {
   PBBand, PBCheckbox, PBCommandRow, PBDataWindow, PBGroup, PBInput,
   PBTextArea, PBViewHeader, PBWindow, pbSlug, usePBInstrumentation,
@@ -117,15 +119,15 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
   const [cur, setCur] = useState(0)
   const [newOpen, setNewOpen] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
-  const [added, setAdded] = useState<UserRow[]>([])
+  const [accounts, setAccounts] = useUserAccounts()
 
-  const all = useMemo(() => [...spec.rows, ...added], [spec.rows, added])
+  const all = spec.node === 'ad-users' ? accounts : spec.rows
   const filter = useColumnFilters(all, spec.columns.map((c, i) => {
     const box = spec.filter?.find((b) => b.col === i)
     return box ? { key: c.key, w: box.w, anchor: `filter-${pbSlug(c.key)}` } : null
   }), { match: 'lower-trim', onChange: () => setCur(0) })
   const rows = filter.shown
-
+  const currentAccount = rows[cur] ?? {}
   const columns = umColumns(spec.columns)
   /* the banded two-row header is the User Accounts grid's alone */
   if (spec.headH > 16) {
@@ -162,6 +164,7 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
 
   return (
     <>
+      {spec.node === 'ad-users' && <AccountOutcomeReport key={String(currentAccount.user ?? '')} row={currentAccount} count={accounts.length} />}
       <style>{UM_CSS}{headCss(spec)}</style>
 
       <PBViewHeader title={spec.header} />
@@ -218,8 +221,9 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
              post-save shape is the spec's: Effective = today, Status = A,
              all three Overrides at `-`. */
           onCreate={(draft) => {
+            if (!draft.user.trim() || !draft.first.trim() || !draft.last.trim() || accounts.some(r => String(r.user).toLowerCase() === draft.user.trim().toLowerCase())) return
             const row = newUserRow(draft)
-            setAdded((a) => [...a, row])
+            setAccounts((a) => [...a, row])
             setNewOpen(false)
             setCur(all.length)
             setEditing(row)
@@ -243,12 +247,19 @@ function UserListView({ spec, onClose }: { spec: UserListSpec; onClose?: () => v
   )
 }
 
+function AccountOutcomeReport({ row, count }: { row: UserRow; count: number }) {
+  const [settings] = useSessionState<AccountSettings>(accountSettingsKey(row), initialAccountSettings(row))
+  useScreenReport({ rows: count, ...accountOutcomes(settings, row) })
+  return null
+}
+
 /** The row `Create User` puts in the grid (spec §6, `a58fd3359aa3` → `c2517d839cff`). */
 function newUserRow(draft: NewUserDraft): UserRow {
   return {
     display: newUserDisplayName(draft),
     user: draft.user,
     role: '',
+    profiles: draft.profiles?.join('|') ?? '',
     ovWindow: '0',
     ovFunctions: '0',
     ovReports: '0',
@@ -371,7 +382,8 @@ function UserGroupDetailDialog({ row, onClose }: { row: UserRow; onClose: () => 
             />
           </div>
 
-          <DialogFooter frame="pb" buttons={footerButtons(d.footer, { wide: true, onPress: onClose })} />
+          <DialogFooter frame="pb" buttons={footerButtons(d.footer, { wide: true, onPress: onClose }).map((button) =>
+            button.command === 'cancel' ? { ...button, command: 'user-group-detail-cancel' } : button)} />
         </PBWindow>
       </div>
     </div>

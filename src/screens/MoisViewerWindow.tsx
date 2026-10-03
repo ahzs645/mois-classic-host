@@ -3,6 +3,7 @@ import { PBButton, PBMenuBar, pbSlug, usePBInstrumentation, type PBMenuBarEntry,
 import type { DesignerRow } from '../data/designerSection'
 import type { AddressBookEntry, AddressBookMode } from '../data/addressBook'
 import { usePatient } from '../data/patient-context'
+import { chartHasAttachments, useChartAttachment } from '../data/charts/attachments'
 import { useScreenReport } from '../host/screen-state'
 import { AddressBookWindow } from './AddressBookWindow'
 import { ModalWindow } from './dialogKit'
@@ -53,11 +54,31 @@ import {
      Viewer", its own M icon and no Find bar; its chrome now follows the
      current build's viewer (the same control) — two toolbar rows, no
      "Options"/"Ready" strips, which v02.31.23 no longer shows.
-   · The page: the stage has no PDF. The Administration preview draws the
-     form's Field Data Assignment rows, each box carrying its Index in red
-     (303327 "the field number in each fillable field"). A chart paper form
-     draws a neutral page: the form's name over a set of the viewer's yellow
-     fillable fields, the patient's identity filled from the open chart.
+   · The page. The Administration preview draws the form's Field Data
+     Assignment rows, each box carrying its Index in red (303327 "the field
+     number in each fillable field"). A chart document whose
+     tdt_document.str_link names a file the chart export carries
+     (data/charts/attachments.ts) shows THAT file: the PDF MOIS stored, drawn
+     by the browser's own PDF renderer inside this viewer's chrome, with
+     `#toolbar=0&navpanes=0` so only the MOIS Viewer's toolbars show. Any
+     other document — a chart with no attachment manifest, a link the export
+     left out — keeps the neutral page: the form's name over a set of the
+     viewer's yellow fillable fields, the patient's identity filled from
+     the open chart. While the manifest loads the desk is empty, so the
+     neutral page never flashes up in front of a real document.
+
+     Over a real PDF the fillable fields belong to the browser's renderer,
+     which the stage cannot read or write without a PDF library of its own:
+       - the Find bar still opens the Address Book and Patient Health
+         Issues, but no field of ours has the cursor, so a pick goes nowhere
+         (exactly as it does on the neutral page before a field is clicked);
+       - the Fields pane opens with its band and no rows — it lists only the
+         fields the stage draws;
+       - Sign Document / Pencil press as usual but there is no signature
+         field of ours to click, so `viewerSigned` / `viewerDirty` stay false;
+       - the zoom buttons reload the document at the new zoom (`#zoom=`).
+     Reported as `host.screen.viewerDocument`: 'attachment' | 'neutral' |
+     'loading'.
 
    Only Close (File ▸ Close / Close All, Ctrl+W's item, the caption ×), the
    tool buttons' pressed state, the zoom controls and the Find bar do
@@ -550,6 +571,12 @@ export function MoisViewerWindow({
 }) {
   const host = usePBInstrumentation()
   const patient = usePatient()
+  /* the file the document links to, when the chart export carries it (see
+     the header: the page) — never for the Designer preview */
+  const attachment = useChartAttachment(patient.chart, fields ? undefined : fileName)
+  const pdf = attachment.status === 'ready' && attachment.attachment.kind === 'pdf' ? attachment.attachment.url : null
+  const pageKind: 'attachment' | 'neutral' | 'loading' = fields ? 'neutral' : pdf ? 'attachment'
+    : attachment.status === 'loading' && chartHasAttachments(patient.chart) ? 'loading' : 'neutral'
   const [tool, setTool] = useState<string | null>(null)
   const [fit, setFit] = useState<Fit | null>('width')
   const [zoom, setZoom] = useState(120)
@@ -577,7 +604,7 @@ export function MoisViewerWindow({
   useScreenReport({
     dialog: efax ? 'send-efax' : customize ? 'customize-toolbars' : 'mois-viewer', viewerTool: tool, viewerEmbedded: embedded,
     viewerDirty: dirty, viewerSaved: saved, viewerSigned: signed, viewerToolbars: Object.values(toolbars).filter(Boolean).length,
-    viewerFieldsPane: fieldsPane,
+    viewerFieldsPane: fieldsPane, viewerDocument: pageKind,
   })
 
   const file = fileName ?? `${pbSlug(form) || 'form'}.pdf`
@@ -822,7 +849,8 @@ export function MoisViewerWindow({
           /* the Fields pane: every fillable field and what it holds */
           <div data-tutorial-id="host.mois.group.viewer-fields-pane" style={{ width: 200, flex: 'none', overflow: 'auto', borderRight: '1px solid #d4d4d4', background: '#fff' }}>
             <div className="pb-band">Fields</div>
-            {NEUTRAL_ROWS.flatMap((r) => r.fields).map((f) => (
+            {/* only the fields the stage draws; a real PDF's are the renderer's */}
+            {pageKind === 'neutral' && NEUTRAL_ROWS.flatMap((r) => r.fields).map((f) => (
               <div key={f.name} style={{ padding: '2px 6px', borderBottom: '1px solid #f0f0f0', background: focused === f.name ? '#cce4f7' : undefined }}>
                 <div style={{ fontWeight: 700 }}>{f.name}</div>
                 <div style={{ color: '#505050', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name === 'signature' ? (signed ? '(signed)' : '') : values[f.name] ?? ''}</div>
@@ -835,8 +863,23 @@ export function MoisViewerWindow({
           style={{
             flex: '1 1 auto', minHeight: 0, overflow: 'auto', background: '#fcfcfc', padding: '6px 10px 10px',
             cursor: tool ? 'crosshair' : undefined,
+            ...(pageKind === 'neutral' ? null : { display: 'flex', padding: 0, overflow: 'hidden' }),
           }}
         >
+          {pdf ? (
+            /* the stored PDF itself; the fragment hides the browser's own
+               toolbar and side panes and carries this viewer's zoom */
+            <object
+              key={`${pdf}:${fit ?? zoom}`}
+              data={`${pdf}#toolbar=0&navpanes=0&${fit === 'width' ? 'view=FitH' : fit === 'page' ? 'view=Fit' : `zoom=${zoom}`}`}
+              type="application/pdf"
+              aria-label={file}
+              data-tutorial-id="host.mois.field.viewer-document"
+              style={{ flex: '1 1 auto', width: '100%', height: '100%', border: 0, background: '#fcfcfc' }}
+            >
+              <div style={{ padding: 12 }}>{file}</div>
+            </object>
+          ) : pageKind === 'neutral' && (
           <div
             style={{
               width: 760, margin: '0 auto', background: '#fff', zoom: zoom / 120,
@@ -847,17 +890,21 @@ export function MoisViewerWindow({
             {fields
               ? <NumberedPage form={form} fields={fields} />
               : (
-                <NeutralPage
-                  form={form}
-                  values={values}
-                  onField={(n, v) => { setValues((x) => ({ ...x, [n]: v })); setDirty(true); setSaved(false) }}
-                  onFocusField={setFocused}
-                  signing={tool === 'sign-document' || tool === 'pencil'}
-                  signed={signed}
-                  onSign={() => { setSigned(true); setDirty(true); setSaved(false) }}
-                />
+                <>
+                  <p>This page is a placeholder. Load a real chart export with its attachment files to view the actual document.</p>
+                  <NeutralPage
+                    form={form}
+                    values={values}
+                    onField={(n, v) => { setValues((x) => ({ ...x, [n]: v })); setDirty(true); setSaved(false) }}
+                    onFocusField={setFocused}
+                    signing={tool === 'sign-document' || tool === 'pencil'}
+                    signed={signed}
+                    onSign={() => { setSigned(true); setDirty(true); setSaved(false) }}
+                  />
+                </>
               )}
           </div>
+          )}
         </div>
         </div>
 

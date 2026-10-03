@@ -47,6 +47,9 @@ export type SchedulerState = {
   removed: string[]
   statuses: Record<string, string>
   billed: Record<string, boolean>
+  /** The diagnosis saved with a synthetic billed appointment by Day Book Save.
+      Kept locally; tutorial snapshots expose only whether it still matches. */
+  savedBills: Record<string, string>
   /** Health Issue picked for a row (F4 / the "…" beside the cell) */
   issues: Record<string, string>
   /** rows whose encounter was saved with its note: DS reads C */
@@ -78,7 +81,7 @@ export type SchedulerState = {
 }
 
 const initial = (): SchedulerState => ({
-  added: [], removed: [], statuses: {}, billed: {}, issues: {}, noted: {}, charted: {},
+  added: [], removed: [], statuses: {}, billed: {}, savedBills: {}, issues: {}, noted: {}, charted: {},
   current: null, openedFrom: null, blockOwner: null,
   blocks: initialReservationBlocks(), resourceBlocks: initialResourceBlocks(),
   shifts: initialShiftRows(), resourceShifts: initialResourceShiftRows(), shiftSelection: null,
@@ -156,9 +159,14 @@ export function dayRows(s: SchedulerState, provider: string, offset: number): Da
   })
 }
 
-/** The resource day book, which this session does not change. */
-export const resourceRows = (resource: string, offset: number): DayRow[] =>
-  resourceDayFor(resource, offset).map((row, i) => ({ ...row, key: `res:${resource}|${offset}|b${i}` }))
+/** Saved bookings appear in both their provider's and resource's day books. */
+export function resourceRows(resource: string, offset: number): DayRow[] {
+  const s = state()
+  const base = resourceDayFor(resource, offset).map((row, i) => ({ ...row, key: `res:${resource}|${offset}|b${i}` }))
+  const added = s.added.filter(x => x.offset === offset && x.row.resource === resource && !s.removed.includes(x.key))
+    .map(x => ({ ...x.row, key: x.key, provider: x.provider }))
+  return [...base, ...added].sort(byTime)
+}
 
 export function rowAt(provider: string, offset: number, index: number): DayRow | undefined {
   return dayRows(state(), provider, offset)[index]
@@ -184,6 +192,18 @@ export function schedulerSnapshot(s: SchedulerState, provider: string, offset: n
     rows: rows.length,
     ds: row?.ds ?? '',
     bs: row?.bs ?? '',
+    diagnosis: row?.issue ? 'selected' : 'empty',
+    diagnosisEdited: !!row && Object.prototype.hasOwnProperty.call(s.issues, row.key),
+    /** MSP Bill updates the row; Save is a separate operation (303858).
+        An unrelated Save, or a later diagnosis edit, cannot fulfill this. */
+    billingSaved: !!row?.issue && !!s.billed[row.key] && s.savedBills[row.key] === row.issue,
+    /** A saved local booking has its own time, patient and reason. No typed
+        text crosses the tutorial boundary, and Save alone is insufficient. */
+    bookedComplete: s.added.some((entry) => entry.kind === 'booked'
+      && Boolean(entry.row.chart && entry.row.first && entry.row.last && entry.row.reason.trim())
+      && /^\d{1,2}$/.test(entry.row.hr) && Number(entry.row.hr) < 24
+      && /^\d{1,2}$/.test(entry.row.mn) && Number(entry.row.mn) < 60
+      && Number(entry.row.n) > 0),
     /** whether the current row has a chart number behind it */
     charted: !!row?.chart,
     editor: s.editor ? 'on' : 'off',
@@ -290,6 +310,17 @@ export const schedulerStore = {
   /** MSP Bill (Ctrl+B) on the current row */
   bill(key: string) {
     set({ billed: { ...state().billed, [key]: true }, last: 'billed' })
+  },
+
+  /** Day Book Save (F2), after MSP Bill (303858). This commits the stage's
+      synthetic row state for this day only; it does not send a real claim. */
+  saveDay(provider: string, offset: number) {
+    const s = state()
+    const savedBills = { ...s.savedBills }
+    for (const row of dayRows(s, provider, offset)) {
+      if (s.billed[row.key] && row.issue) savedBills[row.key] = row.issue
+    }
+    set({ savedBills, last: 'daybook-saved' })
   },
 
   /** Action ▸ Bill MSP (all encounters), Ctrl+I: every row with a diagnosis */

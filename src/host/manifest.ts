@@ -166,9 +166,34 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
   fixtures,
   defaultFixture: MOIS_CLASSIC_DEFAULT_FIXTURE,
   snapshotPaths: [
+    'host.screen.newUserReady', 'host.screen.residentProfile', 'host.screen.providerNameReady', 'host.screen.newResourceReady',
+    'host.screen.providerUserAssociated', 'host.screen.providerBillingNumbersBlank',
+    'host.screen.defaultAuthorSelf', 'host.screen.desktopProviderPresent',
+    'host.screen.manualProgressNotesAcknowledged', 'host.screen.completeAliases',
+    'host.screen.workspaceShares', 'host.screen.accountSaves',
+    'host.screen.daybookAliasPresent', 'host.screen.resource', 'host.screen.resourceAppointments',
     'host.module', 'host.node', 'host.view', 'host.tab', 'host.dialog',
     'host.patient', 'host.windows', 'host.draft', 'host.daybook', 'host.provider',
     'host.theme', 'host.invoice', 'host.appt', 'host.booked', 'host.basket', 'host.billed', 'host.reminderStopped',
+    /* Day Book billing: a synthetic diagnosis pick, then MSP Bill and Save.
+       No diagnosis code or patient field is included in these outcomes. */
+    'host.scheduler.row', 'host.scheduler.bs', 'host.scheduler.diagnosis',
+    'host.scheduler.diagnosisEdited', 'host.scheduler.billingSaved',
+    'host.scheduler.bookedComplete', 'host.scheduler.recalls',
+    /* Presence, numbers and fixed enums grade local edits without text. */
+    'host.screen.editedRow', 'host.screen.selectedValuePresent',
+    'host.screen.selectedToggle', 'host.screen.selectedNumber',
+    'host.screen.savedRow', 'host.screen.savedToggle', 'host.screen.savedNumber',
+    'host.screen.acknowledgedFilter', 'host.screen.completedFilter',
+    'host.screen.showingRecords', 'host.screen.currentAcknowledged',
+    'host.screen.acknowledgedCount', 'host.screen.visibleReviews',
+    'host.screen.appointmentTimeReady', 'host.screen.appointmentPatientChosen',
+    'host.screen.appointmentReasonReady',
+    'host.screen.appointmentHour', 'host.screen.appointmentMinute',
+    'host.screen.appointmentSlots', 'host.screen.appointmentMatchesCurrentChart',
+    'host.screen.doseWizardMulti',
+    'host.screen.copyDestinationReady', 'host.screen.copyDestinationOffset',
+    'host.screen.copyDestinationSameProvider', 'host.screen.copyAction',
     /* what a work-area window reports of its own state (host/screen-state.tsx):
        the band a System Settings `+` opened, the row that is current, whether
        its edits are saved, how many rows a list holds */
@@ -211,6 +236,8 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
        (empty / draft / incomplete / complete), reviews reported onto it; the
        Encounters list's saved new encounters, and the Measures folder's links */
     'host.screen.encounter', 'host.screen.notes', 'host.screen.noteStatus', 'host.screen.reviews',
+    'host.screen.noteIndex', 'host.screen.completeNotes',
+    'host.screen.wcbClaimEntered', 'host.screen.wcbDefault', 'host.screen.wcbClaimsUpdated',
     'host.screen.savedEncounters', 'host.screen.linked', 'host.screen.orderLinked', 'host.screen.attached',
     'host.screen.measureFilter', 'host.screen.saveAndAttach', 'host.screen.measurements', 'host.screen.bmiClass',
     /* the letter in progress (data/letterFlow.ts): its document type, the
@@ -264,6 +291,11 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.screen.addressBookOption', 'host.screen.addressBookAdded',
     'host.screen.listType', 'host.screen.contactTab', 'host.screen.contactPicks', 'host.screen.selectedValues',
     'host.screen.deaconFunction',
+    /* Ctrl+Shift+A (host/field-audit.ts): the MOIS Data Dictionary entry of
+       the field last asked about (its audit evidence ID, '' when the
+       dictionary has none), what MOIS answered (not-available / register /
+       report / none), and how many fields were registered with Yes */
+    'host.fieldAudit.entry', 'host.fieldAudit.answer', 'host.fieldAudit.registered',
   ],
   actions: {
     'host.mois.selectModule': {
@@ -445,6 +477,18 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
       anchor: 'host.mois.as.{appointment}',
       description: "The day book's AS column: A Arrived, I In Room, S Seen, D Discharged, N No Show, R Rebooked, C Cancelled. Applies to the current appointment, or to args.row.",
       outcome: { path: 'host.appt', arg: 'status' },
+    },
+    'host.mois.fieldAudit': {
+      label: 'Look up where a field is stored (Ctrl+Shift+A)',
+      description: "Put the cursor in a field or click a grid cell and press Ctrl+Shift+A. MOIS names the field's Table Name and Field Name in Audit Information Not Available, then offers Register Table - Field; a registered field opens its Change Audit Report instead. args.field focuses `host.mois.field.{field}` first. The answer comes from the MOIS Data Dictionary field audit (data/dataDictionary.ts).",
+      anchor: 'host.mois.field.{field}',
+      outcome: { path: 'host.fieldAudit.entry', arg: 'entry' },
+    },
+    'host.mois.registerField': {
+      label: 'Register a field with the MOIS Data Audit Service',
+      learner: true,
+      description: 'Yes on the Register Table - Field prompt that follows Audit Information Not Available. The field opens a Change Audit Report on the next Ctrl+Shift+A.',
+      anchor: 'host.mois.command.audit-register-yes',
     },
     'host.mois.daybook': {
       label: 'Move the day book',

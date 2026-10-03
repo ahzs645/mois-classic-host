@@ -39,16 +39,22 @@ export function EncounterBanner({ patient }: { patient: ChartPatient }) {
     const u = linked ? { textDecoration: 'underline' } : undefined
     return <Cell w={w}><span style={u}>{label}</span>&nbsp;<b style={u}>{value ?? ''}</b></Cell>
   }
+  /* A chart with no alias paints no ALIAS caption at all: the TRAINING
+     capture of chart 3924 (encounter-detail-header.png, v02.31.23) runs
+     NAME straight on to DoB at the same x, while #21/#22/#33 were all of a
+     chart that has one. The cell keeps its width either way. Both rows are
+     on an 18px pitch there (NAME 125, BCHN 143). */
+  const alias = (patient.alias ?? '').trim()
   return (
     <div className="pb-banner-yellow" style={{ display: 'block', padding: '1px 8px 2px' }} data-tutorial-id="host.mois.field.encounter-banner">
-      <div className="pb-row" style={{ gap: 0 }}>
+      <div className="pb-row" style={{ gap: 0, height: 18 }}>
         <Cell w={281}>NAME:&nbsp;<b>{`${patient.first} ${patient.last}`.toUpperCase()}</b></Cell>
-        <Cell w={200}>ALIAS:&nbsp;&nbsp;<b>{(patient.alias ?? '').toUpperCase()}</b></Cell>
+        <Cell w={200}>{alias && <>ALIAS:&nbsp;&nbsp;<b>{alias.toUpperCase()}</b></>}</Cell>
         <Cell w={108}>DoB:&nbsp;<b>{patient.dob}</b></Cell>
         <Cell w={29}><b>{patient.sex}</b></Cell>
         <span>Service Provider:</span>
       </div>
-      <div className="pb-row" style={{ gap: 0 }}>
+      <div className="pb-row" style={{ gap: 0, height: 18 }}>
         <Cell w={182}>BCHN:&nbsp;<b>{patient.bchn ?? ''}</b></Cell>
         {phone('Home:', patient.home, 151)}
         {phone('Work:', patient.work, 152)}

@@ -50,6 +50,17 @@ export type Med = {
   modified: string
   encounter?: string
   record?: MoisRecord
+  /** tdt_prescription columns no captured control prints: the workflow the
+      prescription was written in (str_workflow — CPP for a controlled
+      prescription; the Type column shows str_type), Ordered By's coded
+      identity (str_order_by_id / _system; the box shows str_order_by,
+      MATRIX-R0750), part fill (str_partfill) and Not authorized for
+      delivery (str_delivery_not_authorized — the CPP prescribing window's
+      box, ControlledRxWindows, which opens for a new prescription only) */
+  workflow?: string
+  orderById?: { id: string; system: string }
+  partFill?: boolean
+  deliveryNotAuthorized?: boolean
 }
 
 export type PrintLogEntry = {
@@ -86,7 +97,11 @@ export function medFromRecord(r: MoisRecord, doses: MoisRecord[] = [], durations
   const table = r.id_medication_lt ? 'tdt_medication_lt' : 'tdt_prescription'
   /* a dose tree hangs off either table through drug_duration's object id */
   const duration = durations.find((d) => d.id_object === id && (!d.str_object || d.str_object === table))
-  const own = duration ? doses.filter((d) => d.id_drug_duration === duration.id_drug_duration) : []
+  /* the dose lines in their own order (tdt_drug_dose.num_sequence) */
+  const own = duration
+    ? doses.filter((d) => d.id_drug_duration === duration.id_drug_duration)
+      .map((d, i) => ({ d, i })).sort((a, b) => (Number(a.d.num_sequence) || 0) - (Number(b.d.num_sequence) || 0) || a.i - b.i).map((x) => x.d)
+    : []
   const fixed = (v?: string) => (v ? Number(v).toFixed(1) : '')
   return {
     id,
@@ -112,6 +127,10 @@ export function medFromRecord(r: MoisRecord, doses: MoisRecord[] = [], durations
     modified: stampOf(r.stp_date_modify, r.stp_user_modify),
     encounter: r.id_encounter,
     record: r,
+    workflow: r.str_workflow ?? '',
+    orderById: r.str_order_by_id ? { id: r.str_order_by_id, system: r.str_order_by_id_system ?? '' } : undefined,
+    partFill: r.str_partfill === 'Y',
+    deliveryNotAuthorized: r.str_delivery_not_authorized === 'Y',
   }
 }
 

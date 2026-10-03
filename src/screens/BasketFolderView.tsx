@@ -432,7 +432,14 @@ export function BasketFolderView({
     schedulerStore.setPrefill({ chart: BASKET_CHARTS[prefillFor] ?? '', first, last })
   }, [prefillFor])
   useEffect(() => () => { schedulerStore.setPrefill(null) }, [])
-  useScreenReport(current ? { row: rowSlug(current), sort: sort ? `${pbSlug(sort.key)}-${sort.dir > 0 ? 'asc' : 'desc'}` : '' } : {})
+  useScreenReport({
+    ...(current ? { row: rowSlug(current) } : {}),
+    sort: sort ? `${pbSlug(sort.key)}-${sort.dir > 0 ? 'asc' : 'desc'}` : '',
+    showingRecords: showing,
+    currentAcknowledged: current ? checked.has(keyOf(current)) : false,
+    acknowledgedCount: checked.size,
+    visibleReviews: shown.filter((row) => row.t === 'R').length,
+  })
 
   if (!folder) return null
 

@@ -102,6 +102,7 @@ export function WcbFormWindow({
   const patient = usePatient()
   const [form, setForm] = useState<WcbFormState>(initial)
   const [saved, setSaved] = useState(true)
+  const [claimsUpdated, setClaimsUpdated] = useState(0)
   const [prompt, setPrompt] = useState<Prompt>(null)
   /* Print Form's page (or the validation list's), in the frame's Print
      Preview — held here, over this window, because the frame's own area
@@ -119,6 +120,9 @@ export function WcbFormWindow({
     saved,
     assignedNote: form.note?.number ?? 0,
     wcbClaims: claims.length,
+    wcbClaimsUpdated: claimsUpdated,
+    wcbClaimEntered: !!(form.doi.trim() && form.company.trim() && form.position.trim()),
+    wcbDefault: claims.some((claim) => claim.isDefault),
     mspValidation: validation.length,
   })
 
@@ -243,6 +247,7 @@ export function WcbFormWindow({
               const clean = isPatientSaved(patient.chart)
               updatePatient(patient.chart, { wcbClaims: mergeClaim(claims, claimFromForm(form, isDefault)) })
               if (clean) savePatient(patient.chart)
+              setClaimsUpdated((count) => count + 1)
             }}
           />
         )}
@@ -449,6 +454,7 @@ export function AssignProgressNoteDialog({ notes, onOk, onClose }: {
    as Default'". The article's image is missing; the wording is its own. */
 function UpdateClaimListPrompt({ onClose }: { onClose: (answer: string, isDefault: boolean) => void }) {
   const [isDefault, setDefault] = useState(false)
+  useScreenReport({ wcbDefault: isDefault })
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 93 }}>
       <PBMessageBox

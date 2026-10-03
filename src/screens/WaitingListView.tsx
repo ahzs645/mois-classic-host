@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow,
   PBInput, PBLookup, PBRadio, PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn,
@@ -13,19 +13,36 @@ import { daybookProviders, waitListRows, waitListNames } from '../data/mois'
 
 type Wait = Record<string, string>
 
+/* Widths and row pitch are the DEV v02.31.23 list's, read off the header of
+   evidence/MATRIX-R1360-row (Aug 2026, 100 %): a 16 px gutter, then
+   36 / 106 / 83 / 47 / 14 / 81 / 33 / 31 / 150 / 159 / 41 — Priority ends at
+   the pane's edge — with rows 19 px apart. */
 const columns: PBColumn<Wait>[] = [
-  { key: 'row', header: 'Row#', width: 44, align: 'center' },
-  { key: 'last', header: 'Last Name', width: 116 },
-  { key: 'first', header: 'First Name', width: 106 },
-  { key: 'chart', header: 'Chart', width: 62, align: 'center' },
-  { key: 'd', header: '', dots: true },
-  { key: 'added', header: 'Date Added', width: 88, align: 'center' },
-  { key: 'wt', header: 'W.T.', width: 50, align: 'center' },
-  { key: 'bkd', header: "Bk'd", width: 40, align: 'center' },
-  { key: 'list', header: 'List', width: 200 },
-  { key: 'reason', header: 'Reason', width: 160 },
-  { key: 'priority', header: 'Priority', width: 60, align: 'center' },
+  { key: 'row', header: 'Row#', width: 36, align: 'center' },
+  { key: 'last', header: 'Last Name', width: 106 },
+  { key: 'first', header: 'First Name', width: 83 },
+  { key: 'chart', header: 'Chart', width: 47, align: 'center' },
+  { key: 'd', header: '', width: 14, dots: true },
+  { key: 'added', header: 'Date Added', width: 81, align: 'center' },
+  { key: 'wt', header: 'W.T.', width: 33, align: 'center' },
+  /* not booked paints a small bold ×, not a ballot ✗ (MATRIX-R1366-bk-d) */
+  { key: 'bkd', header: "Bk'd", width: 31, align: 'center', render: (r) => (r.bkd === '\u2717' ? <b>×</b> : r.bkd) },
+  { key: 'list', header: 'List', width: 150 },
+  { key: 'reason', header: 'Reason', width: 159 },
+  { key: 'priority', header: 'Priority', width: 41, align: 'center' },
 ]
+const GRID_VARS = { ['--pb-dw-row-h' as string]: '19px', ['--pb-dw-gutter-width' as string]: '15px' } as CSSProperties
+
+/* Six fixed-width tabs, 128 px each and packed left (PBTabs' `tabWidth`):
+   v02.31.23 adds Appointment History after Correspondence Log
+   (evidence/MATRIX-R1372-patient-name). The page under them is a framed
+   panel inset 6 px, as in the Group Visit List. */
+const TABS = ['Contact Information', 'List Detail', 'Procedure List', 'Unavailable Date(s)', 'Correspondence Log', 'Appointment History']
+const TAB_WIDTH = 128
+const TAB_CSS = `
+.pb-wl-tabs .pb-tabs, .pb-wl-tabs .pb-tabs__page { min-width: 0; }
+.pb-wl-frame { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; margin: 6px 6px 0; border: 1px solid #a0a0a0; border-bottom: 0; background: var(--pb-face); }
+`
 
 export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 'resource' }) {
   const [tab, setTab] = useState('Contact Information')
@@ -35,62 +52,67 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
   return (
     <>
       <PBViewHeader title={mode === 'provider' ? 'Provider Waiting List' : 'Resource Waiting List'} />
+      {/* every command is live in the DEV capture, Save and Undo included,
+          and Create Appointment is the one wide button: 103 px beside nine
+          of 76.5 px */}
       <PBCommandRow
         commands={[
-          { label: 'New Appt' }, { label: 'Delete Appt' }, { label: 'Save', disabled: true },
-          { label: 'Undo', disabled: true }, { label: 'Refresh' },
-          { label: 'Create Appointment' }, { label: 'Print Report' },
-          { label: 'Print List' }, { label: 'Open Chart' }, { label: 'Close Window' },
-        ]}
+          'New Appt', 'Delete Appt', 'Save', 'Undo', 'Refresh', 'Create Appointment',
+          'Print Report', 'Print List', 'Open Chart', 'Close Window',
+        ].map((label) => ({ label, exactWidth: label === 'Create Appointment' ? 103 : 76.5 }))}
       />
 
-      {/* filter block: a required owner, an optional list, and the record scope */}
-      <div className="pb-form" style={{ gridTemplateColumns: 'auto auto 1fr', padding: '4px 8px', alignItems: 'center' }}>
+      {/* filter block: a required owner, an optional list, and the record
+          scope. DEV (evidence/MATRIX-R1360-row): left-aligned labels 7 px in,
+          223 px drop-downs at 68 px, and the two Show radios stacked in one
+          column with Hide booked patients beside the second */}
+      <div className="pb-form" style={{ gridTemplateColumns: '61px auto auto 1fr', padding: '3px 7px 2px', alignItems: 'center', rowGap: 1 }}>
         <span className="pb-form__label">{mode === 'provider' ? 'Provider:' : 'Resource:'}</span>
-        <PBSelect options={daybookProviders.map((p) => p.provider)} w={224} />
+        <PBSelect options={daybookProviders.map((p) => p.provider)} w={223} />
         <div className="pb-row">
-          <span>(required)</span>
-          <span style={{ width: 20 }} />
-          <span>Show:</span>
-          <PBRadio name="wlshow" label="All Records" checked={show === 'all'} onChange={() => setShow('all')} />
+          <span style={{ width: 56 }}>(required)</span>
+          <span style={{ width: 33 }}>Show:</span>
         </div>
+        <PBRadio name="wlshow" label="All Records" checked={show === 'all'} onChange={() => setShow('all')} />
 
         <span className="pb-form__label">Wait List:</span>
         <PBDropDownDataWindow
-          w={224}
+          w={223}
           columns={[{ key: 'name', header: 'Name', width: 210 }, { key: 'desc', header: 'Description' }]}
           rows={waitListNames}
           display="name"
         />
         <div className="pb-row">
-          <span>(optional)</span>
-          <span style={{ width: 20 }} />
+          <span style={{ width: 93 }}>(optional)</span>
+        </div>
+        <div className="pb-row" style={{ gap: 24 }}>
           <PBRadio
             name="wlshow"
             label="Waiting Records (w/o outcome date)"
             checked={show === 'waiting'}
             onChange={() => setShow('waiting')}
           />
-          <span style={{ width: 14 }} />
           <PBCheckbox label="Hide booked patients" />
         </div>
       </div>
 
-      <div className="pb-row" style={{ padding: '2px 8px' }}>
+      <div className="pb-row" style={{ padding: '2px 13px 4px 3px' }}>
         <span>Search For:</span><PBLookup w="100%" />
       </div>
 
-      <div style={{ padding: '0 3px', height: 226, display: 'flex' }}>
+      <div style={{ padding: '0 3px', height: 243, display: 'flex', ...GRID_VARS }}>
         <PBDataWindow columns={columns} rows={waitListRows} current={cur} onCurrentChange={setCur} />
       </div>
 
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
+      <style href="mois-classic/waiting-list-tabs" precedence="medium">{TAB_CSS}</style>
+      <div className="pb-wl-tabs" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '4px 3px 3px' }}>
         <PBTabs
-          tabs={['Contact Information', 'List Detail', 'Procedure List', 'Unavailable Date(s)', 'Correspondence Log']}
+          tabs={TABS}
           active={tab}
           onChange={setTab}
-          compact
+          tabWidth={TAB_WIDTH}
         >
+          <div className="pb-wl-frame">
           {tab === 'Contact Information' && <ContactPage row={waitListRows[cur]} />}
           {tab === 'List Detail' && <ListDetailPage />}
           {tab === 'Procedure List' && (
@@ -109,7 +131,7 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
                     { key: 'priority', header: 'Priority', width: 76, align: 'center' },
                     { key: 'note', header: 'Note' },
                   ]}
-                  empty="No procedures requested for this entry."
+                  empty={false}
                 />
               </div>
             </>
@@ -130,7 +152,7 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
                     { key: 'reason', header: 'Reason' },
                     { key: 'by', header: 'Recorded By', width: 160 },
                   ]}
-                  empty="No unavailability recorded."
+                  empty={false}
                 />
               </div>
             </>
@@ -153,11 +175,14 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
                     { key: 'note', header: 'Note' },
                     { key: 'by', header: 'By', width: 160 },
                   ]}
-                  empty=""
+                  empty={false}
                 />
               </div>
             </>
           )}
+          {/* Appointment History: the tab is in the v02.31.23 strip, but no
+              capture shows it open, so its page is left bare */}
+          </div>
         </PBTabs>
       </div>
     </>
@@ -203,79 +228,74 @@ function ListDetailPage() {
   )
 }
 
+/* Contact Information, laid out off evidence/MATRIX-R1372-patient-name (DEV
+   v02.31.23, 100 %), in px from the frame's left edge and the band's foot:
+   left-aligned labels at 10 with fields at 92 — Patient Name a read-only
+   field the face colour with the name in bold — and Sex / Province / Country
+   right-aligned onto boxes at 296; Contact Information's labels end at 486
+   with fields at 494, Pager and Fax right-aligned onto boxes at 681, and the
+   preferred phone's box painted pale yellow (#fefecd). The registered-patient
+   note and a 66 px Refresh sit under both blocks. */
+const ROWS = [4, 28, 46, 65, 84, 103]
+const at = (left: number, top: number, extra?: CSSProperties): CSSProperties => ({ position: 'absolute', left, top, ...extra })
+const LABEL_H: CSSProperties = { lineHeight: '19px', whiteSpace: 'nowrap' }
+const rightTo = (end: number, top: number): CSSProperties => at(0, top, { ...LABEL_H, width: end, textAlign: 'right' })
+const PREFERRED: CSSProperties = { background: '#fefecd' }
+
 function ContactPage({ row }: { row?: Wait }) {
-  const name = row ? `${row.first} ${row.last}` : ''
+  const name = row && row.last ? `${row.first} ${row.last}` : ''
+  const [pref, setPref] = useState('Work')
+  const phone = (label: string, top: number, value: string, underline = false): ReactNode => (
+    <>
+      <span style={{ ...rightTo(486, top), ...(underline ? { textDecoration: 'underline' } : {}) }}>{label}:</span>
+      <span style={at(494, top)}><PBInput w={87} defaultValue={value} style={pref === label ? PREFERRED : undefined} /></span>
+    </>
+  )
   return (
     <>
       <PBBand>Patient Detail / Contact Information</PBBand>
-      <div style={{ display: 'flex', gap: 0, padding: '5px 8px', alignItems: 'flex-start' }}>
-        <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '84px 1fr', width: 400, flex: 'none' }}>
-          <span className="pb-form__label pb-form__label--right">Patient Name:</span>
-          <b style={{ lineHeight: '19px' }}>{name}</b>
-          <span className="pb-form__label pb-form__label--right">DoB:</span>
-          <div className="pb-row">
-            <PBInput w={110} align="center" defaultValue="2021.01.04" />
-            <span style={{ marginLeft: 10 }}>Sex:</span>
-            <PBSelect options={['F', 'M', 'X', 'U']} w={62} />
-          </div>
-          <span className="pb-form__label pb-form__label--right">Address:</span>
-          <PBInput defaultValue="1234 street" />
-          <span className="pb-form__label pb-form__label--right">Address:</span>
-          <PBInput />
-          <span className="pb-form__label pb-form__label--right">City:</span>
-          <div className="pb-row">
-            <PBInput w={132} defaultValue="PRINCE GEORGE" />
-            <span style={{ marginLeft: 10 }}>Province:</span>
-            <PBInput w={72} defaultValue="BC" />
-          </div>
-          <span className="pb-form__label pb-form__label--right">Postal Code:</span>
-          <div className="pb-row">
-            <PBInput w={92} defaultValue="TEST" />
-            <span style={{ marginLeft: 10 }}>Country:</span>
-            <PBInput w={92} defaultValue="CANADA" />
-          </div>
-        </div>
+      <div style={{ position: 'relative', height: 160, flex: 'none' }}>
+        <span style={at(10, ROWS[0]!, LABEL_H)}>Patient Name:</span>
+        <span style={at(92, ROWS[0]!)}><PBInput w={281} value={name} readOnly style={{ background: 'var(--pb-face)', fontWeight: 700 }} /></span>
+        <span style={at(10, ROWS[1]!, LABEL_H)}>DoB:</span>
+        <span style={at(92, ROWS[1]!)}><PBInput w={87} defaultValue="2021.01.04" /></span>
+        <span style={rightTo(291, ROWS[1]!)}>Sex:</span>
+        <span style={at(296, ROWS[1]!)}><PBSelect options={['F', 'M', 'X', 'U']} w={77} /></span>
+        <span style={at(10, ROWS[2]!, LABEL_H)}>Address:</span>
+        <span style={at(92, ROWS[2]!)}><PBInput w={281} defaultValue="1234 street" /></span>
+        <span style={at(10, ROWS[3]!, LABEL_H)}>Address:</span>
+        <span style={at(92, ROWS[3]!)}><PBInput w={281} /></span>
+        <span style={at(10, ROWS[4]!, LABEL_H)}>City:</span>
+        <span style={at(92, ROWS[4]!)}><PBInput w={125} defaultValue="PRINCE GEORGE" /></span>
+        <span style={rightTo(291, ROWS[4]!)}>Province:</span>
+        <span style={at(296, ROWS[4]!)}><PBInput w={77} defaultValue="BC" /></span>
+        <span style={at(10, ROWS[5]!, LABEL_H)}>Postal Code:</span>
+        <span style={at(92, ROWS[5]!)}><PBInput w={87} defaultValue="TEST" /></span>
+        <span style={rightTo(291, ROWS[5]!)}>Country:</span>
+        <span style={at(296, ROWS[5]!)}><PBInput w={77} defaultValue="CANADA" /></span>
 
-        <div style={{ flex: '1 1 auto', minWidth: 0, paddingLeft: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 3 }}>Contact Information</div>
-          <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '58px 1fr' }}>
-            {([
-              ['Home:', '(250) 555-1234', true, false],
-              ['Work:', '(250) 555-3215', true, true],
-              ['Cell:', '(250) 555-3215', false, false],
-            ] as const).map(([label, val, leave, underline]) => (
-              <Fragment key={label}>
-                <span
-                  className="pb-form__label pb-form__label--right"
-                  style={underline ? { textDecoration: 'underline' } : undefined}
-                >
-                  {label}
-                </span>
-                <div className="pb-row">
-                  <PBInput w={116} defaultValue={val} />
-                  {label === 'Work:' && (<><span>Ext.:</span><PBInput w={72} /></>)}
-                  {label === 'Cell:' && (<><span>Pager:</span><PBInput w={104} /></>)}
-                  {leave && <><span className="pb-row__spacer" /><PBCheckbox label="Leave Message" /></>}
-                </div>
-              </Fragment>
-            ))}
-            <span className="pb-form__label pb-form__label--right">Pref'd Phone:</span>
-            <div className="pb-row">
-              <PBSelect options={['Work', 'Home', 'Cell']} w={116} />
-              <span>Fax:</span><PBInput w={130} />
-            </div>
-            <span className="pb-form__label pb-form__label--right">eMail:</span>
-            <PBInput defaultValue="test@test.com" />
-          </div>
-        </div>
-      </div>
+        <b style={at(397, ROWS[0]!, LABEL_H)}>Contact Information</b>
+        <span style={at(397, ROWS[0]! + 19, { width: 378, borderTop: '1px solid #c8c8c8' })} />
+        {phone('Home', ROWS[1]!, '(250) 555-1234')}
+        <span style={at(682, ROWS[1]!)}><PBCheckbox label="Leave Message" /></span>
+        {phone('Work', ROWS[2]!, '(250) 555-3215', true)}
+        <span style={rightTo(610, ROWS[2]!)}>Ext.:</span>
+        <span style={at(615, ROWS[2]!)}><PBInput w={59} /></span>
+        <span style={at(682, ROWS[2]!)}><PBCheckbox label="Leave Message" /></span>
+        {phone('Cell', ROWS[3]!, '(250) 555-3215')}
+        <span style={rightTo(675, ROWS[3]!)}>Pager:</span>
+        <span style={at(681, ROWS[3]!)}><PBInput w={94} align="center" defaultValue="(   )   -" /></span>
+        <span style={rightTo(486, ROWS[4]!)}>Pref&apos;d Phone:</span>
+        <span style={at(494, ROWS[4]!)}><PBSelect options={['Work', 'Home', 'Cell']} w={86} value={pref} onChange={(e) => setPref(e.target.value)} /></span>
+        <span style={rightTo(675, ROWS[4]!)}>Fax:</span>
+        <span style={at(681, ROWS[4]!)}><PBInput w={94} /></span>
+        <span style={rightTo(486, ROWS[5]!)}>eMail:</span>
+        <span style={at(494, ROWS[5]!)}><PBInput w={281} defaultValue="test@test.com" /></span>
 
-      <div className="pb-row" style={{ padding: '4px 10px' }}>
-        <span>
-          ** Please note this is a registered patient. Any changes to the data must be made in the chart module.
+        <span style={at(10, 139, LABEL_H)}>
+          ** Please note this is a registered patient.&nbsp; Any changes to the data must be made in the chart module.
         </span>
-        <span className="pb-row__spacer" />
-        <PBButton wide>Refresh</PBButton>
+        <span style={at(707, 135)}><PBButton style={{ width: 66, height: 21 }}>Refresh</PBButton></span>
       </div>
     </>
   )

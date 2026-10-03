@@ -33,8 +33,14 @@ import { SearchForBand, useFolderSearch, type SearchField } from './SearchForBan
    field audit's tdt_chart_barrier / tdt_chart_resource rows (Start · End ·
    Barrier to Care · S · M · Paper clip · Note). Grid geometry is
    reportScreens' existing `barriers` / `resources` entries.
-   INFERRED: the Detail tab carrying only the Note (the audit lists no other
-   detail field), and in-grid entry of the grid's fields.
+   INFERRED: in-grid entry of the grid's fields.
+
+   DEV v02.31.23 captures (100%), evidence/MATRIX-R0991-start, R0998-note,
+   R1000-start, R1007-note: the Detail tab holds only Note (captioned at
+   x 11, the box at x 93, 699 × 130); the grid is 315 px tall, so the tab
+   strip sits low in the window; an empty grid paints nothing; the strip
+   under the tab reads `Created:` · date · HH:MM · user, `Last Modified:`
+   at x 359, `ENC# EMPTY` at the right.
 
    Anchors: host.mois.cell.{barriers|resources}-{start|end|barrier|resource|s}
    (the current row), host.mois.field.{barrier|resource}-note,
@@ -96,24 +102,24 @@ export function CarePlanNoteFolder({ screen, node }: { screen: ReportScreen; nod
 
       <SearchForBand context={screen.title} fields={SEARCH[node]} value={search.text} onChange={search.setText} />
 
-      <div style={{ padding: '0 3px', height: 220, flex: 'none', display: 'flex' }}>
+      <div style={{ padding: '0 3px', height: 315, flex: 'none', display: 'flex' }}>
         <PBDataWindow
           columns={columns}
           rows={view.rows}
           current={view.current}
           onCurrentChange={view.onCurrentChange}
           rowTutorialId={(_r, i) => (i === view.editRow ? `host.mois.row.${node}-current` : undefined)}
-          empty={`No ${screen.title.toLowerCase()} on file.`}
+          empty={false}
         />
       </div>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: '4px 3px 0' }}>
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
           <PBTabs tabs={screen.tabs ?? ['Detail']} active={tab} onChange={setTab} compact>
-            <div style={{ display: 'grid', gridTemplateColumns: '60px minmax(0, 1fr)', gap: '6px 8px', padding: '8px 10px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '74px 699px', gap: '6px 8px', padding: '8px 11px', alignItems: 'start' }}>
               <span className="pb-form__label" style={{ lineHeight: '19px' }}>Note:</span>
               <PBTextArea
-                rows={8} w="100%"
+                w="100%" style={{ height: 130 }}
                 value={record?.str_note ?? ''}
                 readOnly={!record}
                 data-tutorial-id={`host.mois.field.${node === 'barriers' ? 'barrier' : 'resource'}-note`}
@@ -122,10 +128,10 @@ export function CarePlanNoteFolder({ screen, node }: { screen: ReportScreen; nod
             </div>
           </PBTabs>
         </div>
-        <div className="pb-row" style={{ padding: '0 5px 4px', gap: 0, flex: 'none' }}>
-          <span>Created:&nbsp;&nbsp;&nbsp;{stamp(record)}</span>
-          <span style={{ width: 28 }} />
-          <span>Last Modified: {stamp(record, 'modify')}</span>
+        <div className="pb-row" style={{ padding: '0 5px 4px', gap: 0, flex: 'none', whiteSpace: 'pre' }}>
+          <span style={{ width: 76, flex: 'none' }}>Created:</span>
+          <span style={{ width: 272, flex: 'none' }}>{stamp(record)}</span>
+          <span>Last Modified:  {stamp(record, 'modify')}</span>
           <span className="pb-row__spacer" />
           {record && <button type="button" className="pb-link">ENC# {record.id_encounter && record.id_encounter !== '-1' ? record.id_encounter : 'EMPTY'}</button>}
         </div>

@@ -182,7 +182,7 @@ export interface HostShellProps {
   /** The learner opened another chart — from the lookup, Next/Previous, or by typing one. */
   onChartChange?: (chart: string) => void
   /** A semantic action the learner performed, or the shell replayed. Payloads carry slugs only. */
-  onAction?: (actionId: string, payload?: HostRecord, result?: HostValue) => void
+  onAction?: (actionId: string, payload?: HostRecord, result?: HostValue, source?: "user" | "derived") => void
   /** The shell's structural state whenever it changes; the host merges it as `host.*`. */
   onStateChange?: (state: HostRecord) => void
   onReady?: (api: HostShellApi) => void

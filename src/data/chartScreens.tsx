@@ -49,15 +49,22 @@ export type ChartScreen = {
   /**
    * The window has no "Search For:" band. Encounter Documentation Forms is
    * the case the captures prove: it filters per column instead.
-   * NOT YET HONOURED — `ChartSectionView` draws the band unconditionally.
    */
   noSearch?: boolean
   /**
    * Column keys that carry a filter box above the header row, the way a
-   * lookup DataWindow filters. `PBDataWindow` already takes this as its
-   * `filters` prop; NOT YET HONOURED — `ChartSectionView` does not pass it.
+   * lookup DataWindow filters. `ChartSectionView` passes them to
+   * `PBDataWindow` as its `filters` row: a grey band across the grid with a
+   * white box over each listed column (evidence/MATRIX-R1045-date), and
+   * typing in a box narrows the rows to that column's matches.
    */
   filterColumns?: string[]
+  /**
+   * A command's painted width, where it is not the uniform 80.5 — passed to
+   * `PBCommand.exactWidth`. Encounter Documentation Forms' lone Open Form is
+   * 94px (evidence/MATRIX-R1045-date: 480-573).
+   */
+  commandWidths?: Record<string, number>
 }
 
 const SAVE_SET = ['New Record', 'Delete Record', 'Save', 'Undo', 'Refresh']
@@ -447,17 +454,20 @@ export const chartScreens: Record<string, ChartScreen> = {
   },
   /* MATRIX-R1038..R1043. Four buttons, and Open Form rather than Print is
      the one that matters — a dynamic form is opened, not printed, from
-     here. The grid fills the window: no lower tabs, no detail form. */
+     here. The grid fills the window: no lower tabs, no detail form.
+     Widths are the painted pitches in the 1:1 DEV capture
+     (evidence/MATRIX-R1038-form-date/ui-original.png: cells at 497 / 575 /
+     748 / 979 / 1080 / 1194, State running on to the scroll bar). */
   dynamic: {
     title: 'Dynamic Forms',
     commands: ['New Record', 'Delete Record', 'Refresh', 'Open Form'],
     columns: [
-      col('date', 'Form Date', 92, 'center'),
-      col('group', 'Group', 205),
-      col('title', 'Title'),
-      col('attending', 'Attending', 120),
-      col('user', 'User Name', 132),
-      col('state', 'State', 100),
+      col('date', 'Form Date', 78, 'center'),
+      col('group', 'Group', 173),
+      col('title', 'Title', 231),
+      col('attending', 'Attending', 101),
+      col('user', 'User Name', 114),
+      col('state', 'State'),
     ],
     audited: true,
   },
@@ -469,14 +479,18 @@ export const chartScreens: Record<string, ChartScreen> = {
   encforms: {
     title: 'Encounter Documentation Forms',
     commands: ['Open Form'],
+    commandWidths: { 'Open Form': 94 },
     noEncounter: true,
     noSearch: true,
     filterColumns: ['type', 'form', 'attending'],
+    /* the painted pitches in the 1:1 DEV capture
+       (evidence/MATRIX-R1045-date/ui-original.png: cells at 498 / 578 /
+       777 / 1016, Attending ending at 1185 with white beyond) */
     columns: [
-      col('date', 'Date', 92, 'center'),
-      col('type', 'Form Type', 220),
-      col('form', 'Form Name', 270),
-      col('attending', 'Attending', 190),
+      col('date', 'Date', 80, 'center'),
+      col('type', 'Form Type', 199),
+      col('form', 'Form Name', 239),
+      col('attending', 'Attending', 170),
     ],
     audited: true,
   },

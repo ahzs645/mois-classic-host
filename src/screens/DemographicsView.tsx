@@ -288,7 +288,9 @@ function FilterStrip({ children }: { children?: ReactNode }) {
   return (
     <div
       className="pb-row"
-      style={{ gap: 0, padding: '2px 3px 3px', background: 'var(--pb-band)', flex: 'none' }}
+      /* painted at a field's height even over a list with no filters
+         (Other Claims, evidence/MATRIX-R0223-date-issued) */
+      style={{ gap: 0, padding: '2px 3px 3px', background: 'var(--pb-band)', flex: 'none', minHeight: 'calc(var(--pb-row-h) + 5px)' }}
     >
       {/* the grid's row-arrow gutter, which carries no filter */}
       <span style={{ width: 13, flex: 'none' }} />
@@ -303,7 +305,7 @@ const Gap = ({ w }: { w: number }) => <span style={{ width: w, flex: 'none' }} /
 const FlexFilter = () => <PBInput style={{ flex: '1 1 auto', minWidth: 0 }} />
 
 function ListShell({
-  band, filters, columns, rows = [], empty, detail, detailHeight, current, onCurrentChange, onNew, onDelete, slug,
+  band, filters, columns, rows = [], empty, detail, detailHeight, current, onCurrentChange, onNew, onDelete, slug, rowClassName,
 }: {
   band: string
   filters?: ReactNode
@@ -319,6 +321,7 @@ function ListShell({
   onDelete?: () => void
   /** anchors the band buttons `host.mois.command.new-{slug}` / `delete-{slug}` */
   slug?: string
+  rowClassName?: (row: ListRow, index: number) => string | undefined
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
@@ -330,7 +333,9 @@ function ListShell({
       </PBBand>
       <FilterStrip>{filters}</FilterStrip>
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
-        <PBDataWindow columns={columns} rows={rows} current={current} onCurrentChange={onCurrentChange} empty={empty}
+        <PBDataWindow columns={columns} rows={rows} current={current} onCurrentChange={onCurrentChange} empty={empty} rowClassName={rowClassName}
+          /* the frame keeps the pane's width when every column is fixed */
+          style={{ flex: '1 1 auto', minWidth: 0 }}
           rowTutorialId={slug ? (_r, i) => `host.mois.row.${slug}-${i + 1}` : undefined} />
       </div>
       {detail && (
@@ -383,7 +388,10 @@ function IdAliasPage() {
       rows={list.rows.map((r, i) => ({ code: r.code ?? '', desc: r.desc ?? '', value: r.value ?? '', effective: r.effective ?? '', note: r.note ?? '', demo: r.demo ? 'Y' : '', m: '', clip: '-', _i: String(i) }))}
       current={list.cur} onCurrentChange={list.setCur} onNew={list.add}
       onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
-      filters={<><Gap w={91} /><PBInput w={190} /><FlexFilter /></>}
+      /* filters over Description and Value only (evidence/MATRIX-R0124-code):
+         Value takes the grid's slack, so its box does, short of the five
+         fixed columns after it */
+      filters={<><Gap w={91} /><PBInput w={190} /><FlexFilter /><Gap w={72 + 156 + 82 + 25 + 17} /></>}
       columns={[
         { key: 'code', header: 'Code', width: 91, render: (r) => (
           <PBSelect aria-label="Alias code" data-tutorial-id={`host.mois.field.alias-code-${Number(r._i) + 1}`} w="100%"
@@ -404,7 +412,7 @@ function IdAliasPage() {
           <PBBand>Alias ID Detail</PBBand>
           <div
             className="pb-form"
-            style={{ gridTemplateColumns: '108px 1fr', padding: '5px 8px', alignItems: 'start', flex: '1 1 auto', minHeight: 0 }}
+            style={{ gridTemplateColumns: '91px 1fr', padding: '5px 8px', alignItems: 'start', flex: '1 1 auto', minHeight: 0 }}
           >
             <span className="pb-form__label">Comment:</span>
             {/* tdt_alias_id carries Note (the grid column) and Comment (this memo) apart */}
@@ -417,14 +425,25 @@ function IdAliasPage() {
   )
 }
 
-/* --- Connections --------------------------------------------------------- */
+/* --- Connections ---------------------------------------------------------
+   The v02.31 grid (evidence/MATRIX-R0135-connection-role, MATRIX-R0144-
+   general-comment, chart 87297): Show On Demo. and Care Team Member are tick
+   boxes on every row, the paper-clip column counts attachments ("-" for
+   none), the "…" cells are filled pink (#ffe6e7 sampled; PBColumn
+   `dotsFill`) on every row but the current one, and a connection that has
+   ended is printed grey. */
+/** a tick column on a list this window only displays */
+const shownTick = (checked: boolean) => <PBCheckbox checked={checked} onChange={() => {}} />
+
 function ConnectionsPage() {
   const [sub, setSub] = useState('Connection Detail')
   const records = useChartRecords('connection')
+  const now = today()
   return (
     <ListShell
       band="Connections"
-      rows={records.map(r => ({ role: r.str_connection_type ?? '', resource: r.str_provider_source ?? '', connection: r.str_provider ?? '', start: date(r.dtm_start), end: date(r.dtm_end), demo: r.str_include_demo === 'Y' ? '✓' : '', team: r.str_member_care_team === 'Y' ? '✓' : '' }))}
+      rows={records.map(r => ({ role: r.str_connection_type ?? '', resource: r.str_provider_source ?? '', connection: r.str_provider ?? '', start: date(r.dtm_start), end: date(r.dtm_end), demo: r.str_include_demo === 'Y' ? 'Y' : '', team: r.str_member_care_team === 'Y' ? 'Y' : '', clip: '-' }))}
+      rowClassName={(r) => (r.end && r.end <= now ? 'pb-dw--ended' : undefined)}
       filters={
         <>
           <PBInput w={114} /><PBInput w={134} /><FlexFilter />
@@ -436,11 +455,11 @@ function ConnectionsPage() {
         { key: 'role', header: <>Connection<br />Role</>, width: 114 },
         { key: 'resource', header: <>Connection<br />Resource</>, width: 134 },
         { key: 'connection', header: 'Connection' },
-        { key: 'd', header: '', dots: true, width: 18 },
+        { key: 'd', header: '', dots: true, width: 18, dotsFill: '#ffe6e7' },
         { key: 'start', header: 'Start', width: 72, align: 'center' },
         { key: 'end', header: 'End', width: 71, align: 'center' },
-        { key: 'demo', header: <>Show On<br />Demo.</>, width: 60, align: 'center' },
-        { key: 'team', header: <>Care Team<br />Member</>, width: 60, align: 'center' },
+        { key: 'demo', header: <>Show On<br />Demo.</>, width: 60, align: 'center', render: (r) => shownTick(r.demo === 'Y') },
+        { key: 'team', header: <>Care Team<br />Member</>, width: 60, align: 'center', render: (r) => shownTick(r.team === 'Y') },
         { key: 'clip', header: '\u{1F4CE}', width: 18, align: 'center' },
       ]}
       empty="No connections on file."
@@ -457,7 +476,8 @@ function ConnectionsPage() {
             <div style={{ display: 'flex', gap: 8, padding: '4px 6px', flex: '1 1 auto', minHeight: 0 }}>
               <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <span>General Comment</span>
-                <PBTextArea style={{ flex: '1 1 auto', width: '100%' }} />
+                {/* fixed-pitch, as evidence/MATRIX-R0144-general-comment prints it */}
+                <PBTextArea style={{ flex: '1 1 auto', width: '100%', fontFamily: 'var(--pb-font-mono)' }} />
               </div>
               <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <span>Stopped Reason</span>
@@ -480,11 +500,13 @@ function ConnectionsPage() {
               <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px 4px' }}>
                 <PBDataWindow
                   rows={[]}
+                  style={{ flex: '1 1 auto', minWidth: 0 }}
                   columns={[
-                    { key: 'start', header: 'Start', width: 86, align: 'center' },
-                    { key: 'stop', header: 'Stop', width: 86, align: 'center' },
-                    { key: 'mrp', header: 'Service MRP', width: 230 },
-                    { key: 'episode', header: 'Service Episode' },
+                    /* evidence/MATRIX-R0153-start: 78 / 78 / 258 / 322 */
+                    { key: 'start', header: 'Start', width: 78, align: 'center' },
+                    { key: 'stop', header: 'Stop', width: 78, align: 'center' },
+                    { key: 'mrp', header: 'Service MRP', width: 258 },
+                    { key: 'episode', header: 'Service Episode', width: 322 },
                   ]}
                   empty=" "
                 />
@@ -497,7 +519,16 @@ function ConnectionsPage() {
   )
 }
 
-/* --- Services ------------------------------------------------------------ */
+/* --- Services ------------------------------------------------------------
+   evidence/MATRIX-R0158-service-episode and MATRIX-R0165-service-episode
+   (chart 87297): Show On Demo. is a tick box on every row and the paper-clip
+   column prints "-"; the Detail form is 20px rows — 88px of label, 300px
+   fields on the left, 76px of label and a 73px Stop Date on the right —
+   over a "Record Created: / Last Modified:" line that prints the record's
+   own stamps (date, time, user). */
+/** a record stamp the way the Detail footer prints it: 2026.01.02 09:49 (RD) SINARAM, SARAH */
+const stampOf = (at?: string, by?: string) => [at ? date(at) + (at.split(' ')[1] ? ` ${at.split(' ')[1].slice(0, 5)}` : '') : '', by ?? ''].filter(Boolean).join('   ')
+
 function ServicesPage() {
   const [sub, setSub] = useState('Detail')
   const records = useChartRecords('chart_service')
@@ -506,7 +537,7 @@ function ServicesPage() {
   return (
     <ListShell
       band="Services" current={cur} onCurrentChange={setCur}
-      rows={records.map(r => ({ episode: r.str_service_code_term ?? '', mrp: r.str_service_mrp ?? '', start: date(r.dtm_start), stop: date(r.dtm_end), demo: r.str_include_demo === 'Y' ? '✓' : '' }))}
+      rows={records.map(r => ({ episode: r.str_service_code_term ?? '', mrp: r.str_service_mrp ?? '', start: date(r.dtm_start), stop: date(r.dtm_end), demo: r.str_include_demo === 'Y' ? 'Y' : '', clip: '-' }))}
       filters={
         <>
           <FlexFilter />
@@ -523,7 +554,7 @@ function ServicesPage() {
         { key: 'd2', header: '', dots: true, width: 21 },
         { key: 'start', header: 'Start', width: 73, align: 'center' },
         { key: 'stop', header: 'Stop', width: 73, align: 'center' },
-        { key: 'demo', header: <>Show On<br />Demo.</>, width: 56, align: 'center' },
+        { key: 'demo', header: <>Show On<br />Demo.</>, width: 56, align: 'center', render: (r) => shownTick(r.demo === 'Y') },
         { key: 'clip', header: '\u{1F4CE}', width: 20, align: 'center' },
       ]}
       empty="No service episodes on file."
@@ -538,8 +569,8 @@ function ServicesPage() {
         >
           {sub === 'Detail' && (
             <>
-              <div style={{ display: 'flex', gap: 12, padding: '5px 8px', flex: '1 1 auto', minHeight: 0 }}>
-                <div className="pb-form" style={{ gridTemplateColumns: '104px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
+              <div style={{ display: 'flex', gap: 8, padding: '5px 8px 0 12px', flex: '1 1 auto', minHeight: 0 }}>
+                <div className="pb-form" style={{ gridTemplateColumns: '88px 300px', flex: 'none', padding: 0, alignItems: 'start', alignContent: 'start', rowGap: 1 }}>
                   <span className="pb-form__label">Service Episode:</span><PBLookup w="100%" value={record?.str_service_code_term ?? ''} readOnly />
                   <span className="pb-form__label">Service MRP:</span><PBLookup w="100%" value={record?.str_service_mrp ?? ''} readOnly />
                   <span />
@@ -550,19 +581,19 @@ function ServicesPage() {
                   <PBLookup w="100%" disabled />
                   {/* the only label on the block MOIS leaves without a colon */}
                   <span className="pb-form__label">General Note</span>
-                  <PBTextArea rows={4} w="100%" />
+                  <PBTextArea rows={3} w="100%" style={{ height: 52 }} />
                 </div>
-                <div className="pb-form" style={{ gridTemplateColumns: '84px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
-                  <span className="pb-form__label">Stop Date:</span><PBInput w={104} align="center" value={date(record?.dtm_end)} readOnly />
+                <div className="pb-form" style={{ gridTemplateColumns: '76px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start', alignContent: 'start', rowGap: 1 }}>
+                  <span className="pb-form__label">Stop Date:</span><PBInput w={73} align="center" value={date(record?.dtm_end)} readOnly />
                   <span className="pb-form__label">Stop Reason:</span><PBLookup w="100%" value={record?.str_stop_code_term ?? ''} readOnly />
-                  <span className="pb-form__label">Stop Note:</span><PBTextArea rows={3} w="100%" />
+                  <span className="pb-form__label">Stop Note:</span><PBTextArea rows={2} w="100%" style={{ height: 40 }} />
                   <span />
-                  <button className="pb-link" style={{ justifySelf: 'end' }}>Show History</button>
+                  <button className="pb-link" style={{ justifySelf: 'end', marginTop: 38 }}>Show History</button>
                 </div>
               </div>
-              <div style={{ display: 'flex', padding: '2px 8px 4px', flex: 'none' }}>
-                <span style={{ width: '50%' }}>Record Created:</span>
-                <span>Last Modified:</span>
+              <div style={{ display: 'flex', padding: '2px 8px 4px 12px', flex: 'none' }}>
+                <span style={{ width: 413, flex: 'none' }}>Record Created:&nbsp;&nbsp;{stampOf(record?.stp_date_create, record?.stp_user_create)}</span>
+                <span>Last Modified:&nbsp;&nbsp;{stampOf(record?.stp_date_modify, record?.stp_user_modify)}</span>
               </div>
             </>
           )}
@@ -581,7 +612,18 @@ function ServicesPage() {
    Kin, Power of Attorney, Substitute Decision Maker (field audit
    evidence/MATRIX-R0186-type, chart 87297); the v02.20 manual shows the
    first and third only (art. 301554 `4eeb5e4f…png`). The grid prints Type as
-   Role, and a relationship (MOTHER, SON) is picked from its own "…" list. */
+   Role, and a relationship (MOTHER, SON) is picked from its own "…" list.
+
+   v02.31 painting (evidence/MATRIX-R0175-name, MATRIX-R0185-name): filter
+   boxes over Name, Relationship and Role only; the party's preferred number
+   is filled pale yellow (#fffcc8 sampled) in the grid and in the Detail —
+   Home on every row the capture shows, a new row included, so an unset
+   preference reads as Home; the Detail is 21px rows, a 90px label column
+   with 162px Name and Type, a 181px Relationship and a 283px General Notes
+   on the left, and a 77px label column on the right with 87px numbers,
+   95px Province / Country / Page and 282px Address and eMail. */
+const PREFERRED_FILL = '#fffcc8'
+const prefersPhone = (preferred: string | undefined, phone: string) => (preferred || 'Home').toLowerCase() === phone
 const PARTY_TYPES = ['', 'Emergency Contact', 'Lawyer (e.g. Guardian of Will)', 'Next of Kin', 'Power of Attorney', 'Substitute Decision Maker']
 const RELATIONSHIPS = ['BROTHER', 'DAUGHTER', 'FATHER', 'FRIEND', 'GUARDIAN', 'MOTHER', 'OTHER', 'SISTER', 'SON', 'SPOUSE', 'STEP FATHER']
 
@@ -592,7 +634,12 @@ function AssociatedPartiesPage() {
   const set = (patch: Partial<AssociatedPartyEntry>) => list.change(patch)
   const [relLookup, setRelLookup] = useState(false)
   const input = (key: keyof AssociatedPartyEntry, w: number | string, label: string) =>
-    <PBInput aria-label={`Associated party ${label}`} w={w} disabled={off} value={String(row[key] ?? '')} onChange={(e) => set({ [key]: e.target.value })} />
+    <PBInput aria-label={`Associated party ${label}`} w={w} disabled={off} value={String(row[key] ?? '')} onChange={(e) => set({ [key]: e.target.value })}
+      style={!off && (key === 'home' || key === 'work' || key === 'cell') && prefersPhone(row.preferredPhone, key) ? { background: PREFERRED_FILL } : undefined} />
+  const phoneCell = (r: ListRow, phone: 'home' | 'work') => (
+    <span style={prefersPhone(list.rows[Number(r._i)]?.preferredPhone, phone)
+      ? { display: 'block', margin: '0 calc(-1 * var(--pb-dw-pad-x, 4px))', padding: '0 var(--pb-dw-pad-x, 4px)', background: PREFERRED_FILL } : undefined}>{r[phone] || '\u00a0'}</span>
+  )
   return (
     <ListShell
       band="Associated Party List"
@@ -600,7 +647,7 @@ function AssociatedPartiesPage() {
       rows={list.rows.map((r, i) => ({ name: r.name ?? '', relationship: r.relationship ?? '', role: r.type ?? '', home: r.home ?? '', work: r.work ?? '', ext: r.ext ?? '', demo: r.demo ? 'Y' : '', careplan: r.carePlan ? 'Y' : '', clip: '-', _i: String(i) }))}
       current={list.cur} onCurrentChange={list.setCur} onNew={list.add}
       onDelete={() => list.setRows(list.rows.filter((_, i) => i !== list.cur))}
-      filters={<><PBInput w={133} /><PBInput w={116} /><Gap w={19} /><FlexFilter /></>}
+      filters={<><PBInput w={133} /><PBInput w={116} /><Gap w={19} /><FlexFilter /><Gap w={87 + 87 + 40 + 66 + 67 + 18} /></>}
       columns={[
         { key: 'name', header: 'Name', width: 133 },
         { key: 'relationship', header: 'Relationship', width: 116 },
@@ -608,8 +655,8 @@ function AssociatedPartiesPage() {
         /* the capture's Role column is 133 wide; it takes the grid's slack
            here because it carries the longest values on the list */
         { key: 'role', header: 'Role' },
-        { key: 'home', header: 'Home', width: 87 },
-        { key: 'work', header: 'Work', width: 87 },
+        { key: 'home', header: 'Home', width: 87, render: (r) => phoneCell(r, 'home') },
+        { key: 'work', header: 'Work', width: 87, render: (r) => phoneCell(r, 'work') },
         { key: 'ext', header: 'Ext.', width: 40, align: 'center' },
         { key: 'demo', header: <>Show On<br />Demo.</>, width: 66, align: 'center', render: (r) => tick(r.demo === 'Y', (v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, demo: v } : x)))) },
         { key: 'careplan', header: <>Show on<br />Care Plan</>, width: 67, align: 'center', render: (r) => tick(r.careplan === 'Y', (v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, carePlan: v } : x)))) },
@@ -621,41 +668,41 @@ function AssociatedPartiesPage() {
         <div data-tutorial-id="host.mois.field.associated-party-detail" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <PBBand>Associated Party Detail</PBBand>
           <PBGroup title="Contact Information" fill>
-            <div style={{ display: 'flex', gap: 14, flex: '1 1 auto', minHeight: 0 }}>
-              <div className="pb-form" style={{ gridTemplateColumns: '92px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
-                <span className="pb-form__label">Name:</span>{input('name', '100%', 'name')}
+            <div style={{ display: 'flex', gap: 31, flex: '1 1 auto', minHeight: 0 }}>
+              <div className="pb-form" style={{ gridTemplateColumns: '90px 283px', flex: 'none', padding: 0, alignItems: 'start', alignContent: 'start', rowGap: 2 }}>
+                <span className="pb-form__label">Name:</span>{input('name', 162, 'name')}
                 <span className="pb-form__label">Type:</span>
                 <span data-tutorial-id="host.mois.field.associated-party-type" style={{ display: 'inline-flex' }}>
-                  <PBSelect aria-label="Associated party type" disabled={off} options={[...new Set([...PARTY_TYPES, row.type ?? ''])]} w={172} value={row.type ?? ''} onChange={(e) => set({ type: e.target.value })} />
+                  <PBSelect aria-label="Associated party type" disabled={off} options={[...new Set([...PARTY_TYPES, row.type ?? ''])]} w={162} value={row.type ?? ''} onChange={(e) => set({ type: e.target.value })} />
                 </span>
                 <span className="pb-form__label">Relationship:</span>
-                <PBLookup w="100%" name="associated-party-relationship" disabled={off} value={row.relationship ?? ''} onChange={(v) => set({ relationship: v })} onDots={() => setRelLookup(true)} />
+                <PBLookup w={181} name="associated-party-relationship" disabled={off} value={row.relationship ?? ''} onChange={(v) => set({ relationship: v })} onDots={() => setRelLookup(true)} />
                 <span className="pb-form__label">General Notes:</span>
-                <PBTextArea rows={6} w="100%" disabled={off} value={row.notes ?? ''} onChange={(e) => set({ notes: e.target.value })} />
+                <PBTextArea rows={6} w="100%" disabled={off} value={row.notes ?? ''} onChange={(e) => set({ notes: e.target.value })} style={{ fontFamily: 'var(--pb-font-mono)' }} />
               </div>
-              <div className="pb-form" style={{ gridTemplateColumns: '80px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0 }}>
+              <div className="pb-form" style={{ gridTemplateColumns: '77px 1fr', flex: '1 1 auto', minWidth: 0, maxWidth: 359, padding: 0, alignContent: 'start', rowGap: 2 }}>
                 <span className="pb-form__label">Address:</span>{input('address', '100%', 'address')}
                 <span />{input('address2', '100%', 'address 2')}
                 <span className="pb-form__label">City:</span>
-                <div className="pb-row">{input('city', 128, 'city')}<span className="pb-row__spacer" /><span>Province:</span>{input('province', 104, 'province')}</div>
+                <div className="pb-row">{input('city', 126, 'city')}<span className="pb-row__spacer" /><span>Province:</span>{input('province', 95, 'province')}</div>
                 <span className="pb-form__label">Postal Code:</span>
-                <div className="pb-row">{input('postal', 96, 'postal code')}<span className="pb-row__spacer" /><span>Country:</span>{input('country', 104, 'country')}</div>
+                <div className="pb-row">{input('postal', 87, 'postal code')}<span className="pb-row__spacer" /><span>Country:</span>{input('country', 95, 'country')}</div>
                 {/* MOIS underlines whichever number the party prefers */}
-                <PhoneLabel label="Home:" preferred={row.preferredPhone} />
+                <PhoneLabel label="Home:" preferred={row.preferredPhone || 'Home'} />
                 <div className="pb-row">
-                  {input('home', 96, 'home')}<span className="pb-row__spacer" /><PBCheckbox label="Leave Message" disabled={off} checked={!!row.homeMessage} onChange={(v) => set({ homeMessage: v })} />
+                  {input('home', 87, 'home')}<span className="pb-row__spacer" /><PBCheckbox label="Leave Message" disabled={off} checked={!!row.homeMessage} onChange={(v) => set({ homeMessage: v })} />
                 </div>
                 <PhoneLabel label="Work:" preferred={row.preferredPhone} />
                 <div className="pb-row">
-                  {input('work', 96, 'work')}<span>Ext.:</span>{input('ext', 56, 'ext')}
+                  {input('work', 87, 'work')}<span>Ext.:</span>{input('ext', 50, 'ext')}
                   <span className="pb-row__spacer" /><PBCheckbox label="Leave Message" disabled={off} checked={!!row.workMessage} onChange={(v) => set({ workMessage: v })} />
                 </div>
                 <PhoneLabel label="Cell:" preferred={row.preferredPhone} />
                 {/* the audit and the screen both call it "Page", not Pager */}
-                <div className="pb-row">{input('cell', 96, 'cell')}<span className="pb-row__spacer" /><span>Page:</span>{input('pager', 104, 'page')}</div>
+                <div className="pb-row">{input('cell', 87, 'cell')}<span className="pb-row__spacer" /><span>Page:</span>{input('pager', 95, 'page')}</div>
                 <span className="pb-form__label">Pref'd Phone:</span>
                 <span data-tutorial-id="host.mois.field.associated-party-preferred-phone" style={{ display: 'inline-flex' }}>
-                  <PBSelect aria-label="Associated party preferred phone" disabled={off} options={preferredPhones} w={96} value={row.preferredPhone ?? ''} onChange={(e) => set({ preferredPhone: e.target.value })} />
+                  <PBSelect aria-label="Associated party preferred phone" disabled={off} options={preferredPhones} w={87} value={row.preferredPhone ?? ''} onChange={(e) => set({ preferredPhone: e.target.value })} />
                 </span>
                 <span className="pb-form__label">eMail (Home):</span>{input('emailHome', '100%', 'email home')}
                 <span className="pb-form__label">eMail (Work):</span>{input('emailWork', '100%', 'email work')}
@@ -676,15 +723,29 @@ function AssociatedPartiesPage() {
    captions the code column Diagnosis; the v02.20 manual (art. 301555
    `1a4ec3cf…png`) and art. 301149 call it ICD9. Position is a plain drop-down
    (L / R in the captures); Area of Injury, Nature of Injury and Diagnosis
-   carry an ellipsis. The Detail pane is the current claim. */
+   carry an ellipsis. The Detail pane is the current claim: 20px rows, 74px
+   of label and a 302px Company / Address, City and Province 114px, Postal
+   Code and Country 84px, then Note: and its memo (evidence/MATRIX-R0214-
+   company). */
 function WcbClaimsPage() {
   const list = useListTab('wcbClaims')
   const row: WcbClaimEntry = list.rows[list.cur] ?? {}
   const off = !list.rows.length
+  /* Structural entry/default checks; no employer, claim number or entered
+     text is sent to the tutorial snapshot. A blank New Record is not an
+     entered claim (361789). */
+  useScreenReport({
+    wcbClaimEntered: !!(row.doi?.trim() && (row.company || row.employer)?.trim() && row.position?.trim()),
+    wcbDefault: !!row.isDefault,
+  })
   const set = (patch: Partial<WcbClaimEntry>) => list.change(patch)
   const edit = (i: string, patch: Partial<WcbClaimEntry>) => list.setRows(list.rows.map((x, n) => (String(n) === i ? { ...x, ...patch } : x)))
   const input = (key: keyof WcbClaimEntry, w: number | string, label: string, align?: 'center') =>
-    <PBInput aria-label={`WCB ${label}`} w={w} align={align} disabled={off} value={String(row[key] ?? '')} onChange={(e) => set({ [key]: e.target.value })} />
+    <PBInput aria-label={`WCB ${label}`} data-tutorial-id={`host.mois.field.wcb-claim-${key}`} w={w} align={align} disabled={off} value={String(row[key] ?? '')} onChange={(e) => set({ [key]: e.target.value })} />
+  const cell = (r: Record<string, string>, field: string, label: string, key: keyof WcbClaimEntry, align?: 'center') => (
+    <input aria-label={label} data-tutorial-id={`host.mois.field.wcb-claim-${field}-${Number(r._i) + 1}`}
+      value={r[field] ?? ''} style={{ border: 0, background: 'transparent', width: '100%', padding: 0, font: 'inherit', color: 'inherit', textAlign: align }} onChange={(e) => edit(r._i, { [key]: e.target.value })} />
+  )
   return (
     <ListShell
       band="WCB Claim List"
@@ -700,18 +761,18 @@ function WcbClaimsPage() {
         </>
       }
       columns={[
-        { key: 'doi', header: 'DOI', width: 83, align: 'center', render: (r) => cellEdit(r.doi, 'WCB date of injury', (v) => edit(r._i, { doi: v }), 'center') },
-        { key: 'claim', header: 'Claim No.', width: 95, render: (r) => cellEdit(r.claim, 'WCB claim number', (v) => edit(r._i, { claim: v })) },
+        { key: 'doi', header: 'DOI', width: 83, align: 'center', render: (r) => cell(r, 'doi', 'WCB date of injury', 'doi', 'center') },
+        { key: 'claim', header: 'Claim No.', width: 95, render: (r) => cell(r, 'claim', 'WCB claim number', 'claim') },
         { key: 'area', header: 'Area of Injury', width: 89, render: (r) => cellEdit(r.area, 'WCB area of injury', (v) => edit(r._i, { area: v })) },
         { key: 'd1', header: '', dots: true, width: 15 },
         { key: 'position', header: 'Position', width: 51, render: (r) => (
-          <PBSelect aria-label="WCB position" options={['', 'L', 'R']} w="100%" value={r.position} onChange={(e) => edit(r._i, { position: e.target.value })} />
+          <PBSelect aria-label="WCB position" data-tutorial-id={`host.mois.field.wcb-claim-position-${Number(r._i) + 1}`} options={['', 'L', 'R']} w="100%" value={r.position} onChange={(e) => edit(r._i, { position: e.target.value })} />
         ) },
         { key: 'nature', header: 'Nature of Injury', width: 94, render: (r) => cellEdit(r.nature, 'WCB nature of injury', (v) => edit(r._i, { nature: v })) },
         { key: 'd2', header: '', dots: true, width: 15 },
         { key: 'diagnosis', header: 'Diagnosis', width: 66, render: (r) => cellEdit(r.diagnosis, 'WCB diagnosis', (v) => edit(r._i, { icd9: v })) },
         { key: 'd3', header: '', dots: true, width: 15 },
-        { key: 'employer', header: 'Employer', render: (r) => cellEdit(r.employer, 'WCB employer', (v) => edit(r._i, { employer: v })) },
+        { key: 'employer', header: 'Employer', render: (r) => cell(r, 'employer', 'WCB employer', 'employer') },
         { key: 'default', header: 'Default', width: 47, align: 'center', render: (r) => (
           <PBCheckbox tutorialId={`host.mois.field.wcb-default-${Number(r._i) + 1}`} checked={r.default === 'Y'}
             onChange={(v) => list.setRows(list.rows.map((x, i) => (String(i) === r._i ? { ...x, isDefault: v } : x)))} />
@@ -723,17 +784,17 @@ function WcbClaimsPage() {
       detail={
         <div data-tutorial-id="host.mois.field.wcb-claim-detail" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
           <PBBand>WCB Claim Detail</PBBand>
-          <div style={{ display: 'flex', gap: 14, padding: '5px 8px', flex: '1 1 auto', minHeight: 0 }}>
-            <div className="pb-form" style={{ gridTemplateColumns: '76px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0 }}>
+          <div style={{ display: 'flex', gap: 56, padding: '5px 8px', flex: '1 1 auto', minHeight: 0 }}>
+            <div className="pb-form" style={{ gridTemplateColumns: '74px 302px', flex: 'none', padding: 0, alignContent: 'start', rowGap: 1 }}>
               <span className="pb-form__label">Company:</span>{input('company', '100%', 'company')}
               <span className="pb-form__label">Address:</span>{input('address', '100%', 'address')}
               <span className="pb-form__label">City:</span>
-              <div className="pb-row">{input('city', 128, 'city')}<span className="pb-row__spacer" /><span>Postal Code:</span>{input('postal', 116, 'postal code')}</div>
+              <div className="pb-row">{input('city', 114, 'city')}<span className="pb-row__spacer" /><span>Postal Code:</span>{input('postal', 84, 'postal code')}</div>
               <span className="pb-form__label">Province:</span>
-              <div className="pb-row">{input('province', 128, 'province')}<span className="pb-row__spacer" /><span>Country:</span>{input('country', 116, 'country')}</div>
-              <span className="pb-form__label">Phone:</span>{input('phone', 128, 'phone', 'center')}
+              <div className="pb-row">{input('province', 114, 'province')}<span className="pb-row__spacer" /><span>Country:</span>{input('country', 84, 'country')}</div>
+              <span className="pb-form__label">Phone:</span>{input('phone', 87, 'phone', 'center')}
             </div>
-            <div className="pb-form" style={{ gridTemplateColumns: '44px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
+            <div className="pb-form" style={{ gridTemplateColumns: '41px 1fr', flex: '1 1 auto', minWidth: 0, padding: 0, alignItems: 'start' }}>
               <span className="pb-form__label">Note:</span>
               <PBTextArea rows={5} w="100%" disabled={off} style={{ fontFamily: 'var(--pb-font-mono)' }} value={row.note ?? ''} onChange={(e) => set({ note: e.target.value })} />
             </div>
@@ -770,7 +831,8 @@ function OtherClaimsPage() {
       columns={[
         { key: 'issued', header: 'Date Issued', width: 90, align: 'center', render: (r) => cell('issued', r._i, r.issued, (v) => edit(r._i, { issued: v }), 'center') },
         { key: 'claim', header: 'Claim Number', width: 112, render: (r) => cell('number', r._i, r.claim, (v) => edit(r._i, { claim: v })) },
-        { key: 'desc', header: 'Description', render: (r) => cell('description', r._i, r.desc, (v) => edit(r._i, { desc: v })) },
+        /* fixed, the grid's slack left unpainted past it (evidence/MATRIX-R0223-date-issued) */
+        { key: 'desc', header: 'Description', width: 517, render: (r) => cell('description', r._i, r.desc, (v) => edit(r._i, { desc: v })) },
       ]}
       empty="No other claims on file."
     />
@@ -782,7 +844,14 @@ function OtherClaimsPage() {
    Leave Message ticks between the phone numbers and the two eMail fields. */
 /* Clinic Contact Preferences are the clinic's, not the chart's: the rows art.
    303800 (`c29f4d83…png`) shows under the read-only band. Only the Reason
-   column is legible in that capture. */
+   column is legible in that capture. The DEV site's clinic list differs —
+   SCHEDULER 1 VOICE PREFERRED / 2 VOICE CELL / 3 VOICE HOME
+   (contact-preference-populated.png, evidence/MATRIX-R0247-reason); that is
+   site configuration, so the TRAINING rows stay.
+
+   Both grids print Reason, Method and Source left-aligned and Order
+   centred (the same DEV captures, and the OTHER row of a patient
+   preference). */
 const CLINIC_CONTACT_PREFERENCES = [{ reason: 'OTHER' }, { reason: 'RECALL' }, { reason: 'SCHEDULER' }]
 
 function SettingsPage() {
@@ -793,14 +862,15 @@ function SettingsPage() {
   const [picking, setPicking] = useState<number | null>(null)
   const edit = (i: number, patch: Partial<typeof prefs[number]>) => list.edit(i, patch)
   const prefCols = (editable: boolean): PBColumn<ListRow>[] => [
-    { key: 'reason', header: 'Reason', width: 138, align: 'center', render: editable ? (r, i) => cellEdit(r.reason, 'Contact preference reason', (v) => edit(i, { reason: v }), 'center') : undefined },
+    { key: 'reason', header: 'Reason', width: 138, render: editable ? (r, i) => cellEdit(r.reason, 'Contact preference reason', (v) => edit(i, { reason: v })) : undefined },
     { key: 'order', header: 'Order', width: 61, align: 'center', render: editable ? (r, i) => cellEdit(r.order, 'Contact preference order', (v) => edit(i, { order: v }), 'center') : undefined },
-    { key: 'method', header: 'Method', width: 137, align: 'center', render: editable ? (r, i) => cellEdit(r.method, 'Contact preference method', (v) => edit(i, { method: v }), 'center') : undefined },
-    { key: 'source', header: 'Source', width: 138, align: 'center', render: editable ? (r, i) => cellEdit(r.source, 'Contact preference source', (v) => edit(i, { source: v }), 'center') : undefined },
+    { key: 'method', header: 'Method', width: 137, render: editable ? (r, i) => cellEdit(r.method, 'Contact preference method', (v) => edit(i, { method: v })) : undefined },
+    { key: 'source', header: 'Source', width: 138, render: editable ? (r, i) => cellEdit(r.source, 'Contact preference source', (v) => edit(i, { source: v })) : undefined },
     { key: 'contact', header: 'Contact' },
     { key: 'd', header: '', width: 21, align: 'center', render: editable ? (_r, i) => (
       <CmdButton command={`contact-lookup-${i + 1}`} className="pb-dw__dots" style={{ border: 0, padding: 0, minWidth: 0, background: 'none' }} onClick={() => setPicking(i)}>…</CmdButton>
-    ) : () => <span className="pb-dw__dots">…</span> },
+    /* the read-only grid prints a plain "…" (contact-preference-populated.png) */
+    ) : () => '…' },
   ]
   return (
     <>
@@ -852,7 +922,10 @@ function SettingsPage() {
 
 /* Select Secondary Contact — art. 303800 `c29f4d83…png`: a Secondary
    Contacts band over Type / Name / Relationship, one row per associated
-   party, then Ok / Cancel. */
+   party, then Ok / Cancel. Sized off the v02.31 DEV capture
+   (contact-preference-populated.png, evidence/MATRIX-R0247-reason): a
+   510 x 305 window, columns Type 113 / Name 197 / Relationship 149 with the
+   slack left unpainted. */
 function SelectSecondaryContactDialog({ parties, onPick, onClose }: {
   parties: AssociatedPartyEntry[]
   onPick: (name: string) => void
@@ -863,7 +936,7 @@ function SelectSecondaryContactDialog({ parties, onPick, onClose }: {
   return (
     <PickListWindow
       frame={(content, footer) => (
-        <DemographicModal title="Select Secondary Contact" width={600} height={380} onClose={onClose} dialog="select-secondary-contact">
+        <DemographicModal title="Select Secondary Contact" width={510} height={305} onClose={onClose} dialog="select-secondary-contact">
           {content}
           {footer}
         </DemographicModal>
@@ -872,7 +945,7 @@ function SelectSecondaryContactDialog({ parties, onPick, onClose }: {
       band={<LookupBand>Secondary Contacts</LookupBand>}
       grid={{
         gutter: false, rows, current: cur, onCurrentChange: setCur, onActivate: (r) => onPick(r.name),
-        columns: [{ key: 'type', header: 'Type', width: 140 }, { key: 'name', header: 'Name', width: 250 }, { key: 'relationship', header: 'Relationship' }],
+        columns: [{ key: 'type', header: 'Type', width: 113 }, { key: 'name', header: 'Name', width: 197 }, { key: 'relationship', header: 'Relationship', width: 149 }],
         empty: 'No associated parties on file.',
       }}
       footer={(
@@ -984,7 +1057,16 @@ function BenefitsPage() {
    `host.mois.field.incentive-<start|end|diag|freq>-<n>`; the two "…"
    `host.mois.command.incentive-diag-lookup-<n>` /
    `incentive-fee-lookup-<n>`; memo `host.mois.field.incentive-claim-detail`;
-   history rows `host.mois.row.msp-claim-history-<n>`. */
+   history rows `host.mois.row.msp-claim-history-<n>`.
+
+   Geometry (incentive-claim-populated.png, evidence/MATRIX-R0227-start, both
+   at 100%): the columns are fixed — Start 66, End 66, Diag Code 58, "…" 22,
+   Fee Code Description 392, "…" 22, Freq. (mnth) 71 — and the grid's slack
+   is left unpainted past them; the band-grey filter strip carries boxes over
+   Diag Code and Fee Code Description only; the NOTE line sits in its own
+   bordered strip; Claim Detail (275 wide, its memo inset) and MSP Claim
+   History (Service 67, Provider 145, Diag Code 83, Net Paid 67, Billed Date
+   75, R1 23, R2 28) share one edge, over the row's Created stamp. */
 function IncentivesPage() {
   const list = useListTab('incentiveClaims')
   const patient = usePatient()
@@ -1005,16 +1087,16 @@ function IncentivesPage() {
       onClick={() => setLookup({ kind, i: r._i! })}>…</CmdButton>
   )
   const columns: PBColumn<ListRow>[] = [
-    { key: 'start', header: 'Start', width: 84, align: 'center', render: (r) => cell('start', r, 'center') },
-    { key: 'end', header: 'End', width: 84, align: 'center', render: (r) => cell('end', r, 'center') },
-    { key: 'diag', header: 'Diag Code', width: 76, align: 'center', render: (r) => cell('diag', r, 'center') },
-    { key: 'd1', header: '', width: 15, align: 'center', render: (r) => dots('diag', r) },
-    { key: 'feeDesc', header: 'Fee Code Description', render: (r) => (
+    { key: 'start', header: 'Start', width: 66, align: 'center', render: (r) => cell('start', r, 'center') },
+    { key: 'end', header: 'End', width: 66, align: 'center', render: (r) => cell('end', r, 'center') },
+    { key: 'diag', header: 'Diag Code', width: 58, render: (r) => cell('diag', r) },
+    { key: 'd1', header: '', width: 22, align: 'center', render: (r) => dots('diag', r) },
+    { key: 'feeDesc', header: 'Fee Code Description', width: 392, render: (r) => (
       <span tabIndex={0} aria-label="Incentive fee code description" data-tutorial-id={`host.mois.field.incentive-fee-${Number(r._i) + 1}`}
         onKeyDown={(e) => { if (e.key === 'F4') { e.preventDefault(); e.stopPropagation(); setLookup({ kind: 'fee', i: r._i! }) } }}>{r.feeDesc}</span>
     ) },
-    { key: 'd2', header: '', width: 15, align: 'center', render: (r) => dots('fee', r) },
-    { key: 'freq', header: 'Freq. (mnth)', width: 82, align: 'center', render: (r) => cell('freq', r, 'center') },
+    { key: 'd2', header: '', width: 22, align: 'center', render: (r) => dots('fee', r) },
+    { key: 'freq', header: 'Freq. (mnth)', width: 71, align: 'center', render: (r) => cell('freq', r, 'center') },
   ]
   const who = `${patient.last} ${patient.first}`.toUpperCase()
   const history = row.fee
@@ -1029,27 +1111,25 @@ function IncentivesPage() {
         Incentive Claim List
       </PBBand>
 
-      <div className="pb-row" style={{ padding: '3px 6px', gap: 6 }}>
-        <PBInput w={96} /><PBInput w={400} />
-      </div>
+      <FilterStrip><Gap w={66 + 66} /><PBInput w={58} /><Gap w={22} /><PBInput w={392} /></FilterStrip>
 
       <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: '0 6px' }}>
-        <PBDataWindow columns={columns} current={list.cur} onCurrentChange={list.setCur}
+        <PBDataWindow columns={columns} current={list.cur} onCurrentChange={list.setCur} style={{ flex: '1 1 auto', minWidth: 0 }}
           rows={list.rows.map((r, i) => ({ start: r.start ?? '', end: r.end ?? '', diag: r.diag ?? '', feeDesc: r.feeDesc ?? '', freq: r.freq ?? '', _i: String(i) }))}
           rowTutorialId={(_r, i) => `host.mois.row.incentive-claim-${i + 1}`}
           empty="No incentive claims on file." />
       </div>
 
-      <div style={{ padding: '4px 6px', flex: 'none' }}>
+      <div style={{ padding: '2px 4px', margin: '2px 0 0', flex: 'none', border: '1px solid #c9c9c9', background: 'var(--pb-window)' }}>
         NOTE: Freq represents the allowable BILLING FREQUENCY for the claim.
         &nbsp; This value is used for reporting purposes.
       </div>
 
       {/* split footer: free-text detail on the left, MSP history on the right */}
-      <div style={{ display: 'flex', gap: 6, padding: '0 6px 4px', height: 226, flex: 'none' }}>
-        <div className="pb-groupbox" style={{ width: 268, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: 1, padding: 0, height: 226, flex: 'none' }}>
+        <div className="pb-groupbox" style={{ width: 275, flex: 'none', display: 'flex', flexDirection: 'column' }}>
           <PBBand>Claim Detail</PBBand>
-          <div style={{ flex: '1 1 auto', minHeight: 0, padding: 4, display: 'flex' }}>
+          <div style={{ flex: '1 1 auto', minHeight: 0, padding: '10px 8px 4px', display: 'flex' }}>
             <PBTextArea style={{ flex: '1 1 auto', height: '100%' }} aria-label="Incentive claim detail" data-tutorial-id="host.mois.field.incentive-claim-detail"
               disabled={off} value={row.detail ?? ''} onChange={(e) => list.change({ detail: e.target.value })} />
           </div>
@@ -1060,17 +1140,18 @@ function IncentivesPage() {
             <PBDataWindow
               flush
               gutter={false}
+              style={{ flex: '1 1 auto', minWidth: 0 }}
               rows={history.map((c) => ({ service: c.service, provider: c.doctor, diag: c.diag, net: c.paid, billed: c.sent, r1: c.r1, r2: c.r2 }))}
               rowTutorialId={(_r, i) => `host.mois.row.msp-claim-history-${i + 1}`}
               onActivate={(_r, i) => { const c = history[i]; if (c) { setSentClaim(c); open('sent-claim-detail') } }}
               columns={[
-                { key: 'service', header: 'Service', width: 72, align: 'center' },
-                { key: 'provider', header: 'Provider', width: 160 },
-                { key: 'diag', header: 'Diag Code', width: 76, align: 'center' },
-                { key: 'net', header: 'Net Paid', width: 74, align: 'right' },
-                { key: 'billed', header: 'Billed Date', width: 84, align: 'center' },
-                { key: 'r1', header: 'R1', width: 32, align: 'center' },
-                { key: 'r2', header: 'R2', width: 32, align: 'center' },
+                { key: 'service', header: 'Service', width: 67, align: 'center' },
+                { key: 'provider', header: 'Provider', width: 145 },
+                { key: 'diag', header: 'Diag Code', width: 83, align: 'center' },
+                { key: 'net', header: 'Net Paid', width: 67, align: 'right' },
+                { key: 'billed', header: 'Billed Date', width: 75, align: 'center' },
+                { key: 'r1', header: 'R1', width: 23, align: 'center' },
+                { key: 'r2', header: 'R2', width: 28, align: 'center' },
               ]}
               empty="No MSP claims submitted."
             />

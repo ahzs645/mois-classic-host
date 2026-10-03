@@ -3,6 +3,8 @@ import { registerInvoiceWindows } from './InvoiceWindows'
 import { registerSentClaimWindows } from './SentClaimWindows'
 import { registerSentReviewWizard } from './SentReviewWizard'
 import './UnsentClaimWindows'
+import { registerFolderView } from '../folderViewRegistry'
+import { MspClaimSummaryView } from './MspClaimSummaryView'
 
 /* ============================================================================
    The Billing module's windows (stream A1): every file under
@@ -18,6 +20,8 @@ export function registerBillingWindows() {
   registerInvoiceWindows()
   registerSentClaimWindows()
   registerSentReviewWizard()
+  /* MSP Claims' own page, MSP Claim Summary (references/billing.md) */
+  registerFolderView(['bl-msp'], MspClaimSummaryView)
 }
 
 registerBillingWindows()

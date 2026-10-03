@@ -46,8 +46,22 @@ export const selectFormRows: FormListRow[] = [
   { type: 'ENCOUNTER FORMS', name: 'CHF', version: '' },
   /* past the capture's last visible row, in the same alphabetical run: the
      two dynamic forms the manual starts from New Form (303105 First
-     Assessment, 303107 Pain Assessment) */
+     Assessment, 303107 Pain Assessment), and the encounter forms the live
+     2026-08 session's Select Form listed (Mois references/patient-chart.md
+     "Encounter Forms": COPD … MRC BREATHLESSNESS SCALE; DIABETES is the
+     one its "Diabetes Encounter Template" route creates) */
+  { type: 'ENCOUNTER FORMS', name: 'COPD', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'COVID TRANSMISSION RISK (2)', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'COVID-19 SCREENING', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'CRAFFT', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'CYMH SCREENING QUESTIONS', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'DIABETES', version: '' },
   { type: 'ENCOUNTER FORMS', name: 'FIRST ASSESSMENT', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'HEPC', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'HIB QUESTIONNAIRE - CASE', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'HTN', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'MHA', version: '' },
+  { type: 'ENCOUNTER FORMS', name: 'MRC BREATHLESSNESS SCALE', version: '' },
   { type: 'ENCOUNTER FORMS', name: 'PAIN ASSESSMENT', version: '' },
 ]
 

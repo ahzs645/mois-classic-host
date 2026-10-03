@@ -263,13 +263,13 @@ export const HIDDEN_BY_DEFAULT = new Set(['N', 'R', 'C'])
     (art. 303855). */
 export function bookedAppointment(draft: {
   hr: string; mn: string; slots: string; chart: string; reason: string
-  first?: string; last?: string; code?: string
+  first?: string; last?: string; code?: string; resource?: string
 }): Appointment {
   const pad = (v: string, fallback: string) => (v.trim() ? v.trim().padStart(2, '0').slice(-2) : fallback)
   return a(
     pad(draft.hr, '14'), pad(draft.mn, '00'), draft.code?.trim() || 'O',
     draft.chart.trim(), (draft.first ?? '').trim().toUpperCase(), (draft.last ?? '').trim().toUpperCase(),
     draft.reason.trim() || 'Office visit',
-    { n: draft.slots.trim() || '3' },
+    { n: draft.slots.trim() || '3', resource: draft.resource ?? '' },
   )
 }

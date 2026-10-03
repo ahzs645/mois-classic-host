@@ -15,7 +15,8 @@
    looked obvious but the audit disagreed, the audit wins — it was captured
    from the running application with Ctrl+Shift+A.
    ========================================================================= */
-import type { MoisChartGroup, MoisOptionalGroup, MoisRecord } from './types'
+import type { MoisChartExport, MoisChartGroup, MoisOptionalGroup, MoisRecord } from './types'
+import { providerLabel, providerName } from './providers'
 import { legacyDynamicFormDefinition, legacyDynamicFormTitle } from '../legacy-dynamic-forms'
 import { toDots } from '../clock'
 
@@ -24,6 +25,10 @@ const d = toDots
 const clip = (v?: string) => (v && v !== '0' ? v : '-')
 /** MOIS writes Y/N; the grids show a tick or nothing */
 const tick = (v?: string) => (v === 'Y' ? '✓' : '')
+/** MOIS keeps a result's hour and minute in their own columns: `8`, `53` → 08:53 */
+const hhmmOf = (hr?: string, min?: string) => (hr ? `${hr.padStart(2, '0')}:${(min || '0').padStart(2, '0')}` : '')
+/** the HH:MM of a `YYYY/MM/DD HH:MM:SS` stamp, or '' for a bare date */
+const timeOf = (v?: string) => /\d\d:\d\d/.exec(v?.split(' ')[1] ?? '')?.[0] ?? ''
 
 export type RowMap = {
   group: MoisChartGroup | MoisOptionalGroup
@@ -31,7 +36,8 @@ export type RowMap = {
   sort?: string
   /** keep only the records a screen shows — Orders splits by order type */
   where?: (r: MoisRecord) => boolean
-  row: (r: MoisRecord) => Record<string, string>
+  /** `data` is the whole export, for the joins a row needs (provider names) */
+  row: (r: MoisRecord, data?: MoisChartExport | null) => Record<string, string>
 }
 
 export const ROW_MAPS: Partial<Record<string, RowMap>> = {
@@ -44,6 +50,26 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       collectedBy: r.str_collect_by ?? '', orderName: r.str_order_name ?? '',
       facilityReference: r.str_filler_ref_no ?? '', category: r.str_class ?? '',
       lower: r.str_normal_lower ?? '', upper: r.str_normal_high ?? '',
+      /* Detail ▸ Collect By: Date / Time (MATRIX-R0516; 302837 "Collect
+         Date: The date and time that the measurement was collected",
+         `3b59a254…` prints 2018.04.20 | 00:01): the time box beside the date
+         is num_collect_hr / num_collect_min */
+      collectedTime: hhmmOf(r.num_collect_hr, r.num_collect_min),
+      /* the Detail page's other columns, as the data dictionary maps them
+         (MATRIX-R0509–R0524) and the Report page's (R0496–R0499) */
+      performedBy: r.str_performed_by ?? '', performedDate: d(r.dtm_performed), performedTime: timeOf(r.dtm_performed),
+      reportedBy: r.str_report_by ?? '', reportedDate: d(r.dtm_report),
+      transcribedBy: r.str_transcriptionist ?? '', transcribedDate: d(r.dtm_transcribed_date), transcribedTime: (r.dtm_transcribed_time ?? '').slice(0, 5),
+      facility: r.str_facility ?? '', facilityLocation: r.str_facility_loc ?? '',
+      volume: r.str_spec_volume ?? '', specimen: r.str_spec_source ?? '',
+      orderDate: d(r.dtm_order), copiesTo: r.str_copy_to ?? '', orderNumber: r.str_order ?? '',
+      /* the limits beyond the normal range (tdt_measure str_very_* / str_absurd_*)
+         and the result's place in its panel (num_set_id, HL7 OBX-1). No
+         capture shows a control for the limits — Ref. Ranges is the normal
+         range only (R0492 / R0504) — so they ride on the row unshown. */
+      veryLower: r.str_very_lower ?? '', veryHigh: r.str_very_high ?? '',
+      absurdLower: r.str_absurd_lower ?? '', absurdHigh: r.str_absurd_high ?? '',
+      setId: r.num_set_id ?? '',
       created: r.stp_date_create ?? '', createdBy: r.stp_user_create ?? '',
       encounter: r.id_encounter ?? '', id: r.id_measure ?? '',
 
@@ -69,12 +95,16 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       start: d(r.dtm_start),
       end: d(r.dtm_resolve),
       problem: r.str_problem_name ?? '',
-      rank: r.num_rank ?? '',
+      /* an unranked condition prints a dash, and the paperclip column its
+         count or a dash (evidence/MATRIX-R0825-start, DEV v02.31.23: every
+         Rank cell "-", paperclips "2", "1", "-") */
+      rank: r.num_rank || '-',
       /* `str_certainity` — the typo is the column name in MOIS */
       certainty: r.str_certainity ?? '',
       severity: r.str_severity ?? '',
       s: tick(r.str_sensitive),
       m: '',
+      clip: clip(r.num_attachments),
     }),
   },
   reaction: {
@@ -103,7 +133,9 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       chart: '',
       name: r.str_name ?? '',
       relationship: r.str_relationship ?? '',
-      condition: r.str_problem_name ?? r.str_description ?? '',
+      /* MOIS stores the Condition in str_condition (data dictionary,
+         MATRIX-R0646-condition); the others are older exports' guesses */
+      condition: r.str_condition ?? r.str_problem_name ?? r.str_description ?? '',
       m: '',
       clip: clip(r.num_attachments),
     }),
@@ -117,7 +149,8 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       type: r.str_doc_type ?? '',
       note: r.str_note ?? r.str_comment ?? '',
       s: tick(r.str_sensitive),
-      m: '',
+      /* M: the document has a file behind it, as the Paper Forms grid marks it */
+      m: r.str_link ? '\u21e9' : '',
       /* the blue curved-arrow column: this document points at another record */
       link: r.str_link ? '\u21b1' : '',
       clip: clip(r.num_attachments),
@@ -128,7 +161,7 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
   encounters: {
     group: 'encounter',
     sort: 'dtm_appoint',
-    row: (r) => ({
+    row: (r, data) => ({
       id: r.id_encounter ?? '',
       date: d(r.dtm_appoint),
       hr: r.num_appoint_hr?.padStart(2, '0') ?? '',
@@ -136,7 +169,9 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       code: r.str_visit_code ?? '',
       mode: r.str_visit_mode ?? '',
       nbr: r.num_time_slots ?? '',
-      provider: r.lkp_provider ?? r.str_attending ?? '',
+      /* id_provider (MATRIX-R0367), named by the export's lookup or its
+         provider directory (charts/providers.ts) */
+      provider: r.lkp_provider || providerName(data, r.id_provider) || r.str_attending || '',
       reason: r.str_appt_note ?? '',
       /* the columns right of Visit Reason, which the grid gained once it was
          re-derived from the capture */
@@ -148,7 +183,19 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       as: r.str_appt_status ?? '',
       ds: r.str_status_docu ?? '',
       bs: r.str_status_bill ?? '',
-      /* TM / RP / TK / MG / 📎 are read-only roll-ups with no export field */
+      /* TM / RP / TK / MG / 📎 are read-only roll-up counts (MATRIX-R0377
+         "Number of templates created", R0378 "Number of Reports (WCB
+         claims)", R0379 "Number of Tasks created", R0380 messages, R0381
+         attachments). The export keeps four of the counts on the encounter:
+         num_encounter_forms (the encounter's forms — Encounter Forms, once
+         templates), num_reports, num_tasks, num_attachments. It has no
+         message count, so MG stays "-". An empty roll-up prints "-", as
+         every untouched Day Book row does (data/daybook.ts FLAGS). */
+      tm: clip(r.num_encounter_forms),
+      rp: clip(r.num_reports),
+      tk: clip(r.num_tasks),
+      mg: '-',
+      attach: clip(r.num_attachments),
     }),
   },
   consults: {
@@ -304,8 +351,11 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       s: tick(r.str_sensitive),
     }),
   },
+  /* newest first: goal-linked-actions-populated.png lists DEV AUDIT GOAL
+     (created 10:45) above DEV GOAL (10:42), both started 2026.08.12.
+     GoalsView sorts Start descending with this as the tie-break. */
   goals: {
-    group: 'goal', sort: 'dtm_start',
+    group: 'goal', sort: 'stp_date_create',
     row: (r) => ({
       start: d(r.dtm_start), end: d(r.dtm_end), goal: r.str_goal ?? '',
       s: tick(r.str_sensitive), clip: clip(r.num_attachments),
@@ -352,7 +402,8 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       end: d(r.dtm_end),
       code: r.str_code ?? '',
       desc: r.str_description ?? '',
-      detail: r.str_note ?? '',
+      /* Detail is tdt_alert.str_detail (data dictionary, MATRIX-R1243-detail) */
+      detail: r.str_detail ?? r.str_note ?? '',
       s: tick(r.str_sensitive),
       m: '',
       clip: clip(r.num_attachments),
@@ -381,11 +432,12 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
      dump supplies the title and group where it has a matching definition. */
   dynamic: {
     group: 'dform_header', sort: 'dtm_form',
-    row: (r) => ({
+    row: (r, data) => ({
       date: d(r.dtm_form),
       group: legacyDynamicFormDefinition(r.id_dform_window)?.group ?? '',
       title: legacyDynamicFormTitle(r.id_dform_window),
-      attending: r.id_provider && r.id_provider !== '-1' ? r.id_provider : '',
+      /* the export's provider directory names the id (charts/providers.ts) */
+      attending: providerLabel(data, r.id_provider),
       user: r.stp_user_create ?? '',
       state: r.stp_record_state ?? '',
     }),
@@ -400,7 +452,9 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
       date: d(r.dtm_date),
       author: r.str_author ?? '',
       type: r.str_doc_type ?? '',
-      form: r.str_note ?? '',
+      /* Form Name is tdt_document.str_source_code (data dictionary,
+         MATRIX-R1019-form-name); the export repeats it in str_note */
+      form: r.str_source_code ?? r.str_note ?? '',
       s: tick(r.str_sensitive),
       m: r.str_link ? '\u21e9' : '',
       clip: clip(r.num_attachments ?? (r.str_link ? '1' : '')),
@@ -408,7 +462,7 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
   },
   encforms: {
     group: 'form_header', sort: 'dtm_created',
-    row: (r) => ({
+    row: (r, data) => ({
       date: d(r.dtm_created),
       /* both of these are ids the export never resolves — `id_form_type` 1001
          is INSURANCE FORMS, `str_form_window` WP_FORM_HEADER_WCB is WCB REPORT,
@@ -418,7 +472,7 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
          `FORM_TYPES`) */
       type: r.id_form_type === '1001' ? 'INSURANCE FORMS' : r.id_form_type ?? '',
       form: r.str_form_window === 'WP_FORM_HEADER_WCB' ? 'WCB REPORT' : r.str_form_window ?? '',
-      attending: r.id_author && r.id_author !== '-1' ? r.id_author : '',
+      attending: providerLabel(data, r.id_author),
     }),
   },
 
@@ -505,9 +559,9 @@ export const ROW_MAPS: Partial<Record<string, RowMap>> = {
 
 }
 
-export function rowsFromExport(node: string, records: MoisRecord[]): Record<string, string>[] {
+export function rowsFromExport(node: string, records: MoisRecord[], data?: MoisChartExport | null): Record<string, string>[] {
   const map = ROW_MAPS[node]
   if (!map) return []
   const kept = map.where ? records.filter(map.where) : records
-  return kept.map(map.row)
+  return kept.map((r) => map.row(r, data))
 }

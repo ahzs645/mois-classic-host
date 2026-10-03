@@ -612,6 +612,7 @@ function ChartSummaryConfiguration() {
     return `section-${pbSlug(s.code)}${base.findIndex((x) => x.code === s.code) === at ? '' : `-${i}`}`
   }
   useScreenReport({
+    dialog: picking ? 'change-summary' : null,
     window: summary, row: section ? rowId(section, cur) : null, saved,
     code: section?.code ? pbSlug(section.code) : null, filter: filterKind(section?.filter),
     added: sections.filter((s) => s.added).length,

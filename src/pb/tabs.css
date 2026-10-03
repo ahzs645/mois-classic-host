@@ -56,7 +56,12 @@
   cursor: default;
   white-space: nowrap;
 }
-.pb-tabs__tab:hover { background: #e3eefb; }
+.pb-tabs__tab:hover:not(:disabled) { background: #e3eefb; }
+
+/* A tab MOIS has switched off: its caption in the disabled grey, no hover
+   face, no click (goal-saved.png's Quantitative Settings while the goal is
+   not quantitative; evidence/MATRIX-R0480-collected's "Panel (0)"). */
+.pb-tabs__tab:disabled { color: #a0a0a0; }
 
 .pb-tabs__tab.is-active {
   height: var(--pb-tabstrip-h);   /* 2px taller, and it sits over the rule */
@@ -89,9 +94,20 @@
    source material that leaves it off. */
 .pb-tabs__strip--plain .pb-tabs__tab.is-active { font-weight: 400; }
 
-/* Some MOIS views (Notification, Group Visit List) stretch their tabs to fill
-   the strip instead of sizing them to the caption. */
+/* Some MOIS views stretch their tabs to fill the strip instead of sizing them
+   to the caption. Group Visit List is not one of them: DEV
+   (scheduler-group-bookings-patient-list.png) and TRAINING (`21c6140d…`)
+   both pack fixed 134px tabs from the left, which is `--fixed` below; and
+   Notification overrides this to five 157px tabs (NotificationView). */
 .pb-tabs__strip--justified .pb-tabs__tab { flex: 1 1 0; min-width: 0; }
+
+/* PowerBuilder's fixed-width tabs at a measured width (the `tabWidth` prop,
+   carried in --pb-tab-w): every tab that wide with no padding, so the caption
+   centres in it, and the selected one 4px wider — its -2px margins keep the
+   strip still as the selection moves (encounter-detail-*.png: 124px tabs,
+   the selected plate 128). Only a caption too wide for the tab grows it. */
+.pb-tabs__strip--fixed > .pb-tabs__tab { min-width: var(--pb-tab-w); padding: 0; }
+.pb-tabs__strip--fixed > .pb-tabs__tab.is-active { min-width: calc(var(--pb-tab-w) + 4px); }
 
 .pb-tabs__page {
   flex: 1 1 auto;
