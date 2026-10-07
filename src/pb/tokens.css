@@ -10,7 +10,8 @@
 
 :root {
   /* --- surfaces -------------------------------------------------------- */
-  --pb-face:            #efefef;  /* dialog + form background (Win10 3DFACE) */
+  --pb-face:            #f0f0f0;  /* dialog + form background (Win10 3DFACE, 240/240/240; every 1x
+                                     2026-10-06 capture and docs/rendering-fidelity.md agree) */
   --pb-window:          #ffffff;  /* client / content area                   */
   --pb-mdi:             #c8c8c8;  /* the MDI client behind the two panels    */
   /* the section header band: #dcd7d2 in every 2026-10-02 TRAINING capture

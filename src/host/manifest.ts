@@ -171,6 +171,7 @@ export const moisClassicHostManifest: HostEmulatorManifest = {
     'host.screen.defaultAuthorSelf', 'host.screen.desktopProviderPresent',
     'host.screen.manualProgressNotesAcknowledged', 'host.screen.completeAliases',
     'host.screen.workspaceShares', 'host.screen.accountSaves',
+    'host.screen.clericalSupportAccount', 'host.screen.primaryCareAssistantProfile', 'host.screen.readOnlyProfile',
     'host.screen.daybookAliasPresent', 'host.screen.resource', 'host.screen.resourceAppointments',
     'host.module', 'host.node', 'host.view', 'host.tab', 'host.dialog',
     'host.patient', 'host.windows', 'host.draft', 'host.daybook', 'host.provider',

@@ -55,6 +55,7 @@ import { AccessPane, PANE_PAD, UM_ACCESS_CSS } from './UserAccessTabs'
    `reportOverrides` (how many rows are overridden).
    ========================================================================= */
 
+const USER_LEVEL_COLUMNS = { desc: 470, override: 105, access: 109 }
 const NOT_GRANTED = new Set(['Security / Access Audit', 'MSP Billing'])
 const keyOf = (r: ReportRow) => `${pbSlug(r.folder)}-${pbSlug(r.name)}`
 
@@ -80,12 +81,19 @@ const REPORT_CSS = `
 .pb-um-report .pb-dw__table > tbody > tr.pb-dw__group td { height: 30px; padding-left: 3px; border-bottom: 0; }
 .pb-um-report .pb-dw__table > tbody > tr.pb-dw__group td.pb-dw__gutter { text-align: left; }
 .pb-um-report .pb-dw__table > tbody > tr.pb-dw__group .pb-dw__groupbox { margin-left: 12px; vertical-align: middle; }
+/* "blocked off" is protection, not a greyed control: 304021 prints the
+   profile's Access / Print tick in black, and so does the 1x 2026-10-06
+   CMOIS capture — the box simply will not take a click until Override is
+   ticked */
+.pb-um-report .pb-check input:disabled + .pb-check__box { border-color: var(--pb-check-border); background-color: var(--pb-field-bg); }
+.pb-um-report .pb-check input:disabled:checked + .pb-check__box::after { background: var(--pb-check-tick); }
+.pb-um-report .pb-check input:disabled ~ .pb-check__label { color: var(--pb-text); }
 `
 
 /** what the Security Profile grants a report, before any user override */
 export const profileGrants = (r: ReportRow): boolean => !NOT_GRANTED.has(r.folder)
 
-export function ReportAccessPane({ override = false }: { override?: boolean }) {
+export function ReportAccessPane({ override = false, pad = PANE_PAD }: { override?: boolean; pad?: string }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(REPORT_FOLDERS))
   const [cur, setCur] = useState(-1)
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
@@ -110,7 +118,7 @@ export function ReportAccessPane({ override = false }: { override?: boolean }) {
   }
 
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: PANE_PAD }}>
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: pad }}>
       <style>{UM_ACCESS_CSS}{REPORT_CSS}</style>
       <AccessPane title="Report Access" className="pb-um-report">
         <PBDataWindow<ReportRow>
@@ -127,9 +135,12 @@ export function ReportAccessPane({ override = false }: { override?: boolean }) {
           rules={false}
           columns={[
             { key: 'name', header: '', width: 221 },
-            { key: 'desc', header: '', render: (r) => r.desc ?? '' },
+            /* user level, 1x 2026-10-06 CMOIS capture: a DataWindow places
+               its columns at fixed x, the Override box at 731 and Access /
+               Print's at 837 from the window's frame, whatever the width */
+            { key: 'desc', header: '', width: override ? USER_LEVEL_COLUMNS.desc : undefined, render: (r) => r.desc ?? '' },
             ...(override ? [{
-              key: 'override', header: '', width: 82,
+              key: 'override', header: '', width: USER_LEVEL_COLUMNS.override,
               render: (r: ReportRow) => (
                 <CmdCheck
                   id={`report-override-${keyOf(r)}`}
@@ -140,7 +151,7 @@ export function ReportAccessPane({ override = false }: { override?: boolean }) {
               ),
             }] : []),
             {
-              key: 'access', header: '', width: 113,
+              key: 'access', header: '', width: override ? USER_LEVEL_COLUMNS.access : 113,
               render: (r: ReportRow) => (
                 <CmdCheck
                   id={`report-access-${keyOf(r)}`}
@@ -151,6 +162,7 @@ export function ReportAccessPane({ override = false }: { override?: boolean }) {
                 />
               ),
             },
+            ...(override ? [{ key: 'rest', header: '', render: () => null }] : []),
           ]}
         />
       </AccessPane>

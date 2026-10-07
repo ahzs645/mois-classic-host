@@ -10,24 +10,24 @@ import {
 } from '../pb'
 import {
   ASSOCIATED_PROVIDER_COLUMNS, ASSOCIATED_PROVIDER_ROWS, CHANGE_NAME, CHANGE_PASSWORD,
-  DEFAULT_AUTHOR_FOOTNOTE, DESKTOP_PROVIDERS, EVENT_SUBJECT_DIALOG,
+  DEFAULT_AUTHOR_FOOTNOTE, DESKTOP_PROVIDERS, EVENT_SUBJECT_DIALOG, MEMBERSHIP_AUTHOR_FOOTNOTE,
   FORWARDING_RULES, INBOX_FORWARDING_BUTTONS, INBOX_FORWARDING_COLUMNS,
-  INBOX_FORWARDING_ROWS, MEMBERSHIP_COLUMNS, MEMBERSHIP_ROWS,
+  INBOX_FORWARDING_ROWS, MEMBERSHIP_COLUMNS, MEMBERSHIP_NAME_INDENT, MEMBERSHIP_ROWS,
   NEW_USER_BAND, NEW_USER_BUTTONS, NEW_USER_MASK, NEW_USER_SECTIONS, NEW_USER_SIZE, NEW_USER_SYNC_X, NEW_USER_TITLE,
   NOTIFICATION_BLOCKS, NOTIFICATION_DEFAULTS, NOTIFICATION_METHODS, NOTIFICATION_PRIORITIES,
-  OTHER_SETTINGS, SERVICE_GROUP_BAND, SERVICE_GROUP_COLUMNS, SERVICE_GROUP_FOOTNOTE,
+  OTHER_LIST_W, OTHER_PANE_BAND, OTHER_SETTINGS, SERVICE_GROUP_BAND, SERVICE_GROUP_COLUMNS, SERVICE_GROUP_FOOTNOTE, SERVICE_GROUP_FOOTNOTE_X,
   SERVICE_GROUP_ROWS, SHARED_WITH_ME_PANEL_COLUMNS, SHARED_WITH_ME_ROWS,
   SHARING_WORKSPACE_COLUMNS,
   SUBSCRIPTION_COLUMNS, SUBSCRIPTION_ROWS,
-  UM_FOCUS, USER_ACCOUNT_FOOTER, USER_ACCOUNT_HEADER, USER_ACCOUNT_HEADER_GEOMETRY, USER_ACCOUNT_PANEL,
+  UM_FOCUS, USER_ACCOUNT_ACCESS_PAD, USER_ACCOUNT_FOOTER, USER_ACCOUNT_HEADER, USER_ACCOUNT_HEADER_FRAME, USER_ACCOUNT_HEADER_GEOMETRY, USER_ACCOUNT_PAGE_FRAME, USER_ACCOUNT_PANEL,
   USER_ACCOUNT_FOOT, USER_ACCOUNT_SIZE, USER_ACCOUNT_TAB_WIDTHS, USER_ACCOUNT_TABS,
   USER_ALIAS_COLUMNS, USER_EXPERTISE, USER_ROLES,
   WORKSPACE_ACK_ITEMS, WORKSPACE_MGT_GEOMETRY,
   userListSpec,
-  type NewUserField, type OtherField, type OtherSetting, type UserRow,
+  type NewUserField, type OtherField, type OtherSetting, type UserColumn, type UserRow,
 } from '../data/userManagement'
 import type { PBColumn } from '../pb'
-import { BandButtons, UMField as Field, UM_CSS, umColumns, umField as anchorField } from './UserManagementKit'
+import { UMField as Field, UM_CSS, umColumns, umField as anchorField } from './UserManagementKit'
 import { ModuleWindowAccessTab, SpecialFunctionsTab } from './UserAccessTabs'
 import { ReportAccessPane } from './ReportAccessPane'
 import { SecurityProfilePickerDialog } from './SecurityProfileWindow'
@@ -81,27 +81,47 @@ import { ALIAS_SOURCES } from '../data/clinicManagement'
  * Measured details these windows draw that the kit has no prop for, applied
  * as scoped rules the way `UM_CSS` applies its own (2026-10-02 TRAINING
  * capture; candidates for kit props, listed in the wave report):
- *   1. the sunken panel every tab page is cut from — PBGroupBox at a 20/22px
- *      band, a #878787 frame and band rule (the kit's is #b6b6b6), its body a
- *      flex column on the face;
+ *   1. the sunken panel every tab page is cut from — PBGroupBox at a 21px
+ *      band, a #7B7B7B frame with a #DFDFDF line inside it and a #767676
+ *      band rule (2026-10-06, 1x; the kit's is #b6b6b6), its body a flex
+ *      column on the face; a grid inside draws no border of its own. A box
+ *      that is not a PBGroupBox (Memberships, Subscription, Other) takes
+ *      the same two lines from `pb-ua-box`;
  *   2. a band's buttons butted edge to edge and filling its height, the
  *      command-row rectangle rather than the kit's 15px small button;
  *   3. the ten tab widths, which are not one padding round the caption;
  *   4. `Workspaces Shared With Me`: bold black captions on white over a black
- *      rule, in a 35px header; the Membership List's 34px blue header.
+ *      rule, in a 35px header;
+ *   5. a panel fills what its page leaves (the 2026-10-06 captures paint User
+ *      Alias and Service Group white to the foot), unless it is given a size;
+ *   6. the Associated Provider(s) grid's empty face, a #FBFBFB → #DCDCDC
+ *      left-to-right wash (2026-10-06);
+ *   7. the tab page's Win32 frame — white down the left, #DDDDDD right and
+ *      bottom with #F8F8F8 inside, white inside that along the bottom, and
+ *      #F8F8F8 under the tab rule (2026-10-06). The kit's page has none.
  */
+const PANEL = USER_ACCOUNT_PANEL
+const FRAME = USER_ACCOUNT_PAGE_FRAME
 const UA_CSS = `
-.pb-ua-panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-.pb-ua-panel > .pb-groupbox { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; border-color: #878787; background: var(--pb-face); }
-.pb-ua-panel > .pb-groupbox > .pb-band { border-bottom-color: #878787; padding-right: 0; }
-.pb-ua-panel > .pb-groupbox > div:last-child { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.pb-ua-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; }
+.pb-ua-assoc .pb-dw { background: linear-gradient(to right, #fbfbfb, #dcdcdc); }
+.pb-ua-panel > .pb-groupbox { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; border-color: ${PANEL.border}; background: var(--pb-face); }
+.pb-ua-panel > .pb-groupbox > .pb-band { border-bottom-color: ${PANEL.bandRule}; padding-right: 0; }
+.pb-ua-panel > .pb-groupbox > div:last-child { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; position: relative; border: 1px solid ${PANEL.inner}; }
+.pb-ua-box { border: 1px solid ${PANEL.border}; padding: 1px; box-shadow: inset 0 0 0 1px ${PANEL.inner}; }
+.pb-ua-panel .pb-dw, .pb-ua-box .pb-dw { border: 0; }
+.pb-ua-tabs .pb-um-pane { border-color: ${PANEL.border}; }
+.pb-ua-tabs .pb-um-pane > .pb-band { min-height: 21px; border-bottom-color: ${PANEL.bandRule}; }
+.pb-ua-tabs .pb-tabs__page {
+  border-left: ${FRAME.leftW}px solid ${FRAME.left}; border-right: 1px solid ${FRAME.edge}; border-bottom: 1px solid ${FRAME.edge};
+  box-shadow: inset 0 1px ${FRAME.highlight}, inset -1px 0 ${FRAME.highlight}, inset 0 -1px ${FRAME.highlight}, inset 0 -2px ${FRAME.left};
+}
 .pb-ua-bandbtns { display: flex; align-self: stretch; }
 .pb-ua-bandbtns > .pb-cmdrow__btn { height: auto; margin-left: -1px; }
 .pb-ua-tabs .pb-tabs__strip { padding-left: 1px; }
 ${USER_ACCOUNT_TAB_WIDTHS.map((w, i) => `.pb-ua-tabs .pb-tabs__strip--fixed > .pb-tabs__tab:nth-child(${i + 1}) { min-width: ${w}px; }
 .pb-ua-tabs .pb-tabs__strip--fixed > .pb-tabs__tab.is-active:nth-child(${i + 1}) { min-width: ${w + 4}px; }`).join('\n')}
-.pb-ua-head34 .pb-dw__table > thead > tr > th { height: 34px; }
-.pb-ua-shared .pb-dw__table > thead > tr > th { height: 35px; vertical-align: bottom; background: #fff; }
+.pb-ua-shared .pb-dw__table > thead > tr > th { height: 35px; vertical-align: bottom; padding-bottom: 3px; background: #fff; }
 .pb-ua-shared .pb-dw__table > thead > tr > th:hover { background: #fff; }
 `
 
@@ -468,6 +488,7 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
     initials: `${first.slice(0, 1)}${last.slice(0, 1)}`,
   })
   const g = USER_ACCOUNT_HEADER_GEOMETRY
+  const HF = USER_ACCOUNT_HEADER_FRAME
 
   return (
     <ModalWindow
@@ -495,14 +516,18 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
         </>
       )}
     >
-          {/* the fixed block above the strip (2026-10-02 TRAINING capture):
-              three columns of labels with BOLD read-only values, ruled off
-              underneath, and Change Name at the top right */}
-          <div style={{ position: 'relative', height: g.h, flex: 'none', background: 'var(--pb-face)', borderBottom: '1px solid #6d6d6d' }}>
+          {/* the fixed block above the strip (2026-10-02 TRAINING capture,
+              1x 2026-10-06): three columns of labels with BOLD read-only
+              values in a two-tone frame, Change Name at the top right */}
+          <div style={{
+            position: 'relative', height: g.h, flex: 'none', boxSizing: 'border-box', background: 'var(--pb-face)', marginTop: 1,
+            borderTop: `1px solid ${HF.top[0]}`, borderBottom: `1px solid ${HF.bottom[1]}`,
+            boxShadow: `inset 0 1px ${HF.top[1]}, inset 0 -1px ${HF.bottom[0]}`,
+          }}>
             {USER_ACCOUNT_HEADER.map((col, i) => {
               const at = g.columns[i]!
               return col.map((f, j) => (
-                <Line key={f.key} y={g.top + j * g.pitch} h={g.pitch}>
+                <Line key={f.key} y={g.rows[j]!} h={g.pitch}>
                   {'labelRight' in at ? <At end={at.labelRight}>{f.label}</At> : <At x={at.label}>{f.label}</At>}
                   <At x={at.value} style={{ fontWeight: 700 }}>
                     <span data-tutorial-id={anchorField(f.label)}>{name[f.key as keyof AccountName]}</span>
@@ -525,7 +550,7 @@ export function UserAccountWindow({ row, onClose }: { row: UserRow; onClose: () 
             </PBTabs>
           </div>
 
-          <DialogFooter frame="pb" height={USER_ACCOUNT_FOOT.h} gap={USER_ACCOUNT_FOOT.gap} buttons={sized(footerButtons(USER_ACCOUNT_FOOTER, { wide: true, onPress: b => { if (b === 'Apply Changes') { saveSettings({ ...draft, saves: saved.saves + 1 }); saveAliases(draft.aliases) }; onClose() } }), USER_ACCOUNT_FOOT.button, USER_ACCOUNT_FOOT.buttonH)} />
+          <DialogFooter frame="pb" height={USER_ACCOUNT_FOOT.h} padding={`${USER_ACCOUNT_FOOT.padTop}px 9px 0`} style={{ alignItems: 'flex-start', boxSizing: 'border-box' }} gap={USER_ACCOUNT_FOOT.gap} buttons={sized(footerButtons(USER_ACCOUNT_FOOTER, { wide: true, onPress: b => { if (b === 'Apply Changes') { saveSettings({ ...draft, saves: saved.saves + 1 }); saveAliases(draft.aliases) }; onClose() } }), USER_ACCOUNT_FOOT.button, USER_ACCOUNT_FOOT.buttonH)} />
     </ModalWindow>
   )
 }
@@ -534,16 +559,16 @@ type AccountDraftProps = { row: UserRow; draft: AccountSettings; set: (patch: Pa
 function UserAccountPage({ tab, row, draft, set }: AccountDraftProps & { tab: string }) {
   switch (tab) {
     case 'User Account': return <UserAccountTab row={row} draft={draft} set={set} />
-    case 'Module / Window Access': return <ModuleWindowAccessTab override />
+    case 'Module / Window Access': return <ModuleWindowAccessTab override pad={USER_ACCOUNT_ACCESS_PAD} />
     /* Tabs 3 and 4 were captured at SECURITY PROFILE level only on the help
        site (`e361c4e01d11`, `9e179125c6d6`), and `302650` refuses to describe
        the user level. Both user-level panes are captured now: Special
        Functions in the 2026-10-02 TRAINING capture (the Override column
        beside Execute), Report Access in 304021 `9ca90685`. */
-    case 'Special Functions': return <SpecialFunctionsTab override />
+    case 'Special Functions': return <SpecialFunctionsTab override pad={USER_ACCOUNT_ACCESS_PAD} />
     /* the user-level Report Access IS captured, in 304021 `9ca90685`
        (Override + Access / Print per report): screens/ReportAccessPane.tsx */
-    case 'Report Access': return <ReportAccessPane override />
+    case 'Report Access': return <ReportAccessPane override pad={USER_ACCOUNT_ACCESS_PAD} />
     case 'User Alias': return <UserAliasTab row={row} draft={draft} set={set} />
     case 'Workspace Mgt': return <WorkspaceMgtTab row={row} draft={draft} set={set} />
     case 'Memberships': return <MembershipsTab />
@@ -558,8 +583,8 @@ const UncapturedPage = () => <div style={{ flex: '1 1 auto' }} />
 
 /** A tab page holding panels inset from the page edge. */
 function Inset({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  const d = USER_ACCOUNT_PANEL.inset
-  return <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: `${d}px ${d}px 10px`, ...style }}>{children}</div>
+  const p = USER_ACCOUNT_PANEL.pad
+  return <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: `${p.top}px ${p.right}px ${p.bottom}px ${p.left}px`, ...style }}>{children}</div>
 }
 
 /* --- tab 1: `User Account` ------------------------------------------------
@@ -589,7 +614,7 @@ function UserAccountTab({ row, draft, set }: AccountDraftProps) {
   const sm: CSSProperties = { width: 69, minWidth: 0, height: 20, padding: 0 }
 
   return (
-    <Inset>
+    <Inset style={{ paddingBottom: PANEL.pageBottom['User Account'] }}>
       <Panel title="User Account">
         {/* the rules' gaps, measured: 10.5 / 17.5 down the left, 14 / 18.5
             down the right — less the 8 each caption stands above its rule */}
@@ -756,7 +781,19 @@ function UserAccountTab({ row, draft, set }: AccountDraftProps) {
    2026-10-02 TRAINING capture: a `User Alias List` band with New / Delete
    butted at its right; the Source cell drops a Code / Description list of
    the seven alias sources (data/clinicManagement ALIAS_SOURCES, the
-   Provider window's list), 366 wide.                                       */
+   Provider window's list), 366 wide.
+
+   2026-10-06 capture (1:1), New pressed: the new row is current, its Start
+   Date holds the caret on the edit mask's empty value `0000.00.00`, and the
+   Source cell is a plain salmon cell — a DataWindow paints a column's drop
+   button only while that column has focus (`ALIAS_CSS`).                  */
+
+/** what a date edit mask shows with no date in it */
+const EMPTY_DATE_MASK = '0000.00.00'
+const ALIAS_CSS = `
+.pb-ua-alias td .pb-dddw:not(:focus-within) > .pb-field { border-color: transparent; background: transparent; box-shadow: none; }
+.pb-ua-alias td .pb-dddw:not(:focus-within) > .pb-inputgroup__btn--drop { visibility: hidden; }
+`
 
 const ALIAS_SOURCE_COLUMNS = [
   { key: 'code', header: 'Code', width: 118 },
@@ -785,15 +822,17 @@ function UserAliasTab({ draft, set }: AccountDraftProps) {
   }))
   useScreenReport({ rows: rows.length })
   return (
-    <Inset>
+    <Inset style={{ paddingTop: PANEL.tight.top, paddingBottom: PANEL.pageBottom['User Alias'] }}>
       <Panel
+        band={PANEL.tight.band}
         title="User Alias List"
-        right={<PanelButtons scope="user-alias" buttons={[['New', 51], ['Delete', 51]]} onPress={b => {
-          set({ aliases: b === 'New' ? [...rows, { start: MOIS_TODAY_STAMP, end: '', source: '', value: '', note: '' }] : rows.filter((_, i) => i !== cur) })
+        right={<PanelButtons scope="user-alias" buttons={[['New', 53], ['Delete', 53]]} onPress={b => {
+          set({ aliases: b === 'New' ? [...rows, { start: EMPTY_DATE_MASK, end: '', source: '', value: '', note: '' }] : rows.filter((_, i) => i !== cur) })
           setCur(b === 'New' ? rows.length : 0)
         }} />}
       >
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: 'var(--pb-window)' }}>
+        <style>{ALIAS_CSS}</style>
+        <div className="pb-ua-alias" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: 'var(--pb-window)' }}>
           <PBDataWindow rows={rows} columns={columns} current={cur} onCurrentChange={setCur} empty=" " />
         </div>
       </Panel>
@@ -811,8 +850,6 @@ function UserAliasTab({ draft, set }: AccountDraftProps) {
    (2026-10-02 TRAINING capture). Reassign Backlog raises `Select Users`
    (`d1654b0c032c`, 303358).                                               */
 
-/** Band button widths, measured: Acknowledge / Reassign Backlog, New, Delete. */
-const INBOX_BUTTON_W = [116, 118, 52, 51]
 
 /**
  * Whose inbox holds a backlog. The emulator's inbox baskets belong to the
@@ -846,14 +883,15 @@ function WorkspaceMgtTab({ row, draft, set }: AccountDraftProps) {
   }
 
   return (
-    <Inset style={{ gap: g.gap }}>
+    <Inset style={{ gap: g.gap, paddingTop: g.top, paddingBottom: PANEL.pageBottom['Workspace Mgt'] }}>
       <Panel
         style={{ height: g.inboxH, flex: 'none' }}
+        band={PANEL.tight.band}
         title="Inbox Forwarding"
         right={(
           <PanelButtons
             scope="inbox-forwarding"
-            buttons={INBOX_FORWARDING_BUTTONS.map((b, i) => [b, INBOX_BUTTON_W[i]!] as const)}
+            buttons={INBOX_FORWARDING_BUTTONS.map((b, i) => [b, g.inboxButtons[i]!] as const)}
             onPress={(b) => {
               if (b === 'Acknowledge Backlog') setBacklog(hasBacklog(row) ? 'acknowledge' : 'empty')
               if (b === 'Reassign Backlog') setBacklog('reassign')
@@ -869,8 +907,9 @@ function WorkspaceMgtTab({ row, draft, set }: AccountDraftProps) {
       <div className="pb-row" style={{ flex: '1 1 auto', minHeight: 0, alignItems: 'stretch', gap: g.sideGap }}>
         <Panel
           style={{ width: g.sharingW, flex: 'none' }}
+          band={PANEL.tight.band}
           title="Sharing Workspace With"
-          right={<PanelButtons scope="sharing-workspace" buttons={[['New', 51], ['Delete', 51]]} onPress={b => { set({ sharing: b === 'New' ? [...draft.sharing, { start: MOIS_TODAY_STAMP, stop: '', user: '', note: '' }] : draft.sharing.filter((_, i) => i !== shareCur) }); setShareCur(b === 'New' ? draft.sharing.length : 0) }} />}
+          right={<PanelButtons scope="sharing-workspace" buttons={[['New', g.newDeleteButtons[0]!], ['Delete', g.newDeleteButtons[1]!]]} onPress={b => { set({ sharing: b === 'New' ? [...draft.sharing, { start: MOIS_TODAY_STAMP, stop: '', user: '', note: '' }] : draft.sharing.filter((_, i) => i !== shareCur) }); setShareCur(b === 'New' ? draft.sharing.length : 0) }} />}
         >
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: 'var(--pb-window)' }}>
             <PBDataWindow columns={shareColumns} rows={draft.sharing} current={shareCur} onCurrentChange={setShareCur} empty=" " />
@@ -878,7 +917,7 @@ function WorkspaceMgtTab({ row, draft, set }: AccountDraftProps) {
         </Panel>
         {/* read-only: a 31px #C8DCFA caption band of its own, then bold
             captions on white; an empty stop date renders as `--` */}
-        <div className="pb-ua-shared" style={{ width: g.sharedW, flex: 'none', display: 'flex', flexDirection: 'column', border: '1px solid #878787', background: 'var(--pb-window)' }}>
+        <div className="pb-ua-shared pb-ua-box" style={{ width: g.sharedW, flex: 'none', display: 'flex', flexDirection: 'column', background: 'var(--pb-window)' }}>
           <div className="pb-band" style={{ background: '#c8dcfa', minHeight: g.sharedBand, padding: '0 9px', borderBottom: '1px solid #fff' }}>Workspaces Shared With Me</div>
           <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', paddingLeft: 3 }}>
             <PBDataWindow<UserRow> columns={umColumns(SHARED_WITH_ME_PANEL_COLUMNS)} rows={SHARED_WITH_ME_ROWS} head="grey" gutter={false} rules={false} empty=" " />
@@ -1015,134 +1054,158 @@ function SelectUsersDialog({ onClose }: { onClose: () => void }) {
    header row carries `Add` over the per-row Edit / Delete (each 57 wide). */
 
 function MembershipsTab() {
-  const btn: CSSProperties = { width: 57, minWidth: 0, height: 19, padding: 0 }
   return (
     <Inset>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #878787', background: 'var(--pb-face)' }}>
-        <div className="pb-row" style={{ alignItems: 'stretch', gap: 0, height: 113, flex: 'none' }}>
-          <div style={{ flex: '1 1 auto', minWidth: 0, padding: '6px 9px 0' }}>
-            <Group title="Other Settings" h={88}>
-              <Line y={23}>
-                <At x={9}>Default Desktop Provider:</At>
-                <At x={156}><PBSelect w={215} options={DESKTOP_PROVIDERS} /></At>
+      <div className="pb-ua-box" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-face)' }}>
+        {/* 1x 2026-10-06: a 112px strip; the group 7 in, 9 down, 453 wide and
+            89 tall, its two 17px drops at 164 (217 wide) */}
+        <div className="pb-row" style={{ alignItems: 'stretch', gap: 0, height: 112, flex: 'none' }}>
+          <div style={{ flex: '1 1 auto', minWidth: 0, padding: '3px 16px 0 7px' }}>
+            <Group title="Other Settings" h={89}>
+              <Line y={24}>
+                {/* the captions sit 1 above the drops' centre (1x) */}
+                <At x={9} style={{ top: -1, bottom: 1 }}>Default Desktop Provider:</At>
+                <At x={163}><PBSelect w={217} style={{ height: 17 }} options={DESKTOP_PROVIDERS} /></At>
               </Line>
               <Line y={43}>
-                <At x={9}>Default Author*:</At>
-                <At x={156}><PBSelect w={215} options={DESKTOP_PROVIDERS} /></At>
+                <At x={9} style={{ top: -1, bottom: 1 }}>Default Author*:</At>
+                <At x={163}><PBSelect w={217} style={{ height: 17 }} options={DESKTOP_PROVIDERS} /></At>
               </Line>
-              <Line y={63}>
-                <At x={157} style={{ color: NOTE_INK }}>{DEFAULT_AUTHOR_FOOTNOTE}</At>
-              </Line>
+              {/* this tab's footnote is the longer one, wrapped (2026-10-06) */}
+              <div style={{ position: 'absolute', left: 164, top: 55, width: 285, color: NOTE_INK, lineHeight: '13px', whiteSpace: 'normal' }}>{MEMBERSHIP_AUTHOR_FOOTNOTE}</div>
             </Group>
           </div>
-          <div style={{ width: 474, flex: 'none', display: 'flex', borderLeft: '1px solid #878787' }}>
+          <div className="pb-ua-assoc" style={{ width: 475, flex: 'none', display: 'flex', borderLeft: `1px solid ${PANEL.border}` }}>
             <TabGrid columns={umColumns(ASSOCIATED_PROVIDER_COLUMNS)} rows={ASSOCIATED_PROVIDER_ROWS} />
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid #878787', borderBottom: '1px solid #878787', ['--pb-band-h' as string]: `${USER_ACCOUNT_PANEL.band}px` }}>
+        <div style={{ borderTop: `1px solid ${PANEL.border}`, borderBottom: `1px solid ${PANEL.bandRule}`, ['--pb-band-h' as string]: `${PANEL.tight.band - 1}px` }}>
           <PBBand>Membership List</PBBand>
         </div>
-        {/* no gridlines, and a 34px header band — see `UA_CSS` */}
-        <div className="pb-ua-head34" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: 'var(--pb-window)' }}>
-          <PBDataWindow<UserRow>
-            rows={MEMBERSHIP_ROWS}
-            rules={false}
-            gutter={false}
-            columns={[
-              ...umColumns(MEMBERSHIP_COLUMNS).map((c) => (c.key === 'name' ? { ...c, headAlign: 'left' as const } : c)),
-              {
-                key: 'actions',
-                /* `Add` lives IN the header row, over the rows' Edit / Delete */
-                header: <PBButton command="membership-add" style={btn}>Add</PBButton>,
-                width: 132,
-                render: (r: UserRow) => (
-                  <span className="pb-row" style={{ gap: 3 }}>
-                    <PBButton command={`membership-edit-${pbSlug(String(r.name ?? ''))}`} style={btn}>
-                      Edit
-                    </PBButton>
-                    <PBButton style={btn}>Delete</PBButton>
-                  </span>
-                ),
-              },
-            ]}
-            rowTutorialId={(r) => `host.mois.row.membership-${pbSlug(String(r.name ?? ''))}`}
-            empty=" "
-          />
-        </div>
+        {/* no gridlines; the 30px header row is the toolbar (2026-10-06) */}
+        <HeaderToolbarList columns={MEMBERSHIP_COLUMNS} rows={MEMBERSHIP_ROWS} scope="membership" rowKey="name" headIndent={MEMBERSHIP_NAME_INDENT} />
       </div>
     </Inset>
   )
 }
 
-/* --- tab 8: `Service Group` ---------------------------------------------- */
+/* --- tab 8: `Service Group` ----------------------------------------------
+   `109df8904120`; laid out to the 2026-10-06 capture (1:1): the inset
+   sunken panel the other tabs use, its grey `Service Group(s) / Pathway(s)`
+   band carrying a 76px `Change` butted at its right; under it the grid, no
+   gutter, its LEFT-set captions at 6 / 220 / 591 in from the panel's rule.
+   The footnote sits inside the white, 10 above the panel's foot, set at the
+   Alternate Launch Modes column's left.                                    */
 
 function ServiceGroupTab() {
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <PBBand right={<BandButtons scope="service-group" labels={['Change']} />}>{SERVICE_GROUP_BAND}</PBBand>
-      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
-        <TabGrid columns={umColumns(SERVICE_GROUP_COLUMNS)} rows={SERVICE_GROUP_ROWS} />
-      </div>
-      {/* sic: "all user have access" */}
-      <div style={{ flex: 'none', padding: '2px 8px 4px', textAlign: 'right' }}>{SERVICE_GROUP_FOOTNOTE}</div>
-    </div>
+    <Inset>
+      <Panel title={SERVICE_GROUP_BAND} right={<PanelButtons scope="service-group" buttons={[['Change', 76]]} />}>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: 'var(--pb-window)', position: 'relative' }}>
+          <PBDataWindow<UserRow> columns={umColumns(SERVICE_GROUP_COLUMNS)} rows={SERVICE_GROUP_ROWS} gutter={false} empty=" " style={{ ['--pb-dw-row-h' as string]: '19px' }} />
+          {/* sic: "all user have access" */}
+          <span style={{ position: 'absolute', left: SERVICE_GROUP_FOOTNOTE_X, bottom: 4 }}>{SERVICE_GROUP_FOOTNOTE}</span>
+        </div>
+      </Panel>
+    </Inset>
   )
 }
 
 /* --- tab 9: `Subscription` -----------------------------------------------
-   The header row doubles as the toolbar — `Add` sits IN it — and every row
-   carries its own Edit / Delete. The Subject cell renders a secondary grey
-   qualifier beside the value.                                              */
+   `f9aba57883ac`; laid out to the 2026-10-06 capture (1:1). No band: one
+   bordered list inset like the other tabs' panels, whose 30px header row
+   doubles as the toolbar — GREY captions left-set over columns that carry
+   no rules, and `Add` (57 x 20) IN the row — and every row carries its own
+   Edit / Delete. The Subject cell renders a secondary grey qualifier beside
+   the value. Memberships' list is drawn the same way (`HeaderToolbarList`). */
 
-function SubscriptionTab() {
-  const [cur, setCur] = useState(0)
-  const [pick, setPick] = useState(false)
+const LIST_HEAD_INK = '#818181'
+const HEAD_TOOLBAR_CSS = `
+.pb-ua-headbar .pb-dw__table > thead > tr > th { height: 30px; color: ${LIST_HEAD_INK}; border-right-color: transparent; }
+.pb-ua-headbar .pb-dw__table > thead > tr > th:hover { background: var(--pb-dw-header); }
+`
 
-  const columns = umColumns(SUBSCRIPTION_COLUMNS)
-  const subject = columns.find((c) => c.key === 'subject')
-  if (subject) {
-    subject.render = (r: UserRow) => (
-      <>
-        {String(r.subject ?? '')}
-        {r.qualifier ? <span style={{ color: '#808080' }}>{`  ${r.qualifier}`}</span> : null}
-      </>
-    )
-  }
-
+/**
+ * A list whose header row is its toolbar: the captions left-set and grey,
+ * `Add` in the trailing column's caption and an Edit / Delete pair on every
+ * row (Subscription, Memberships). The trailing column takes what is left of
+ * the width, so the blue header runs the full list as the captures show.
+ */
+function HeaderToolbarList({ columns, rows, scope, rowKey, current, onCurrentChange, onAdd, cells, headIndent = 0 }: {
+  columns: UserColumn[]
+  /** a column's own cell painter, keyed by column */
+  cells?: Record<string, (r: UserRow) => ReactNode>
+  rows: UserRow[]
+  scope: string
+  rowKey: string
+  current?: number
+  onCurrentChange?: (i: number) => void
+  onAdd?: () => void
+  /** a first caption set in further than the cells' padding (Membership's `Name`) */
+  headIndent?: number
+}) {
+  const btn: CSSProperties = { width: 57, minWidth: 0, height: 20, padding: 0 }
+  const kit = umColumns(columns.map((c) => ({ ...c, headAlign: 'left' as const })))
+    .map((c) => (cells?.[c.key] ? { ...c, render: cells[c.key] } : c))
+  if (headIndent && kit[0]) kit[0] = { ...kit[0], header: <span style={{ paddingLeft: headIndent }}>{kit[0].header}</span> }
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: 3 }}>
+    <div className="pb-ua-headbar" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', background: 'var(--pb-window)' }}>
+      <style>{HEAD_TOOLBAR_CSS}</style>
       <PBDataWindow<UserRow>
-        rows={SUBSCRIPTION_ROWS}
-        current={cur}
-        onCurrentChange={setCur}
-        rowTutorialId={(r) => `host.mois.row.subscription-${pbSlug(String(r.event ?? ''))}`}
+        rows={rows}
+        current={current}
+        onCurrentChange={onCurrentChange}
+        rules={false}
+        gutter={false}
+        rowTutorialId={(r) => `host.mois.row.${scope}-${pbSlug(String(r[rowKey] ?? ''))}`}
         columns={[
-          ...columns,
+          ...kit,
           {
             key: 'actions',
-            /* `Add` really does live in the header row on this tab */
-            header: (
-              <PBButton size="sm" command="subscription-add" onClick={() => setPick(true)}>
-                Add
-              </PBButton>
-            ),
-            width: 116,
+            headAlign: 'left',
+            header: <PBButton command={`${scope}-add`} onClick={onAdd} style={btn}>Add</PBButton>,
             render: (r: UserRow) => (
-              <span className="pb-row" style={{ gap: 4 }}>
-                <PBButton size="sm" command={`subscription-edit-${pbSlug(String(r.event ?? ''))}`}>
-                  Edit
-                </PBButton>
-                <PBButton size="sm">Delete</PBButton>
+              <span className="pb-row" style={{ gap: 3 }}>
+                <PBButton command={`${scope}-edit-${pbSlug(String(r[rowKey] ?? ''))}`} style={{ ...btn, height: 19 }}>Edit</PBButton>
+                <PBButton style={{ ...btn, height: 19 }}>Delete</PBButton>
               </span>
             ),
           },
         ]}
         empty=" "
       />
-
-      {pick && <EventSubjectSelectionDialog onClose={() => setPick(false)} />}
     </div>
+  )
+}
+
+function SubscriptionTab() {
+  const [cur, setCur] = useState(0)
+  const [pick, setPick] = useState(false)
+  /* the Subject cell's grey qualifier beside the value */
+  const subject = (r: UserRow) => (
+    <>
+      {String(r.subject ?? '')}
+      {r.qualifier ? <span style={{ color: '#808080' }}>{`  ${r.qualifier}`}</span> : null}
+    </>
+  )
+
+  return (
+    <Inset style={{ paddingLeft: PANEL.subscriptionX.left, paddingRight: PANEL.subscriptionX.right, paddingBottom: PANEL.pageBottom.Subscription }}>
+      <div className="pb-ua-box" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex' }}>
+        <HeaderToolbarList
+          columns={SUBSCRIPTION_COLUMNS}
+          rows={SUBSCRIPTION_ROWS}
+          cells={{ subject }}
+          scope="subscription"
+          rowKey="event"
+          current={cur}
+          onCurrentChange={setCur}
+          onAdd={() => setPick(true)}
+        />
+      </div>
+      {pick && <EventSubjectSelectionDialog onClose={() => setPick(false)} />}
+    </Inset>
   )
 }
 
@@ -1182,71 +1245,123 @@ function EventSubjectSelectionDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-/* --- tab 10: `Other` ----------------------------------------------------- */
+/* --- tab 10: `Other` -----------------------------------------------------
+   Laid out to the 2026-10-06 captures (data/userManagement.ts tab 10): the
+   `Setting` list beside a bordered white pane whose controls sit at the
+   measured x / y of each setting.                                          */
+
+const OTHER_CSS = `
+.pb-ua-other { --pb-dw-row-h: 24px; }
+.pb-ua-other .pb-dw__table > thead > tr > th { color: ${LIST_HEAD_INK}; }
+.pb-ua-other .pb-dw__table > tbody > tr:nth-child(even):not(.is-current) { background: #e8e8e8; }
+`
+/** the pane's etched group rule and its rule under the description */
+const OTHER_GROUP_RULE = '#e1e1e1'
+const OTHER_RULE = '#aeaeb1'
 
 function OtherTab() {
   const [cur, setCur] = useState(0)
   const setting: OtherSetting = OTHER_SETTINGS[cur] ?? OTHER_SETTINGS[0]!
 
   return (
-    <div className="pb-row" style={{ alignItems: 'stretch', gap: 3, flex: '1 1 auto', minHeight: 0, padding: 3 }}>
-      <div style={{ width: 200, flex: 'none', display: 'flex' }}>
+    <div className="pb-row" style={{ alignItems: 'stretch', gap: 7, flex: '1 1 auto', minHeight: 0, padding: '4px 5px 11px 6px' }}>
+      <style>{OTHER_CSS}</style>
+      <div className="pb-ua-other pb-ua-box" style={{ width: OTHER_LIST_W, flex: 'none', display: 'flex' }}>
         <PBDataWindow<{ name: string }>
           rows={OTHER_SETTINGS.map((s) => ({ name: s.name }))}
           current={cur}
           onCurrentChange={setCur}
+          gutter={false}
+          zebra={false}
+          rules={false}
           columns={[{ key: 'name', header: 'Setting', headAlign: 'left' }]}
           rowTutorialId={(r) => `host.mois.row.setting-${pbSlug(r.name)}`}
         />
       </div>
-      <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--pb-window)' }}>
-        {setting.name === 'User Agreements' ? <UserAgreementResponses /> : <>
-        <div className="pb-band" style={{ background: '#c8dcfa' }}>{setting.name}</div>
-        {setting.desc && (
-          <div style={{ padding: '4px 8px', whiteSpace: 'normal' }}>{setting.desc}</div>
+      <div className="pb-ua-box" style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative', background: 'var(--pb-window)' }}>
+        {setting.name === 'User Agreements' ? <UserAgreementResponses /> : (
+          <>
+            <div style={{ height: OTHER_PANE_BAND, flex: 'none', display: 'flex', alignItems: 'center', paddingLeft: 10, background: 'var(--pb-dw-header)' }}>
+              {setting.band ?? setting.name}
+            </div>
+            {/* every figure is from the pane's outer border: shift the layer
+                back over the 1px rule so a measured y lands where it should */}
+            <div key={setting.name} style={{ position: 'absolute', left: -1, right: -1, top: -1, bottom: -1, pointerEvents: 'none' }}>
+              {setting.desc && <Line y={setting.descY ?? 41}><At x={setting.labelX}>{setting.desc}</At></Line>}
+              {setting.rule && <div style={{ position: 'absolute', left: 1, right: 1, top: 55, borderTop: `1px solid ${OTHER_RULE}` }} />}
+              <div style={{ pointerEvents: 'auto' }}>
+                {setting.fields.map((f, i) => <OtherControl key={i} field={f} setting={setting} />)}
+              </div>
+            </div>
+          </>
         )}
-        <div style={{ padding: '2px 8px' }}>
-          {setting.fields.map((f, i) => <OtherControl key={i} field={f} />)}
-        </div>
-        </>}
       </div>
     </div>
   )
 }
 
-function OtherControl({ field }: { field: OtherField }) {
-  if (field.kind === 'sub') {
+function OtherControl({ field, setting }: { field: OtherField; setting: OtherSetting }) {
+  const [choice, setChoice] = useState(field.kind === 'radios' ? field.value : undefined)
+
+  if (field.kind === 'group') {
     return (
-      <div style={{ padding: '2px 0' }}>
-        <div className="pb-form__label">{field.label}</div>
-        <div style={{ paddingLeft: 14 }}>
-          {field.fields.map((f, i) => <OtherControl key={i} field={f} />)}
+      <>
+        <div style={{ position: 'absolute', left: field.left, top: field.top, width: field.right - field.left + 1, height: field.bottom - field.top + 1, border: `1px solid ${OTHER_GROUP_RULE}`, boxSizing: 'border-box' }}>
+          <span style={{ position: 'absolute', left: 10, top: -8, padding: '0 1px', background: 'var(--pb-window)', whiteSpace: 'pre' }}>{field.caption}</span>
         </div>
-      </div>
+        {field.fields.map((f, i) => <OtherControl key={i} field={f} setting={setting} />)}
+      </>
+    )
+  }
+  if (field.kind === 'note') {
+    const ink: CSSProperties | undefined = field.ink === 'bold' ? { fontWeight: 700 } : field.ink === 'grey' ? { color: '#828282' } : undefined
+    return <Line y={field.y}><At x={field.x ?? setting.labelX} style={ink}>{field.text}</At></Line>
+  }
+  if (field.kind === 'button') {
+    return (
+      <PBButton command={pbSlug(field.label)} style={{ position: 'absolute', left: field.x, top: field.y - field.h / 2, width: field.w, height: field.h, minWidth: 0, padding: 0 }}>
+        {field.label}
+      </PBButton>
     )
   }
   if (field.kind === 'radios') {
     return (
-      <div className="pb-row" style={{ gap: 12, padding: '1px 0' }}>
-        <span className="pb-form__label" style={{ minWidth: 140 }}>{field.label}</span>
-        {/* neither option is selected in the Voice Service capture */}
+      <>
+        {field.label && <Line y={field.y ?? field.options[0]!.y}><At x={setting.labelX}>{field.label}</At></Line>}
         {field.options.map((o) => (
-          <PBRadio key={o} name={`other-${pbSlug(field.label)}`} label={o} checked={o === field.value} onChange={() => {}} />
+          <Line key={o.label} y={o.y}>
+            <At x={o.x}>
+              <PBRadio name={`other-${field.name}`} label={o.label} checked={choice === o.label} onChange={() => setChoice(o.label)} />
+            </At>
+          </Line>
         ))}
-      </div>
+      </>
     )
   }
+  const label = field.label
+    ? (field.kind === 'drop' && field.labelEnd !== undefined ? <At end={field.labelEnd}>{field.label}</At> : <At x={setting.labelX}>{field.label}</At>)
+    : null
+  const x = field.x ?? setting.controlX
   if (field.kind === 'drop') {
     return (
-      <Field label={field.label} w={150}>
-        <PBSelect w={field.w} options={field.options} defaultValue={field.value} disabled={field.disabled} />
-      </Field>
+      <Line y={field.y}>
+        {label}
+        <At x={x}><PBSelect w={field.w} options={field.options} defaultValue={field.value ?? ''} data-tutorial-id={anchorField(field.label)} /></At>
+      </Line>
     )
   }
   return (
-    <Field label={field.label} w={150}>
-      <PBInput w={field.w} defaultValue={field.value} />
-    </Field>
+    <Line y={field.y}>
+      {label}
+      <At x={x}>
+        <PBInput w={field.w} defaultValue={field.value} style={field.h ? { height: field.h } : undefined} {...(field.label ? { 'data-tutorial-id': anchorField(field.label) } : {})} />
+      </At>
+      {field.lookup && (
+        <At x={field.lookup.x}>
+          <PBButton style={{ width: field.lookup.w, height: field.h ?? 18, minWidth: 0, padding: 0 }}>...</PBButton>
+        </At>
+      )}
+    </Line>
   )
 }
 

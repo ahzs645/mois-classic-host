@@ -31,6 +31,9 @@ export const initialAccountSettings = (row: UserRow): AccountSettings => ({
 export function accountOutcomes(settings: AccountSettings, row: UserRow) {
   return {
     residentProfile: settings.profiles.includes('RESIDENT'),
+    clericalSupportAccount: row.user === 'ctraining',
+    primaryCareAssistantProfile: settings.profiles.includes('PRIMARY CARE ASSISTANT'),
+    readOnlyProfile: settings.profiles.includes('READ ONLY'),
     defaultAuthorSelf: Boolean(settings.author && settings.author === row.display),
     desktopProviderPresent: Boolean(settings.desktopProvider),
     manualProgressNotesAcknowledged: !settings.ackProgressNotes,

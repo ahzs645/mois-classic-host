@@ -114,7 +114,7 @@ export function windowAccessRows(module: string): WindowAccessRow[] {
   return rows
 }
 
-export function ModuleWindowAccessTab({ override = false }: { override?: boolean }) {
+export function ModuleWindowAccessTab({ override = false, pad = PANE_PAD }: { override?: boolean; pad?: string }) {
   const [modRow, setModRow] = useState(0)
   const module = MODULE_ACCESS_ROWS[modRow]?.module ?? MODULE_ACCESS_ROWS[0]!.module
   /* the right pane follows the module selected on the left */
@@ -133,7 +133,7 @@ export function ModuleWindowAccessTab({ override = false }: { override?: boolean
   const key = (i: number) => `${pbSlug(module)}:${i}`
 
   return (
-    <div className="pb-row" style={{ alignItems: 'stretch', gap: 3, flex: '1 1 auto', minHeight: 0, padding: PANE_PAD }}>
+    <div className="pb-row" style={{ alignItems: 'stretch', gap: 3, flex: '1 1 auto', minHeight: 0, padding: pad }}>
       <style>{UM_ACCESS_CSS}</style>
       {/* --- left pane: Module Access, 313 capture px --- */}
       <AccessPane title="Module Access" width={MODULE_PANE_W}>
@@ -272,7 +272,7 @@ export function ModuleWindowAccessTab({ override = false }: { override?: boolean
    uncaptioned. 17 (user): ☐ Override before ☐ Execute.
    ------------------------------------------------------------------------ */
 
-export function SpecialFunctionsTab({ override = false }: { override?: boolean }) {
+export function SpecialFunctionsTab({ override = false, pad = PANE_PAD }: { override?: boolean; pad?: string }) {
   const [cur, setCur] = useState(0)
   /* the Execute ticks persist for the frame, so a chart window can check
      one (data/accessSettings.ts: Make Private Notes, Break Glass Private
@@ -284,7 +284,7 @@ export function SpecialFunctionsTab({ override = false }: { override?: boolean }
   useScreenReport(last ? { cell: last.cell, checked: last.checked } : {})
 
   return (
-    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: PANE_PAD }}>
+    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', padding: pad }}>
       <style>{UM_ACCESS_CSS}</style>
       <AccessPane title="Function Access">
         <PBDataWindow<SpecialFunctionRow>

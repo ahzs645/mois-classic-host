@@ -174,6 +174,25 @@ const SECURITY_PROFILES: UserListSpec = {
     { profile: 'LOCUM', desc: 'Locum physician - no administration', users: '1' },
     { profile: 'RESIDENT', desc: 'Resident - chart under a preceptor', users: '2' },
     { profile: 'READ ONLY', desc: 'Read-only chart access', users: '1' },
+    // Profile label supplied in the 2026-10-06 User Security Profiles captures.
+    { profile: 'PRIMARY CARE ASSISTANT', desc: 'Primary care assistant', users: '0' },
+    /* The rest of the names the 2026-10-06 User Security Profiles picker
+       shows (a site's list, read off the visible rows; the descriptions are
+       not captured, so none is invented), and the 2026-10-02 TRAINING
+       capture's ALLIED HEALTH (TIER 1). `IMMUNIZATION REG AND SCHED` is
+       as far as the picker's column shows it. */
+    { profile: 'ALLIED HEALTH (TIER 1)', desc: '', users: '0' },
+    { profile: 'ENHANCED ACCESS HIM', desc: '', users: '0' },
+    { profile: 'ENHANCED ACCESS PCA', desc: '', users: '0' },
+    { profile: 'ENHANCED ACCESS PSC', desc: '', users: '0' },
+    { profile: 'IMMUNIZATION REG AND SCHED', desc: '', users: '0' },
+    { profile: 'IMPRAVATA MAP', desc: '', users: '0' },
+    { profile: 'PRIVACY', desc: '', users: '0' },
+    { profile: 'PROVIDER (TIER 1)', desc: '', users: '0' },
+    { profile: 'PROVIDER (TIER 2)', desc: '', users: '0' },
+    { profile: 'REGIONAL ADMINISTRATOR', desc: '', users: '0' },
+    { profile: 'REGIONAL BILLING', desc: '', users: '0' },
+    { profile: 'REGIONAL TRAINER', desc: '', users: '0' },
   ],
   pitch: 19,
   headH: 16,
@@ -273,6 +292,8 @@ const USER_ACCOUNTS: UserListSpec = {
     { display: 'SAMWAYS, KRYSTLE', user: 'ksamways', role: 'MOA', ovWindow: '0', ovFunctions: '0', ovReports: '0', effective: '2017.07.10', expiry: '2025.12.31', status: 'I' },
     { display: 'SHEWCHUK, LEAH', user: 'lshewchuk', role: 'PHYSICIAN', ovWindow: '0', ovFunctions: '0', ovReports: '0', effective: '2013.10.21', expiry: '', status: 'A' },
     { display: 'SMITH, DALENE', user: 'dsmith', role: 'LOCUM', ovWindow: '0', ovFunctions: '0', ovReports: '0', effective: '2026.04.06', expiry: '2026.10.31', status: 'A' },
+    // Fictional account for practising the supplied read-only → PCA scenario.
+    { display: 'TRAINING, CASEY', user: 'ctraining', role: 'CLERICAL SUPPORT', profiles: 'READ ONLY', ovWindow: '0', ovFunctions: '0', ovReports: '0', effective: '2026.09.18', expiry: '', status: 'A' },
   ],
   pitch: 24,
   headH: 34,
@@ -427,7 +448,7 @@ export const NEW_USER_SYNC_X = 286
  * the emulator already carries rather than from a capture — no capture of
  * either dropped list exists. Role opens blank in the 2026-10-02 capture.
  */
-export const USER_ROLES = ['ADMIN', 'PHYSICIAN', 'NURSE', 'MOA', 'LOCUM', 'RESIDENT', 'READ ONLY']
+export const USER_ROLES = ['ADMIN', 'PHYSICIAN', 'NURSE', 'MOA', 'LOCUM', 'RESIDENT', 'READ ONLY', 'CLERICAL SUPPORT']
 export const USER_EXPERTISE = ['', 'FAMILY PRACTICE', 'INTERNAL MEDICINE', 'MENTAL HEALTH', 'PAEDIATRICS', 'SURGERY']
 
 export const NEW_USER_SECTIONS: NewUserSection[] = [
@@ -496,20 +517,32 @@ export const USER_ACCOUNT_TABS = [
 ]
 
 /* 974 x 714 in `42be29fdd885`; the 2026-10-02 TRAINING capture's window is
-   1108 x 820 at 1.14x — 972 x 719 — with a 46px foot under the tab page
-   holding Apply Changes / Cancel (89 x 23, 13 apart). The width stays. */
-export const USER_ACCOUNT_SIZE = { w: 974, h: 719 }
-export const USER_ACCOUNT_FOOT = { h: 46, button: 89, buttonH: 23, gap: 13 }
+   1108 x 820 at 1.14x — 972 x 719. The width stays.
+
+   THE HEIGHT is set from the 2026-10-06 captures, the first taken at 1x, so
+   the client area is MOIS's own pixels: under the title bar a 62px header
+   block, the 24px tab strip, a 557px tab page (its frame included) and a
+   43px foot — Apply Changes / Cancel 89 x 24, 13 apart, 12 under the page's
+   bottom edge. The title bar and frame are Windows' and follow the display
+   (32px at 100%, the kit's 27.5 at 200%), so the window is that client area
+   plus the kit's own chrome: 1 + 27.5 + 1 + 62 + 24 + 557 + 43 + 1 — the 1
+   a row of face between the title bar and the header's rule (the captures'
+   rule is 33 under the frame, the 100% bar 31 + 1). */
+export const USER_ACCOUNT_SIZE = { w: 974, h: 716.5 }
+export const USER_ACCOUNT_FOOT = { h: 43, button: 89, buttonH: 24, gap: 13, padTop: 12 }
 export const USER_ACCOUNT_FOOTER = ['Apply Changes', 'Cancel']
 
 /**
- * The fixed block above the tab strip (2026-10-02 TRAINING capture): three
- * columns of three label / value pairs, the values in **bold read-only
- * text**, not edit boxes, on the window face, ruled off underneath, 60px
- * tall. The first two columns' labels are left-set (x 10 / 285) with values
- * at 83 / 359; the third column's labels are right-set against 612 with the
- * values at 617. Lines are 18px apart, the first centred 13 down.
- * `Change Name` (77 x 21) sits at x 846, 8 down.
+ * The fixed block above the tab strip (2026-10-02 TRAINING capture,
+ * re-measured at 1x off the 2026-10-06 captures): three columns of three
+ * label / value pairs, the values in **bold read-only text**, not edit boxes,
+ * on the window face. The block is 62px and framed in two-tone rules, as a
+ * Win32 static edge draws them: #7D7D7D over #D1D1D1 along the top, #7C7C7C
+ * over #D5D5D5 along the bottom (USER_ACCOUNT_HEADER_FRAME). The first two
+ * columns' labels are left-set (x 10 / 285) with values at 83 / 359; the
+ * third column's labels are right-set against 612 with the values at 617.
+ * Lines are centred 14 / 32 / 51 under the top rule (`rows`).
+ * `Change Name` (78 x 22) sits at x 848, 7 under the top rule.
  */
 export const USER_ACCOUNT_HEADER: { label: string; key: string }[][] = [
   [
@@ -529,26 +562,67 @@ export const USER_ACCOUNT_HEADER: { label: string; key: string }[][] = [
   ],
 ]
 export const USER_ACCOUNT_HEADER_GEOMETRY = {
-  h: 60, pitch: 18, top: 13,
+  /* each line's centre under the top rule: 18 then 19 apart at 1x */
+  h: 62, pitch: 18.5, rows: [14, 32, 51],
   columns: [{ label: 10, value: 83 }, { label: 285, value: 359 }, { labelRight: 612, value: 617 }],
-  changeName: { x: 846, y: 8, w: 77, h: 21 },
+  /* x is the button's box; the kit inks its frame 1px in */
+  changeName: { x: 847, y: 7, w: 78, h: 22 },
 }
+export const USER_ACCOUNT_HEADER_FRAME = { top: ['#7d7d7d', '#d1d1d1'], bottom: ['#7c7c7c', '#d5d5d5'] }
 
 /**
- * The ten tabs' painted widths, left to right (2026-10-02 TRAINING capture,
- * tab separators at x 22 / 121 / 300 / 428 / 535 / 617 / 730 / 826 / 932 /
- * 1025 / 1074, ÷ 1.14). They are not one padding round the caption — Other
- * is 9px either side of its text, Module / Window Access 17 — so each is
- * carried as measured.
+ * The ten tabs' painted widths, left to right. First taken off the
+ * 2026-10-02 TRAINING capture at 1.14x (separators at x 22 / 121 / 300 / 428
+ * / 535 / 617 / 730 / 826 / 932 / 1025 / 1074, ÷ 1.14); re-read at 1x off
+ * the 2026-10-06 captures, separators at 91 / 248 / 361 / 456 / 525 / 626 /
+ * 711 / 804 / 886 from the window's left frame. They are not one padding
+ * round the caption — Other is 9px either side of its text, Module / Window
+ * Access 17 — so each is carried as measured.
  */
-export const USER_ACCOUNT_TAB_WIDTHS = [87, 157, 112, 94, 72, 99, 84, 93, 82, 43]
+export const USER_ACCOUNT_TAB_WIDTHS = [90, 157, 113, 95, 69, 101, 85, 93, 82, 43]
 
 /**
- * Every tab page but Subscription and Other holds one sunken panel (or two
- * side by side) inset 7 from the page, each opening with a 22px grey band
- * ruled off underneath (2026-10-02 TRAINING capture).
+ * Every tab page but Other holds one sunken panel (or two side by side)
+ * opening with a grey band ruled off underneath. Re-measured at 1x off the
+ * 2026-10-06 captures:
+ *   - the PAGE is framed the way a Win32 tab control frames it: white down
+ *     its left edge (3px), #DDDDDD along its right and bottom edges with a
+ *     #F8F8F8 line inside them, and a white line inside that along the
+ *     bottom (USER_ACCOUNT_PAGE_FRAME);
+ *   - a panel stands 8 under the tab rule (5 on some pages, `tight`), 5 in
+ *     from the white edge, 9 in from the right edge and 8 above the bottom
+ *     edge (`pad`);
+ *   - a panel is drawn #7B7B7B with a #DFDFDF line inside it — a light inner
+ *     line, not the grid's own dark border (`border`, `inner`);
+ *   - its band is 20px of #DCD7D2 over a #767676 rule (`band` carries the
+ *     rule, as --pb-band-h does).
  */
-export const USER_ACCOUNT_PANEL = { inset: 7, band: 22 }
+export const USER_ACCOUNT_PANEL = {
+  band: 21,
+  /* not every page is laid out alike: User Alias and Workspace Mgt stand
+     their panels only 5 under the tab rule with a 22px band, as does the
+     Membership List's band; Service Group, Subscription and Memberships use
+     the 8 and 20 above */
+  tight: { top: 4, band: 23 },
+  /* and the gap under the panel is each page's own (1x, 2026-10-06): 10 on
+     User Account, 4 on User Alias, 6 on Workspace Mgt, 12 on Subscription —
+     whose list also stands 2 further right, 11 to 964 — and the `pad` 8
+     elsewhere */
+  pageBottom: { 'User Account': 10, 'User Alias': 4, 'Workspace Mgt': 6, Subscription: 12 } as Record<string, number>,
+  subscriptionX: { left: 7, right: 7 },
+  pad: { top: 7, right: 9, bottom: 8, left: 5 },
+  border: '#7b7b7b',
+  inner: '#dfdfdf',
+  bandRule: '#767676',
+}
+/* The access panes (Module / Window Access, Special Functions, Report
+   Access) are shared with Security Profile Settings, which keeps its own
+   inset. In this window the 1x Report Access capture stands the pane 8 under
+   the tab rule, 5 in from the white edge, 9 from the right and 3 above the
+   bottom edge, in the panels' #7B7B7B with a 20px band over #767676; the
+   other two have no 1x capture and follow it. */
+export const USER_ACCOUNT_ACCESS_PAD = '7px 9px 3px 5px'
+export const USER_ACCOUNT_PAGE_FRAME = { left: '#ffffff', leftW: 3, edge: '#dddddd', highlight: '#f8f8f8' }
 
 /* --- tab 1: `User Account` ------------------------------------------------
    `42be29fdd885`. Band caption `User Account`. The spec's prose says "four
@@ -576,6 +650,9 @@ export const WORKSPACE_ACK_ITEMS = [
 ]
 
 export const DEFAULT_AUTHOR_FOOTNOTE = '* Blank will default to User Account of Desktop Provider.'
+/** The Memberships tab's copy of the same footnote is longer (2026-10-06
+    capture, sic "defualt"); tab 1's stays the short one. */
+export const MEMBERSHIP_AUTHOR_FOOTNOTE = '* Blank will default to User Account of Desktop Provider (if Org Role/ Organization, will defualt to current log in user).'
 
 /** `Default Desktop Provider:` / `Default Author*:` — the emulator's roster. */
 export const DESKTOP_PROVIDERS = [
@@ -763,7 +840,16 @@ export const SHARED_WITH_ME_ROWS: UserRow[] = [
  * read-only: a 31px #C8DCFA caption band, then bold black column captions
  * left-set at 9 / 83 / 158 over a black rule, on white.
  */
-export const WORKSPACE_MGT_GEOMETRY = { inboxH: 269, gap: 4, sharingW: 588, sharedW: 357, sideGap: 7, sharedBand: 31 }
+/* Re-measured at 1x (2026-10-06): this page's panels stand only 5 under the
+   tab rule (`top`), not the other pages' 8; Inbox Forwarding is 271 tall,
+   the lower pair 590 and 358 wide, 6 apart; the band buttons are butted
+   117 / 117 / 52 / 52 (Inbox Forwarding) and 52 / 52 (Sharing Workspace
+   With), each after the first drawn 1 wider to overlap its neighbour's
+   edge. */
+export const WORKSPACE_MGT_GEOMETRY = {
+  top: 4, inboxH: 271, gap: 4, sharingW: 590, sharedW: 358, sideGap: 6, sharedBand: 31,
+  inboxButtons: [117, 118, 53, 53], newDeleteButtons: [52, 53],
+}
 export const SHARED_WITH_ME_PANEL_COLUMNS: UserColumn[] = [
   { key: 'start', header: 'Start', width: 74, headAlign: 'left' },
   { key: 'stop', header: 'Stop', width: 75, headAlign: 'left' },
@@ -785,37 +871,44 @@ export const ASSOCIATED_PROVIDER_ROWS: UserRow[] = [
   { provider: 'BEARDWOOD, WALTER', pract: rosterProvider('BEARDWOOD, WALTER')!.pract, payee: rosterProvider('BEARDWOOD, WALTER')!.payee },
 ]
 
+/* The column widths come from the 2026-10-06 capture (1:1), the list empty:
+   GREY captions left-set at 268 / 360 / 435 / 531 / 597 / 661 / 719 / 762 in
+   from the list's rule and `Add` at 815, so each column runs from 4 before
+   its caption to the next. `Name` alone is set 10 in (MEMBERSHIP_NAME_INDENT).
+   The header is 30px, and no rows are captured — where the values sit under
+   the captions is still the earlier layout's guess. */
+export const MEMBERSHIP_NAME_INDENT = 6
 export const MEMBERSHIP_COLUMNS: UserColumn[] = [
-  { key: 'name', header: 'Name', width: 210 },
-  { key: 'type', header: 'Type', width: 96 },
-  { key: 'status', header: 'Status', width: 62, align: 'center' },
-  { key: 'member', header: 'Member Type', width: 104 },
-  { key: 'started', header: 'Started', width: 80, align: 'center' },
-  { key: 'stopped', header: 'Stopped', width: 80, align: 'center' },
-  { key: 'basket', header: 'Basket', width: 54, align: 'center' },
-  { key: 'task', header: 'Task', width: 48, align: 'center' },
-  { key: 'message', header: 'Message', width: 62, align: 'center' },
+  { key: 'name', header: 'Name', width: 264 },
+  { key: 'type', header: 'Type', width: 92 },
+  { key: 'status', header: 'Status', width: 75, align: 'center' },
+  { key: 'member', header: 'Member Type', width: 96 },
+  { key: 'started', header: 'Started', width: 66, align: 'center' },
+  { key: 'stopped', header: 'Stopped', width: 64, align: 'center' },
+  { key: 'basket', header: 'Basket', width: 58, align: 'center' },
+  { key: 'task', header: 'Task', width: 43, align: 'center' },
+  { key: 'message', header: 'Message', width: 53, align: 'center' },
 ]
-/* NOTE: the Membership List's column *widths* were not measured — the capture
-   gives the nine captions and the no-gridlines / 29px-header shape only. The
-   figures above are laid out to the captions and are not measurements. */
 export const MEMBERSHIP_ROWS: UserRow[] = [
   { name: 'FAKE MEDICAL CLINIC PRG', type: 'ORGANIZATION', status: 'A', member: 'Provider', started: '2018.06.04', stopped: '', basket: 'Y', task: 'Y', message: 'Y' },
   { name: 'ACUTE 1 PLN 1 PRG', type: 'ORGROLE', status: 'A', member: 'Member', started: '2021.02.15', stopped: '', basket: 'N', task: 'Y', message: 'Y' },
 ]
 
 /* --- tab 8: `Service Group` -----------------------------------------------
-   `109df8904120` (1.25x, normalised). Headers are LEFT-aligned here, which is
-   unusual for this family. Shipped typo in the footnote.                   */
+   `109df8904120` (1.25x, normalised); re-measured off the 2026-10-06 capture
+   (1:1): no gutter, the captions LEFT-set 6 / 220 / 591 in from the panel's
+   rule, which is unusual for this family. Shipped typo in the footnote,
+   which sits at the third column's left, inside the white.                 */
 
 export const SERVICE_GROUP_BAND = 'Service Group(s) / Pathway(s)'
 export const SERVICE_GROUP_COLUMNS: UserColumn[] = [
-  { key: 'name', header: 'Name', width: 210, headAlign: 'left' },
-  { key: 'desc', header: 'Description', width: 360, headAlign: 'left' },
-  { key: 'launch', header: 'Alternate Launch Modes', width: 220, headAlign: 'left' },
+  { key: 'name', header: 'Name', width: 216, headAlign: 'left' },
+  { key: 'desc', header: 'Description', width: 371, headAlign: 'left' },
+  { key: 'launch', header: 'Alternate Launch Modes', headAlign: 'left' },
 ]
 /* sic — "all user have access" */
 export const SERVICE_GROUP_FOOTNOTE = '(note: all user have access to the Main Program)'
+export const SERVICE_GROUP_FOOTNOTE_X = 588
 export const SERVICE_GROUP_ROWS: UserRow[] = [
   { name: 'MAIN', desc: 'Main Program', launch: '' },
   { name: 'MENTAL HEALTH', desc: 'Mental health pathway', launch: 'Chart' },
@@ -826,13 +919,16 @@ export const SERVICE_GROUP_ROWS: UserRow[] = [
    each row carries its own Edit / Delete. The Subject cell renders a
    secondary grey qualifier under the value.                                */
 
+/* 2026-10-06 capture (1:1): captions left-set at 5 / 180 / 509 / 602 / 685 /
+   761 in from the list's rule, `Add` at 815 — so each column runs from 4
+   before its caption (the cells' 3px pad and the rule) to the next. */
 export const SUBSCRIPTION_COLUMNS: UserColumn[] = [
-  { key: 'event', header: 'Event', width: 220 },
-  { key: 'subject', header: 'Subject', width: 190 },
-  { key: 'method', header: 'Method', width: 100 },
-  { key: 'priority', header: 'Priority', width: 90 },
-  { key: 'start', header: 'Start', width: 84, align: 'center' },
-  { key: 'end', header: 'End', width: 84, align: 'center' },
+  { key: 'event', header: 'Event', width: 176 },
+  { key: 'subject', header: 'Subject', width: 329 },
+  { key: 'method', header: 'Method', width: 93 },
+  { key: 'priority', header: 'Priority', width: 83 },
+  { key: 'start', header: 'Start', width: 76, align: 'center' },
+  { key: 'end', header: 'End', width: 54, align: 'center' },
 ]
 export const SUBSCRIPTION_ROWS: UserRow[] = [
   { event: 'Access Control - Break Glass', subject: 'MENTAL HEALTH', qualifier: 'orgrole', method: 'Task', priority: 'High', start: '2025.01.06', end: '' },
@@ -862,61 +958,156 @@ export const EVENT_SUBJECT_DIALOG = {
 }
 
 /* --- tab 10: `Other` ------------------------------------------------------
-   `10777195a523`, `1ec8d9776da0`, `ad1978a4e8be`. Master/detail: a left list
-   headed `Setting`, a right detail pane with a #C8DCFA caption bar.        */
+   `10777195a523`, `1ec8d9776da0`, `ad1978a4e8be`; laid out to the
+   2026-10-06 captures (1:1), one per setting. Master/detail: a left list
+   242 wide headed `Setting` (grey caption, 24px rows, even rows #E8E8E8, no
+   gutter), 7 from a bordered white detail pane. The pane opens with a 25px
+   #C8DCFA band in plain (not bold) ink, a description line, and — on every
+   setting but CPSBC Library — a #AEAEB1 rule 55 down; then the setting's
+   controls. Every `y` below is a line's centre measured from the pane's top
+   border, every `x` from its left border. mhk Settings captions its band
+   `myhealthkey`. User Agreements paints no band (its own pane,
+   screens/UserAgreementWindows.tsx).                                       */
 
 export type OtherSetting = {
   name: string
-  /** the description line under the caption bar, where the capture prints one */
+  /** the band caption, where it is not the list's name */
+  band?: string
+  /** the description line under the band */
   desc?: string
+  descY?: number
+  /** the rule under the description; CPSBC Library has none */
+  rule?: boolean
+  /** where a line's label and control start */
+  labelX: number
+  controlX: number
   fields: OtherField[]
 }
 
+export type OtherRadio = { label: string; x: number; y: number }
+
 export type OtherField =
-  | { kind: 'drop'; label: string; w: number; options: string[]; value?: string; disabled?: boolean }
-  | { kind: 'text'; label: string; w: number; value?: string }
-  | { kind: 'radios'; label: string; options: string[]; value?: string }
-  /** the `Expand Sections on Startup:` caption over three disabled drops */
-  | { kind: 'sub'; label: string; fields: OtherField[] }
+  /** `labelEnd`: a label right-set against that x (Forms: / Letters: / Recent:) */
+  | { kind: 'drop'; label: string; y: number; w: number; options: string[]; value?: string; labelEnd?: number; x?: number }
+  | { kind: 'text'; label?: string; y: number; w: number; h?: number; value?: string; x?: number; lookup?: { x: number; w: number } }
+  /** radio buttons where they are painted; `value` is the chosen one, if any */
+  | { kind: 'radios'; label?: string; y?: number; name: string; options: OtherRadio[]; value?: string }
+  | { kind: 'note'; text: string; y: number; x?: number; ink?: 'grey' | 'bold' }
+  | { kind: 'button'; label: string; x: number; y: number; w: number; h: number }
+  /** an etched box with a caption on its top rule, `top`/`bottom` its rules */
+  | { kind: 'group'; caption: string; left: number; right: number; top: number; bottom: number; fields: OtherField[] }
+
+export const OTHER_LIST_W = 242
+export const OTHER_PANE_BAND = 25
 
 export const OTHER_SETTINGS: OtherSetting[] = [
   {
     name: 'Attachment Wizard',
+    desc: 'Attachment Wizard settings control the configuration of the Attachment Dialogue window.',
+    descY: 41,
+    rule: true,
+    labelX: 12,
+    controlX: 124,
     fields: [
-      { kind: 'drop', label: 'Starting Tab Page:', w: 160, options: ['Forms', 'Letters', 'Recent'] },
+      /* every list opens blank in the capture */
+      { kind: 'drop', label: 'Starting Tab Page:', y: 69, w: 120, options: ['', 'Forms', 'Letters', 'Recent'] },
+      { kind: 'note', text: 'Expand Sections on Startup:', y: 89 },
+      { kind: 'drop', label: 'Forms:', labelEnd: 113, y: 109, w: 78, options: ['', 'Yes', 'No'] },
+      { kind: 'drop', label: 'Letters:', labelEnd: 113, y: 129, w: 78, options: ['', 'Yes', 'No'] },
+      { kind: 'drop', label: 'Recent:', labelEnd: 113, y: 149, w: 78, options: ['', 'Yes', 'No'] },
+      { kind: 'text', label: 'Recent Record Limit:', y: 168, w: 50, value: '0' },
+      { kind: 'drop', label: 'After Attaching Action:', y: 189, w: 120, options: ['---'], value: '---' },
+    ],
+  },
+  {
+    name: 'CPSBC Library',
+    desc: 'The settings below will control how you access the CPSBC Library from within MOIS:',
+    descY: 38,
+    labelX: 11,
+    controlX: 21,
+    fields: [
       {
-        kind: 'sub',
-        label: 'Expand Sections on Startup:',
+        kind: 'group', caption: 'Options', left: 11, right: 520, top: 62, bottom: 154,
+        fields: [{
+          kind: 'radios', name: 'cpsbc-options', value: 'Prompt for options when launching library',
+          options: [
+            { label: 'Use login token to automatically connect to library', x: 22, y: 87 },
+            { label: 'Require CPSBC username and password to connect to library', x: 22, y: 110 },
+            { label: 'Prompt for options when launching library', x: 22, y: 133 },
+          ],
+        }],
+      },
+      {
+        kind: 'group', caption: 'Login Token', left: 11, right: 520, top: 172, bottom: 240,
         fields: [
-          { kind: 'drop', label: 'Forms:', w: 120, options: ['Yes', 'No'], disabled: true },
-          { kind: 'drop', label: 'Letters:', w: 120, options: ['Yes', 'No'], disabled: true },
-          { kind: 'drop', label: 'Recent:', w: 120, options: ['Yes', 'No'], disabled: true },
+          { kind: 'text', x: 21, y: 198, w: 490, h: 17 },
+          { kind: 'button', label: 'Delete Token', x: 430, y: 223, w: 81, h: 22 },
         ],
       },
-      { kind: 'text', label: 'Recent Record Limit:', w: 44, value: '0' },
-      { kind: 'drop', label: 'After Attaching Action:', w: 160, options: ['---'], value: '---' },
+      { kind: 'note', ink: 'bold', text: 'More information about accessing the CPSBC Library from MOIS:', y: 260 },
+      { kind: 'note', text: '- MOIS will not have access to and will not store your CPSBC username and password', y: 279 },
+      { kind: 'note', text: '- Your CPSBC username and password are different than your MOIS user name and password', y: 300 },
+      { kind: 'note', text: '- Deleting your login token will require you to create a new token the next time you launch the CPSBC Library from MOIS', y: 320 },
     ],
   },
   {
     name: 'Voice Service',
     desc: 'The MOIS Voice Service, when enabled, will launch the identify voice service software. '
       + 'This service is designed for cloud customers.',
+    descY: 42,
+    rule: true,
+    labelX: 13,
+    controlX: 104,
     fields: [
       /* neither radio is selected in the capture */
-      { kind: 'radios', label: 'Enabled:', options: ['Yes', 'No'] },
-      { kind: 'drop', label: 'Software:', w: 200, options: [''], disabled: true },
+      { kind: 'radios', label: 'Enabled:', y: 68, name: 'voice-enabled', options: [{ label: 'Yes', x: 105, y: 68 }, { label: 'No', x: 163, y: 68 }] },
+      { kind: 'drop', label: 'Software:', y: 89, w: 265, options: [''] },
     ],
   },
   {
     name: 'eFax Service',
     desc: 'The eFax account set below will be used by default for this user.',
+    descY: 42,
+    rule: true,
+    labelX: 11,
+    controlX: 122,
     fields: [
-      { kind: 'drop', label: 'Default eFax Account:', w: 220, options: [''], disabled: true },
+      { kind: 'drop', label: 'Default eFax Account:', y: 75, w: 190, options: [''] },
     ],
   },
   /* 3363428 `c4de1672…`: the user's responses to User Agreements; the pane
-     is drawn by screens/UserAgreementWindows.tsx (UserAgreementResponses) */
-  { name: 'User Agreements', fields: [] },
+     is drawn by screens/UserAgreementWindows.tsx (UserAgreementResponses).
+     The 2026-10-06 capture, of an account with none, shows the pane blank. */
+  { name: 'User Agreements', labelX: 0, controlX: 0, fields: [] },
+  {
+    name: 'mhk Settings',
+    band: 'myhealthkey',
+    desc: 'The settings below will control how mois processes mhk two-way messaging',
+    descY: 42,
+    rule: true,
+    labelX: 11,
+    controlX: 17,
+    fields: [
+      {
+        kind: 'group', caption: 'Default setting for the  No-Reply option when sending messages to patient',
+        left: 11, right: 520, top: 72, bottom: 139,
+        fields: [{
+          /* neither is chosen in the capture */
+          kind: 'radios', name: 'mhk-no-reply',
+          options: [{ label: 'Always On', x: 22, y: 97 }, { label: 'Always Off', x: 22, y: 119 }],
+        }],
+      },
+      {
+        kind: 'group', caption: 'Default inbox for patient replies', left: 11, right: 520, top: 159, bottom: 235,
+        fields: [
+          { kind: 'text', x: 17, y: 185, w: 313, h: 16, value: '0', lookup: { x: 330, w: 21 } },
+          { kind: 'note', ink: 'grey', x: 18, y: 206, text: '- when a patient replies to a message sent by this user, their reply will be forwarded to the above inbox' },
+          /* sic: "will to the user's inbox" */
+          { kind: 'note', ink: 'grey', x: 18, y: 222, text: "- if blank, all patient replies will to the user's inbox" },
+        ],
+      },
+    ],
+  },
 ]
 
 /* ===========================================================================

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  PBBand, PBButton, PBCheckbox, PBDataWindow, PBGroup, PBInput, PBTabs, PBTextArea,
+  PBBand, PBButton, PBCheckbox, PBDataWindow, PBGroupBox, PBInput, PBTabs, PBTextArea,
   pbSlug, usePBInstrumentation,
 } from '../pb'
 import {
@@ -371,16 +371,24 @@ export function NewSecurityProfileDialog({ onContinue, onClose }: {
 }
 
 /* ===========================================================================
-   The `User Security Profiles` picker  `e227667383d1`
+   The `User Security Profiles` picker  2026-10-06 capture (1:1)
 
    `303189`: check the boxes that apply, press `Change Privileges`. A checked
    row highlights #9CFB9C.
 
-   NOTE ON THE HEADER FILL. That capture is 1125x756 — resampled — and its
-   grid header measures #CEDFFF rather than the family's #C8DCFA. The spec
-   reads that as theme-era drift rather than a second token, so the kit's
-   #C8DCFA is what is drawn here.
+   Laid out to the 2026-10-06 capture of User Account ▸ Security Profiles ▸
+   Change (the older help-site `e227667383d1` is resampled and drew a wider
+   window): a 259px window holding one sunken box — 14 in from the left, 20
+   from the right — opening with a 21px grey `Select Security Profiles`
+   band, then a 16px blue header over `Select` (37) / `Security Profile`, and
+   white 19px rows with no current-row gutter, 12½ of them before the list
+   scrolls. The profiles are listed by name. `Change Privileges` (93) and
+   `Cancel` (71), 22 tall, sit centred 13 under the box with 11 of face
+   below them (re-measured with the 100% frame: the client is 338 tall).
    ======================================================================== */
+
+const PICKER = { w: 259, padTop: 16, padLeft: 14, padRight: 20, band: 21, listH: 253, selectW: 37, gap: 13, foot: 11, buttonH: 22 }
+const byProfileName = (a: UserRow, b: UserRow) => String(a.profile ?? '').localeCompare(String(b.profile ?? ''))
 
 export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
   selected: string[]
@@ -391,8 +399,21 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
   const [cur, setCur] = useState(0)
   const picked = useTickSet<string>(selected)
   /* the list as User Security Profiles holds it, new profiles included */
-  const [rows] = useSecurityProfiles()
-  useScreenReport({ dialog: pbSlug(PROFILE_PICKER.title) })
+  const [profiles] = useSecurityProfiles()
+  const rows = [...profiles].sort(byProfileName)
+  useScreenReport({
+    dialog: pbSlug(PROFILE_PICKER.title),
+    primaryCareAssistantProfile: picked.has('PRIMARY CARE ASSISTANT'),
+    readOnlyProfile: picked.has('READ ONLY'),
+  })
+  const buttons = footerButtons(PROFILE_PICKER.buttons, {
+    onPress: (b) => (b === 'Change Privileges' ? onApply([...picked.ticked]) : onClose()),
+  }).map((button) => ({
+    ...button,
+    command: button.command === 'cancel' ? 'user-security-profiles-cancel' : button.command,
+    width: button.label === 'Cancel' ? 71 : 93,
+    style: { height: PICKER.buttonH },
+  }))
 
   return (
     <ModalWindow
@@ -400,23 +421,25 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
       onClose={onClose}
       zIndex={LAYER.demographic}
       windowClassName="pb-um-dialog"
-      windowStyle={{ width: 460 }}
+      windowStyle={{ width: PICKER.w }}
       wrap={{ tutorialId: host?.anchor('dialog', pbSlug(PROFILE_PICKER.title)) }}
       after={<style>{UM_CSS}</style>}
     >
-          <div style={{ flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)', padding: '6px 8px' }}>
-            <PBGroup title={PROFILE_PICKER.group}>
-              <div className="pb-um-picker" style={{ height: 180, display: 'flex' }}>
+          <div style={{ flex: '1 1 auto', minHeight: 0, background: 'var(--pb-face)', padding: `${PICKER.padTop}px ${PICKER.padRight}px 0 ${PICKER.padLeft}px` }}>
+            <PBGroupBox title={PROFILE_PICKER.group} pad={false} style={{ ['--pb-band-h' as string]: `${PICKER.band}px`, borderColor: '#797979' }}>
+              <div className="pb-um-picker" style={{ height: PICKER.listH, display: 'flex', ['--pb-dw-row-h' as string]: '19px' }}>
                 <PBDataWindow<UserRow>
                   rows={rows}
                   current={cur}
                   onCurrentChange={setCur}
+                  gutter={false}
+                  zebra={false}
                   rowClassName={(r) => (picked.has(String(r.profile)) ? 'is-picked' : undefined)}
                   columns={[
                     {
                       key: 'select',
                       header: 'Select',
-                      width: 56,
+                      width: PICKER.selectW,
                       align: 'center',
                       render: (r: UserRow) => (
                         /* the anchor rides the input, not the cell around it */
@@ -427,19 +450,16 @@ export function SecurityProfilePickerDialog({ selected, onApply, onClose }: {
                         />
                       ),
                     },
-                    /* centred over the left-set names (e227667383d1) */
+                    /* centred over the left-set names */
                     { key: 'profile', header: 'Security Profile' },
                   ]}
                   rowTutorialId={(r) => `host.mois.row.pick-${pbSlug(String(r.profile ?? ''))}`}
                 />
               </div>
-            </PBGroup>
+            </PBGroupBox>
           </div>
 
-          <DialogFooter frame="pb" buttons={footerButtons(PROFILE_PICKER.buttons, {
-            wide: true,
-            onPress: (b) => (b === 'Change Privileges' ? onApply([...picked.ticked]) : onClose()),
-          }).map((button) => button.command === 'cancel' ? { ...button, command: 'user-security-profiles-cancel' } : button)} />
+          <DialogFooter gap={10} padding={`${PICKER.gap}px 0 ${PICKER.foot}px`} background="var(--pb-face)" buttons={buttons} />
     </ModalWindow>
   )
 }

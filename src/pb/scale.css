@@ -13,3 +13,41 @@
     filter: url(#pb-dpi-stretch-200);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The window frame at 100%. Windows draws a window's caption and frame
+   itself, at the display's own DPI, so they do not follow the 2x stretch
+   above: the kit's 27.5px bar is the 200% TRAINING captures' halved. The
+   2026-10-06 CMOIS captures, taken at 100%, measure (User Account and User
+   Security Profiles agree to the pixel):
+     - under the frame's top line a 31px bar: a #DCDCDC line, 29 white rows
+       and a #F2F2F2 one, the client starting on the 32nd row;
+     - the caption, icon and close glyph centred 1px above the bar's middle;
+     - a close-only dialog's ✕ centred 14.5px in from the frame, not in a 45px
+       button (x 956–965 of 976; 238–247 of 259);
+     - under the client a 2px band (#F2F2F2 over #E0E0E0) above the frame's
+       bottom line.
+   Windows keeps a dialog's client area and grows its frame, so a window the
+   kit sizes outright grows by the difference (`--pb-chrome-grow`, applied
+   by PBWindow) and its client is the same at both scales. A window with
+   minimise and maximise has no 100% capture yet; its buttons keep the kit's
+   width.
+   ------------------------------------------------------------------------- */
+.pb-root:not(.pb-scale--200) {
+  --pb-titlebar-h: 31px;
+  --pb-chrome-grow: 5.5px; /* 31 - 27.5 + the 2px bottom band */
+}
+.pb-root:not(.pb-scale--200) .pb-titlebar {
+  padding-bottom: 2px;
+  box-shadow: inset 0 1px #dcdcdc, inset 0 -1px #f2f2f2;
+}
+.pb-root:not(.pb-scale--200) .pb-window {
+  padding-bottom: 2px;
+  background: linear-gradient(to top, #e0e0e0 1px, #f2f2f2 1px 2px, var(--pb-face) 2px);
+}
+.pb-root:not(.pb-scale--200) .pb-titlebar__btn--close:only-child {
+  width: 29px;
+}
+.pb-root:not(.pb-scale--200) .pb-titlebar__btn {
+  padding-bottom: 2px;
+}

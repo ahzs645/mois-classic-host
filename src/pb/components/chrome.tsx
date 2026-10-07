@@ -67,6 +67,17 @@ function useDialogDrag(enabled: boolean) {
 }
 
 /* --- PBWindow ------------------------------------------------------------ */
+/**
+ * A height the kit gives a window is its size with the 200% frame. Windows
+ * keeps a dialog's client area at every scale and grows its frame instead,
+ * so at 100% the window grows by the difference (pb/scale.css
+ * `--pb-chrome-grow`) and what is inside it does not move.
+ */
+function grown(style: CSSProperties | undefined): CSSProperties | undefined {
+  if (typeof style?.height !== 'number') return style
+  return { ...style, height: `calc(${style.height}px + var(--pb-chrome-grow, 0px))` }
+}
+
 export function PBWindow({
   title, sub, icon, child, onClose, controls = true, style, className, children,
   maximized, onMinimize, onMaximize, onMovePointerDown, onResizePointerDown, tutorialId,
@@ -103,7 +114,7 @@ export function PBWindow({
     <div
       ref={dialogDrag.ref}
       className={cx('pb-window', child && 'pb-window--child', className)}
-      style={dialogDrag.style ? { ...style, ...dialogDrag.style } : style}
+      style={dialogDrag.style ? { ...grown(style), ...dialogDrag.style } : grown(style)}
       data-tutorial-id={tutorialId}
     >
       <div
