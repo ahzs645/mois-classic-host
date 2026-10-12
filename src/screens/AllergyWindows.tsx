@@ -3,13 +3,14 @@ import type { MoisRecord } from '../data/charts'
 import { MOIS_TODAY } from '../data/patients'
 import { addReactionRisk, type AgentType } from '../data/allergySession'
 import { usePatient } from '../data/patient-context'
-import { registerScreenWindows, useScreenWindow } from '../host/screen-windows'
+import { registerScreenWindows, useScreenWindow, useSessionState } from '../host/screen-windows'
 import { PBBand, PBButton, PBCheckbox, PBInput, PBLookup, PBRadio, PBSelect, PBTextArea } from '../pb'
 import {
   ADVERSE_WINDOWS, AdverseEventWindows, EventAgentsPane, EventDetailPane, EventReactionsPane, LinkPickerWindow,
   LinkedEventsPane, LinkedRisksPane, RiskReactionsPane, useAllergyIndex,
 } from './AdverseEventWindows'
 import { AefiWindow } from './AefiWindow'
+import { recordKeyOf } from './reportRecordEdits'
 import { FooterButton, StageWindow } from './StageWindow'
 
 /* ============================================================================
@@ -141,17 +142,23 @@ const R_AT = (left: number, top: number, width?: number): CSSProperties => ({ po
 const R_LAB = (left: number, top: number): CSSProperties => ({ ...R_AT(left, top), lineHeight: '17px', whiteSpace: 'nowrap' })
 
 export function RecommendationsPane({ record, onOpenText }: { record?: MoisRecord; onOpenText: () => void }) {
+  const patient = usePatient()
+  const key = recordKeyOf(patient.chart, 'events', record)
+  /* UI drafts only: the archive shows these unsigned controls, but not the
+     native filing/sign/history lifecycle or verified recommendation columns. */
+  const [ticks, setTicks] = useSessionState<Record<string, boolean>>(`recommendation-ticks:${key}`, {})
+  const [professionalStatus, setProfessionalStatus] = useSessionState<string | null>(`recommendation-status:${key}`, null)
   const locked = record?.stp_record_state === 'SIGNED'
-  const y = (k: string) => record?.[k] === 'Y'
-  const status = record?.str_recommend_status ?? ''
+  const y = (k: string) => ticks[k] ?? record?.[k] === 'Y'
+  const status = professionalStatus ?? record?.str_recommend_status ?? ''
   const box = (left: number, top: number, w: number, extra?: CSSProperties) => (
     <PBInput style={{ ...R_AT(left, top, w), height: 17, ...extra }} readOnly={locked} />
   )
   const tick = (left: number, top: number, label: string, k: string) => (
-    <span style={{ ...R_AT(left, top), lineHeight: '17px' }}><PBCheckbox label={label} checked={y(k)} disabled={locked} /></span>
+    <span style={{ ...R_AT(left, top), lineHeight: '17px' }}><PBCheckbox label={label} checked={y(k)} disabled={locked} onChange={value => setTicks({ ...ticks, [k]: value })} /></span>
   )
   const radio = (left: number, label: string, on: boolean) => (
-    <span style={{ ...R_AT(left, 104), lineHeight: '17px' }}><PBRadio name="prof-status" label={label} checked={on} disabled={locked} /></span>
+    <span style={{ ...R_AT(left, 104), lineHeight: '17px' }}><PBRadio name="prof-status" label={label} checked={on} disabled={locked} onChange={() => setProfessionalStatus(label)} /></span>
   )
   return (
     <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--pb-face)', '--pb-band-h': '22px' } as CSSProperties} data-tutorial-id="host.mois.group.recommendations">
@@ -176,7 +183,7 @@ export function RecommendationsPane({ record, onOpenText }: { record?: MoisRecor
           {radio(115, 'MOH/MHO', status === 'MOH/MHO')}
           {radio(205, 'MD', status === 'MD')}
           {radio(295, 'RN', status === 'RN')}
-          {radio(385, 'Other, specify:', false)}
+          {radio(385, 'Other, specify:', status === 'Other, specify:')}
           {box(481, 104, 312)}
           <span style={R_LAB(14, 124)}>Comments:</span>
           {/* read only, the box never takes focus: a click is what opens the

@@ -1,12 +1,13 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { ChartScreen } from '../data/chartScreens'
 import type { FormListRow } from '../data/encounterForms'
-import { ChartHeaderIdentity } from '../data/patient-context'
+import { ChartHeaderIdentity, usePatient } from '../data/patient-context'
 import { useChartRecords, useNodeRecords } from '../data/chart-records'
 import type { MoisRecord } from '../data/charts/types'
 import type { HostShellProps } from '../host/types'
 import { DynamicFormSelectionDialog, type DynamicFormChoice } from './DynamicFormSelectionDialog'
 import { useScreenReport } from '../host/screen-state'
+import { useSessionState } from '../host/screen-windows'
 import { DESKTOP_USER } from '../host/encounterArea'
 import { MOIS_TODAY } from '../data/patients'
 import { LegacyDynamicFormWindow } from './LegacyDynamicFormWindow'
@@ -29,16 +30,19 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
   loadEncounterForms?: HostShellProps['loadEncounterForms']
   encounterFormSlot?: HostShellProps['encounterFormSlot']
 }) {
+  const chart = usePatient().chart
   const [current, setCurrent] = useState(0)
   const [tab, setTab] = useState(screen.tabs?.[0] ?? '')
   const [openedDynamicForm, setOpenedDynamicForm] = useState<MoisRecord | null>(null)
-  const [createdDynamicForms, setCreatedDynamicForms] = useState<{ formId: string; presetKey: string; name: string; group?: string }[]>([])
+  // Like encounter edits, local created rows outlive folder remounts within
+  // this frame. Imported legacy rows retain their existing read-only path.
+  const [createdDynamicForms, setCreatedDynamicForms] = useSessionState<{ formId: string; presetKey: string; name: string; group?: string; state?: 'DRAFT' | 'SIGNED' }[]>(`created-dynamic-forms:${chart}`, [])
   const [openedCreatedForm, setOpenedCreatedForm] = useState<string | null>(null)
   /* exported dynamic forms deleted this session, by their index in
      `screen.rows` (see Delete Record below) */
   const [removedRows, setRemovedRows] = useState<number[]>([])
   const [pickingDynamicForm, setPickingDynamicForm] = useState(false)
-  const formData = useRef<Record<string, Record<string, unknown>>>({})
+  const [formData, setFormData] = useSessionState<Record<string, Record<string, unknown>>>(`created-dynamic-form-data:${chart}`, {})
   const isDynamic = screen.title === 'Dynamic Forms'
   const dynamicForms = useNodeRecords('dynamic')
   const dynamicFields = useChartRecords('dform_data')
@@ -122,7 +126,7 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
 
   const rows: Record<string, string>[] = isDynamic ? [
     ...(screen.rows ?? []),
-    ...createdDynamicForms.map((form) => ({ date: MOIS_TODAY, group: form.group ?? 'DYNAMIC FORM', title: form.name, attending: '', user: DESKTOP_USER, state: 'DRAFT' })),
+    ...createdDynamicForms.map((form) => ({ date: MOIS_TODAY, group: form.group ?? 'DYNAMIC FORM', title: form.name, attending: '', user: DESKTOP_USER, state: form.state ?? 'DRAFT' })),
   ] : screen.rows ?? []
   /* Search For filters the grid (SearchForBand.tsx); the rows keep their
      own indexes, so the current record and the dynamic-form mapping below
@@ -225,8 +229,10 @@ export function ChartSectionView({ screen, content, loadEncounterForms, encounte
           presetKey: openedCreatedRow.presetKey,
           encounterId: '',
           formId: openedCreatedRow.formId,
-          initialData: formData.current[openedCreatedRow.formId],
-          onFormDataChange: (data) => { formData.current[openedCreatedRow.formId] = data },
+          initialData: formData[openedCreatedRow.formId],
+          onFormDataChange: (data) => setFormData((all) => ({ ...all, [openedCreatedRow.formId]: data })),
+          onRecordStateChange: (state) => setCreatedDynamicForms((forms) => forms.map((form) =>
+            form.formId === openedCreatedRow.formId ? { ...form, state } : form)),
           onClose: () => setOpenedCreatedForm(null),
         })
       )}

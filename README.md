@@ -20,8 +20,7 @@ Three things live here:
 pnpm install && pnpm dev
 ```
 
-- `/` — the MOIS recreation. **All seven modules and all 86 tree nodes resolve
-  to a screen** — nothing is a dead end. Navigate with the tree and the module
+- `/` — the MOIS recreation. **All seven modules have routed navigator screens** — nothing is a dead end. Navigate with the tree and the module
   bar:
 
   | Tree node | Screen |
@@ -38,6 +37,7 @@ pnpm install && pnpm dev
   | Scheduler ▸ Provider Schedules | Provider Day Book |
   | Scheduler ▸ Resource Schedules | Resource Day Book — the same window, leaner |
   | Scheduler ▸ Group Bookings | Group Visit List — 4 tabs |
+  | Scheduler ▸ Waiting List | Waiting List Summary — separate from Provider / Resource Lists |
 
   | Scheduler ▸ Day / Week Views | `DayGridView` — time axis, N provider columns |
   | Workspace ▸ Workspace Summary | Basket / Task List / Message Board counts, from `workspace_summary.PNG` |
@@ -46,8 +46,9 @@ pnpm install && pnpm dev
   | Billing · Reports | each module has its own tree and screens |
 
   The Workspace, Administration and Data Exchange trees are transcribed from
-  the captures named above rather than invented; Billing and Reports are still
-  placeholders.
+  the captures named above. Billing and Reports now have dedicated screen and
+  dialog implementations; see `docs/manual-build/` for their source evidence and
+  limits. A reachable node does not establish complete live or visual fidelity.
 
   Everything else falls through to `ChartSectionView`, the window shape most
   MOIS chart nodes share.
@@ -435,3 +436,19 @@ The short version:
 
 Patient data throughout is the fictional training-environment record
 (PATCH JULIAN AADAMS) that appears in the screenshots.
+
+## Local screenshot coverage — 2026-10-11
+
+The parent workspace's `reports/mois-interface-review-2026-10-11/` inventories
+all 3,566 raster image files in the supplied `~/github/Mois` folder and records a visual
+review for every interface/evidence group. Duplicate pixels, annotations, audit-dialog
+variants and workbook previews are accounted for separately. Most captures show
+Patient Chart and Scheduler; a missing module screenshot does not establish that
+its implementation is absent or visually verified.
+
+This pass fills evidence-backed local selectors in Documents, Reaction Risks,
+Conditions, Patient Detail, MAR and Waiting Lists, and restores the text-backed
+Waiting List Summary route. Captured choices can be partial site-specific lists;
+clipped or absent rows are not inferred. These remain local training interactions
+without a claim of live saves, code-set completeness or current-build parity.
+See the parent report for exact per-interface evidence gaps and deferred checks.

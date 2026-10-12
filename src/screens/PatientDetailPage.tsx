@@ -43,6 +43,19 @@ import './patient-detail.css'
 /** the hairline MOIS closes each run of Background Information with */
 const Rule = () => <div className="pb-patient-detail__rule" />
 
+/* DEV MATRIX-R0087/R0090/R0091 ui-original.png, archived in Mois/outputs.
+   These are the visible choices, not a claim about every site's vocabulary.
+   The final two Education values are clipped in the capture and no local
+   export supplies their full strings, so they are not offered as new values.
+   Existing chart values remain displayed without rewriting them. */
+const FIRST_NATION_STATUSES = ['Asked, but unknown', 'Asked, not provided', 'Non-status Indian', 'Not Asked', 'Status Indian', 'Unknown', 'Asked, does not identify as First Nations']
+const RELATIONSHIP_ROWS = [
+  { code: 'C', description: 'Common-Law' }, { code: 'D', description: 'Divorced' },
+  { code: 'M', description: 'Married' }, { code: 'O', description: 'Other' }, { code: 'S', description: 'Single' },
+]
+const EDUCATION_ROWS = ['PRIMARY EDUCATION (GRADE 1 TO 3)', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'GRADE 7', 'GRADE 8', 'GRADE 9', 'GRADE 10 OR EQUIVALENT', 'GRADE 11', 'GRADE 12', 'NOT ENROLLED', 'OTHER EDUCATIONAL ENGAGEMENT']
+  .map(value => ({ value, description: '' }))
+
 /** one Background Information row: 107px of label, then the control */
 function BgRow({ label, flagged, children }: { label: ReactNode; flagged?: boolean; children: ReactNode }) {
   return <div className="pb-patient-detail__bgrow">
@@ -106,7 +119,7 @@ export function PatientDetailPage() {
           </div>
           {coded('countryOrigin', 'Country Origin')}{coded('firstLanguage', 'First Language')}
           <BgRow label="Religion:"><PBInput aria-label="Religion" w={194} value={patient.religion ?? ''} onChange={e => change({ religion: e.target.value })} /></BgRow>
-          {coded('firstNationStatus', 'First Nation Status', ['Status Indian', 'Non-Status', 'Not Applicable'])}
+          {coded('firstNationStatus', 'First Nation Status', FIRST_NATION_STATUSES)}
           <Rule />
           <BgRow label="Patient Adopted:">
             <PBCheckbox label="Yes" checked={patient.adopted ?? false} onChange={e => change({ adopted: e })} />
@@ -114,8 +127,16 @@ export function PatientDetailPage() {
             <PBCheckbox label="Yes" checked={patient.multiGestation ?? false} onChange={e => change({ multiGestation: e })} />
           </BgRow>
           <Rule />
-          {coded('relationshipStatus', 'Relationship', ['Married', 'Single', 'Separated', 'Common Law', 'Widowed'], 115)}
-          {coded('educationLevel', 'Education Level', ['University - bachelor degree', 'POST SECONDARY CERTIFICATE', 'SECONDARY', 'NONE'])}
+          <BgRow label="Relationship:"><PBDropDownDataWindow w={115} listW={207}
+            columns={[{ key: 'code', header: 'Code', width: 54 }, { key: 'description', header: 'Description' }]}
+            rows={RELATIONSHIP_ROWS} display="description" value={RELATIONSHIP_ROWS.find(row => row.code === patient.relationshipStatus)?.description ?? patient.relationshipStatus ?? ''}
+            tutorialId="host.mois.field.patient-detail-relationship"
+            onSelect={row => change({ relationshipStatus: row.code })} /></BgRow>
+          <BgRow label="Education Level:"><PBDropDownDataWindow w={194} listW={528}
+            columns={[{ key: 'value', header: 'Value', width: 204 }, { key: 'description', header: 'Description' }]}
+            rows={EDUCATION_ROWS} display="value" value={patient.educationLevel ?? ''}
+            tutorialId="host.mois.field.patient-detail-education"
+            onSelect={row => change({ educationLevel: row.value })} /></BgRow>
           {coded('socioeconomic', 'Socioeconomic')}{coded('livingArrangements', 'Living Arrangements')}
           <Rule />
           {/* tdt_chart.str_note, the column the Demographics tab's General Notes

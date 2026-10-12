@@ -36,6 +36,12 @@ export const MAR_WINDOWS = {
 
 registerScreenWindows(Object.values(MAR_WINDOWS))
 
+// Complete visible consent lists from MATRIX-R0780 / R0781 / R0782.
+// opt() below retains an imported value even when it is absent from these lists.
+const INFORMED_CONSENT_CHOICES = ['YES', 'NO', 'CONSENT ON FILE', 'PREVIOUS CONSENT OBTAINED', 'UNKNOWN']
+const CONSENT_FORM_CHOICES = ['IN PERSON', 'PAPER', 'PHONE', 'VERBAL']
+const CONSENTED_BY_CHOICES = ['CLIENT', 'GUARDIAN', 'MATURE MINOR', 'PARENT', 'REPRESENTATIVE', 'SUBSTITUTE DECISION MAKER', 'OTHER']
+
 /* The eight choices New … offers, in the chooser's two columns (1927481
    `70e81e88…png`), each with its grey sub-caption and the Action a new
    record opens with. Only ADMINISTERED and SELF-ADMINISTERED are captured on
@@ -288,6 +294,9 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
   const [route, setRoute] = useState(r?.str_route ?? '')
   const [site, setSite] = useState(event?.site ?? '')
   const [series, setSeries] = useState(event?.series ?? '')
+  const [informedConsent, setInformedConsent] = useState(r?.str_informed_consent ?? '')
+  const [consentForm, setConsentForm] = useState(r?.str_form_of_consent ?? '')
+  const [consentedBy, setConsentedBy] = useState(r?.str_consented_by ?? '')
   const [act, setAct] = useState(event?.status ?? (action || (isNew ? defaults.action : '')))
   const [givenBy, setGivenBy] = useState(event?.by ?? defaults.givenBy)
   const [accurate, setAccurate] = useState('Day')
@@ -304,7 +313,8 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
   const entry = (): MarEvent => ({
     id: event?.id ?? `stage-mar-${Date.now()}`,
     status: act || 'ADMINISTERED', date: event?.date ?? MOIS_TODAY, time: event?.time ?? hhmm(),
-    med, generic: med, dose, units: unit, series, site, lot, by: givenBy, record: r,
+    med, generic: med, dose, units: unit, series, site, lot, by: givenBy,
+    record: { ...r, str_informed_consent: informedConsent, str_form_of_consent: consentForm, str_consented_by: consentedBy },
   })
   /* the encounters Encounter ID reads: the chart export's, a transcribed
      chart's (data/marChart2429.ts), and those made this session */
@@ -429,11 +439,11 @@ export function MarRecordWindow({ event, order, action = '', kind, prefill, pick
         {L(382, 'Reason:')}
         <At x={110} y={382}><PBSelect w={226} defaultValue={r?.str_reason_for_immun ?? ''} options={opt(r?.str_reason_for_immun ?? '', ['ROUTINE VACCINE', 'AS PRESCRIBED'])} /></At>
         {L(401, 'Informed Consent:')}
-        <At x={110} y={401}><PBSelect w={226} defaultValue={r?.str_informed_consent ?? ''} options={opt(r?.str_informed_consent ?? '', ['YES', 'NO'])} /></At>
+        <At x={110} y={401}><PBSelect aria-label="Informed Consent" w={226} value={informedConsent} options={opt(informedConsent, INFORMED_CONSENT_CHOICES)} onChange={e => setInformedConsent(e.target.value)} /></At>
         {L(420, 'Form of Consent:')}
-        <At x={110} y={420}><PBSelect w={226} defaultValue={r?.str_form_of_consent ?? ''} options={opt(r?.str_form_of_consent ?? '', ['IN PERSON', 'WRITTEN', 'VERBAL'])} /></At>
+        <At x={110} y={420}><PBSelect aria-label="Form of Consent" w={226} value={consentForm} options={opt(consentForm, CONSENT_FORM_CHOICES)} onChange={e => setConsentForm(e.target.value)} /></At>
         {L(439, 'Consented By:')}
-        <At x={110} y={439}><PBSelect w={226} defaultValue={r?.str_consented_by ?? ''} options={opt(r?.str_consented_by ?? '', ['CLIENT', 'GUARDIAN', 'SUBSTITUTE'])} /></At>
+        <At x={110} y={439}><PBSelect aria-label="Consented By" w={226} value={consentedBy} options={opt(consentedBy, CONSENTED_BY_CHOICES)} onChange={e => setConsentedBy(e.target.value)} /></At>
         {immunization && <><Req y={382} /><Req y={401} /><Req y={420} /><Req y={439} /></>}
         <At x={9} y={455} h={26}><span style={{ lineHeight: '13px' }}>Client Facility /<br />Worksite:</span></At>
         <At x={110} y={458}><PBLookup w={226} /></At>

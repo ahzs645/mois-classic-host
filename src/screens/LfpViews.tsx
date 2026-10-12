@@ -7,7 +7,7 @@ import {
 import { useScreenReport } from '../host/screen-state'
 import { registerScreenWindows, useScreenWindow } from '../host/screen-windows'
 import {
-  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBSelect, PBViewHeader, pbSlug,
+  PBCheckbox, PBCommandRow, PBDataWindow, PBInput, PBLookup, PBMessageBox, PBSelect, PBViewHeader, pbSlug,
 } from '../pb'
 import { registerAreaWindow, useOpenWindow, type AreaWindowProps } from './areaWindowRegistry'
 import { Ask, BlueHead, Dim, Field, FilterGroup, RadioSet, ScreenDialog } from './billingProgramsKit'
@@ -429,6 +429,15 @@ export function LfpTimeSummaryView({ onClose }: { onClose?: () => void }) {
   const [to, setTo] = useState(LFP_TODAY)
   const [stamp, setStamp] = useState(0)
   const [cur, setCur] = useState(0)
+  /* references/billing.md records this state on the disabled DEV feature.
+     The enabled training fixture keeps its existing time-entry workflow.
+     Using the local setup active flag as the gate is an emulator inference;
+     the archive does not establish remote authorization rules or geometry. */
+  const [disabledNotice, setDisabledNotice] = useState(!s.lfpSetup.active)
+  const requireEnabled = (action: () => void) => {
+    if (!s.lfpSetup.active) { setDisabledNotice(true); return }
+    action()
+  }
 
   const rows = useMemo(() => {
     void stamp
@@ -465,10 +474,16 @@ export function LfpTimeSummaryView({ onClose }: { onClose?: () => void }) {
     <>
       <PBViewHeader title="LFP Provider Time Review" />
       <PBCommandRow commands={[
-        { label: 'Refresh', onClick: () => setStamp((n) => n + 1) },
-        { label: 'New Entry', onClick: () => openWindow('time-entry', { provider: lfpRegisteredProviders(s)[0], date: LFP_TODAY, pick: true }) },
+      { label: 'Refresh', onClick: () => requireEnabled(() => setStamp((n) => n + 1)) },
+      { label: 'New Entry', onClick: () => requireEnabled(() => openWindow('time-entry', { provider: lfpRegisteredProviders(s)[0], date: LFP_TODAY, pick: true })) },
         { label: 'Close Window', onClick: onClose },
       ]} />
+      {disabledNotice && <PBMessageBox title="Feature Not Enabled" icon="warn"
+        tutorialId="host.mois.dialog.lfp-feature-not-enabled"
+        buttons={[{ label: 'OK', value: 'ok', command: 'lfp-feature-not-enabled-ok', default: true }]}
+        onClose={() => setDisabledNotice(false)}>
+        The LFP Bill feature must be enabled before using this feature.
+      </PBMessageBox>}
       <div className="pb-row" style={{ padding: '4px 6px', flex: 'none' }}>
         <FilterGroup title="Time Frame">
           <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 22, rowGap: 4 }}>

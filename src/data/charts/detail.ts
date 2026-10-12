@@ -46,10 +46,24 @@ const documentFields: Record<string, string[]> = {
   'Responsible Org.': ['str_responsible_org'], 'Recipient': ['str_primary_recipient'], 'Copies To': ['str_sent_to'],
   'Transcribed': ['str_transcriptionist'], 'Transcribed Date': ['dtm_transcribed_date'], 'Service Event': ['str_diag_desc'],
 }
+/* Field-audit R0670–R0678 names the tdt_allergy columns. Older exports
+   and our session-created records use the aliases second in each list;
+   the native column wins, including an explicitly blank native value. */
+const allergyFields: Record<string, string[]> = {
+  'Stop Date': ['dtm_stop', 'dtm_end'], 'Risk Status': ['str_status', 'str_risk_status'],
+  'Certainty': ['str_certainty', 'str_certainity'], 'Phase at Onset': ['str_onset_life', 'str_phase_at_onset'],
+}
+/* Conditions' captured system/code fields are tdt_health_issue
+   str_severity_system / str_severity_code (R0836 / R0837). */
+const healthIssueFields: Record<string, string[]> = {
+  'Severity System': ['str_severity_system'], 'Severity Code': ['str_severity_code'],
+}
 export function bindReportField(f: ReportField, r?: MoisRecord): ReportField {
   if (f.kind === 'gap') return f
   const label = f.label.replace(/:\s*$/, '').replace(/\n/g, ' ')
-  const ownKeys = r?.id_document !== undefined ? documentFields[label] : undefined
+  const ownKeys = r?.id_document !== undefined ? documentFields[label]
+    : r?.id_allergy !== undefined ? allergyFields[label]
+    : r?.id_health_issue !== undefined ? healthIssueFields[label] : undefined
   const keys = ownKeys ?? fields[label] ?? []
   const stored = keys.map(k => r?.[k]).find(v => v !== undefined) ?? ''
   /* dtm_transcribed_date carries its time; the Transcribed date box takes the date */

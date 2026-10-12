@@ -455,25 +455,28 @@ export function AssignProgressNoteDialog({ notes, onOk, onClose }: {
 function UpdateClaimListPrompt({ onClose }: { onClose: (answer: string, isDefault: boolean) => void }) {
   const [isDefault, setDefault] = useState(false)
   useScreenReport({ wcbDefault: isDefault })
+  /* The box portals itself onto the desktop, so a wrapper cannot lift it:
+     its own zIndex stacks it over the WCB Form window (layer 92). A wrapper
+     here once left the box at 70, under the window, and itself took the click
+     meant for Yes. */
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 93 }}>
-      <PBMessageBox
-        title="MOIS"
-        icon="question"
-        buttons={[
-          { label: 'Yes', value: 'yes', default: true, command: 'update-claims-yes', tutorialId: 'host.mois.command.update-claims-yes' },
-          { label: 'No', value: 'no', command: 'update-claims-no', tutorialId: 'host.mois.command.update-claims-no' },
-        ]}
-        onClose={(v) => onClose(v, isDefault)}
-      >
-        <span data-tutorial-id="host.mois.dialog.update-wcb-claim-list">
-          Would you like to add/update the Patient&apos;s WCB Claim List?
-        </span>
-        <span style={{ display: 'block', marginTop: 8 }}>
-          <PBCheckbox label="Mark as Default" checked={isDefault} onChange={setDefault} tutorialId="host.mois.field.wcb-mark-as-default" />
-        </span>
-      </PBMessageBox>
-    </div>
+    <PBMessageBox
+      title="MOIS"
+      icon="question"
+      zIndex={93}
+      buttons={[
+        { label: 'Yes', value: 'yes', default: true, command: 'update-claims-yes', tutorialId: 'host.mois.command.update-claims-yes' },
+        { label: 'No', value: 'no', command: 'update-claims-no', tutorialId: 'host.mois.command.update-claims-no' },
+      ]}
+      onClose={(v) => onClose(v, isDefault)}
+    >
+      <span data-tutorial-id="host.mois.dialog.update-wcb-claim-list">
+        Would you like to add/update the Patient&apos;s WCB Claim List?
+      </span>
+      <span style={{ display: 'block', marginTop: 8 }}>
+        <PBCheckbox label="Mark as Default" checked={isDefault} onChange={setDefault} tutorialId="host.mois.field.wcb-mark-as-default" />
+      </span>
+    </PBMessageBox>
   )
 }
 

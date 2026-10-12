@@ -48,6 +48,17 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
   const [tab, setTab] = useState('Contact Information')
   const [show, setShow] = useState('waiting')
   const [cur, setCur] = useState(2)
+  const [rows, setRows] = useState<Wait[]>(() => waitListRows.map((row) => ({ ...row })))
+  const rowColumns = columns.map((column) => column.key === 'list' ? {
+    ...column,
+    /* MATRIX-R1367-list/ui-original.png captures the Name/Description DDDW
+       inside the current List cell, separately from the filter above. */
+    render: (row: Wait) => row === rows[cur] ? <PBDropDownDataWindow w="100%" listW={400}
+      columns={[{ key: 'name', header: 'Name', width: 210 }, { key: 'desc', header: 'Description' }]}
+      rows={waitListNames} display="name" value={row.list}
+      tutorialId="host.mois.field.waiting-list-entry-list"
+      onSelect={(choice) => setRows((previous) => previous.map((entry, index) => index === cur ? { ...entry, list: choice.name } : entry))} /> : row.list,
+  } : column)
 
   return (
     <>
@@ -101,7 +112,7 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
       </div>
 
       <div style={{ padding: '0 3px', height: 243, display: 'flex', ...GRID_VARS }}>
-        <PBDataWindow columns={columns} rows={waitListRows} current={cur} onCurrentChange={setCur} />
+        <PBDataWindow columns={rowColumns} rows={rows} current={cur} onCurrentChange={setCur} />
       </div>
 
       <style href="mois-classic/waiting-list-tabs" precedence="medium">{TAB_CSS}</style>
@@ -113,7 +124,7 @@ export function WaitingListView({ mode = 'provider' }: { mode?: 'provider' | 're
           tabWidth={TAB_WIDTH}
         >
           <div className="pb-wl-frame">
-          {tab === 'Contact Information' && <ContactPage row={waitListRows[cur]} />}
+          {tab === 'Contact Information' && <ContactPage key={rows[cur]?.row} row={rows[cur]} />}
           {tab === 'List Detail' && <ListDetailPage />}
           {tab === 'Procedure List' && (
             <>
@@ -284,9 +295,10 @@ function ContactPage({ row }: { row?: Wait }) {
         <span style={at(682, ROWS[2]!)}><PBCheckbox label="Leave Message" /></span>
         {phone('Cell', ROWS[3]!, '(250) 555-3215')}
         <span style={rightTo(675, ROWS[3]!)}>Pager:</span>
-        <span style={at(681, ROWS[3]!)}><PBInput w={94} align="center" defaultValue="(   )   -" /></span>
+        <span style={at(681, ROWS[3]!)}><PBInput w={94} align="center" defaultValue="(   )   -" style={pref === 'Pager' ? PREFERRED : undefined} /></span>
         <span style={rightTo(486, ROWS[4]!)}>Pref&apos;d Phone:</span>
-        <span style={at(494, ROWS[4]!)}><PBSelect options={['Work', 'Home', 'Cell']} w={86} value={pref} onChange={(e) => setPref(e.target.value)} /></span>
+        {/* MATRIX-R1386-pref-d-phone includes Pager after Home / Work / Cell. */}
+        <span style={at(494, ROWS[4]!)}><PBSelect options={['Home', 'Work', 'Cell', 'Pager']} w={86} value={pref} onChange={(e) => setPref(e.target.value)} data-tutorial-id="host.mois.field.waiting-list-preferred-phone" /></span>
         <span style={rightTo(675, ROWS[4]!)}>Fax:</span>
         <span style={at(681, ROWS[4]!)}><PBInput w={94} /></span>
         <span style={rightTo(486, ROWS[5]!)}>eMail:</span>

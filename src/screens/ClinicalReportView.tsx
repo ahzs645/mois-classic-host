@@ -8,6 +8,7 @@ import type { PaintedField, ReportField, ReportScreen } from '../data/reportScre
 import {
   PBBand, PBButton, PBCheckbox, PBCommandRow, PBDataWindow, PBDropDownDataWindow, PBDropField, PBInput, PBLookup,
   PBSelect, PBTabs, PBTextArea, PBViewHeader, type PBColumn, type PBCommand,
+  pbSlug,
 } from '../pb'
 import { PreferencesDetail } from './PreferencesDetail'
 import { PREFERENCE_SEARCH_FIELDS, preferenceCommands, usePreferenceFolder } from './PreferenceWindows'
@@ -23,7 +24,7 @@ import { RECORD_FOLDERS, useReportRecords } from './reportRecords'
 import { useFolderReviews } from '../data/folder-reviews'
 import { AdverseEventTab, ALLERGY_WINDOWS, AllergyFolderWindows, ReactionRiskTab } from './AllergyWindows'
 import { ADVERSE_WINDOWS, LinkedEventsPane, NoKnownMark } from './AdverseEventWindows'
-import { useScreenWindow } from '../host/screen-windows'
+import { useScreenWindow, useSessionState } from '../host/screen-windows'
 import { useOpenWindow } from './areaWindowRegistry'
 import { useRecordOptionList } from './RecordOptionList'
 import { PaperFormsView } from './PaperFormsView'
@@ -88,10 +89,36 @@ function PaintedCheck({ checked, caption, style }: { checked: boolean; caption?:
   return <span style={{ ...style, display: 'flex', alignItems: 'center' }}><PBCheckbox label={caption} checked={on} onChange={setOn} /></span>
 }
 
+/** Captured painted DDDWs keep a choice on this record for this
+    training session. They never modify the imported export or a MOIS site. */
+const paintedDraftKeys = new WeakMap<object, string>()
+let paintedDraftSequence = 0
+function paintedChoiceKey(chart: string, node: string, record: MoisRecord | undefined, row: object | undefined) {
+  if (record || !row) return recordKeyOf(chart, node, record)
+  // New rows have no clinical record id. Their backing row objects stay
+  // stable through insertion/deletion; an index would move with the list.
+  let local = paintedDraftKeys.get(row)
+  if (!local) { local = `painted-draft-${++paintedDraftSequence}`; paintedDraftKeys.set(row, local) }
+  return `${chart}:${node}:${local}`
+}
+function PaintedChoice({ field, choiceKey, node, value, style }: { field: PaintedField; choiceKey: string; node: string; value: string; style: CSSProperties }) {
+  const choice = field.choices!
+  const name = pbSlug(field.label.replace(/:$/, ''))
+  const [selected, setSelected] = useSessionState<string | null>(`painted-choice:${choiceKey}:${name}`, null)
+  return <span style={style}><PBDropDownDataWindow
+    w="100%" listW={365} disabled={field.disabled}
+    value={selected ?? value}
+    tutorialId={`host.mois.field.${node}-${name}`}
+    columns={choice.singleColumn ? [{ key: 'value', header: choice.heading }] : [{ key: 'value', header: choice.heading, width: 124 }, { key: 'description', header: 'Description' }]}
+    rows={choice.values.map((item, i) => ({ value: item, description: choice.descriptions?.[i] ?? '' }))}
+    onSelect={(row) => setSelected(row.value)}
+  /></span>
+}
+
 /* A detail page painted field by field (reportScreens' PaintedField): each
    caption and box at the x / y / width the capture measures, 16px boxes on
    the window face. */
-function PaintedForm({ fields, record, onSearch }: { fields: PaintedField[]; record?: MoisRecord; onSearch: (preset: string) => void }) {
+function PaintedForm({ fields, record, choiceKey, node, onSearch }: { fields: PaintedField[]; record?: MoisRecord; choiceKey: string; node: string; onSearch: (preset: string) => void }) {
   const at = (f: PaintedField): CSSProperties => ({ position: 'absolute', left: f.x, top: f.y, width: f.w, height: f.h ?? 16 })
   return (
     <div className="pb-painted" style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, minWidth: 0 }}>
@@ -117,7 +144,9 @@ function PaintedForm({ fields, record, onSearch }: { fields: PaintedField[]; rec
         const box = f.kind === 'check'
           ? <PaintedCheck checked={stored === 'Y' || stored === '1' || stored === '✓'} caption={f.value} style={at(f)} />
           : f.kind === 'combo'
-          ? <span style={at(f)}><PBDropField w="100%" defaultValue={value} disabled={f.disabled} /></span>
+          ? f.choices
+            ? <PaintedChoice field={f} choiceKey={choiceKey} node={node} value={value} style={at(f)} />
+            : <span style={at(f)}><PBDropField w="100%" defaultValue={value} disabled={f.disabled} /></span>
           : f.kind === 'lookup'
           ? <span style={at(f)}><PBLookup w="100%" defaultValue={value} disabled={f.disabled} name={f.search ? `${f.search}-search` : undefined} onDots={f.search ? () => onSearch(f.search!) : undefined} /></span>
           : f.kind === 'area'
@@ -155,7 +184,7 @@ export function ClinicalReportView(props: ReportViewProps) {
        Detail (screens/CarePlanNoteFolder.tsx, art. 303512 / 303513) */
     return <CarePlanNoteFolder key={props.node} screen={props.screen} node={props.node} />
   }
-  return props.node === 'paper' ? <PaperFormsView screen={props.screen} node="paper" /> : <ReportView {...props} />
+  return props.node === 'paper' ? <PaperFormsView screen={props.screen} node="paper" /> : <ReportView key={props.node} {...props} />
 }
 
 function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewProps) {
@@ -302,12 +331,13 @@ function ReportView({ screen: layout, node = '', initialRecordId }: ReportViewPr
     /* a plain folder (Family Hx, c15) gives the grid most of the window */
     : screen.plain && screen.painted ? 396 : 244)
   const detailKey = recordKeyOf(patient.chart, node, record)
+  const choiceKey = paintedChoiceKey(patient.chart, node, record, (own.active ? own.rows : edits.rows)[cur])
   const painted = tab && tab !== screen.tabs?.[0] ? screen.forms?.[tab]?.painted : screen.painted
   /* with no row at the cursor the detail page is bare — no fields, no
      footer (set 3 c01, set 2 c10, imaging-empty-screen.png). A New Record
      row has no export record behind it yet and still paints every field
      (TRAINING c12, Imaging Detail on a new record). */
-  const detail = !gridRows[cur] && painted ? null : painted ? <PaintedForm key={`${detailKey}:${cur}:${tab}`} fields={painted} record={docs.detail(record)} onSearch={searchCodes} /> : (
+  const detail = !gridRows[cur] && painted ? null : painted ? <PaintedForm key={`${detailKey}:${cur}:${tab}`} fields={painted} record={docs.detail(record)} choiceKey={choiceKey} node={node} onSearch={searchCodes} /> : (
     <div style={{ display: 'flex', gap: 10, padding: '6px 8px', alignItems: 'flex-start', minWidth: 0 }}>
       <div className="pb-form" style={{ padding: 0, gridTemplateColumns: '104px 1fr', flex: '1 1 auto', minWidth: 0, alignItems: 'start' }}>
         {form.left.map((f, i) => <Fragment key={`${detailKey}:${cur}:${tab}:${i}`}><Field f={bindReportField(f, record)} /></Fragment>)}

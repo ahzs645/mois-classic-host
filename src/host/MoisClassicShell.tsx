@@ -96,6 +96,7 @@ import { TagToCarePlanDialog } from '../screens/TagToCarePlanDialog'
 import { TaskListView } from '../screens/TaskListView'
 import { UserManagementView } from '../screens/UserManagementView'
 import { WaitingListView } from '../screens/WaitingListView'
+import { WaitingListSummaryView } from '../screens/scheduler/WaitingListSummaryView'
 import { WorkspaceSummaryView } from '../screens/WorkspaceSummaryView'
 import { AreaWindowLayer, AreaWindowProvider, isAreaWindow } from '../screens/areaWindowRegistry'
 import { ActiveEncounterProvider } from '../screens/ActiveEncounterWindow'
@@ -148,7 +149,7 @@ type View =
      windows (screens/AdminListsView.tsx) */
   | 'adminlist'
   | 'providerworkload' | 'userlanding' | 'summary' | 'order' | 'encounters' | 'scheduler' | 'demographics' | 'notifications'
-  | 'groupvisit' | 'careplan' | 'goals' | 'imaging' | 'resourcebook' | 'section' | 'daygrid' | 'rx' | 'ltm' | 'printhx' | 'waitprov' | 'waitres' | 'report' | 'mar' | 'determinants' | 'settings' | 'wssummary' | 'reportlist' | 'unsentmsp' | 'sentmsp' | 'invoice' | 'basket' | 'billingadmin' | 'tasklist' | 'cliniclist' | 'designer' | 'cdxinbound' | 'cdxoutbound' | 'usermgt'
+  | 'groupvisit' | 'careplan' | 'goals' | 'imaging' | 'resourcebook' | 'section' | 'daygrid' | 'rx' | 'ltm' | 'printhx' | 'waitsummary' | 'waitprov' | 'waitres' | 'report' | 'mar' | 'determinants' | 'settings' | 'wssummary' | 'reportlist' | 'unsentmsp' | 'sentmsp' | 'invoice' | 'basket' | 'billingadmin' | 'tasklist' | 'cliniclist' | 'designer' | 'cdxinbound' | 'cdxoutbound' | 'usermgt'
   /* Scheduler ▸ Reservation Blocks and Shift Manager (screens/scheduler) */
   | 'schedx'
   /* Workspace ▸ My Settings: Workspace Settings, Favourite Medication List */
@@ -253,7 +254,7 @@ const ROUTES: Record<string, View> = {
 
   'p-daybook': 'scheduler',
   res: 'resourcebook',
-  waiting: 'waitprov',
+  waiting: 'waitsummary',
   'w-prov': 'waitprov',
   'w-res': 'waitres',
   'r-daybook': 'resourcebook',
@@ -1854,6 +1855,7 @@ function Frame({
               {view === 'rx' && <MedicationView mode="rx" />}
               {view === 'ltm' && <MedicationView mode="ltm" />}
               {view === 'printhx' && <PrintHistoryView />}
+              {view === 'waitsummary' && <WaitingListSummaryView />}
               {view === 'waitprov' && <WaitingListView mode="provider" />}
               {view === 'waitres' && <WaitingListView mode="resource" />}
               {view === 'section' && section.title === 'Care Plan' && <CarePlanSummaryView key={chart} screen={{ ...section, rows: chartRowsFor(chart, selected) }} />}

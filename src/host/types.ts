@@ -155,6 +155,8 @@ export interface HostEncounterForm {
 export interface HostEncounterFormSlot {
   initialData?: Record<string, unknown>;
   onFormDataChange?: (data: Record<string, unknown>) => void;
+  /** MOIS Dynamic Forms list state, reported after the owning record is saved. */
+  onRecordStateChange?: (state: 'DRAFT' | 'SIGNED') => void;
   presetKey: string
   encounterId: string
   formId: string

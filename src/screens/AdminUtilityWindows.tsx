@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { usePatient, usePatientRoster } from '../data/patient-context'
+import { useChartExport } from '../data/chart-records'
+import { localSqlTables, runLocalSelect } from '../data/local-sql'
 import { useScreenReport } from '../host/screen-state'
 import { PBBand, PBCheckbox, PBDataWindow, PBInput, PBSelect, PBTextArea, pbSlug } from '../pb'
 import { Btn, DetailWindow, TopMessage } from './AdminExchangeKit'
@@ -31,7 +33,10 @@ import { MasterProviderListDialog } from './MasterProviderListDialog'
      band and grid. The text: only SELECT on `tdt_` (data) and `tlp_`
      (lookup) tables; Browse loads a SQL file into the statement; Save
      prompts for a file name and format. The Open / Save As dialogs and the
-     error wording are INFERRED; results are a small fictional set.
+     error wording are INFERRED. Local query grammar and the four form table
+     associations follow Mois/references/sql-editor.md; results come from
+     existing training examples or the selected chart's local records,
+     never from a database connection (data/local-sql.ts).
    · intervention-mar-converter — 303377 `5aa489ff…` (1127 × 740):
      "Intervention to MAR Clean-Up"; a navy header over Line / Intervention
      Description / Move to MAR Folder / "Convert to the following
@@ -43,7 +48,7 @@ import { MasterProviderListDialog } from './MasterProviderListDialog'
      lookup and the result message are INFERRED.
 
    Reported: `host.dialog`; `host.screen.copied` (provider / patient),
-   `host.screen.sql` (empty / select / restricted / retrieved),
+   `host.screen.sql` (empty / select / restricted / invalid / unavailable / retrieved),
    `host.screen.checked` (rows ticked to move), `host.screen.converted`.
    ========================================================================= */
 
@@ -115,23 +120,14 @@ const SQL_FILES: Record<string, string> = {
   'active_patients.sql': "select chart_no, last_name, first_name, status from tdt_chart where status = 'A'",
   'visit_codes.sql': 'select code, description from tlp_visit_code',
 }
-const SAMPLE_RESULTS: Record<string, { columns: string[]; rows: string[][] }> = {
-  tdt_chart: {
-    columns: ['chart_no', 'last_name', 'first_name', 'status'],
-    rows: [['10018', 'DIABETES', 'BETTY', 'A'], ['10026', 'MORRISON', 'ASHLEE', 'A'], ['10046', 'WHO', 'LUCY', 'A'], ['10055', 'MOIS', 'SAM', 'A']],
-  },
-  tlp_visit_code: {
-    columns: ['code', 'description'],
-    rows: [['C', 'Consultation Visit'], ['F', 'Follow Up'], ['R', 'Routine'], ['TL', 'Telephone'], ['V', 'Virtual']],
-  },
-}
-
-type SqlState = 'empty' | 'retrieved' | 'restricted' | 'invalid'
+type SqlState = 'empty' | 'retrieved' | 'restricted' | 'invalid' | 'unavailable'
 
 function SqlEditor({ close }: AreaWindowProps) {
+  const chart = useChartExport()
   const [sql, setSql] = useState('')
   const [state, setState] = useState<SqlState>('empty')
-  const [result, setResult] = useState<{ columns: string[]; rows: string[][] } | null>(null)
+  const [result, setResult] = useState<{ columns: string[]; rows: string[][]; source: string } | null>(null)
+  const [error, setError] = useState('')
   const [dialog, setDialog] = useState<null | 'open' | 'save' | 'saved' | 'error'>(null)
   const [openPick, setOpenPick] = useState(Object.keys(SQL_FILES)[0]!)
   const [saveName, setSaveName] = useState('results')
@@ -139,20 +135,18 @@ function SqlEditor({ close }: AreaWindowProps) {
   useScreenReport({ sql: state === 'empty' ? (sql.trim() ? 'select' : 'empty') : state })
 
   const retrieve = () => {
-    const text = sql.trim().replace(/;$/, '')
-    const m = /^select\s+.+\s+from\s+([a-z0-9_]+)/i.exec(text)
-    if (!m) { setState('invalid'); setResult(null); setDialog('error'); return }
-    const table = m[1]!.toLowerCase()
-    if (!/^(tdt_|tlp_)/.test(table)) { setState('restricted'); setResult(null); setDialog('error'); return }
-    setResult(SAMPLE_RESULTS[table] ?? { columns: ['result'], rows: [] })
+    const next = runLocalSelect(sql, localSqlTables(chart))
+    if (!next.ok) { setState(next.state); setError(next.message); setResult(null); setDialog('error'); return }
+    setResult(next)
     setState('retrieved')
   }
 
   return (
     <DetailWindow id="sql-editor" title="SQL Editor" width={820} height={600} onClose={close}>
       <PBBand right={<Btn id="sql-browse" width={80} onClick={() => setDialog('open')}>Browse...</Btn>}>SQL Statement</PBBand>
+      <p style={{ margin: '4px 6px', fontSize: 11 }}>Local training editor: existing examples and selected-chart records only. Queries do not connect to MOIS.</p>
       <div style={{ flex: '1 1 45%', minHeight: 0, display: 'flex', padding: 4 }}>
-        <PBTextArea value={sql} onChange={(e) => { setSql(e.target.value); setState('empty') }}
+        <PBTextArea value={sql} onChange={(e) => { setSql(e.target.value); setState('empty'); setResult(null) }}
           data-tutorial-id="host.mois.field.sql-statement"
           style={{ flex: '1 1 auto', resize: 'none', fontFamily: 'var(--pb-font-mono, monospace)' }} />
       </div>
@@ -162,6 +156,7 @@ function SqlEditor({ close }: AreaWindowProps) {
         <Btn id="save-results" width={100} disabled={!result} onClick={() => setDialog('save')}>Save Results...</Btn>
       </div>
       <PBBand>Results</PBBand>
+      {result && <p style={{ margin: '4px 6px', fontSize: 11 }} data-tutorial-id="host.mois.field.sql-source">{result.source}</p>}
       <div style={{ flex: '1 1 55%', minHeight: 0, display: 'flex', padding: 4 }}>
         {result && (
           <PBDataWindow
@@ -173,15 +168,13 @@ function SqlEditor({ close }: AreaWindowProps) {
       </div>
       {dialog === 'error' && (
         <TopMessage id="sql-error" title="SQL Editor" icon="error" buttons={['OK']} prefix="sql-error-" onClose={() => setDialog(null)}>
-          {state === 'restricted'
-            ? 'Only SELECT statements on tables prefixed tdt_ (data tables) or tlp_ (lookup tables) are permitted.'
-            : 'The SQL statement could not be executed. Enter a valid SELECT statement.'}
+          {error}
         </TopMessage>
       )}
       {dialog === 'open' && (
         <DetailWindow id="sql-open-file" title="Open" width={420} height={300} zIndex={92} onClose={() => setDialog(null)}
           buttons={<>
-            <Btn id="sql-open" isDefault width={80} onClick={() => { setSql(SQL_FILES[openPick]!); setState('empty'); setDialog(null) }}>Open</Btn>
+            <Btn id="sql-open" isDefault width={80} onClick={() => { setSql(SQL_FILES[openPick]!); setState('empty'); setResult(null); setDialog(null) }}>Open</Btn>
             <Btn id="sql-open-cancel" width={80} onClick={() => setDialog(null)}>Cancel</Btn>
           </>}>
           <div style={{ flex: '1 1 auto', display: 'flex', padding: 6 }}>

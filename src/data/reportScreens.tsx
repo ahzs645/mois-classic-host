@@ -40,6 +40,9 @@ export type PaintedField = {
   value?: string
   /** a lookup whose "…" opens the Universal Search Window on this preset */
   search?: UniversalSearchPresetId
+  /** Rows visibly offered by an archived DDDW; a capture may show only part
+      of the site's list. These are local training choices, not a code set. */
+  choices?: { heading: string; values: string[]; descriptions?: string[]; singleColumn?: boolean }
 }
 
 /** one tab's two-column detail form, or its painted fields */
@@ -259,9 +262,11 @@ export const reportScreens: Record<string, ReportScreen> = {
        under Type is led by its own Agent Category drop-down, then the code,
        its "…" and the agent; two rules part it from the four coded
        drop-downs and from Comment */
+    /* Archived MATRIX-R0663 and R0671–R0678 show these exact visible rows.
+       Site catalogs and server persistence remain outside local training. */
     painted: [
       { label: 'Date of Onset:', kind: 'date', x: 112.5, y: 11, w: 83, cap: { left: 11 } },
-      { label: 'Type:', kind: 'combo', x: 112.5, y: 30, w: 155.5, cap: { left: 11 } },
+      { label: 'Type:', kind: 'combo', x: 112.5, y: 30, w: 155.5, cap: { left: 11 }, choices: { heading: 'Type', values: ['DRUG ALLERGY', 'DRUG INTOLERANCE', 'ENV ALLERGY', 'ENV INTOLERANCE', 'FOOD ALLERGY', 'FOOD INTOLERANCE'], descriptions: ['DRUG ALLERGY (DISORDER)', 'DRUG INTOLERANCE (DISORDER)', 'ENVIRONMENTAL ALLERGY (DISORDER)', 'ENVIRONMENTAL INTOLERANCE (DISORDER)', 'FOOD ALLERGY (DISORDER)', 'FOOD INTOLERANCE (DISORDER)'] } },
       { label: 'Agent Category Selector', kind: 'combo', x: 11, y: 49, w: 98, cap: false, value: 'Agent Category:' },
       { label: 'Agent Code:', kind: 'text', x: 112.5, y: 49, w: 83, cap: false },
       { label: 'Agent lookup', kind: 'dots', x: 195.5, y: 49, w: 15, cap: false },
@@ -269,14 +274,14 @@ export const reportScreens: Record<string, ReportScreen> = {
       { label: 'Stop Date:', kind: 'date', x: 569, y: 11, w: 83, cap: { right: 562.5 } },
       { label: 'Agent Category:', kind: 'text', x: 569, y: 30, w: 204, cap: { right: 562.5 }, disabled: true },
       { label: 'rule 1', kind: 'rule', x: 0, y: 71.5, w: 1000, cap: false },
-      { label: 'Risk Status:', kind: 'combo', x: 112.5, y: 81, w: 218, cap: { left: 11 } },
-      { label: 'Certainty:', kind: 'combo', x: 112.5, y: 100, w: 218, cap: { left: 11 } },
-      { label: 'Criticality:', kind: 'combo', x: 112.5, y: 119, w: 218, cap: { left: 11 } },
-      { label: 'Severity:', kind: 'combo', x: 112.5, y: 138, w: 218, cap: { left: 11 } },
-      { label: 'Phase at Onset:', kind: 'combo', x: 569, y: 81, w: 204, cap: { right: 562.5 } },
-      { label: 'Informant:', kind: 'combo', x: 569, y: 100, w: 204, cap: { right: 562.5 } },
-      { label: 'Observer:', kind: 'combo', x: 569, y: 119, w: 204, cap: { right: 562.5 } },
-      { label: 'Documenter:', kind: 'combo', x: 569, y: 138, w: 204, cap: { right: 562.5 } },
+      { label: 'Risk Status:', kind: 'combo', x: 112.5, y: 81, w: 218, cap: { left: 11 }, choices: { heading: 'Description', singleColumn: true, values: ['ACTIVE', 'CONFIRMED', 'PROPOSED', 'RESOLVED', 'REFUTED', 'INVALIDATED', 'CANCELLED'] } },
+      { label: 'Certainty:', kind: 'combo', x: 112.5, y: 100, w: 218, cap: { left: 11 }, choices: { heading: 'Code', values: ['CONFIRMED', 'LIKELY', 'UNLIKELY', 'UNKNOWN'], descriptions: ['CONFIRMED', 'LIKELY', 'UNLIKELY', 'UNKNOWN'] } },
+      { label: 'Criticality:', kind: 'combo', x: 112.5, y: 119, w: 218, cap: { left: 11 }, choices: { heading: 'Code', values: ['LOW', 'MEDIUM', 'HIGH', 'FATAL'], descriptions: ['LOW', 'MEDIUM', 'HIGH', 'FATAL'] } },
+      { label: 'Severity:', kind: 'combo', x: 112.5, y: 138, w: 218, cap: { left: 11 }, choices: { heading: 'Description', singleColumn: true, values: ['MILD', 'MILD TO MODERATE', 'MODERATE', 'MODERATE TO SEVERE', 'SEVERE', 'SEVERE TO LIFE THREATENING', 'LIFE THREATENING', 'FATAL'] } },
+      { label: 'Phase at Onset:', kind: 'combo', x: 569, y: 81, w: 204, cap: { right: 562.5 }, choices: { heading: 'Source', values: ['CHILDHOOD', 'ADOLESCENCE', 'ADULTHOOD'], descriptions: ['CHILDHOOD', 'ADOLESCENCE', 'ADULTHOOD'] } },
+      { label: 'Informant:', kind: 'combo', x: 569, y: 100, w: 204, cap: { right: 562.5 }, choices: { heading: 'Source', values: ['PATIENT', 'PROVIDER', 'CARE GIVER', 'FAMILY', 'OTHER'], descriptions: ['PATIENT', 'PRIMARY CARE PROVIDER', 'CARE GIVER', 'FAMILY MEMBER', 'OTHER'] } },
+      { label: 'Observer:', kind: 'combo', x: 569, y: 119, w: 204, cap: { right: 562.5 }, choices: { heading: 'Source', values: ['PATIENT', 'PROVIDER', 'CARE GIVER', 'FAMILY', 'OTHER'], descriptions: ['PATIENT', 'PRIMARY CARE PROVIDER', 'CARE GIVER', 'FAMILY MEMBER', 'OTHER'] } },
+      { label: 'Documenter:', kind: 'combo', x: 569, y: 138, w: 204, cap: { right: 562.5 }, choices: { heading: 'Source', values: ['PATIENT', 'PROVIDER', 'CARE GIVER', 'FAMILY', 'OTHER'], descriptions: ['PATIENT', 'PRIMARY CARE PROVIDER', 'CARE GIVER', 'FAMILY MEMBER', 'OTHER'] } },
       { label: 'rule 2', kind: 'rule', x: 0, y: 159.5, w: 1000, cap: false },
       { label: 'Comment:', kind: 'area', x: 87.5, y: 166.5, w: 686, h: 72, cap: { left: 11 } },
     ],
@@ -833,11 +838,13 @@ Object.assign(reportScreens, {
       { label: 'Note:', kind: 'text', x: 91.5, y: 5, w: 280 },
       { label: 'Order #:', kind: 'lookup', x: 548.5, y: 5, w: 98.5, cap: { right: 544.5 }, disabled: true },
       { label: 'Attending:', kind: 'lookup', x: 91.5, y: 25, w: 280 },
-      { label: 'Source Venue:', kind: 'combo', x: 455.5, y: 25, w: 192, cap: { right: 450.5 } },
+      /* DOC-R0795/0796/0797 ui-original.png: dropped two-column lists.
+         Author Type is scrollable; only its four visible rows are known. */
+      { label: 'Source Venue:', kind: 'combo', x: 455.5, y: 25, w: 192, cap: { right: 450.5 }, choices: { heading: 'Source Venue', values: ['COLLEGE', 'DOCTOR OFFICE', 'EXT. CARE HOME', 'HOSPITAL', 'UNIVERSITY'] } },
       { label: 'Author:', kind: 'lookup', x: 91.5, y: 45, w: 280 },
-      { label: 'Author Type:', kind: 'combo', x: 455.5, y: 45, w: 192, cap: { right: 450.5 } },
+      { label: 'Author Type:', kind: 'combo', x: 455.5, y: 45, w: 192, cap: { right: 450.5 }, choices: { heading: 'Author Type', values: ['GP', 'MOA', 'NURSE', 'SPECIALIST'] } },
       { label: 'Responsible Org.:', kind: 'lookup', x: 91.5, y: 65, w: 280 },
-      { label: 'Author Role:', kind: 'combo', x: 455.5, y: 65, w: 192, cap: { right: 450.5 } },
+      { label: 'Author Role:', kind: 'combo', x: 455.5, y: 65, w: 192, cap: { right: 450.5 }, choices: { heading: 'Author Role', values: ['ER DOCTOR', 'PRIMARY PROVIDER'] } },
       { label: 'Recipient:', kind: 'lookup', x: 91.5, y: 85, w: 280 },
       { label: 'Facility:', kind: 'text', x: 455.5, y: 85, w: 191.5, cap: { right: 450.5 } },
       { label: 'Copies To:', kind: 'lookup', x: 91.5, y: 104.5, w: 280 },
@@ -1048,9 +1055,11 @@ Object.assign(reportScreens, {
     /* set 3 c34, chart 2429 */
     painted: [
       { label: 'Problem Name:', kind: 'lookup', x: 100.5, y: 12, w: 347, cap: { left: 11 } },
-      { label: 'Severity System:', kind: 'combo', x: 612, y: 12, w: 176, cap: { right: 604.5 } },
+      /* MATRIX-R0836: site-captured Coding System / Description rows. */
+      { label: 'Severity System:', kind: 'combo', x: 612, y: 12, w: 176, cap: { right: 604.5 }, choices: { heading: 'Coding System', values: ['HEART SOCIETY', 'KIDNEY'], descriptions: ['HW11', 'Kidney'] } },
       { label: 'Severity Code:', kind: 'combo', x: 612, y: 31, w: 176, cap: { right: 604.5 } },
-      { label: 'Source:', kind: 'combo', x: 100.5, y: 50, w: 182, cap: { left: 11 } },
+      /* MATRIX-R0838 shows only this single Source / Description row. */
+      { label: 'Source:', kind: 'combo', x: 100.5, y: 50, w: 182, cap: { left: 11 }, choices: { heading: 'Source', values: ['Source 1'], descriptions: ['SOURCE 1'] } },
       { label: 'Comment:', kind: 'area', x: 100.5, y: 69, w: 688, h: 165, cap: { left: 11 } },
     ],
     /* evidence/MATRIX-R0833-paper-clip: a blank band sits under Problem Name */
